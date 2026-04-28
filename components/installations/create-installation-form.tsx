@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
+import type { InspectionReminderStatus } from "@/lib/inspection-reminders"
 
 type InstallationFormData = {
   name: string
@@ -37,6 +38,7 @@ type CreatedInstallation = {
   inspectionInterval: number | null
   hasAdjustedInspectionInterval: boolean
   complianceStatus: ComplianceStatus
+  inspectionReminderStatus: InspectionReminderStatus | null
   daysUntilDue: number | null
   notes?: string | null
 }

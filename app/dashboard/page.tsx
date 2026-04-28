@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import CreateInstallationForm from "@/components/installations/create-installation-form"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 import type { UserRole } from "@/lib/auth"
+import type { InspectionReminderStatus } from "@/lib/inspection-reminders"
 
 type Installation = {
   id: string
@@ -20,6 +21,7 @@ type Installation = {
   inspectionInterval: number | null
   hasAdjustedInspectionInterval: boolean
   complianceStatus: ComplianceStatus
+  inspectionReminderStatus: InspectionReminderStatus | null
   daysUntilDue: number | null
   nextInspection?: string | null
   notes?: string | null
@@ -102,6 +104,11 @@ export default function DashboardPage() {
     dueSoon: installations.filter((item) => item.complianceStatus === "DUE_SOON").length,
     notInspected: installations.filter((item) => item.complianceStatus === "NOT_INSPECTED").length,
   }
+  const reminderSummary = {
+    overdue: installations.filter((item) => item.inspectionReminderStatus === "OVERDUE").length,
+    dueSoon: installations.filter((item) => item.inspectionReminderStatus === "DUE_SOON").length,
+    compliant: installations.filter((item) => item.inspectionReminderStatus === "OK").length,
+  }
   const canManage = currentUser?.role === "ADMIN"
   const sortedInstallations = sortInstallations(installations)
   const filteredInstallations =
@@ -142,6 +149,15 @@ export default function DashboardPage() {
         <SummaryCard label="Försenade" value={summary.overdue} />
         <SummaryCard label="Förfaller snart" value={summary.dueSoon} />
         <SummaryCard label="Ej kontrollerade" value={summary.notInspected} />
+      </section>
+
+      <section style={sectionStyle}>
+        <h2>Inspection reminders</h2>
+        <div style={summaryGridStyle}>
+          <SummaryCard label="Overdue inspections" value={reminderSummary.overdue} />
+          <SummaryCard label="Due within 30 days" value={reminderSummary.dueSoon} />
+          <SummaryCard label="Compliant installations" value={reminderSummary.compliant} />
+        </div>
       </section>
 
       <section style={sectionStyle}>

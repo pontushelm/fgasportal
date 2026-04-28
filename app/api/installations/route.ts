@@ -4,6 +4,7 @@ import { authenticateApiRequest, forbiddenResponse, isAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { createInstallationSchema } from '@/lib/validations'
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
+import { classifyInspectionReminderStatus } from "@/lib/inspection-reminders"
 
 export async function POST(request: NextRequest) {
   try {
@@ -48,6 +49,7 @@ export async function POST(request: NextRequest) {
       hasAdjustedInspectionInterval: compliance.hasAdjustedInspectionInterval,
       complianceStatus: compliance.status,
       daysUntilDue: compliance.daysUntilDue,
+      inspectionReminderStatus: null,
     }, { status: 201 })
 
   } catch (error: unknown) {
@@ -105,6 +107,9 @@ export async function GET(request: NextRequest) {
         hasAdjustedInspectionInterval: compliance.hasAdjustedInspectionInterval,
         complianceStatus: compliance.status,
         daysUntilDue: compliance.daysUntilDue,
+        inspectionReminderStatus: installation.nextInspection
+          ? classifyInspectionReminderStatus(installation.nextInspection, new Date())
+          : null,
       }
     })
 

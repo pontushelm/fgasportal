@@ -68,6 +68,10 @@ npm run dev
 
 - `DATABASE_URL`: PostgreSQL connection string. Recommended providers: Neon, Supabase, or Railway.
 - `JWT_SECRET`: Required for signing auth cookies. Use a long random value.
+- `RESEND_API_KEY`: Resend API key used for inspection reminder emails.
+- `REMINDER_FROM_EMAIL`: Verified sender address for reminder emails.
+- `APP_URL`: Public application URL used in reminder email links.
+- `CRON_SECRET`: Bearer token required to call cron endpoints.
 
 ## Prisma Commands
 
@@ -105,6 +109,10 @@ Set these Vercel environment variables:
 
 - `DATABASE_URL`
 - `JWT_SECRET`
+- `RESEND_API_KEY`
+- `REMINDER_FROM_EMAIL`
+- `APP_URL`
+- `CRON_SECRET`
 
 Recommended build command:
 
@@ -116,6 +124,13 @@ Run migrations against the production PostgreSQL database:
 
 ```bash
 npm run prisma:deploy
+```
+
+Vercel Cron runs inspection reminders daily at 06:00 UTC:
+
+```http
+GET /api/cron/inspection-reminders
+Authorization: Bearer <CRON_SECRET>
 ```
 
 For Neon or Supabase:

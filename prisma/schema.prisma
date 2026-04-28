@@ -94,6 +94,7 @@ model Installation {
   updatedBy   User @relation("UpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
 
   inspections Inspection[]
+  reminderLogs ReminderLog[]
 
   @@map("installations")
 }
@@ -113,4 +114,22 @@ model Inspection {
   installation   Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
 
   @@map("inspections")
+}
+
+model ReminderLog {
+  id             String   @id @default(cuid())
+  installationId String
+  userId         String?
+  email          String
+  type           String
+  reminderKey    String
+  sentAt         DateTime @default(now())
+
+  installation Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+
+  @@unique([installationId, email, type, reminderKey])
+  @@index([installationId])
+  @@index([email])
+  @@index([sentAt])
+  @@map("reminder_logs")
 }
