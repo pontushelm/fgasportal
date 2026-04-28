@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  orgNumber String   @unique
+  address   String?
+  email     String   @unique
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isActive  Boolean  @default(true)
+  planType  String   @default("free")
+
+  users         User[]
+  installations Installation[]
+  invitations   Invitation[]
+
+  @@map("companies")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      String   @default("ADMIN")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdInstallations Installation[] @relation("CreatedBy")
+  updatedInstallations Installation[] @relation("UpdatedBy")
+  sentInvitations      Invitation[]   @relation("InvitedBy")
+
+  @@map("users")
+}
+
+model Invitation {
+  id              String    @id @default(cuid())
+  email           String
+  role            String
+  token           String    @unique
+  acceptedAt      DateTime?
+  expiresAt       DateTime
+  createdAt       DateTime  @default(now())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  invitedByUserId String
+  invitedByUser   User   @relation("InvitedBy", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+
+  @@map("invitations")
+}
+
+model Installation {
+  id                String   @id @default(cuid())
+  name              String
+  location          String
+  equipmentId       String?
+  serialNumber      String?
+  propertyName      String?
+  equipmentType     String?
+  operatorName      String?
+  refrigerantType   String
+  refrigerantAmount Float
+  hasLeakDetectionSystem Boolean @default(false)
+  installationDate  DateTime
+  lastInspection    DateTime?
+  nextInspection    DateTime?
+  notes             String?
+  isActive          Boolean  @default(true)
+  archivedAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdById String
+  createdBy   User @relation("CreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  updatedById String
+  updatedBy   User @relation("UpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  inspections Inspection[]
+
+  @@map("installations")
+}
+
+model Inspection {
+  id             String   @id @default(cuid())
+  inspectionDate DateTime
+  inspectorName  String
+  status         String?
+  notes          String?
+  findings       String?
+  nextDueDate    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  installationId String
+  installation   Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+
+  @@map("inspections")
+}
