@@ -90,19 +90,19 @@ const STATUS_LABELS: Record<ComplianceStatus, string> = {
 }
 
 const STATUS_TONE: Record<ComplianceStatus | "LEAK", string> = {
-  OK: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  DUE_SOON: "border-amber-200 bg-amber-50 text-amber-800",
-  OVERDUE: "border-red-200 bg-red-50 text-red-800",
-  NOT_REQUIRED: "border-neutral-200 bg-neutral-50 text-neutral-700",
-  NOT_INSPECTED: "border-sky-200 bg-sky-50 text-sky-800",
-  LEAK: "border-rose-200 bg-rose-50 text-rose-800",
+  OK: "border-emerald-300 bg-emerald-50 text-emerald-900",
+  DUE_SOON: "border-amber-300 bg-amber-50 text-amber-900",
+  OVERDUE: "border-red-300 bg-red-50 text-red-900",
+  NOT_REQUIRED: "border-slate-300 bg-slate-50 text-slate-800",
+  NOT_INSPECTED: "border-sky-300 bg-sky-50 text-sky-900",
+  LEAK: "border-rose-300 bg-rose-50 text-rose-900",
 }
 
 const STATUS_BAR_TONE: Record<ComplianceStatus, string> = {
   OK: "bg-emerald-500",
   DUE_SOON: "bg-amber-500",
   OVERDUE: "bg-red-500",
-  NOT_REQUIRED: "bg-neutral-400",
+  NOT_REQUIRED: "bg-slate-500",
   NOT_INSPECTED: "bg-sky-500",
 }
 
@@ -168,40 +168,45 @@ export default function DashboardPage() {
       : installations.filter((item) => item.complianceStatus === activeFilter)
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-10 text-neutral-950 sm:px-6 lg:px-8">
-      <div className="flex flex-col gap-4 border-b border-neutral-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
+    <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
+      <div className="flex flex-col gap-4 border-b border-slate-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
+          <p className="text-sm font-semibold uppercase tracking-wide text-slate-600">
             Compliance dashboard
           </p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight">
             F-gasöversikt
           </h1>
-          <p className="mt-2 max-w-2xl text-sm text-neutral-600">
+          <p className="mt-2 max-w-2xl text-sm text-slate-700">
             Samlad kontroll över aggregat, kontrollintervall, CO₂e och
             läckagehändelser.
           </p>
         </div>
 
-        {canManage && (
-          <div className="flex flex-wrap gap-2">
-            <Link className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-50" href="/dashboard/reports">
-              Rapporter
-            </Link>
-            <Link className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-50" href="/dashboard/company">
-              Företagsinställningar
-            </Link>
-            <Link className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-50" href="/dashboard/installations/import">
-              Import Excel
-            </Link>
-            <Link className="rounded-md border border-neutral-900 px-3 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-900 hover:text-white" href="/api/installations/export">
-              Export CSV
-            </Link>
-            <Link className="rounded-md border border-neutral-900 px-3 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-900 hover:text-white" href="/api/installations/export/pdf">
-              Export PDF
-            </Link>
-          </div>
-        )}
+        <div className="flex flex-wrap gap-2">
+          <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/reports">
+            Rapporter
+          </Link>
+          <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/leakage">
+            Läckageanalys
+          </Link>
+          {canManage && (
+            <>
+              <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/company">
+                Företagsinställningar
+              </Link>
+              <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/installations/import">
+                Import Excel
+              </Link>
+              <Link className="rounded-md border border-slate-900 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-900 hover:text-white" href="/api/installations/export">
+                Export CSV
+              </Link>
+              <Link className="rounded-md border border-slate-900 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-900 hover:text-white" href="/api/installations/export/pdf">
+                Export PDF
+              </Link>
+            </>
+          )}
+        </div>
       </div>
 
       {canManage && (
@@ -210,7 +215,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {isLoading && <p className="mt-8 text-neutral-600">Laddar...</p>}
+      {isLoading && <p className="mt-8 text-slate-700">Laddar...</p>}
       {error && <p className="mt-8 text-red-700">{error}</p>}
 
       {dashboardData && (
@@ -232,11 +237,11 @@ export default function DashboardPage() {
           </section>
 
           <section className="mt-10 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-            <div className="rounded-lg border border-neutral-200 bg-white p-5">
+            <div className="rounded-lg border border-slate-200 bg-white p-5">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <h2 className="text-lg font-semibold">Behöver åtgärd</h2>
-                  <p className="mt-1 text-sm text-neutral-600">
+                  <p className="mt-1 text-sm text-slate-700">
                     Prioriterat efter försenade kontroller, kommande kontroller,
                     ej kontrollerade aggregat och senaste läckage.
                   </p>
@@ -244,22 +249,22 @@ export default function DashboardPage() {
               </div>
 
               {dashboardData.attentionItems.length === 0 ? (
-                <p className="mt-5 text-sm text-neutral-600">
+                <p className="mt-5 text-sm text-slate-700">
                   Inga aggregat kräver åtgärd just nu.
                 </p>
               ) : (
-                <div className="mt-5 divide-y divide-neutral-200">
+                <div className="mt-5 divide-y divide-slate-200">
                   {dashboardData.attentionItems.map((item) => (
                     <Link
-                      className="flex flex-col gap-2 py-3 hover:bg-neutral-50 sm:flex-row sm:items-center sm:justify-between"
+                      className="flex flex-col gap-2 py-3 hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between"
                       href={`/dashboard/installations/${item.installationId}`}
                       key={item.id}
                     >
                       <div>
-                        <div className="font-semibold text-neutral-950">
+                        <div className="font-semibold text-slate-950">
                           {item.installationName}
                         </div>
-                        <div className="text-sm text-neutral-600">
+                        <div className="text-sm text-slate-700">
                           {item.location}
                           {item.date ? ` · ${formatDate(item.date)}` : ""}
                           {item.notes ? ` · ${item.notes}` : ""}
@@ -317,7 +322,7 @@ export default function DashboardPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h2 className="text-xl font-semibold">Registrerade aggregat</h2>
-                <p className="mt-1 text-sm text-neutral-600">
+                <p className="mt-1 text-sm text-slate-700">
                   Filtrera listan utifrån aktuell kontrollstatus.
                 </p>
               </div>
@@ -326,8 +331,8 @@ export default function DashboardPage() {
                   <button
                     className={`rounded-md border px-3 py-2 text-sm font-semibold ${
                       activeFilter === filter.value
-                        ? "border-neutral-900 bg-neutral-900 text-white"
-                        : "border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50"
+                        ? "border-slate-900 bg-slate-900 text-white"
+                        : "border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
                     }`}
                     key={filter.value}
                     onClick={() => setActiveFilter(filter.value)}
@@ -340,11 +345,11 @@ export default function DashboardPage() {
             </div>
 
             {installations.length === 0 ? (
-              <p className="mt-5 text-sm text-neutral-600">
+              <p className="mt-5 text-sm text-slate-700">
                 Inga aggregat registrerade ännu.
               </p>
             ) : filteredInstallations.length === 0 ? (
-              <p className="mt-5 text-sm text-neutral-600">
+              <p className="mt-5 text-sm text-slate-700">
                 Inga aggregat matchar filtret.
               </p>
             ) : (
@@ -367,17 +372,17 @@ function MetricCard({
   tone?: "neutral" | "emerald" | "red" | "amber" | "sky"
 }) {
   const toneClass = {
-    neutral: "border-neutral-200 bg-white",
-    emerald: "border-emerald-200 bg-emerald-50",
-    red: "border-red-200 bg-red-50",
-    amber: "border-amber-200 bg-amber-50",
-    sky: "border-sky-200 bg-sky-50",
+    neutral: "border-slate-200 bg-white",
+    emerald: "border-emerald-300 bg-emerald-50",
+    red: "border-red-300 bg-red-50",
+    amber: "border-amber-300 bg-amber-50",
+    sky: "border-sky-300 bg-sky-50",
   }[tone]
 
   return (
     <div className={`rounded-lg border p-4 ${toneClass}`}>
-      <div className="text-sm font-medium text-neutral-600">{label}</div>
-      <div className="mt-2 text-2xl font-bold text-neutral-950">{value}</div>
+      <div className="text-sm font-semibold text-slate-700">{label}</div>
+      <div className="mt-2 break-words text-2xl font-bold text-slate-950">{value}</div>
     </div>
   )
 }
@@ -390,8 +395,8 @@ function VisualCard({
   children: React.ReactNode
 }) {
   return (
-    <div className="rounded-lg border border-neutral-200 bg-white p-5">
-      <h2 className="text-lg font-semibold">{title}</h2>
+    <div className="rounded-lg border border-slate-200 bg-white p-5">
+      <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
       <div className="mt-4">{children}</div>
     </div>
   )
@@ -405,11 +410,11 @@ function SegmentedStatusBar({
   total: number
 }) {
   if (total === 0) {
-    return <div className="h-3 rounded-full bg-neutral-100" />
+    return <div className="h-3 rounded-full bg-slate-100" />
   }
 
   return (
-    <div className="flex h-3 overflow-hidden rounded-full bg-neutral-100">
+    <div className="flex h-3 overflow-hidden rounded-full bg-slate-100">
       {(Object.keys(STATUS_LABELS) as ComplianceStatus[]).map((status) => {
         const count = distribution[status]
         if (count === 0) return null
@@ -436,8 +441,8 @@ function DistributionList({
     <div className="mt-4 grid gap-2">
       {items.map((item) => (
         <div className="flex items-center justify-between text-sm" key={item.label}>
-          <span className="text-neutral-600">{item.label}</span>
-          <span className="font-semibold text-neutral-950">{item.value}</span>
+          <span className="text-slate-700">{item.label}</span>
+          <span className="font-semibold text-slate-950">{item.value}</span>
         </div>
       ))}
     </div>
@@ -452,7 +457,7 @@ function DistributionBars({
   const maxValue = Math.max(...items.map((item) => item.value), 0)
 
   if (items.length === 0 || maxValue === 0) {
-    return <p className="text-sm text-neutral-600">Ingen data att visa.</p>
+    return <p className="text-sm text-slate-700">Ingen data att visa.</p>
   }
 
   return (
@@ -460,14 +465,14 @@ function DistributionBars({
       {items.map((item) => (
         <div key={item.label}>
           <div className="mb-1 flex items-center justify-between text-sm">
-            <span className="font-medium text-neutral-700">{item.label}</span>
-            <span className="text-neutral-600">
+            <span className="font-semibold text-slate-800">{item.label}</span>
+            <span className="text-slate-700">
               {formatNumber(item.value)} {item.suffix ?? ""}
             </span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-neutral-100">
+          <div className="h-2 overflow-hidden rounded-full bg-slate-100">
             <div
-              className="h-full rounded-full bg-neutral-900"
+              className="h-full rounded-full bg-slate-900"
               style={{ width: `${(item.value / maxValue) * 100}%` }}
             />
           </div>
@@ -479,9 +484,9 @@ function DistributionBars({
 
 function InstallationTable({ installations }: { installations: Installation[] }) {
   return (
-    <div className="mt-5 overflow-x-auto rounded-lg border border-neutral-200 bg-white">
-      <table className="min-w-full divide-y divide-neutral-200 text-sm">
-        <thead className="bg-neutral-50">
+    <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <table className="min-w-full divide-y divide-slate-200 text-sm">
+        <thead className="bg-slate-50">
           <tr>
             <TableHeader>Aggregat</TableHeader>
             <TableHeader>Plats</TableHeader>
@@ -494,11 +499,11 @@ function InstallationTable({ installations }: { installations: Installation[] })
             <TableHeader>Status</TableHeader>
           </tr>
         </thead>
-        <tbody className="divide-y divide-neutral-200">
+        <tbody className="divide-y divide-slate-200">
           {installations.map((item) => (
-            <tr className="hover:bg-neutral-50" key={item.id}>
+            <tr className="hover:bg-slate-50" key={item.id}>
               <TableCell>
-                <Link className="font-semibold text-neutral-950 underline-offset-4 hover:underline" href={`/dashboard/installations/${item.id}`}>
+                <Link className="font-semibold text-slate-950 underline-offset-4 hover:underline" href={`/dashboard/installations/${item.id}`}>
                   {item.name}
                 </Link>
               </TableCell>
@@ -525,14 +530,14 @@ function InstallationTable({ installations }: { installations: Installation[] })
 
 function TableHeader({ children }: { children: React.ReactNode }) {
   return (
-    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
+    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
       {children}
     </th>
   )
 }
 
 function TableCell({ children }: { children: React.ReactNode }) {
-  return <td className="whitespace-nowrap px-4 py-3 text-neutral-700">{children}</td>
+  return <td className="whitespace-nowrap px-4 py-3 text-slate-800">{children}</td>
 }
 
 function StatusBadge({
