@@ -1,12 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
 import CreateInstallationForm from "@/components/installations/create-installation-form"
-import type { ComplianceStatus } from "@/lib/fgas-calculations"
 import type { UserRole } from "@/lib/auth"
-import type { InspectionReminderStatus } from "@/lib/inspection-reminders"
+import type { ComplianceStatus } from "@/lib/fgas-calculations"
 
 type Installation = {
   id: string
@@ -14,17 +13,14 @@ type Installation = {
   location: string
   refrigerantType: string
   refrigerantAmount: number
-  installationDate: string
   gwp: number
   co2eTon: number
   baseInspectionInterval: number | null
   inspectionInterval: number | null
   hasAdjustedInspectionInterval: boolean
   complianceStatus: ComplianceStatus
-  inspectionReminderStatus: InspectionReminderStatus | null
   daysUntilDue: number | null
   nextInspection?: string | null
-  notes?: string | null
 }
 
 type CurrentUser = {
@@ -33,38 +29,101 @@ type CurrentUser = {
   role: UserRole
 }
 
+type DistributionItem = {
+  label: string
+  count: number
+  co2eTon: number
+  refrigerantAmount: number
+}
+
+type AttentionItem = {
+  id: string
+  installationId: string
+  installationName: string
+  location: string
+  type: ComplianceStatus | "LEAK"
+  label: string
+  date: string | null
+  daysUntilDue: number | null
+  notes: string | null
+}
+
+type DashboardData = {
+  metrics: {
+    totalInstallations: number
+    ok: number
+    overdue: number
+    dueSoon: number
+    notInspected: number
+    notRequired: number
+  }
+  environmental: {
+    totalCo2eTon: number
+    totalRefrigerantAmount: number
+    requiringInspection: number
+    leakageInstallationCount: number
+    leakageEvents: number
+  }
+  statusDistribution: Record<ComplianceStatus, number>
+  refrigerantDistribution: DistributionItem[]
+  installations: Installation[]
+  attentionItems: AttentionItem[]
+}
+
 type ComplianceFilter = "ALL" | ComplianceStatus
 
 const FILTERS: Array<{ label: string; value: ComplianceFilter }> = [
-  { label: "All", value: "ALL" },
-  { label: "Overdue", value: "OVERDUE" },
-  { label: "Due soon", value: "DUE_SOON" },
-  { label: "Not inspected", value: "NOT_INSPECTED" },
+  { label: "Alla", value: "ALL" },
+  { label: "Försenade", value: "OVERDUE" },
+  { label: "Inom 30 dagar", value: "DUE_SOON" },
+  { label: "Ej kontrollerade", value: "NOT_INSPECTED" },
   { label: "OK", value: "OK" },
-  { label: "Not required", value: "NOT_REQUIRED" },
+  { label: "Ej kontrollpliktiga", value: "NOT_REQUIRED" },
 ]
 
-const STATUS_SORT_ORDER: Record<ComplianceStatus, number> = {
-  OVERDUE: 1,
-  DUE_SOON: 2,
-  NOT_INSPECTED: 3,
-  OK: 4,
-  NOT_REQUIRED: 5,
+const STATUS_LABELS: Record<ComplianceStatus, string> = {
+  OK: "OK",
+  DUE_SOON: "Kontroller inom 30 dagar",
+  OVERDUE: "Försenade kontroller",
+  NOT_REQUIRED: "Ej kontrollpliktiga",
+  NOT_INSPECTED: "Ej kontrollerade",
+}
+
+const STATUS_TONE: Record<ComplianceStatus | "LEAK", string> = {
+  OK: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  DUE_SOON: "border-amber-200 bg-amber-50 text-amber-800",
+  OVERDUE: "border-red-200 bg-red-50 text-red-800",
+  NOT_REQUIRED: "border-neutral-200 bg-neutral-50 text-neutral-700",
+  NOT_INSPECTED: "border-sky-200 bg-sky-50 text-sky-800",
+  LEAK: "border-rose-200 bg-rose-50 text-rose-800",
+}
+
+const STATUS_BAR_TONE: Record<ComplianceStatus, string> = {
+  OK: "bg-emerald-500",
+  DUE_SOON: "bg-amber-500",
+  OVERDUE: "bg-red-500",
+  NOT_REQUIRED: "bg-neutral-400",
+  NOT_INSPECTED: "bg-sky-500",
 }
 
 export default function DashboardPage() {
-  const [installations, setInstallations] = useState<Installation[]>([])
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [activeFilter, setActiveFilter] = useState<ComplianceFilter>("ALL")
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [refreshKey, setRefreshKey] = useState(0)
   const router = useRouter()
 
   useEffect(() => {
     let isMounted = true
 
     async function fetchDashboardData() {
-      const [installationsRes, userRes] = await Promise.all([
-        fetch("/api/installations", {
+      setIsLoading(true)
+      setError("")
+
+      const [response, userResponse] = await Promise.all([
+        fetch("/api/dashboard/compliance", {
           credentials: "include",
         }),
         fetch("/api/auth/me", {
@@ -72,17 +131,24 @@ export default function DashboardPage() {
         }),
       ])
 
-      if (installationsRes.status === 401 || userRes.status === 401) {
+      if (response.status === 401 || userResponse.status === 401) {
         router.push("/login")
         return
       }
 
-      const installationsData: Installation[] = await installationsRes.json()
-      const userData: CurrentUser = await userRes.json()
+      if (!response.ok || !userResponse.ok) {
+        if (!isMounted) return
+        setError("Kunde inte hämta compliance-dashboarden")
+        setIsLoading(false)
+        return
+      }
+
+      const data: DashboardData = await response.json()
+      const userData: CurrentUser = await userResponse.json()
 
       if (!isMounted) return
 
-      setInstallations(installationsData)
+      setDashboardData(data)
       setCurrentUser(userData)
       setIsLoading(false)
     }
@@ -92,223 +158,405 @@ export default function DashboardPage() {
     return () => {
       isMounted = false
     }
-  }, [router])
+  }, [refreshKey, router])
 
-  function handleInstallationCreated(installation: Installation) {
-    setInstallations((prev) => sortInstallations([installation, ...prev]))
-  }
-
-  const summary = {
-    total: installations.length,
-    overdue: installations.filter((item) => item.complianceStatus === "OVERDUE").length,
-    dueSoon: installations.filter((item) => item.complianceStatus === "DUE_SOON").length,
-    notInspected: installations.filter((item) => item.complianceStatus === "NOT_INSPECTED").length,
-  }
-  const reminderSummary = {
-    overdue: installations.filter((item) => item.inspectionReminderStatus === "OVERDUE").length,
-    dueSoon: installations.filter((item) => item.inspectionReminderStatus === "DUE_SOON").length,
-    compliant: installations.filter((item) => item.inspectionReminderStatus === "OK").length,
-  }
   const canManage = currentUser?.role === "ADMIN"
-  const sortedInstallations = sortInstallations(installations)
+  const installations = dashboardData?.installations ?? []
   const filteredInstallations =
     activeFilter === "ALL"
-      ? sortedInstallations
-      : sortedInstallations.filter((item) => item.complianceStatus === activeFilter)
-  const needsAttentionInstallations = sortedInstallations.filter((item) =>
-    ["OVERDUE", "DUE_SOON", "NOT_INSPECTED"].includes(item.complianceStatus)
-  )
+      ? installations
+      : installations.filter((item) => item.complianceStatus === activeFilter)
 
   return (
-    <main style={{ maxWidth: 1100, margin: "60px auto", padding: 20 }}>
-      <h1>F-gas Dashboard</h1>
-
-      {canManage && (
-        <div style={{ marginTop: 12 }}>
-          <Link href="/dashboard/company">Företagsinställningar</Link>
+    <main className="mx-auto max-w-7xl px-4 py-10 text-neutral-950 sm:px-6 lg:px-8">
+      <div className="flex flex-col gap-4 border-b border-neutral-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
+            Compliance dashboard
+          </p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight">
+            F-gasöversikt
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-neutral-600">
+            Samlad kontroll över aggregat, kontrollintervall, CO₂e och
+            läckagehändelser.
+          </p>
         </div>
-      )}
 
-      {canManage && (
-        <CreateInstallationForm onInstallationCreated={handleInstallationCreated} />
-      )}
-
-      {canManage && (
-        <div style={exportActionsStyle}>
-          <Link href="/dashboard/installations/import" style={exportButtonStyle}>
-            Import Excel
-          </Link>
-          <Link href="/api/installations/export" style={exportButtonStyle}>
-            Export CSV
-          </Link>
-          <Link href="/api/installations/export/pdf" style={exportButtonStyle}>
-            Export PDF
-          </Link>
-        </div>
-      )}
-
-      <section style={summaryGridStyle}>
-        <SummaryCard label="Totalt antal" value={summary.total} />
-        <SummaryCard label="Försenade" value={summary.overdue} />
-        <SummaryCard label="Förfaller snart" value={summary.dueSoon} />
-        <SummaryCard label="Ej kontrollerade" value={summary.notInspected} />
-      </section>
-
-      <section style={sectionStyle}>
-        <h2>Inspection reminders</h2>
-        <div style={summaryGridStyle}>
-          <SummaryCard label="Overdue inspections" value={reminderSummary.overdue} />
-          <SummaryCard label="Due within 30 days" value={reminderSummary.dueSoon} />
-          <SummaryCard label="Compliant installations" value={reminderSummary.compliant} />
-        </div>
-      </section>
-
-      <section style={sectionStyle}>
-        <h2>Needs attention</h2>
-        {needsAttentionInstallations.length === 0 ? (
-          <p>Inga installationer kräver åtgärd just nu.</p>
-        ) : (
-          <InstallationTable installations={needsAttentionInstallations} />
+        {canManage && (
+          <div className="flex flex-wrap gap-2">
+            <Link className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-50" href="/dashboard/reports">
+              Rapporter
+            </Link>
+            <Link className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-50" href="/dashboard/company">
+              Företagsinställningar
+            </Link>
+            <Link className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-50" href="/dashboard/installations/import">
+              Import Excel
+            </Link>
+            <Link className="rounded-md border border-neutral-900 px-3 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-900 hover:text-white" href="/api/installations/export">
+              Export CSV
+            </Link>
+            <Link className="rounded-md border border-neutral-900 px-3 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-900 hover:text-white" href="/api/installations/export/pdf">
+              Export PDF
+            </Link>
+          </div>
         )}
-      </section>
-
-      <h2 style={{ marginTop: 40 }}>Registrerade aggregat</h2>
-
-      <div style={filterRowStyle}>
-        {FILTERS.map((filter) => (
-          <button
-            key={filter.value}
-            type="button"
-            onClick={() => setActiveFilter(filter.value)}
-            style={{
-              ...filterButtonStyle,
-              ...(activeFilter === filter.value ? activeFilterButtonStyle : {}),
-            }}
-          >
-            {filter.label}
-          </button>
-        ))}
       </div>
 
-      {isLoading && <p>Laddar...</p>}
-
-      {installations.length === 0 && !isLoading && (
-        <p>Inga aggregat registrerade ännu.</p>
+      {canManage && (
+        <div className="mt-8">
+          <CreateInstallationForm onInstallationCreated={() => setRefreshKey((current) => current + 1)} />
+        </div>
       )}
 
-      {installations.length > 0 && filteredInstallations.length === 0 && (
-        <p>Inga installationer matchar filtret.</p>
-      )}
+      {isLoading && <p className="mt-8 text-neutral-600">Laddar...</p>}
+      {error && <p className="mt-8 text-red-700">{error}</p>}
 
-      {filteredInstallations.length > 0 && (
-        <InstallationTable installations={filteredInstallations} />
+      {dashboardData && (
+        <>
+          <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+            <MetricCard label="Totalt antal aggregat" value={dashboardData.metrics.totalInstallations} />
+            <MetricCard label="OK" value={dashboardData.metrics.ok} tone="emerald" />
+            <MetricCard label="Försenade kontroller" value={dashboardData.metrics.overdue} tone="red" />
+            <MetricCard label="Kontroller inom 30 dagar" value={dashboardData.metrics.dueSoon} tone="amber" />
+            <MetricCard label="Ej kontrollerade" value={dashboardData.metrics.notInspected} tone="sky" />
+            <MetricCard label="Ej kontrollpliktiga" value={dashboardData.metrics.notRequired} />
+          </section>
+
+          <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <MetricCard label="Total CO₂e" value={`${formatNumber(dashboardData.environmental.totalCo2eTon)} ton`} />
+            <MetricCard label="Köldmediemängd" value={`${formatNumber(dashboardData.environmental.totalRefrigerantAmount)} kg`} />
+            <MetricCard label="Kontrollpliktiga aggregat" value={dashboardData.environmental.requiringInspection} />
+            <MetricCard label="Läckagehändelser" value={dashboardData.environmental.leakageEvents} tone="red" />
+          </section>
+
+          <section className="mt-10 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="rounded-lg border border-neutral-200 bg-white p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold">Behöver åtgärd</h2>
+                  <p className="mt-1 text-sm text-neutral-600">
+                    Prioriterat efter försenade kontroller, kommande kontroller,
+                    ej kontrollerade aggregat och senaste läckage.
+                  </p>
+                </div>
+              </div>
+
+              {dashboardData.attentionItems.length === 0 ? (
+                <p className="mt-5 text-sm text-neutral-600">
+                  Inga aggregat kräver åtgärd just nu.
+                </p>
+              ) : (
+                <div className="mt-5 divide-y divide-neutral-200">
+                  {dashboardData.attentionItems.map((item) => (
+                    <Link
+                      className="flex flex-col gap-2 py-3 hover:bg-neutral-50 sm:flex-row sm:items-center sm:justify-between"
+                      href={`/dashboard/installations/${item.installationId}`}
+                      key={item.id}
+                    >
+                      <div>
+                        <div className="font-semibold text-neutral-950">
+                          {item.installationName}
+                        </div>
+                        <div className="text-sm text-neutral-600">
+                          {item.location}
+                          {item.date ? ` · ${formatDate(item.date)}` : ""}
+                          {item.notes ? ` · ${item.notes}` : ""}
+                        </div>
+                      </div>
+                      <StatusBadge
+                        daysUntilDue={item.daysUntilDue}
+                        label={item.label}
+                        status={item.type}
+                      />
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-6">
+              <VisualCard title="Statusfördelning">
+                <SegmentedStatusBar
+                  distribution={dashboardData.statusDistribution}
+                  total={dashboardData.metrics.totalInstallations}
+                />
+                <DistributionList
+                  items={Object.entries(dashboardData.statusDistribution).map(
+                    ([status, count]) => ({
+                      label: STATUS_LABELS[status as ComplianceStatus],
+                      value: count,
+                    })
+                  )}
+                />
+              </VisualCard>
+
+              <VisualCard title="Köldmedier">
+                <DistributionBars
+                  items={dashboardData.refrigerantDistribution.map((item) => ({
+                    label: item.label,
+                    value: item.count,
+                  }))}
+                />
+              </VisualCard>
+
+              <VisualCard title="CO₂e per köldmedium">
+                <DistributionBars
+                  items={dashboardData.refrigerantDistribution.map((item) => ({
+                    label: item.label,
+                    value: item.co2eTon,
+                    suffix: "ton",
+                  }))}
+                />
+              </VisualCard>
+            </div>
+          </section>
+
+          <section className="mt-10">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">Registrerade aggregat</h2>
+                <p className="mt-1 text-sm text-neutral-600">
+                  Filtrera listan utifrån aktuell kontrollstatus.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {FILTERS.map((filter) => (
+                  <button
+                    className={`rounded-md border px-3 py-2 text-sm font-semibold ${
+                      activeFilter === filter.value
+                        ? "border-neutral-900 bg-neutral-900 text-white"
+                        : "border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50"
+                    }`}
+                    key={filter.value}
+                    onClick={() => setActiveFilter(filter.value)}
+                    type="button"
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {installations.length === 0 ? (
+              <p className="mt-5 text-sm text-neutral-600">
+                Inga aggregat registrerade ännu.
+              </p>
+            ) : filteredInstallations.length === 0 ? (
+              <p className="mt-5 text-sm text-neutral-600">
+                Inga aggregat matchar filtret.
+              </p>
+            ) : (
+              <InstallationTable installations={filteredInstallations} />
+            )}
+          </section>
+        </>
       )}
     </main>
   )
 }
 
-function InstallationTable({ installations }: { installations: Installation[] }) {
-  return (
-    <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 20 }}>
-      <thead>
-        <tr>
-          <th style={cellStyle}>Aggregat</th>
-          <th style={cellStyle}>Plats</th>
-          <th style={cellStyle}>Köldmedium</th>
-          <th style={cellStyle}>Mängd</th>
-          <th style={cellStyle}>GWP</th>
-          <th style={cellStyle}>CO₂e</th>
-          <th style={cellStyle}>Kontrollintervall</th>
-          <th style={cellStyle}>Nästa kontroll</th>
-          <th style={cellStyle}>Status</th>
-        </tr>
-      </thead>
+function MetricCard({
+  label,
+  value,
+  tone = "neutral",
+}: {
+  label: string
+  value: number | string
+  tone?: "neutral" | "emerald" | "red" | "amber" | "sky"
+}) {
+  const toneClass = {
+    neutral: "border-neutral-200 bg-white",
+    emerald: "border-emerald-200 bg-emerald-50",
+    red: "border-red-200 bg-red-50",
+    amber: "border-amber-200 bg-amber-50",
+    sky: "border-sky-200 bg-sky-50",
+  }[tone]
 
-      <tbody>
-        {installations.map((item) => (
-          <tr key={item.id}>
-            <td style={cellStyle}>
-              <Link href={`/dashboard/installations/${item.id}`}>
-                {item.name}
-              </Link>
-            </td>
-            <td style={cellStyle}>{item.location}</td>
-            <td style={cellStyle}>{item.refrigerantType}</td>
-            <td style={cellStyle}>{item.refrigerantAmount} kg</td>
-            <td style={cellStyle}>{item.gwp}</td>
-            <td style={cellStyle}>{item.co2eTon.toFixed(2)} ton</td>
-            <td style={cellStyle}>{formatInspectionInterval(item)}</td>
-            <td style={cellStyle}>{formatOptionalDate(item.nextInspection)}</td>
-            <td style={cellStyle}>
-              <StatusBadge
-                status={item.complianceStatus}
-                daysUntilDue={item.daysUntilDue}
-              />
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+  return (
+    <div className={`rounded-lg border p-4 ${toneClass}`}>
+      <div className="text-sm font-medium text-neutral-600">{label}</div>
+      <div className="mt-2 text-2xl font-bold text-neutral-950">{value}</div>
+    </div>
   )
 }
 
-function SummaryCard({ label, value }: { label: string; value: number }) {
+function VisualCard({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
   return (
-    <div style={summaryCardStyle}>
-      <div style={{ color: "#525252", fontSize: 14 }}>{label}</div>
-      <div style={{ fontSize: 28, fontWeight: 700 }}>{value}</div>
+    <div className="rounded-lg border border-neutral-200 bg-white p-5">
+      <h2 className="text-lg font-semibold">{title}</h2>
+      <div className="mt-4">{children}</div>
     </div>
   )
+}
+
+function SegmentedStatusBar({
+  distribution,
+  total,
+}: {
+  distribution: Record<ComplianceStatus, number>
+  total: number
+}) {
+  if (total === 0) {
+    return <div className="h-3 rounded-full bg-neutral-100" />
+  }
+
+  return (
+    <div className="flex h-3 overflow-hidden rounded-full bg-neutral-100">
+      {(Object.keys(STATUS_LABELS) as ComplianceStatus[]).map((status) => {
+        const count = distribution[status]
+        if (count === 0) return null
+
+        return (
+          <div
+            className={STATUS_BAR_TONE[status]}
+            key={status}
+            style={{ width: `${(count / total) * 100}%` }}
+            title={`${STATUS_LABELS[status]}: ${count}`}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+function DistributionList({
+  items,
+}: {
+  items: Array<{ label: string; value: number }>
+}) {
+  return (
+    <div className="mt-4 grid gap-2">
+      {items.map((item) => (
+        <div className="flex items-center justify-between text-sm" key={item.label}>
+          <span className="text-neutral-600">{item.label}</span>
+          <span className="font-semibold text-neutral-950">{item.value}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function DistributionBars({
+  items,
+}: {
+  items: Array<{ label: string; value: number; suffix?: string }>
+}) {
+  const maxValue = Math.max(...items.map((item) => item.value), 0)
+
+  if (items.length === 0 || maxValue === 0) {
+    return <p className="text-sm text-neutral-600">Ingen data att visa.</p>
+  }
+
+  return (
+    <div className="grid gap-3">
+      {items.map((item) => (
+        <div key={item.label}>
+          <div className="mb-1 flex items-center justify-between text-sm">
+            <span className="font-medium text-neutral-700">{item.label}</span>
+            <span className="text-neutral-600">
+              {formatNumber(item.value)} {item.suffix ?? ""}
+            </span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-neutral-100">
+            <div
+              className="h-full rounded-full bg-neutral-900"
+              style={{ width: `${(item.value / maxValue) * 100}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function InstallationTable({ installations }: { installations: Installation[] }) {
+  return (
+    <div className="mt-5 overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+      <table className="min-w-full divide-y divide-neutral-200 text-sm">
+        <thead className="bg-neutral-50">
+          <tr>
+            <TableHeader>Aggregat</TableHeader>
+            <TableHeader>Plats</TableHeader>
+            <TableHeader>Köldmedium</TableHeader>
+            <TableHeader>Mängd</TableHeader>
+            <TableHeader>GWP</TableHeader>
+            <TableHeader>CO₂e</TableHeader>
+            <TableHeader>Kontrollintervall</TableHeader>
+            <TableHeader>Nästa kontroll</TableHeader>
+            <TableHeader>Status</TableHeader>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-neutral-200">
+          {installations.map((item) => (
+            <tr className="hover:bg-neutral-50" key={item.id}>
+              <TableCell>
+                <Link className="font-semibold text-neutral-950 underline-offset-4 hover:underline" href={`/dashboard/installations/${item.id}`}>
+                  {item.name}
+                </Link>
+              </TableCell>
+              <TableCell>{item.location}</TableCell>
+              <TableCell>{item.refrigerantType}</TableCell>
+              <TableCell>{formatNumber(item.refrigerantAmount)} kg</TableCell>
+              <TableCell>{item.gwp}</TableCell>
+              <TableCell>{formatNumber(item.co2eTon)} ton</TableCell>
+              <TableCell>{formatInspectionInterval(item)}</TableCell>
+              <TableCell>{formatOptionalDate(item.nextInspection)}</TableCell>
+              <TableCell>
+                <StatusBadge
+                  daysUntilDue={item.daysUntilDue}
+                  status={item.complianceStatus}
+                />
+              </TableCell>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function TableHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
+      {children}
+    </th>
+  )
+}
+
+function TableCell({ children }: { children: React.ReactNode }) {
+  return <td className="whitespace-nowrap px-4 py-3 text-neutral-700">{children}</td>
 }
 
 function StatusBadge({
   status,
   daysUntilDue,
+  label,
 }: {
-  status: ComplianceStatus
-  daysUntilDue: number | null
+  status: ComplianceStatus | "LEAK"
+  daysUntilDue?: number | null
+  label?: string
 }) {
-  const statusConfig: Record<ComplianceStatus, { label: string; color: string }> = {
-    OK: { label: "OK", color: "#047857" },
-    DUE_SOON: { label: formatDueSoonLabel(daysUntilDue), color: "#b45309" },
-    OVERDUE: { label: "Försenad", color: "#b91c1c" },
-    NOT_REQUIRED: { label: "Ej kontrollpliktig", color: "#525252" },
-    NOT_INSPECTED: { label: "Ej kontrollerad", color: "#1d4ed8" },
-  }
-  const config = statusConfig[status]
+  const badgeLabel =
+    label ??
+    (status === "DUE_SOON" ? formatDueSoonLabel(daysUntilDue ?? null) : STATUS_LABELS[status as ComplianceStatus])
 
   return (
-    <span style={{ ...badgeStyle, color: config.color, borderColor: config.color }}>
-      {config.label}
+    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${STATUS_TONE[status]}`}>
+      {badgeLabel}
     </span>
   )
 }
 
-function sortInstallations(items: Installation[]) {
-  return [...items].sort((first, second) => {
-    const statusDiff =
-      STATUS_SORT_ORDER[first.complianceStatus] -
-      STATUS_SORT_ORDER[second.complianceStatus]
-
-    if (statusDiff !== 0) return statusDiff
-
-    return compareNextInspection(first.nextInspection, second.nextInspection)
-  })
-}
-
-function compareNextInspection(
-  firstDate?: string | null,
-  secondDate?: string | null
-) {
-  if (!firstDate && !secondDate) return 0
-  if (!firstDate) return 1
-  if (!secondDate) return -1
-
-  return new Date(firstDate).getTime() - new Date(secondDate).getTime()
-}
-
 function formatDueSoonLabel(daysUntilDue: number | null) {
-  if (daysUntilDue === null) return "Förfaller snart"
+  if (daysUntilDue === null) return "Kontroll inom 30 dagar"
   if (daysUntilDue === 0) return "Förfaller idag"
   return `Förfaller om ${daysUntilDue} dagar`
 }
@@ -324,75 +572,15 @@ function formatInspectionInterval(installation: Installation) {
 }
 
 function formatOptionalDate(value?: string | null) {
-  return value ? new Intl.DateTimeFormat("sv-SE").format(new Date(value)) : "-"
+  return value ? formatDate(value) : "-"
 }
 
-const sectionStyle: React.CSSProperties = {
-  marginTop: 32,
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("sv-SE").format(new Date(value))
 }
 
-const summaryGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-  gap: 16,
-  marginTop: 32,
-}
-
-const summaryCardStyle: React.CSSProperties = {
-  border: "1px solid #ddd",
-  padding: 16,
-  borderRadius: 8,
-}
-
-const filterRowStyle: React.CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: 8,
-  marginTop: 12,
-}
-
-const filterButtonStyle: React.CSSProperties = {
-  border: "1px solid #d4d4d4",
-  borderRadius: 6,
-  background: "#fff",
-  padding: "7px 10px",
-  cursor: "pointer",
-}
-
-const activeFilterButtonStyle: React.CSSProperties = {
-  borderColor: "#171717",
-  background: "#171717",
-  color: "#fff",
-}
-
-const badgeStyle: React.CSSProperties = {
-  display: "inline-block",
-  border: "1px solid",
-  borderRadius: 999,
-  padding: "3px 8px",
-  fontSize: 13,
-  fontWeight: 600,
-}
-
-const exportButtonStyle: React.CSSProperties = {
-  display: "inline-block",
-  border: "1px solid #171717",
-  borderRadius: 6,
-  padding: "8px 12px",
-  color: "#171717",
-  textDecoration: "none",
-  fontWeight: 600,
-}
-
-const exportActionsStyle: React.CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: 8,
-  marginTop: 24,
-}
-
-const cellStyle: React.CSSProperties = {
-  border: "1px solid #ddd",
-  padding: "10px",
-  textAlign: "left",
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("sv-SE", {
+    maximumFractionDigits: 2,
+  }).format(value)
 }
