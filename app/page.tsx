@@ -1,10 +1,34 @@
 import Link from "next/link"
 
 const dashboardStats = [
-  { label: "Försenade kontroller", value: "3", tone: "text-red-700 dark:text-red-300" },
-  { label: "Kontroller inom 30 dagar", value: "8", tone: "text-amber-700 dark:text-amber-300" },
-  { label: "Aggregat utan kontroll", value: "5", tone: "text-blue-700 dark:text-blue-300" },
-  { label: "Total CO₂e", value: "42,6 ton", tone: "text-emerald-700 dark:text-emerald-300" },
+  { label: "Compliance dashboard", value: "Live", tone: "text-emerald-700 dark:text-emerald-300" },
+  { label: "Riskklassning", value: "Hög/Medel/Låg", tone: "text-red-700 dark:text-red-300" },
+  { label: "Läckageanalys", value: "CO₂e + kg", tone: "text-amber-700 dark:text-amber-300" },
+  { label: "F-gas årsrapport", value: "Årsdata", tone: "text-blue-700 dark:text-blue-300" },
+]
+
+const problemCards = [
+  "Excel-register blir snabbt inaktuella",
+  "Svårt att bevaka kontrollintervall",
+  "Risk för missade F-gas-krav",
+  "Begränsad överblick över CO₂e och läckage",
+]
+
+const targetCustomers = [
+  "Fastighetsbolag",
+  "Kommuner",
+  "Regioner och sjukhus",
+  "Industriella verksamheter",
+  "Driftorganisationer",
+  "Kylentreprenörer",
+]
+
+const climatePoints = [
+  "identifiera högriskaggregat",
+  "följa upp läckage",
+  "förstå CO₂e-belastning",
+  "prioritera åtgärder",
+  "planera bättre underhåll",
 ]
 
 const servicePillars = [
@@ -14,8 +38,8 @@ const servicePillars = [
     points: [
       "Försenade kontroller och kommande kontrollbehov",
       "Aggregat utan registrerad kontroll",
-      "Samlad CO₂e-översikt",
-      "Prioriterad vy för intern uppföljning",
+      "Riskklassning och prioriterad åtgärdslista",
+      "Samlad CO₂e-översikt för intern uppföljning",
     ],
   },
   {
@@ -32,10 +56,10 @@ const servicePillars = [
     title: "Läckage- och servicelog",
     angle: "Följ läckage, påfyllning och åtgärder över tid.",
     points: [
-      "Läckagehändelser",
-      "Påfylld mängd",
-      "Åtgärdad läcka",
-      "Serviceanteckningar för bättre uppföljning",
+      "Läckagehändelser och serviceanteckningar",
+      "Påfylld eller läckt mängd köldmedium",
+      "Läckageanalys per aggregat och köldmedium",
+      "Underlag för bättre underhållsplanering",
     ],
   },
   {
@@ -49,10 +73,10 @@ const servicePillars = [
     ],
   },
   {
-    title: "Organisationsinställningar och stöd",
+    title: "Rapporter och organisationsstöd",
     angle: "Vi kan hjälpa till att registerhålla åt er.",
     points: [
-      "Företagsuppgifter och kontaktpersoner",
+      "F-gas årsrapport",
       "Import från Excel",
       "Löpande bevakning",
       "Rapportunderlag inför tillsyn",
@@ -115,14 +139,20 @@ export default function Home() {
             Bättre kontroll på F-gasregister, kontroller och klimatpåverkan
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-zinc-700 dark:text-zinc-300">
-            FgasPortal hjälper operatörer att hålla ett mer tillförlitligt
-            köldmedieregister, bevaka kontrollintervall, förstå CO₂e och
-            ta fram underlag inför intern uppföljning och tillsyn.
+            FgasPortal hjälper operatörer att hålla ett tillförlitligt
+            köldmedieregister, bevaka kontrollintervall, analysera läckage och
+            ta fram rapportunderlag för intern uppföljning och tillsyn.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
+            <a
+              href="mailto:info@fgasportal.se"
+              className="rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800"
+            >
+              Boka demo
+            </a>
             <Link
               href="/login"
-              className="rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800"
+              className="rounded-md border border-zinc-300 bg-white px-5 py-3 text-sm font-semibold text-zinc-950 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:hover:bg-zinc-800"
             >
               Logga in
             </Link>
@@ -132,20 +162,14 @@ export default function Home() {
             >
               Skapa konto
             </Link>
-            <a
-              href="mailto:info@fgasportal.se"
-              className="rounded-md border border-zinc-300 bg-white px-5 py-3 text-sm font-semibold text-zinc-950 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:hover:bg-zinc-800"
-            >
-              Kontakta oss
-            </a>
           </div>
         </div>
 
         <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
           <div className="mb-5 flex items-center justify-between border-b border-zinc-200 pb-4 dark:border-zinc-800">
             <div>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">Compliance dashboard</p>
-              <h2 className="text-xl font-semibold">Se vad som kräver åtgärd</h2>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">Produktöversikt</p>
+              <h2 className="text-xl font-semibold">Se status, risk och rapporter</h2>
             </div>
             <span className="rounded-full border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">
               Bevakning
@@ -163,29 +187,71 @@ export default function Home() {
             ))}
           </div>
           <div className="mt-5 rounded-md bg-zinc-100 p-4 text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-            Fokusera på aggregat som är försenade, saknar kontroll eller närmar
-            sig nästa kontroll, utan att leta i flera Excel-filer.
+            Fokusera på aggregat med försenade kontroller, hög risk,
+            registrerade läckage eller behov av årsrapportering.
           </div>
+        </div>
+      </section>
+
+      <section className="border-y border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="mx-auto max-w-6xl px-5 py-14">
+          <div className="max-w-3xl">
+            <h2 className="text-3xl font-bold">Vanliga problem med köldmedieregister</h2>
+            <p className="mt-4 text-zinc-700 dark:text-zinc-300">
+              Många organisationer har bra teknisk kontroll på sina anläggningar,
+              men register, intervall och rapportunderlag hamnar ofta i manuella
+              rutiner som är svåra att hålla aktuella.
+            </p>
+          </div>
+          <div className="mt-8 grid gap-4 md:grid-cols-4">
+            {problemCards.map((problem) => (
+              <article
+                key={problem}
+                className="rounded-lg border border-zinc-200 bg-zinc-50 p-5 dark:border-zinc-800 dark:bg-zinc-950"
+              >
+                <h3 className="font-semibold">{problem}</h3>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto grid max-w-6xl gap-8 px-5 py-14 md:grid-cols-2">
+        <div>
+          <h2 className="text-3xl font-bold">Byggt för organisationer med många aggregat</h2>
+          <p className="mt-4 text-zinc-700 dark:text-zinc-300">
+            FgasPortal passar verksamheter som behöver samordna flera
+            anläggningar, kontaktpersoner, kontrollintervall och rapportbehov.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {targetCustomers.map((customer) => (
+            <div
+              key={customer}
+              className="rounded-md border border-zinc-200 bg-white px-4 py-3 text-sm font-semibold dark:border-zinc-800 dark:bg-zinc-900"
+            >
+              {customer}
+            </div>
+          ))}
         </div>
       </section>
 
       <section className="border-y border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         <div className="mx-auto grid max-w-6xl gap-8 px-5 py-14 md:grid-cols-2">
           <div>
-            <h2 className="text-3xl font-bold">För operatörer som behöver bättre registerhållning</h2>
+            <h2 className="text-3xl font-bold">Minska klimatpåverkan från köldmedier</h2>
           </div>
           <div className="space-y-4 text-zinc-700 dark:text-zinc-300">
             <p>
-              Fastighetsägare, kommuner, regioner, bostadsbolag och industriella
-              operatörer behöver ofta hantera många aggregat, kontrollintervall
-              och serviceunderlag samtidigt.
+              FgasPortal hjälper organisationer att förstå var klimatpåverkan
+              uppstår och vilka aggregat som bör prioriteras i uppföljning och
+              underhåll.
             </p>
-            <p>
-              FgasPortal underlättar arbetet genom att samla data, status,
-              historik och rapportunderlag på ett ställe. Det hjälper er att
-              minska risken för missade läckagekontroller och ger bättre intern
-              kontroll över klimatpåverkan.
-            </p>
+            <ul className="grid gap-2 text-sm leading-6">
+              {climatePoints.map((point) => (
+                <li key={point}>• Hjälper er att {point}</li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>
@@ -247,24 +313,24 @@ export default function Home() {
             ))}
           </div>
           <div className="mt-8 flex flex-wrap gap-3">
+            <a
+              href="mailto:info@fgasportal.se"
+              className="rounded-md bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
+            >
+              Boka demo
+            </a>
             <Link
               href="/login"
-              className="rounded-md bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
+              className="rounded-md bg-white px-5 py-3 text-sm font-semibold text-zinc-950 hover:bg-zinc-200"
             >
               Logga in
             </Link>
             <Link
               href="/register"
-              className="rounded-md bg-white px-5 py-3 text-sm font-semibold text-zinc-950 hover:bg-zinc-200"
+              className="rounded-md border border-zinc-700 px-5 py-3 text-sm font-semibold text-white hover:bg-zinc-900"
             >
               Skapa konto
             </Link>
-            <a
-              href="mailto:info@fgasportal.se"
-              className="rounded-md border border-zinc-700 px-5 py-3 text-sm font-semibold text-white hover:bg-zinc-900"
-            >
-              Kontakta oss
-            </a>
           </div>
         </div>
       </section>
@@ -273,10 +339,10 @@ export default function Home() {
         <div className="rounded-lg border border-zinc-200 bg-white p-8 dark:border-zinc-800 dark:bg-zinc-900">
           <h2 className="text-3xl font-bold">Mindre manuellt arbete, bättre kontroll</h2>
           <p className="mt-4 max-w-3xl leading-8 text-zinc-700 dark:text-zinc-300">
-            FgasPortal ersätter inte operatörens ansvar och gör inga utfästelser
-            om garanterad regelefterlevnad. Tjänsten hjälper däremot till att
-            strukturera information, flagga risker, bevaka kontrollintervall och
-            ta fram underlag som gör F-gasarbetet lättare att följa upp.
+            FgasPortal ersätter inte operatörens ansvar och garanterar inte
+            regelefterlevnad. Tjänsten hjälper till att strukturera information,
+            bevaka kontrollintervall, synliggöra risker och ta fram
+            uppföljningsunderlag.
           </p>
         </div>
       </section>
