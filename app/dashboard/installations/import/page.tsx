@@ -18,21 +18,31 @@ type ImportSummary = {
 }
 
 export default function ImportInstallationsPage() {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [rows, setRows] = useState<ParsedImportRow[]>([])
   const [error, setError] = useState("")
   const [summary, setSummary] = useState<ImportSummary | null>(null)
+  const [isParsing, setIsParsing] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
   const validRows = rows.filter((row) => row.errors.length === 0)
 
-  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
+    setSelectedFile(file ?? null)
+    setRows([])
     setError("")
     setSummary(null)
+  }
 
-    if (!file) return
+  async function handlePreviewFile() {
+    if (!selectedFile) return
+
+    setError("")
+    setSummary(null)
+    setIsParsing(true)
 
     try {
-      const data = await file.arrayBuffer()
+      const data = await selectedFile.arrayBuffer()
       const workbook = XLSX.read(data, {
         type: "array",
         cellDates: true,
@@ -51,6 +61,8 @@ export default function ImportInstallationsPage() {
       console.error("Parse import file error:", err)
       setRows([])
       setError("Kunde inte läsa filen. Kontrollera att den är en giltig .xlsx eller .csv.")
+    } finally {
+      setIsParsing(false)
     }
   }
 
@@ -96,6 +108,15 @@ export default function ImportInstallationsPage() {
           accept=".xlsx,.csv"
           onChange={handleFileChange}
         />
+        <div style={actionsStyle}>
+          <button
+            type="button"
+            onClick={handlePreviewFile}
+            disabled={!selectedFile || isParsing}
+          >
+            {isParsing ? "Förhandsgranskar..." : "Förhandsgranska fil"}
+          </button>
+        </div>
         {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
       </section>
 
@@ -189,6 +210,7 @@ const actionsStyle: React.CSSProperties = {
   alignItems: "center",
   gap: 12,
   flexWrap: "wrap",
+  marginTop: 12,
 }
 
 const cellStyle: React.CSSProperties = {

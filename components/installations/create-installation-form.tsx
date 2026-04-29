@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useState } from "react"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
@@ -161,9 +162,14 @@ export default function CreateInstallationForm({
 
       {error && <p>{error}</p>}
 
-      <button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Sparar..." : "Spara aggregat"}
-      </button>
+      <div style={actionsStyle}>
+        <button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Sparar..." : "Spara aggregat"}
+        </button>
+        <Link href="/dashboard/installations/import" style={secondaryButtonStyle}>
+          Import Excel
+        </Link>
+      </div>
     </form>
   )
 }
@@ -171,6 +177,23 @@ export default function CreateInstallationForm({
 const formStyle: React.CSSProperties = {
   display: "grid",
   gap: 8,
+}
+
+const actionsStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 8,
+  alignItems: "center",
+}
+
+const secondaryButtonStyle: React.CSSProperties = {
+  display: "inline-block",
+  border: "1px solid #171717",
+  borderRadius: 6,
+  padding: "7px 10px",
+  color: "#171717",
+  textDecoration: "none",
+  fontWeight: 600,
 }
 
 function calculateNextInspectionPreview(
