@@ -1,8 +1,17 @@
 import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/db"
 import { sendInspectionReminderEmail } from "@/lib/email"
+import {
+  addDays,
+  classifyInspectionStatus,
+  startOfDay,
+  type InspectionStatus,
+} from "@/lib/inspection-status"
 
-export type InspectionReminderStatus = "OK" | "DUE_SOON" | "OVERDUE"
+export type InspectionReminderStatus = Extract<
+  InspectionStatus,
+  "OK" | "DUE_SOON" | "OVERDUE"
+>
 type ReminderType = Exclude<InspectionReminderStatus, "OK">
 
 type ReminderSummary = {
@@ -13,7 +22,6 @@ type ReminderSummary = {
 }
 
 const DUE_SOON_DAYS = 30
-const MS_PER_DAY = 1000 * 60 * 60 * 24
 
 export async function sendInspectionReminders(
   today = new Date()
@@ -149,14 +157,13 @@ export function classifyInspectionReminderStatus(
   nextInspection: Date,
   today: Date
 ): InspectionReminderStatus {
-  const dueDate = startOfDay(nextInspection)
-  const currentDate = startOfDay(today)
-  const daysUntilDue = Math.ceil(
-    (dueDate.getTime() - currentDate.getTime()) / MS_PER_DAY
-  )
+  const { status } = classifyInspectionStatus({
+    inspectionRequired: true,
+    nextInspection,
+    today,
+  })
 
-  if (daysUntilDue < 0) return "OVERDUE"
-  if (daysUntilDue <= DUE_SOON_DAYS) return "DUE_SOON"
+  if (status === "OVERDUE" || status === "DUE_SOON") return status
   return "OK"
 }
 
@@ -172,16 +179,6 @@ function getAppUrl() {
   }
 
   return appUrl.replace(/\/$/, "")
-}
-
-function addDays(date: Date, days: number) {
-  const nextDate = new Date(date)
-  nextDate.setDate(nextDate.getDate() + days)
-  return nextDate
-}
-
-function startOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
 }
 
 function formatDate(date: Date) {

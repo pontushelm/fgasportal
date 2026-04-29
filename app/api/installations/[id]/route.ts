@@ -120,6 +120,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       updatedInstallation.refrigerantType,
       updatedInstallation.refrigerantAmount,
       updatedInstallation.hasLeakDetectionSystem,
+      updatedInstallation.lastInspection,
       updatedInstallation.nextInspection
     )
 

@@ -18,14 +18,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = createInstallationSchema.parse(body)
 
-    const compliance = calculateInstallationCompliance(
-      validatedData.refrigerantType,
-      validatedData.refrigerantAmount,
-      validatedData.hasLeakDetectionSystem ?? false
-    )
     const nextInspection = calculateNextInspectionDate(
       validatedData.lastInspection,
       validatedData.inspectionIntervalMonths
+    )
+    const compliance = calculateInstallationCompliance(
+      validatedData.refrigerantType,
+      validatedData.refrigerantAmount,
+      validatedData.hasLeakDetectionSystem ?? false,
+      validatedData.lastInspection,
+      nextInspection
     )
 
     const installation = await prisma.installation.create({
@@ -102,6 +104,7 @@ export async function GET(request: NextRequest) {
         installation.refrigerantType,
         installation.refrigerantAmount,
         installation.hasLeakDetectionSystem,
+        installation.lastInspection,
         installation.nextInspection
       )
 

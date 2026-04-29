@@ -312,7 +312,9 @@ export default function InstallationDetailPage() {
   const compliance = calculateInstallationCompliance(
     installation.refrigerantType,
     installation.refrigerantAmount,
-    installation.hasLeakDetectionSystem
+    installation.hasLeakDetectionSystem,
+    installation.lastInspection,
+    installation.nextInspection
   )
   const canManage = currentUser?.role === "ADMIN"
 

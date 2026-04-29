@@ -53,6 +53,7 @@ export async function GET(request: NextRequest) {
         installation.refrigerantType,
         installation.refrigerantAmount,
         installation.hasLeakDetectionSystem,
+        installation.lastInspection,
         installation.nextInspection
       )
 

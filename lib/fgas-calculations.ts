@@ -1,14 +1,10 @@
 import { REFRIGERANT_GWP } from "./refrigerants"
+import {
+  classifyInspectionStatus,
+  type InspectionStatus,
+} from "./inspection-status"
 
-export type ComplianceStatus =
-  | "OK"
-  | "DUE_SOON"
-  | "OVERDUE"
-  | "NOT_REQUIRED"
-  | "NOT_INSPECTED"
-
-const DUE_SOON_DAYS = 30
-const MS_PER_DAY = 1000 * 60 * 60 * 24
+export type ComplianceStatus = InspectionStatus
 
 export function calculateCO2e(
   refrigerantType: string,
@@ -37,6 +33,7 @@ export function calculateInstallationCompliance(
   refrigerantType: string,
   refrigerantAmount: number,
   hasLeakDetectionSystem = false,
+  lastInspection?: Date | string | null,
   nextInspection?: Date | string | null
 ) {
   const { gwp, co2eKg, co2eTon } = calculateCO2e(
@@ -48,10 +45,11 @@ export function calculateInstallationCompliance(
     baseInspectionIntervalMonths && hasLeakDetectionSystem
       ? baseInspectionIntervalMonths * 2
       : baseInspectionIntervalMonths
-  const dueStatus = calculateComplianceStatus(
-    inspectionIntervalMonths,
+  const dueStatus = classifyInspectionStatus({
+    inspectionRequired: Boolean(inspectionIntervalMonths),
+    lastInspection,
     nextInspection
-  )
+  })
 
   return {
     gwp,
@@ -68,49 +66,14 @@ export function calculateInstallationCompliance(
 
 export function calculateComplianceStatus(
   inspectionIntervalMonths: number | null,
+  lastInspection?: Date | string | null,
   nextInspection?: Date | string | null,
   today = new Date()
 ): { status: ComplianceStatus; daysUntilDue: number | null } {
-  if (!inspectionIntervalMonths) {
-    return {
-      status: "NOT_REQUIRED",
-      daysUntilDue: null,
-    }
-  }
-
-  if (!nextInspection) {
-    return {
-      status: "NOT_INSPECTED",
-      daysUntilDue: null,
-    }
-  }
-
-  const dueDate = startOfDay(new Date(nextInspection))
-  const currentDate = startOfDay(today)
-  const daysUntilDue = Math.ceil(
-    (dueDate.getTime() - currentDate.getTime()) / MS_PER_DAY
-  )
-
-  if (daysUntilDue < 0) {
-    return {
-      status: "OVERDUE",
-      daysUntilDue,
-    }
-  }
-
-  if (daysUntilDue <= DUE_SOON_DAYS) {
-    return {
-      status: "DUE_SOON",
-      daysUntilDue,
-    }
-  }
-
-  return {
-    status: "OK",
-    daysUntilDue,
-  }
-}
-
-function startOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  return classifyInspectionStatus({
+    inspectionRequired: Boolean(inspectionIntervalMonths),
+    lastInspection,
+    nextInspection,
+    today,
+  })
 }
