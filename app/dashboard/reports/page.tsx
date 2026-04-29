@@ -141,6 +141,12 @@ export default function ReportsPage() {
           >
             Exportera CSV
           </a>
+          <a
+            className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-50"
+            href={`/api/reports/fgas/export?year=${selectedYear}&format=pdf`}
+          >
+            Exportera PDF
+          </a>
         </div>
       </div>
 
