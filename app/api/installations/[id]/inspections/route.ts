@@ -3,6 +3,7 @@ import { ZodError } from "zod"
 import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
+import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 import { createInspectionSchema } from "@/lib/validations"
 
 type RouteContext = {
@@ -41,9 +42,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       installation.refrigerantAmount,
       installation.hasLeakDetectionSystem
     )
-    const nextInspection = compliance.inspectionIntervalMonths
-      ? addMonths(validatedData.inspectionDate, compliance.inspectionIntervalMonths)
-      : null
+    const nextInspection = calculateNextInspectionDate(
+      validatedData.inspectionDate,
+      compliance.inspectionIntervalMonths
+    )
 
     const inspection = await prisma.$transaction(async (tx) => {
       const createdInspection = await tx.inspection.create({
@@ -63,6 +65,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         },
         data: {
           lastInspection: validatedData.inspectionDate,
+          inspectionIntervalMonths: compliance.inspectionIntervalMonths,
           nextInspection,
         },
       })
@@ -86,10 +89,4 @@ export async function POST(request: NextRequest, context: RouteContext) {
       { status: 500 }
     )
   }
-}
-
-function addMonths(date: Date, months: number) {
-  const nextDate = new Date(date)
-  nextDate.setMonth(nextDate.getMonth() + months)
-  return nextDate
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
+import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 import type { InspectionReminderStatus } from "@/lib/inspection-reminders"
 
 type InstallationFormData = {
@@ -16,6 +17,8 @@ type InstallationFormData = {
   refrigerantAmount: string
   hasLeakDetectionSystem: boolean
   installationDate: string
+  lastInspection: string
+  inspectionIntervalMonths: string
   notes: string
 }
 
@@ -32,6 +35,9 @@ type CreatedInstallation = {
   refrigerantAmount: number
   hasLeakDetectionSystem: boolean
   installationDate: string
+  lastInspection?: string | null
+  inspectionIntervalMonths?: number | null
+  nextInspection?: string | null
   gwp: number
   co2eTon: number
   baseInspectionInterval: number | null
@@ -55,6 +61,8 @@ const initialFormData: InstallationFormData = {
   refrigerantAmount: "",
   hasLeakDetectionSystem: false,
   installationDate: "",
+  lastInspection: "",
+  inspectionIntervalMonths: "",
   notes: "",
 }
 
@@ -68,7 +76,7 @@ export default function CreateInstallationForm({
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   function handleChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
     const value = e.target instanceof HTMLInputElement && e.target.type === "checkbox"
       ? e.target.checked
@@ -79,6 +87,11 @@ export default function CreateInstallationForm({
       [e.target.name]: value,
     })
   }
+
+  const previewNextInspection = calculateNextInspectionPreview(
+    formData.lastInspection,
+    formData.inspectionIntervalMonths
+  )
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -128,6 +141,22 @@ export default function CreateInstallationForm({
         Läckagevarningssystem
       </label>
       <input name="installationDate" type="date" value={formData.installationDate} onChange={handleChange} required />
+      <label>
+        Senaste kontroll
+        <input name="lastInspection" type="date" value={formData.lastInspection} onChange={handleChange} />
+      </label>
+      <label>
+        Kontrollintervall
+        <select name="inspectionIntervalMonths" value={formData.inspectionIntervalMonths} onChange={handleChange}>
+          <option value="">Välj intervall</option>
+          <option value="3">3 månader</option>
+          <option value="6">6 månader</option>
+          <option value="12">12 månader</option>
+        </select>
+      </label>
+      {previewNextInspection && (
+        <p>Nästa kontroll: {previewNextInspection}</p>
+      )}
       <textarea name="notes" placeholder="Anteckningar" value={formData.notes} onChange={handleChange} />
 
       {error && <p>{error}</p>}
@@ -142,4 +171,20 @@ export default function CreateInstallationForm({
 const formStyle: React.CSSProperties = {
   display: "grid",
   gap: 8,
+}
+
+function calculateNextInspectionPreview(
+  lastInspection: string,
+  inspectionIntervalMonths: string
+) {
+  if (!lastInspection || !inspectionIntervalMonths) return null
+
+  const nextInspection = calculateNextInspectionDate(
+    lastInspection,
+    parseInt(inspectionIntervalMonths, 10)
+  )
+
+  return nextInspection
+    ? new Intl.DateTimeFormat("sv-SE").format(nextInspection)
+    : null
 }

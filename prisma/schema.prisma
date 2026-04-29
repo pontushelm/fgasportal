@@ -77,6 +77,7 @@ model Installation {
   hasLeakDetectionSystem Boolean @default(false)
   installationDate  DateTime
   lastInspection    DateTime?
+  inspectionIntervalMonths Int?
   nextInspection    DateTime?
   notes             String?
   isActive          Boolean  @default(true)

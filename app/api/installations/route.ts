@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db'
 import { createInstallationSchema } from '@/lib/validations'
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { classifyInspectionReminderStatus } from "@/lib/inspection-reminders"
+import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,6 +23,10 @@ export async function POST(request: NextRequest) {
       validatedData.refrigerantAmount,
       validatedData.hasLeakDetectionSystem ?? false
     )
+    const nextInspection = calculateNextInspectionDate(
+      validatedData.lastInspection,
+      validatedData.inspectionIntervalMonths
+    )
 
     const installation = await prisma.installation.create({
       data: {
@@ -32,6 +37,7 @@ export async function POST(request: NextRequest) {
         equipmentType: emptyToNull(validatedData.equipmentType),
         operatorName: emptyToNull(validatedData.operatorName),
         hasLeakDetectionSystem: validatedData.hasLeakDetectionSystem ?? false,
+        nextInspection,
         notes: emptyToNull(validatedData.notes),
         companyId,
         createdById: userId,
@@ -49,7 +55,9 @@ export async function POST(request: NextRequest) {
       hasAdjustedInspectionInterval: compliance.hasAdjustedInspectionInterval,
       complianceStatus: compliance.status,
       daysUntilDue: compliance.daysUntilDue,
-      inspectionReminderStatus: null,
+      inspectionReminderStatus: nextInspection
+        ? classifyInspectionReminderStatus(nextInspection, new Date())
+        : null,
     }, { status: 201 })
 
   } catch (error: unknown) {

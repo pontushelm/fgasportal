@@ -69,6 +69,18 @@ export const loginSchema = z.object({
 export type LoginFormData = z.infer<typeof loginSchema>
 
 const optionalRegisterField = z.string().optional()
+const optionalDateField = z.string()
+  .optional()
+  .transform((val) => {
+    if (val === undefined) return undefined
+    return val ? new Date(val) : null
+  })
+const optionalIntegerField = z.string()
+  .optional()
+  .transform((val) => {
+    if (val === undefined) return undefined
+    return val ? parseInt(val, 10) : null
+  })
 
 const installationRegisterFieldsSchema = {
   equipmentId: optionalRegisterField,
@@ -86,6 +98,8 @@ export const createInstallationSchema = z.object({
   refrigerantType: z.string().min(1, "Köldmedietyp krävs"),
   refrigerantAmount: z.string().transform((val) => parseFloat(val)),
   installationDate: z.string().transform((val) => new Date(val)),
+  lastInspection: optionalDateField,
+  inspectionIntervalMonths: optionalIntegerField,
   notes: z.string().optional(),
 })
 
@@ -107,6 +121,8 @@ export const editInstallationSchema = z.object({
   ...installationRegisterFieldsSchema,
   refrigerantType: z.string().min(1, "Köldmedietyp krävs"),
   refrigerantAmount: z.string().transform((val) => parseFloat(val)),
+  lastInspection: optionalDateField,
+  inspectionIntervalMonths: optionalIntegerField,
   notes: z.string().optional(),
 })
 

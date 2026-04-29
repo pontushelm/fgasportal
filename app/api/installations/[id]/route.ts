@@ -3,6 +3,7 @@ import { ZodError } from "zod"
 import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
+import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 import { editInstallationSchema } from "@/lib/validations"
 
 type RouteContext = {
@@ -78,6 +79,21 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       )
     }
 
+    const lastInspection =
+      validatedData.lastInspection !== undefined
+        ? validatedData.lastInspection
+        : installation.lastInspection
+    const inspectionIntervalMonths =
+      validatedData.inspectionIntervalMonths !== undefined
+        ? validatedData.inspectionIntervalMonths
+        : installation.inspectionIntervalMonths
+    const shouldRecalculateNextInspection =
+      validatedData.lastInspection !== undefined ||
+      validatedData.inspectionIntervalMonths !== undefined
+    const nextInspection = shouldRecalculateNextInspection
+      ? calculateNextInspectionDate(lastInspection, inspectionIntervalMonths)
+      : installation.nextInspection
+
     const updatedInstallation = await prisma.installation.update({
       where: {
         id: installation.id,
@@ -93,6 +109,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         refrigerantType: validatedData.refrigerantType,
         refrigerantAmount: validatedData.refrigerantAmount,
         hasLeakDetectionSystem: validatedData.hasLeakDetectionSystem ?? false,
+        lastInspection: validatedData.lastInspection,
+        inspectionIntervalMonths: validatedData.inspectionIntervalMonths,
+        nextInspection,
         notes: emptyToNull(validatedData.notes),
       },
     })
