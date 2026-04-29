@@ -135,6 +135,9 @@ export default function DashboardPage() {
 
       {canManage && (
         <div style={exportActionsStyle}>
+          <Link href="/dashboard/installations/import" style={exportButtonStyle}>
+            Import Excel
+          </Link>
           <Link href="/api/installations/export" style={exportButtonStyle}>
             Export CSV
           </Link>
