@@ -135,13 +135,12 @@ export default function ReportsPage() {
               ))}
             </select>
           </label>
-          <button
-            className="rounded-md border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm font-semibold text-neutral-500"
-            disabled
-            type="button"
+          <a
+            className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+            href={`/api/reports/fgas/export?year=${selectedYear}&format=csv`}
           >
-            Export kommer i nästa version
-          </button>
+            Exportera CSV
+          </a>
         </div>
       </div>
 
