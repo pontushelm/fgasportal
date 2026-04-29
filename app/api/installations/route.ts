@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ZodError } from 'zod'
-import { authenticateApiRequest, forbiddenResponse, isAdmin } from '@/lib/auth'
+import { authenticateApiRequest, forbiddenResponse, isAdmin, isContractor } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { createInstallationSchema } from '@/lib/validations'
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
@@ -17,6 +17,21 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const validatedData = createInstallationSchema.parse(body)
+    const {
+      assignedContractorId: rawAssignedContractorId,
+      ...installationData
+    } = validatedData
+    const assignedContractorId = await validateAssignedContractor(
+      rawAssignedContractorId,
+      companyId
+    )
+
+    if (assignedContractorId === false) {
+      return NextResponse.json(
+        { error: 'Ogiltig servicepartner' },
+        { status: 400 }
+      )
+    }
 
     const nextInspection = calculateNextInspectionDate(
       validatedData.lastInspection,
@@ -32,12 +47,13 @@ export async function POST(request: NextRequest) {
 
     const installation = await prisma.installation.create({
       data: {
-        ...validatedData,
+        ...installationData,
         equipmentId: emptyToNull(validatedData.equipmentId),
         serialNumber: emptyToNull(validatedData.serialNumber),
         propertyName: emptyToNull(validatedData.propertyName),
         equipmentType: emptyToNull(validatedData.equipmentType),
         operatorName: emptyToNull(validatedData.operatorName),
+        assignedContractorId: assignedContractorId ?? null,
         hasLeakDetectionSystem: validatedData.hasLeakDetectionSystem ?? false,
         nextInspection,
         notes: emptyToNull(validatedData.notes),
@@ -79,9 +95,34 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function emptyToNull(value?: string) {
+function emptyToNull(value?: string | null) {
   const trimmedValue = value?.trim()
   return trimmedValue ? trimmedValue : null
+}
+
+async function validateAssignedContractor(
+  value: string | null | undefined,
+  companyId: string
+) {
+  if (value === undefined) return undefined
+
+  const contractorId = emptyToNull(value)
+
+  if (!contractorId) return null
+
+  const contractor = await prisma.user.findFirst({
+    where: {
+      id: contractorId,
+      companyId,
+      role: 'CONTRACTOR',
+      isActive: true,
+    },
+    select: {
+      id: true,
+    },
+  })
+
+  return contractor ? contractor.id : false
 }
 
 export async function GET(request: NextRequest) {
@@ -89,12 +130,13 @@ export async function GET(request: NextRequest) {
     const auth = authenticateApiRequest(request)
     if (auth.response) return auth.response
 
-    const { companyId } = auth.user
+    const { companyId, userId } = auth.user
 
     const installations = await prisma.installation.findMany({
       where: {
         companyId,
         archivedAt: null,
+        ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
       },
       orderBy: { createdAt: 'desc' }
     })

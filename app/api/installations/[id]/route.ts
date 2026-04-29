@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { ZodError } from "zod"
-import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
+import {
+  authenticateApiRequest,
+  forbiddenResponse,
+  isAdmin,
+  isContractor,
+} from "@/lib/auth"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
@@ -18,13 +23,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
     if (auth.response) return auth.response
 
     const { id } = await context.params
-    const { companyId } = auth.user
+    const { companyId, userId } = auth.user
 
     const installation = await prisma.installation.findFirst({
       where: {
         id,
         companyId,
         archivedAt: null,
+        ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
       },
       include: {
         inspections: {
@@ -63,6 +69,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const { companyId } = auth.user
     const body = await request.json()
     const validatedData = editInstallationSchema.parse(body)
+    const assignedContractorId = await validateAssignedContractor(
+      validatedData.assignedContractorId,
+      companyId
+    )
+
+    if (assignedContractorId === false) {
+      return NextResponse.json(
+        { error: "Ogiltig servicepartner" },
+        { status: 400 }
+      )
+    }
 
     const installation = await prisma.installation.findFirst({
       where: {
@@ -93,6 +110,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const nextInspection = shouldRecalculateNextInspection
       ? calculateNextInspectionDate(lastInspection, inspectionIntervalMonths)
       : installation.nextInspection
+    const assignedContractorUpdate =
+      assignedContractorId === undefined
+        ? {}
+        : { assignedContractorId }
 
     const updatedInstallation = await prisma.installation.update({
       where: {
@@ -106,6 +127,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         propertyName: emptyToNull(validatedData.propertyName),
         equipmentType: emptyToNull(validatedData.equipmentType),
         operatorName: emptyToNull(validatedData.operatorName),
+        ...assignedContractorUpdate,
         refrigerantType: validatedData.refrigerantType,
         refrigerantAmount: validatedData.refrigerantAmount,
         hasLeakDetectionSystem: validatedData.hasLeakDetectionSystem ?? false,
@@ -155,9 +177,34 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 }
 
-function emptyToNull(value?: string) {
+function emptyToNull(value?: string | null) {
   const trimmedValue = value?.trim()
   return trimmedValue ? trimmedValue : null
+}
+
+async function validateAssignedContractor(
+  value: string | null | undefined,
+  companyId: string
+) {
+  if (value === undefined) return undefined
+
+  const contractorId = emptyToNull(value)
+
+  if (!contractorId) return null
+
+  const contractor = await prisma.user.findFirst({
+    where: {
+      id: contractorId,
+      companyId,
+      role: "CONTRACTOR",
+      isActive: true,
+    },
+    select: {
+      id: true,
+    },
+  })
+
+  return contractor ? contractor.id : false
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {

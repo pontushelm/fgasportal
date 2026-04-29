@@ -69,6 +69,15 @@ export const loginSchema = z.object({
 export type LoginFormData = z.infer<typeof loginSchema>
 
 const optionalRegisterField = z.string().optional()
+const optionalContractorField = z.union([z.string(), z.null()])
+  .optional()
+  .transform((val) => {
+    if (val === undefined) return undefined
+    if (val === null) return null
+
+    const trimmedValue = val.trim()
+    return trimmedValue ? trimmedValue : null
+  })
 const optionalDateField = z.string()
   .optional()
   .transform((val) => {
@@ -89,6 +98,7 @@ const installationRegisterFieldsSchema = {
   equipmentType: optionalRegisterField,
   operatorName: optionalRegisterField,
   hasLeakDetectionSystem: z.boolean().optional(),
+  assignedContractorId: optionalContractorField,
 }
 
 export const createInstallationSchema = z.object({
@@ -130,7 +140,7 @@ export type EditInstallationData = z.infer<typeof editInstallationSchema>
 
 export const createInvitationSchema = z.object({
   email: z.string().email("Ogiltig emailadress"),
-  role: z.enum(["ADMIN", "MEMBER"]),
+  role: z.enum(["ADMIN", "MEMBER", "CONTRACTOR"]),
 })
 
 export type CreateInvitationData = z.infer<typeof createInvitationSchema>

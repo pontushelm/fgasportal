@@ -221,6 +221,11 @@ export default function DashboardPage() {
           <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/leakage">
             Läckageanalys
           </Link>
+          {currentUser?.role === "CONTRACTOR" && (
+            <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/service">
+              Serviceuppdrag
+            </Link>
+          )}
           {canManage && (
             <>
               <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/company">

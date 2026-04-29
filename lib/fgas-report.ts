@@ -56,9 +56,11 @@ export function parseReportYear(value: string | null) {
 
 export async function getFgasAnnualReport({
   companyId,
+  assignedContractorId,
   year,
 }: {
   companyId: string
+  assignedContractorId?: string
   year: number
 }): Promise<FgasReportData> {
   const startDate = new Date(Date.UTC(year, 0, 1))
@@ -67,6 +69,7 @@ export async function getFgasAnnualReport({
     where: {
       companyId,
       archivedAt: null,
+      ...(assignedContractorId ? { assignedContractorId } : {}),
     },
     include: {
       events: {

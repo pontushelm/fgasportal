@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export const AUTH_COOKIE_NAME = 'auth-token'
 export const AUTH_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 
-export type UserRole = 'ADMIN' | 'MEMBER'
+export type UserRole = 'ADMIN' | 'MEMBER' | 'CONTRACTOR'
 
 export type AuthenticatedUser = {
   userId: string
@@ -97,6 +97,10 @@ export function isAdmin(user: AuthenticatedUser): boolean {
   return user.role === 'ADMIN'
 }
 
+export function isContractor(user: AuthenticatedUser): boolean {
+  return user.role === 'CONTRACTOR'
+}
+
 export function forbiddenResponse() {
   return NextResponse.json(
     { error: 'Behörighet saknas' },
@@ -116,5 +120,5 @@ function isAuthTokenPayload(
 }
 
 function isUserRole(role: unknown): role is UserRole {
-  return role === 'ADMIN' || role === 'MEMBER'
+  return role === 'ADMIN' || role === 'MEMBER' || role === 'CONTRACTOR'
 }

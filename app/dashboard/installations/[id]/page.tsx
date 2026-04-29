@@ -61,6 +61,7 @@ type InstallationDetail = {
   installationDate: string
   lastInspection?: string | null
   nextInspection?: string | null
+  assignedContractorId?: string | null
   notes?: string | null
   inspections: Inspection[]
 }
@@ -96,7 +97,14 @@ type InstallationEditFormData = {
   refrigerantType: string
   refrigerantAmount: string
   hasLeakDetectionSystem: boolean
+  assignedContractorId: string
   notes: string
+}
+
+type Contractor = {
+  id: string
+  name: string
+  email: string
 }
 
 const initialInspectionFormData: InspectionFormData = {
@@ -124,6 +132,7 @@ const initialEditFormData: InstallationEditFormData = {
   refrigerantType: "",
   refrigerantAmount: "",
   hasLeakDetectionSystem: false,
+  assignedContractorId: "",
   notes: "",
 }
 
@@ -170,6 +179,7 @@ export default function InstallationDetailPage() {
   const router = useRouter()
   const [installation, setInstallation] = useState<InstallationDetail | null>(null)
   const [events, setEvents] = useState<InstallationEvent[]>([])
+  const [contractors, setContractors] = useState<Contractor[]>([])
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
@@ -236,11 +246,18 @@ export default function InstallationDetailPage() {
       const data: InstallationDetail = await installationRes.json()
       const userData: CurrentUser = await userRes.json()
       const eventsData: InstallationEvent[] = await eventsRes.json()
+      const contractorsData: Contractor[] =
+        userData.role === "ADMIN"
+          ? await fetch("/api/company/contractors", {
+              credentials: "include",
+            }).then((response) => (response.ok ? response.json() : []))
+          : []
 
       if (!isMounted) return
 
       setInstallation(data)
       setEvents(eventsData)
+      setContractors(contractorsData)
       setCurrentUser(userData)
       setEditForm({
         name: data.name,
@@ -253,6 +270,7 @@ export default function InstallationDetailPage() {
         refrigerantType: data.refrigerantType,
         refrigerantAmount: String(data.refrigerantAmount),
         hasLeakDetectionSystem: data.hasLeakDetectionSystem,
+        assignedContractorId: data.assignedContractorId || "",
         notes: data.notes || "",
       })
       setIsLoading(false)
@@ -284,7 +302,7 @@ export default function InstallationDetailPage() {
   }
 
   function handleEditChange(
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
     const value =
       event.target instanceof HTMLInputElement && event.target.type === "checkbox"
@@ -626,6 +644,17 @@ export default function InstallationDetailPage() {
                   onChange={handleEditChange}
                 />
                 Läckagevarningssystem
+              </label>
+              <label className={fieldClassName}>
+                Servicepartner
+                <select name="assignedContractorId" value={editForm.assignedContractorId} onChange={handleEditChange}>
+                  <option value="">Ingen tilldelad</option>
+                  {contractors.map((contractor) => (
+                    <option key={contractor.id} value={contractor.id}>
+                      {contractor.name} ({contractor.email})
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className={fieldClassName}>Anteckningar<textarea name="notes" value={editForm.notes} onChange={handleEditChange} /></label>
               {editError && <p className="text-sm font-semibold text-red-700">{editError}</p>}

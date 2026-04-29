@@ -209,6 +209,7 @@ export default function CompanySettingsPage() {
                 <select name="role" value={formData.role} onChange={handleChange}>
                   <option value="MEMBER">MEMBER</option>
                   <option value="ADMIN">ADMIN</option>
+                  <option value="CONTRACTOR">CONTRACTOR</option>
                 </select>
               </label>
 

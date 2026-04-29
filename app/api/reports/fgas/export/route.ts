@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { authenticateApiRequest } from "@/lib/auth"
+import { authenticateApiRequest, isContractor } from "@/lib/auth"
 import {
   getFgasAnnualReport,
   parseReportYear,
@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
 
     const report = await getFgasAnnualReport({
       companyId: auth.user.companyId,
+      assignedContractorId: isContractor(auth.user) ? auth.user.userId : undefined,
       year,
     })
     const csv = createReportCsv(report)

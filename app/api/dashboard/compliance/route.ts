@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { authenticateApiRequest } from "@/lib/auth"
+import { authenticateApiRequest, isContractor } from "@/lib/auth"
 import {
   calculateInstallationCompliance,
   type ComplianceStatus,
@@ -48,11 +48,12 @@ export async function GET(request: NextRequest) {
     const auth = authenticateApiRequest(request)
     if (auth.response) return auth.response
 
-    const { companyId } = auth.user
+    const { companyId, userId } = auth.user
     const installations = await prisma.installation.findMany({
       where: {
         companyId,
         archivedAt: null,
+        ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
       },
       include: {
         events: {

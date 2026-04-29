@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { authenticateApiRequest } from "@/lib/auth"
+import { authenticateApiRequest, isContractor } from "@/lib/auth"
 import { calculateCO2e } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
 
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     const auth = authenticateApiRequest(request)
     if (auth.response) return auth.response
 
-    const { companyId } = auth.user
+    const { companyId, userId } = auth.user
     const yearParam = request.nextUrl.searchParams.get("year")
     const year = parseReportYear(yearParam)
 
@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
       where: {
         companyId,
         archivedAt: null,
+        ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
       },
       include: {
         events: {

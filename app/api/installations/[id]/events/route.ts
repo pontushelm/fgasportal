@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { ZodError } from "zod"
-import { authenticateApiRequest } from "@/lib/auth"
+import { authenticateApiRequest, isContractor } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 import { createInstallationEventSchema } from "@/lib/validations"
@@ -17,12 +17,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
     if (auth.response) return auth.response
 
     const { id } = await context.params
-    const { companyId } = auth.user
+    const { companyId, userId } = auth.user
     const installation = await prisma.installation.findFirst({
       where: {
         id,
         companyId,
         archivedAt: null,
+        ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
       },
       select: {
         id: true,
@@ -78,6 +79,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         id,
         companyId,
         archivedAt: null,
+        ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
       },
       select: {
         id: true,

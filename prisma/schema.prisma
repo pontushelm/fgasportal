@@ -47,6 +47,7 @@ model User {
 
   createdInstallations Installation[] @relation("CreatedBy")
   updatedInstallations Installation[] @relation("UpdatedBy")
+  assignedInstallations Installation[] @relation("AssignedContractor")
   sentInvitations      Invitation[]   @relation("InvitedBy")
   installationEvents   InstallationEvent[]
 
@@ -101,6 +102,9 @@ model Installation {
 
   updatedById String
   updatedBy   User @relation("UpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  assignedContractorId String?
+  assignedContractor   User? @relation("AssignedContractor", fields: [assignedContractorId], references: [id], onDelete: SetNull)
 
   inspections Inspection[]
   reminderLogs ReminderLog[]
