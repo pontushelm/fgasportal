@@ -6,6 +6,13 @@ datasource db {
   provider = "postgresql"
 }
 
+enum InstallationEventType {
+  INSPECTION
+  LEAK
+  REFILL
+  SERVICE
+}
+
 model Company {
   id        String   @id @default(cuid())
   name      String
@@ -41,6 +48,7 @@ model User {
   createdInstallations Installation[] @relation("CreatedBy")
   updatedInstallations Installation[] @relation("UpdatedBy")
   sentInvitations      Invitation[]   @relation("InvitedBy")
+  installationEvents   InstallationEvent[]
 
   @@map("users")
 }
@@ -96,6 +104,7 @@ model Installation {
 
   inspections Inspection[]
   reminderLogs ReminderLog[]
+  events InstallationEvent[]
 
   @@map("installations")
 }
@@ -133,4 +142,20 @@ model ReminderLog {
   @@index([email])
   @@index([sentAt])
   @@map("reminder_logs")
+}
+
+model InstallationEvent {
+  id                 String                @id @default(cuid())
+  installationId     String
+  installation       Installation          @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  date               DateTime
+  type               InstallationEventType
+  refrigerantAddedKg Float?
+  notes              String?
+  createdById        String?
+  createdBy          User?                 @relation(fields: [createdById], references: [id])
+  createdAt          DateTime              @default(now())
+
+  @@index([installationId])
+  @@map("installation_events")
 }

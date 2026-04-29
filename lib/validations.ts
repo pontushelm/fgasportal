@@ -134,3 +134,20 @@ export const createInvitationSchema = z.object({
 })
 
 export type CreateInvitationData = z.infer<typeof createInvitationSchema>
+
+export const createInstallationEventSchema = z.object({
+  date: z.string().min(1, "Datum krävs").transform((val) => new Date(val)),
+  type: z.enum(["INSPECTION", "LEAK", "REFILL", "SERVICE"]),
+  refrigerantAddedKg: z.string()
+    .optional()
+    .transform((val) => (val ? parseFloat(val) : null)),
+  notes: z.string().optional(),
+}).refine((data) => data.type !== "LEAK" || Boolean(data.notes?.trim()), {
+  message: "Anteckningar krävs för läckagehändelser",
+  path: ["notes"],
+}).refine((data) => data.refrigerantAddedKg === null || data.refrigerantAddedKg >= 0, {
+  message: "Påfylld mängd måste vara 0 eller högre",
+  path: ["refrigerantAddedKg"],
+})
+
+export type CreateInstallationEventData = z.infer<typeof createInstallationEventSchema>

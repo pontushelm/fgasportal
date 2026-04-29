@@ -16,6 +16,20 @@ type Inspection = {
   nextDueDate?: string | null
 }
 
+type InstallationEventType = "INSPECTION" | "LEAK" | "REFILL" | "SERVICE"
+
+type InstallationEvent = {
+  id: string
+  date: string
+  type: InstallationEventType
+  refrigerantAddedKg?: number | null
+  notes?: string | null
+  createdBy?: {
+    name: string
+    email: string
+  } | null
+}
+
 type InstallationDetail = {
   id: string
   name: string
@@ -48,6 +62,13 @@ type InspectionFormData = {
   notes: string
 }
 
+type EventFormData = {
+  date: string
+  type: InstallationEventType
+  refrigerantAddedKg: string
+  notes: string
+}
+
 type InstallationEditFormData = {
   name: string
   location: string
@@ -69,6 +90,13 @@ const initialInspectionFormData: InspectionFormData = {
   notes: "",
 }
 
+const initialEventFormData: EventFormData = {
+  date: "",
+  type: "SERVICE",
+  refrigerantAddedKg: "",
+  notes: "",
+}
+
 const initialEditFormData: InstallationEditFormData = {
   name: "",
   location: "",
@@ -87,15 +115,20 @@ export default function InstallationDetailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const [installation, setInstallation] = useState<InstallationDetail | null>(null)
+  const [events, setEvents] = useState<InstallationEvent[]>([])
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
   const [inspectionForm, setInspectionForm] = useState<InspectionFormData>(
     initialInspectionFormData
   )
+  const [eventForm, setEventForm] = useState<EventFormData>(initialEventFormData)
   const [submitError, setSubmitError] = useState("")
   const [submitSuccess, setSubmitSuccess] = useState("")
+  const [eventError, setEventError] = useState("")
+  const [eventSuccess, setEventSuccess] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSubmittingEvent, setIsSubmittingEvent] = useState(false)
   const [editForm, setEditForm] = useState<InstallationEditFormData>(
     initialEditFormData
   )
@@ -111,16 +144,23 @@ export default function InstallationDetailPage() {
     let isMounted = true
 
     async function fetchInstallation() {
-      const [installationRes, userRes] = await Promise.all([
+      const [installationRes, userRes, eventsRes] = await Promise.all([
         fetch(`/api/installations/${params.id}`, {
           credentials: "include",
         }),
         fetch("/api/auth/me", {
           credentials: "include",
         }),
+        fetch(`/api/installations/${params.id}/events`, {
+          credentials: "include",
+        }),
       ])
 
-      if (installationRes.status === 401 || userRes.status === 401) {
+      if (
+        installationRes.status === 401 ||
+        userRes.status === 401 ||
+        eventsRes.status === 401
+      ) {
         router.push("/login")
         return
       }
@@ -132,7 +172,7 @@ export default function InstallationDetailPage() {
         return
       }
 
-      if (!installationRes.ok || !userRes.ok) {
+      if (!installationRes.ok || !userRes.ok || !eventsRes.ok) {
         if (!isMounted) return
         setError("Kunde inte hämta installationen")
         setIsLoading(false)
@@ -141,10 +181,12 @@ export default function InstallationDetailPage() {
 
       const data: InstallationDetail = await installationRes.json()
       const userData: CurrentUser = await userRes.json()
+      const eventsData: InstallationEvent[] = await eventsRes.json()
 
       if (!isMounted) return
 
       setInstallation(data)
+      setEvents(eventsData)
       setCurrentUser(userData)
       setEditForm({
         name: data.name,
@@ -174,6 +216,15 @@ export default function InstallationDetailPage() {
   ) {
     setInspectionForm({
       ...inspectionForm,
+      [event.target.name]: event.target.value,
+    })
+  }
+
+  function handleEventChange(
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) {
+    setEventForm({
+      ...eventForm,
       [event.target.name]: event.target.value,
     })
   }
@@ -290,6 +341,52 @@ export default function InstallationDetailPage() {
     setIsSubmitting(false)
   }
 
+  async function handleEventSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    setEventError("")
+    setEventSuccess("")
+
+    if (eventForm.type === "LEAK" && !eventForm.notes.trim()) {
+      setEventError("Anteckningar krävs för läckagehändelser")
+      return
+    }
+
+    setIsSubmittingEvent(true)
+
+    const res = await fetch(`/api/installations/${params.id}/events`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        date: eventForm.date,
+        type: eventForm.type,
+        refrigerantAddedKg:
+          eventForm.type === "REFILL" ? eventForm.refrigerantAddedKg : "",
+        notes: eventForm.notes,
+      }),
+    })
+
+    const result: InstallationEvent & { error?: string } = await res.json()
+
+    if (res.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!res.ok) {
+      setEventError(result.error || "Kunde inte lägga till händelsen")
+      setIsSubmittingEvent(false)
+      return
+    }
+
+    setEvents((current) => [result, ...current].sort(compareEventsByDateDesc))
+    setEventForm(initialEventFormData)
+    setEventSuccess("Händelsen har lagts till")
+    setIsSubmittingEvent(false)
+  }
+
   if (isLoading) {
     return (
       <main style={pageStyle}>
@@ -379,89 +476,40 @@ export default function InstallationDetailPage() {
             <form onSubmit={handleEditSubmit} style={formStyle}>
               <label style={fieldStyle}>
                 Namn
-                <input
-                  name="name"
-                  value={editForm.name}
-                  onChange={handleEditChange}
-                  required
-                />
+                <input name="name" value={editForm.name} onChange={handleEditChange} required />
               </label>
-
               <label style={fieldStyle}>
                 Plats
-                <input
-                  name="location"
-                  value={editForm.location}
-                  onChange={handleEditChange}
-                  required
-                />
+                <input name="location" value={editForm.location} onChange={handleEditChange} required />
               </label>
-
               <label style={fieldStyle}>
                 Fastighet
-                <input
-                  name="propertyName"
-                  value={editForm.propertyName}
-                  onChange={handleEditChange}
-                />
+                <input name="propertyName" value={editForm.propertyName} onChange={handleEditChange} />
               </label>
-
               <label style={fieldStyle}>
                 Utrustnings-ID
-                <input
-                  name="equipmentId"
-                  value={editForm.equipmentId}
-                  onChange={handleEditChange}
-                />
+                <input name="equipmentId" value={editForm.equipmentId} onChange={handleEditChange} />
               </label>
-
               <label style={fieldStyle}>
                 Serienummer
-                <input
-                  name="serialNumber"
-                  value={editForm.serialNumber}
-                  onChange={handleEditChange}
-                />
+                <input name="serialNumber" value={editForm.serialNumber} onChange={handleEditChange} />
               </label>
-
               <label style={fieldStyle}>
                 Utrustningstyp
-                <input
-                  name="equipmentType"
-                  value={editForm.equipmentType}
-                  onChange={handleEditChange}
-                />
+                <input name="equipmentType" value={editForm.equipmentType} onChange={handleEditChange} />
               </label>
-
               <label style={fieldStyle}>
                 Operatör
-                <input
-                  name="operatorName"
-                  value={editForm.operatorName}
-                  onChange={handleEditChange}
-                />
+                <input name="operatorName" value={editForm.operatorName} onChange={handleEditChange} />
               </label>
-
               <label style={fieldStyle}>
                 Köldmedium
-                <input
-                  name="refrigerantType"
-                  value={editForm.refrigerantType}
-                  onChange={handleEditChange}
-                  required
-                />
+                <input name="refrigerantType" value={editForm.refrigerantType} onChange={handleEditChange} required />
               </label>
-
               <label style={fieldStyle}>
                 Mängd kg
-                <input
-                  name="refrigerantAmount"
-                  value={editForm.refrigerantAmount}
-                  onChange={handleEditChange}
-                  required
-                />
+                <input name="refrigerantAmount" value={editForm.refrigerantAmount} onChange={handleEditChange} required />
               </label>
-
               <label>
                 <input
                   name="hasLeakDetectionSystem"
@@ -471,28 +519,17 @@ export default function InstallationDetailPage() {
                 />
                 Läckagevarningssystem
               </label>
-
               <label style={fieldStyle}>
                 Anteckningar
-                <textarea
-                  name="notes"
-                  value={editForm.notes}
-                  onChange={handleEditChange}
-                />
+                <textarea name="notes" value={editForm.notes} onChange={handleEditChange} />
               </label>
-
               {editError && <p style={{ color: "#b91c1c" }}>{editError}</p>}
               {editSuccess && <p style={{ color: "#047857" }}>{editSuccess}</p>}
-
               <div style={{ display: "flex", gap: 8 }}>
                 <button type="submit" disabled={isSavingEdit}>
                   {isSavingEdit ? "Sparar..." : "Spara ändringar"}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(false)}
-                  disabled={isSavingEdit}
-                >
+                <button type="button" onClick={() => setIsEditing(false)} disabled={isSavingEdit}>
                   Avbryt
                 </button>
               </div>
@@ -505,11 +542,7 @@ export default function InstallationDetailPage() {
 
           <div style={{ marginTop: 24 }}>
             {archiveError && <p style={{ color: "#b91c1c" }}>{archiveError}</p>}
-            <button
-              type="button"
-              onClick={handleArchiveInstallation}
-              disabled={isArchiving}
-            >
+            <button type="button" onClick={handleArchiveInstallation} disabled={isArchiving}>
               {isArchiving ? "Arkiverar..." : "Arkivera installation"}
             </button>
           </div>
@@ -519,66 +552,85 @@ export default function InstallationDetailPage() {
       {canManage && (
         <section style={sectionStyle}>
           <h2>Registrera kontroll</h2>
-
           <form onSubmit={handleInspectionSubmit} style={formStyle}>
-          <label style={fieldStyle}>
-            Datum
-            <input
-              name="inspectionDate"
-              type="date"
-              value={inspectionForm.inspectionDate}
-              onChange={handleInspectionChange}
-              required
-            />
-          </label>
+            <label style={fieldStyle}>
+              Datum
+              <input name="inspectionDate" type="date" value={inspectionForm.inspectionDate} onChange={handleInspectionChange} required />
+            </label>
+            <label style={fieldStyle}>
+              Kontrollant
+              <input name="inspectorName" value={inspectionForm.inspectorName} onChange={handleInspectionChange} required />
+            </label>
+            <label style={fieldStyle}>
+              Resultat
+              <select name="status" value={inspectionForm.status} onChange={handleInspectionChange} required>
+                <option value="">Välj resultat</option>
+                <option value="Godkänd">Godkänd</option>
+                <option value="Åtgärd krävs">Åtgärd krävs</option>
+                <option value="Ej godkänd">Ej godkänd</option>
+              </select>
+            </label>
+            <label style={fieldStyle}>
+              Noteringar
+              <textarea name="notes" value={inspectionForm.notes} onChange={handleInspectionChange} />
+            </label>
+            {submitError && <p style={{ color: "#b91c1c" }}>{submitError}</p>}
+            {submitSuccess && <p style={{ color: "#047857" }}>{submitSuccess}</p>}
+            <button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Sparar..." : "Spara kontroll"}
+            </button>
+          </form>
+        </section>
+      )}
 
-          <label style={fieldStyle}>
-            Kontrollant
-            <input
-              name="inspectorName"
-              value={inspectionForm.inspectorName}
-              onChange={handleInspectionChange}
-              required
-            />
-          </label>
-
-          <label style={fieldStyle}>
-            Resultat
-            <select
-              name="status"
-              value={inspectionForm.status}
-              onChange={handleInspectionChange}
-              required
-            >
-              <option value="">Välj resultat</option>
-              <option value="Godkänd">Godkänd</option>
-              <option value="Åtgärd krävs">Åtgärd krävs</option>
-              <option value="Ej godkänd">Ej godkänd</option>
-            </select>
-          </label>
-
-          <label style={fieldStyle}>
-            Noteringar
-            <textarea
-              name="notes"
-              value={inspectionForm.notes}
-              onChange={handleInspectionChange}
-            />
-          </label>
-
-          {submitError && <p style={{ color: "#b91c1c" }}>{submitError}</p>}
-          {submitSuccess && <p style={{ color: "#047857" }}>{submitSuccess}</p>}
-
-          <button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Sparar..." : "Spara kontroll"}
-          </button>
+      {canManage && (
+        <section style={sectionStyle}>
+          <h2>Lägg till händelse</h2>
+          <form onSubmit={handleEventSubmit} style={formStyle}>
+            <label style={fieldStyle}>
+              Datum
+              <input name="date" type="date" value={eventForm.date} onChange={handleEventChange} required />
+            </label>
+            <label style={fieldStyle}>
+              Typ
+              <select name="type" value={eventForm.type} onChange={handleEventChange} required>
+                <option value="INSPECTION">Kontroll</option>
+                <option value="LEAK">Läckage</option>
+                <option value="REFILL">Påfyllning</option>
+                <option value="SERVICE">Service</option>
+              </select>
+            </label>
+            {eventForm.type === "REFILL" && (
+              <label style={fieldStyle}>
+                Påfylld mängd kg
+                <input
+                  name="refrigerantAddedKg"
+                  value={eventForm.refrigerantAddedKg}
+                  onChange={handleEventChange}
+                  inputMode="decimal"
+                />
+              </label>
+            )}
+            <label style={fieldStyle}>
+              Anteckningar
+              <textarea
+                name="notes"
+                value={eventForm.notes}
+                onChange={handleEventChange}
+                required={eventForm.type === "LEAK"}
+              />
+            </label>
+            {eventError && <p style={{ color: "#b91c1c" }}>{eventError}</p>}
+            {eventSuccess && <p style={{ color: "#047857" }}>{eventSuccess}</p>}
+            <button type="submit" disabled={isSubmittingEvent}>
+              {isSubmittingEvent ? "Sparar..." : "Lägg till händelse"}
+            </button>
           </form>
         </section>
       )}
 
       <section style={sectionStyle}>
         <h2>Kontrollhistorik</h2>
-
         {installation.inspections.length === 0 ? (
           <p>Inga kontroller registrerade ännu.</p>
         ) : (
@@ -608,6 +660,38 @@ export default function InstallationDetailPage() {
           </table>
         )}
       </section>
+
+      <section style={sectionStyle}>
+        <h2>Historik</h2>
+        {events.length === 0 ? (
+          <p>Inga händelser registrerade ännu.</p>
+        ) : (
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={cellStyle}>Datum</th>
+                <th style={cellStyle}>Typ</th>
+                <th style={cellStyle}>Påfylld mängd kg</th>
+                <th style={cellStyle}>Anteckningar</th>
+                <th style={cellStyle}>Skapad av</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((event) => (
+                <tr key={event.id}>
+                  <td style={cellStyle}>{formatDate(event.date)}</td>
+                  <td style={cellStyle}>
+                    <EventBadge type={event.type} />
+                  </td>
+                  <td style={cellStyle}>{event.refrigerantAddedKg ?? "-"}</td>
+                  <td style={cellStyle}>{event.notes || "-"}</td>
+                  <td style={cellStyle}>{formatCreatedBy(event.createdBy)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
     </main>
   )
 }
@@ -621,6 +705,21 @@ function DetailItem({ label, value }: { label: string; value: string }) {
   )
 }
 
+function EventBadge({ type }: { type: InstallationEventType }) {
+  const config: Record<InstallationEventType, { label: string; style: React.CSSProperties }> = {
+    INSPECTION: { label: "Kontroll", style: { color: "#1d4ed8", borderColor: "#1d4ed8" } },
+    LEAK: { label: "Läckage", style: { color: "#b91c1c", borderColor: "#b91c1c" } },
+    REFILL: { label: "Påfyllning", style: { color: "#b45309", borderColor: "#b45309" } },
+    SERVICE: { label: "Service", style: { color: "#525252", borderColor: "#525252" } },
+  }
+
+  return (
+    <span style={{ ...badgeStyle, ...config[type].style }}>
+      {config[type].label}
+    </span>
+  )
+}
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("sv-SE").format(new Date(value))
 }
@@ -631,6 +730,15 @@ function formatOptionalDate(value?: string | null) {
 
 function formatOptionalText(value?: string | null) {
   return value || "-"
+}
+
+function formatCreatedBy(createdBy?: InstallationEvent["createdBy"]) {
+  if (!createdBy) return "-"
+  return createdBy.name || createdBy.email
+}
+
+function compareEventsByDateDesc(first: InstallationEvent, second: InstallationEvent) {
+  return new Date(second.date).getTime() - new Date(first.date).getTime()
 }
 
 function formatInspectionInterval(compliance: {
@@ -684,4 +792,13 @@ const cellStyle: React.CSSProperties = {
   border: "1px solid #ddd",
   padding: "10px",
   textAlign: "left",
+}
+
+const badgeStyle: React.CSSProperties = {
+  display: "inline-block",
+  border: "1px solid",
+  borderRadius: 999,
+  padding: "3px 8px",
+  fontSize: 13,
+  fontWeight: 600,
 }
