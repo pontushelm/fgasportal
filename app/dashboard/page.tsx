@@ -6,6 +6,7 @@ import { useEffect, useState } from "react"
 import CreateInstallationForm from "@/components/installations/create-installation-form"
 import type { UserRole } from "@/lib/auth"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
+import type { InstallationRiskLevel } from "@/lib/risk-classification"
 
 type Installation = {
   id: string
@@ -21,6 +22,10 @@ type Installation = {
   complianceStatus: ComplianceStatus
   daysUntilDue: number | null
   nextInspection?: string | null
+  risk: {
+    level: InstallationRiskLevel
+    score: number
+  }
 }
 
 type CurrentUser = {
@@ -64,6 +69,11 @@ type DashboardData = {
     leakageInstallationCount: number
     leakageEvents: number
   }
+  riskSummary: {
+    high: number
+    medium: number
+    low: number
+  }
   statusDistribution: Record<ComplianceStatus, number>
   refrigerantDistribution: DistributionItem[]
   installations: Installation[]
@@ -104,6 +114,24 @@ const STATUS_BAR_TONE: Record<ComplianceStatus, string> = {
   OVERDUE: "bg-red-500",
   NOT_REQUIRED: "bg-slate-500",
   NOT_INSPECTED: "bg-sky-500",
+}
+
+const RISK_LABELS: Record<InstallationRiskLevel, string> = {
+  HIGH: "Hög",
+  MEDIUM: "Medel",
+  LOW: "Låg",
+}
+
+const RISK_TONE: Record<InstallationRiskLevel, string> = {
+  HIGH: "bg-red-100 text-red-700",
+  MEDIUM: "bg-amber-100 text-amber-700",
+  LOW: "bg-green-100 text-green-700",
+}
+
+const RISK_SORT_ORDER: Record<InstallationRiskLevel, number> = {
+  HIGH: 1,
+  MEDIUM: 2,
+  LOW: 3,
 }
 
 export default function DashboardPage() {
@@ -166,6 +194,9 @@ export default function DashboardPage() {
     activeFilter === "ALL"
       ? installations
       : installations.filter((item) => item.complianceStatus === activeFilter)
+  const highestRiskInstallations = [...installations]
+    .sort(compareRiskInstallations)
+    .slice(0, 8)
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
@@ -234,6 +265,30 @@ export default function DashboardPage() {
             <MetricCard label="Köldmediemängd" value={`${formatNumber(dashboardData.environmental.totalRefrigerantAmount)} kg`} />
             <MetricCard label="Kontrollpliktiga aggregat" value={dashboardData.environmental.requiringInspection} />
             <MetricCard label="Läckagehändelser" value={dashboardData.environmental.leakageEvents} tone="red" />
+          </section>
+
+          <section className="mt-10">
+            <div>
+              <h2 className="text-xl font-semibold">Riskklassning</h2>
+              <p className="mt-1 text-sm text-slate-700">
+                Klimat- och compliance-risk baserat på CO₂e, mängd köldmedium
+                och registrerade läckagehändelser.
+              </p>
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-3">
+              <MetricCard label="Hög risk" value={dashboardData.riskSummary.high} tone="red" />
+              <MetricCard label="Medel risk" value={dashboardData.riskSummary.medium} tone="amber" />
+              <MetricCard label="Låg risk" value={dashboardData.riskSummary.low} tone="emerald" />
+            </div>
+
+            {highestRiskInstallations.length === 0 ? (
+              <p className="mt-5 text-sm text-slate-700">
+                Inga aggregat finns att riskklassa.
+              </p>
+            ) : (
+              <RiskTable installations={highestRiskInstallations} />
+            )}
           </section>
 
           <section className="mt-10 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
@@ -528,6 +583,43 @@ function InstallationTable({ installations }: { installations: Installation[] })
   )
 }
 
+function RiskTable({ installations }: { installations: Installation[] }) {
+  return (
+    <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <table className="min-w-full divide-y divide-slate-200 text-sm">
+        <thead className="bg-slate-50">
+          <tr>
+            <TableHeader>Aggregat</TableHeader>
+            <TableHeader>Plats</TableHeader>
+            <TableHeader>Köldmedium</TableHeader>
+            <TableHeader>Mängd kg</TableHeader>
+            <TableHeader>CO₂e ton</TableHeader>
+            <TableHeader>Risknivå</TableHeader>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-200">
+          {installations.map((item) => (
+            <tr className="hover:bg-slate-50" key={item.id}>
+              <TableCell>
+                <Link className="font-semibold text-slate-950 underline-offset-4 hover:underline" href={`/dashboard/installations/${item.id}`}>
+                  {item.name}
+                </Link>
+              </TableCell>
+              <TableCell>{item.location}</TableCell>
+              <TableCell>{item.refrigerantType}</TableCell>
+              <TableCell>{formatNumber(item.refrigerantAmount)}</TableCell>
+              <TableCell>{formatNumber(item.co2eTon)}</TableCell>
+              <TableCell>
+                <RiskBadge level={item.risk.level} />
+              </TableCell>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function TableHeader({ children }: { children: React.ReactNode }) {
   return (
     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
@@ -558,6 +650,26 @@ function StatusBadge({
       {badgeLabel}
     </span>
   )
+}
+
+function RiskBadge({ level }: { level: InstallationRiskLevel }) {
+  return (
+    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${RISK_TONE[level]}`}>
+      {RISK_LABELS[level]}
+    </span>
+  )
+}
+
+function compareRiskInstallations(first: Installation, second: Installation) {
+  const levelDiff =
+    RISK_SORT_ORDER[first.risk.level] - RISK_SORT_ORDER[second.risk.level]
+
+  if (levelDiff !== 0) return levelDiff
+  if (second.risk.score !== first.risk.score) {
+    return second.risk.score - first.risk.score
+  }
+
+  return second.co2eTon - first.co2eTon
 }
 
 function formatDueSoonLabel(daysUntilDue: number | null) {

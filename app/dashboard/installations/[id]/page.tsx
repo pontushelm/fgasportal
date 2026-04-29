@@ -494,7 +494,7 @@ export default function InstallationDetailPage() {
       </section>
 
       {canManage && (
-        <section style={sectionStyle}>
+        <section className="installation-form-surface" style={sectionStyle}>
           <h2>Redigera installation</h2>
 
           {!isEditing ? (
@@ -502,7 +502,7 @@ export default function InstallationDetailPage() {
               Redigera
             </button>
           ) : (
-            <form onSubmit={handleEditSubmit} style={formStyle}>
+            <form className="installation-form-surface" onSubmit={handleEditSubmit} style={formStyle}>
               <label style={fieldStyle}>
                 Namn
                 <input name="name" value={editForm.name} onChange={handleEditChange} required />
@@ -579,9 +579,9 @@ export default function InstallationDetailPage() {
       )}
 
       {canManage && (
-        <section style={sectionStyle}>
+        <section className="installation-form-surface" style={sectionStyle}>
           <h2>Registrera kontroll</h2>
-          <form onSubmit={handleInspectionSubmit} style={formStyle}>
+          <form className="installation-form-surface" onSubmit={handleInspectionSubmit} style={formStyle}>
             <label style={fieldStyle}>
               Datum
               <input name="inspectionDate" type="date" value={inspectionForm.inspectionDate} onChange={handleInspectionChange} required />
@@ -613,10 +613,10 @@ export default function InstallationDetailPage() {
       )}
 
       {canManage && (
-        <section style={sectionStyle}>
+        <section className="installation-form-surface" style={sectionStyle}>
           <h2>Lägg till händelse</h2>
           <p>Kontrollhändelser uppdaterar automatiskt senaste och nästa kontroll.</p>
-          <form onSubmit={handleEventSubmit} style={formStyle}>
+          <form className="installation-form-surface" onSubmit={handleEventSubmit} style={formStyle}>
             <label style={fieldStyle}>
               Datum
               <input name="date" type="date" value={eventForm.date} onChange={handleEventChange} required />

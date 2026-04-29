@@ -24,3 +24,46 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.installation-form-surface {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.installation-form-surface label {
+  color: #334155;
+  font-weight: 500;
+}
+
+.installation-form-surface input,
+.installation-form-surface select,
+.installation-form-surface textarea {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #0f172a;
+  padding: 8px 10px;
+}
+
+.installation-form-surface input::placeholder,
+.installation-form-surface textarea::placeholder {
+  color: #94a3b8;
+}
+
+.installation-form-surface button[type="submit"] {
+  background: #2563eb;
+  border: 1px solid #2563eb;
+  border-radius: 6px;
+  color: #ffffff;
+  font-weight: 600;
+  padding: 8px 12px;
+}
+
+.installation-form-surface button[type="submit"]:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.installation-form-surface button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}

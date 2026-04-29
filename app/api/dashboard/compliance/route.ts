@@ -5,6 +5,10 @@ import {
   type ComplianceStatus,
 } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
+import {
+  calculateInstallationRisk,
+  type InstallationRiskLevel,
+} from "@/lib/risk-classification"
 
 type DistributionItem = {
   label: string
@@ -23,6 +27,12 @@ type AttentionItem = {
   date: Date | null
   daysUntilDue: number | null
   notes: string | null
+}
+
+type RiskSummary = {
+  high: number
+  medium: number
+  low: number
 }
 
 const STATUS_SORT_ORDER: Record<ComplianceStatus, number> = {
@@ -52,7 +62,6 @@ export async function GET(request: NextRequest) {
           orderBy: {
             date: "desc",
           },
-          take: 5,
         },
       },
       orderBy: {
@@ -68,6 +77,11 @@ export async function GET(request: NextRequest) {
       NOT_INSPECTED: 0,
     }
     const refrigerantMap = new Map<string, DistributionItem>()
+    const riskSummary: RiskSummary = {
+      high: 0,
+      medium: 0,
+      low: 0,
+    }
     const installationRows = installations.map((installation) => {
       const compliance = calculateInstallationCompliance(
         installation.refrigerantType,
@@ -78,6 +92,15 @@ export async function GET(request: NextRequest) {
       )
 
       statusCounts[compliance.status] += 1
+      const leakageEventsCount = installation.events.length
+      const risk = calculateInstallationRisk({
+        refrigerantType: installation.refrigerantType,
+        refrigerantAmount: installation.refrigerantAmount,
+        gwp: compliance.gwp,
+        hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
+        leakageEventsCount,
+      })
+      incrementRiskSummary(riskSummary, risk.level)
 
       const refrigerantType =
         installation.refrigerantType?.trim() || "Okänt köldmedium"
@@ -106,6 +129,8 @@ export async function GET(request: NextRequest) {
         complianceStatus: compliance.status,
         daysUntilDue: compliance.daysUntilDue,
         nextInspection: installation.nextInspection,
+        leakageEventsCount,
+        risk,
       }
     })
 
@@ -186,6 +211,7 @@ export async function GET(request: NextRequest) {
           leakageInstallationCount,
           leakageEvents: leakageEvents.length,
         },
+        riskSummary,
         statusDistribution: statusCounts,
         refrigerantDistribution: Array.from(refrigerantMap.values()).sort(
           (first, second) => second.count - first.count
@@ -231,6 +257,15 @@ function compareOptionalDates(firstDate?: Date | null, secondDate?: Date | null)
   if (!secondDate) return -1
 
   return firstDate.getTime() - secondDate.getTime()
+}
+
+function incrementRiskSummary(
+  summary: RiskSummary,
+  level: InstallationRiskLevel
+) {
+  if (level === "HIGH") summary.high += 1
+  if (level === "MEDIUM") summary.medium += 1
+  if (level === "LOW") summary.low += 1
 }
 
 function getAttentionPriority(type: ComplianceStatus | "LEAK") {

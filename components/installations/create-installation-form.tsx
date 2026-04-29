@@ -3,8 +3,8 @@
 import Link from "next/link"
 import { useState } from "react"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
-import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 import type { InspectionReminderStatus } from "@/lib/inspection-reminders"
+import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 
 type InstallationFormData = {
   name: string
@@ -67,6 +67,11 @@ const initialFormData: InstallationFormData = {
   notes: "",
 }
 
+const inputClassName =
+  "rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400"
+
+const labelClassName = "grid gap-1 text-sm font-medium text-slate-700"
+
 export default function CreateInstallationForm({
   onInstallationCreated,
 }: {
@@ -79,9 +84,10 @@ export default function CreateInstallationForm({
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
-    const value = e.target instanceof HTMLInputElement && e.target.type === "checkbox"
-      ? e.target.checked
-      : e.target.value
+    const value =
+      e.target instanceof HTMLInputElement && e.target.type === "checkbox"
+        ? e.target.checked
+        : e.target.value
 
     setFormData({
       ...formData,
@@ -120,20 +126,25 @@ export default function CreateInstallationForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} style={formStyle}>
-      <h2>Lägg till aggregat</h2>
+    <form
+      className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 text-slate-900"
+      onSubmit={handleSubmit}
+    >
+      <h2 className="text-lg font-semibold text-slate-900">Lägg till aggregat</h2>
 
-      <input name="name" placeholder="Namn" value={formData.name} onChange={handleChange} required />
-      <input name="location" placeholder="Plats" value={formData.location} onChange={handleChange} required />
-      <input name="propertyName" placeholder="Fastighet" value={formData.propertyName} onChange={handleChange} />
-      <input name="equipmentId" placeholder="Utrustnings-ID" value={formData.equipmentId} onChange={handleChange} />
-      <input name="serialNumber" placeholder="Serienummer" value={formData.serialNumber} onChange={handleChange} />
-      <input name="equipmentType" placeholder="Utrustningstyp" value={formData.equipmentType} onChange={handleChange} />
-      <input name="operatorName" placeholder="Operatör" value={formData.operatorName} onChange={handleChange} />
-      <input name="refrigerantType" placeholder="Köldmedium, t.ex. R410A" value={formData.refrigerantType} onChange={handleChange} required />
-      <input name="refrigerantAmount" placeholder="Mängd kg" value={formData.refrigerantAmount} onChange={handleChange} required />
-      <label>
+      <input className={inputClassName} name="name" placeholder="Namn" value={formData.name} onChange={handleChange} required />
+      <input className={inputClassName} name="location" placeholder="Plats" value={formData.location} onChange={handleChange} required />
+      <input className={inputClassName} name="propertyName" placeholder="Fastighet" value={formData.propertyName} onChange={handleChange} />
+      <input className={inputClassName} name="equipmentId" placeholder="Utrustnings-ID" value={formData.equipmentId} onChange={handleChange} />
+      <input className={inputClassName} name="serialNumber" placeholder="Serienummer" value={formData.serialNumber} onChange={handleChange} />
+      <input className={inputClassName} name="equipmentType" placeholder="Utrustningstyp" value={formData.equipmentType} onChange={handleChange} />
+      <input className={inputClassName} name="operatorName" placeholder="Operatör" value={formData.operatorName} onChange={handleChange} />
+      <input className={inputClassName} name="refrigerantType" placeholder="Köldmedium, t.ex. R410A" value={formData.refrigerantType} onChange={handleChange} required />
+      <input className={inputClassName} name="refrigerantAmount" placeholder="Mängd kg" value={formData.refrigerantAmount} onChange={handleChange} required />
+
+      <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
         <input
+          className="h-4 w-4 rounded border-slate-300 text-blue-600"
           name="hasLeakDetectionSystem"
           type="checkbox"
           checked={formData.hasLeakDetectionSystem}
@@ -141,59 +152,51 @@ export default function CreateInstallationForm({
         />
         Läckagevarningssystem
       </label>
-      <input name="installationDate" type="date" value={formData.installationDate} onChange={handleChange} required />
-      <label>
+
+      <input className={inputClassName} name="installationDate" type="date" value={formData.installationDate} onChange={handleChange} required />
+
+      <label className={labelClassName}>
         Senaste kontroll
-        <input name="lastInspection" type="date" value={formData.lastInspection} onChange={handleChange} />
+        <input className={inputClassName} name="lastInspection" type="date" value={formData.lastInspection} onChange={handleChange} />
       </label>
-      <label>
+
+      <label className={labelClassName}>
         Kontrollintervall
-        <select name="inspectionIntervalMonths" value={formData.inspectionIntervalMonths} onChange={handleChange}>
+        <select className={inputClassName} name="inspectionIntervalMonths" value={formData.inspectionIntervalMonths} onChange={handleChange}>
           <option value="">Välj intervall</option>
           <option value="3">3 månader</option>
           <option value="6">6 månader</option>
           <option value="12">12 månader</option>
         </select>
       </label>
+
       {previewNextInspection && (
-        <p>Nästa kontroll: {previewNextInspection}</p>
+        <p className="text-sm font-medium text-slate-700">
+          Nästa kontroll: {previewNextInspection}
+        </p>
       )}
-      <textarea name="notes" placeholder="Anteckningar" value={formData.notes} onChange={handleChange} />
 
-      {error && <p>{error}</p>}
+      <textarea className={inputClassName} name="notes" placeholder="Anteckningar" value={formData.notes} onChange={handleChange} />
 
-      <div style={actionsStyle}>
-        <button type="submit" disabled={isSubmitting}>
+      {error && <p className="text-sm font-semibold text-red-700">{error}</p>}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+          type="submit"
+          disabled={isSubmitting}
+        >
           {isSubmitting ? "Sparar..." : "Spara aggregat"}
         </button>
-        <Link href="/dashboard/installations/import" style={secondaryButtonStyle}>
+        <Link
+          className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 no-underline hover:bg-slate-50"
+          href="/dashboard/installations/import"
+        >
           Import Excel
         </Link>
       </div>
     </form>
   )
-}
-
-const formStyle: React.CSSProperties = {
-  display: "grid",
-  gap: 8,
-}
-
-const actionsStyle: React.CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: 8,
-  alignItems: "center",
-}
-
-const secondaryButtonStyle: React.CSSProperties = {
-  display: "inline-block",
-  border: "1px solid #171717",
-  borderRadius: 6,
-  padding: "7px 10px",
-  color: "#171717",
-  textDecoration: "none",
-  fontWeight: 600,
 }
 
 function calculateNextInspectionPreview(
