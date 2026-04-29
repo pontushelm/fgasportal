@@ -3,8 +3,15 @@
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
+import {
+  calculateInstallationCompliance,
+  type ComplianceStatus,
+} from "@/lib/fgas-calculations"
 import type { UserRole } from "@/lib/auth"
+import {
+  calculateInstallationRisk,
+  type InstallationRiskLevel,
+} from "@/lib/risk-classification"
 
 type Inspection = {
   id: string
@@ -119,6 +126,44 @@ const initialEditFormData: InstallationEditFormData = {
   hasLeakDetectionSystem: false,
   notes: "",
 }
+
+const EVENT_LABELS: Record<InstallationEventType, string> = {
+  INSPECTION: "Kontroll",
+  LEAK: "Läckage",
+  REFILL: "Påfyllning",
+  SERVICE: "Service",
+}
+
+const EVENT_TONE: Record<InstallationEventType, string> = {
+  INSPECTION: "border-blue-200 bg-blue-50 text-blue-800",
+  LEAK: "border-red-200 bg-red-50 text-red-800",
+  REFILL: "border-amber-200 bg-amber-50 text-amber-800",
+  SERVICE: "border-slate-200 bg-slate-50 text-slate-700",
+}
+
+const RISK_TONE: Record<InstallationRiskLevel, string> = {
+  LOW: "bg-green-100 text-green-700",
+  MEDIUM: "bg-amber-100 text-amber-700",
+  HIGH: "bg-red-100 text-red-700",
+}
+
+const COMPLIANCE_LABELS: Record<ComplianceStatus, string> = {
+  OK: "OK",
+  DUE_SOON: "Kontroll inom 30 dagar",
+  OVERDUE: "Försenad kontroll",
+  NOT_REQUIRED: "Ej kontrollpliktig",
+  NOT_INSPECTED: "Ej kontrollerad",
+}
+
+const COMPLIANCE_TONE: Record<ComplianceStatus, string> = {
+  OK: "bg-green-100 text-green-700",
+  DUE_SOON: "bg-amber-100 text-amber-700",
+  OVERDUE: "bg-red-100 text-red-700",
+  NOT_REQUIRED: "bg-slate-100 text-slate-700",
+  NOT_INSPECTED: "bg-blue-100 text-blue-700",
+}
+
+const fieldClassName = "grid gap-1 text-sm font-medium text-slate-700"
 
 export default function InstallationDetailPage() {
   const params = useParams<{ id: string }>()
@@ -241,14 +286,29 @@ export default function InstallationDetailPage() {
   function handleEditChange(
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) {
-    const value = event.target instanceof HTMLInputElement && event.target.type === "checkbox"
-      ? event.target.checked
-      : event.target.value
+    const value =
+      event.target instanceof HTMLInputElement && event.target.type === "checkbox"
+        ? event.target.checked
+        : event.target.value
 
     setEditForm({
       ...editForm,
       [event.target.name]: value,
     })
+  }
+
+  function handleQuickEvent(type: InstallationEventType) {
+    setEventForm((current) => ({
+      ...current,
+      type,
+      date: current.date || getTodayInputValue(),
+    }))
+    window.setTimeout(() => {
+      document.getElementById("event-form")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      })
+    }, 0)
   }
 
   async function handleEditSubmit(event: React.FormEvent) {
@@ -418,19 +478,23 @@ export default function InstallationDetailPage() {
 
   if (isLoading) {
     return (
-      <main style={pageStyle}>
-        <Link href="/dashboard">Tillbaka till dashboard</Link>
-        <p>Laddar...</p>
+      <main className="mx-auto max-w-6xl px-4 py-10 text-slate-900">
+        <Link className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline" href="/dashboard">
+          Tillbaka till dashboard
+        </Link>
+        <p className="mt-6 text-slate-600">Laddar...</p>
       </main>
     )
   }
 
   if (error || !installation) {
     return (
-      <main style={pageStyle}>
-        <Link href="/dashboard">Tillbaka till dashboard</Link>
-        <h1>Installation</h1>
-        <p>{error || "Installationen hittades inte"}</p>
+      <main className="mx-auto max-w-6xl px-4 py-10 text-slate-900">
+        <Link className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline" href="/dashboard">
+          Tillbaka till dashboard
+        </Link>
+        <h1 className="mt-6 text-3xl font-bold">Installation</h1>
+        <p className="mt-3 text-slate-600">{error || "Installationen hittades inte"}</p>
       </main>
     )
   }
@@ -442,104 +506,119 @@ export default function InstallationDetailPage() {
     installation.lastInspection,
     installation.nextInspection
   )
+  const leakageEvents = events.filter((event) => event.type === "LEAK")
+  const totalLeakageKg = leakageEvents.reduce(
+    (sum, event) => sum + (event.refrigerantAddedKg ?? 0),
+    0
+  )
+  const latestLeakage = leakageEvents[0]?.date ?? null
+  const risk = calculateInstallationRisk({
+    refrigerantType: installation.refrigerantType,
+    refrigerantAmount: installation.refrigerantAmount,
+    gwp: compliance.gwp,
+    hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
+    leakageEventsCount: leakageEvents.length,
+  })
   const canManage = currentUser?.role === "ADMIN"
 
   return (
-    <main style={pageStyle}>
-      <Link href="/dashboard">Tillbaka till dashboard</Link>
+    <main className="mx-auto max-w-6xl px-4 py-10 text-slate-900">
+      <Link className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline" href="/dashboard">
+        Tillbaka till dashboard
+      </Link>
 
-      <h1>{installation.name}</h1>
-      <p>{installation.location}</p>
-
-      <section style={sectionStyle}>
-        <h2>Installationsdetaljer</h2>
-        <dl style={detailsGridStyle}>
-          <DetailItem label="Fastighet" value={formatOptionalText(installation.propertyName)} />
-          <DetailItem label="Utrustnings-ID" value={formatOptionalText(installation.equipmentId)} />
-          <DetailItem label="Serienummer" value={formatOptionalText(installation.serialNumber)} />
-          <DetailItem label="Utrustningstyp" value={formatOptionalText(installation.equipmentType)} />
-          <DetailItem label="Operatör" value={formatOptionalText(installation.operatorName)} />
-          <DetailItem label="Köldmedium" value={installation.refrigerantType} />
-          <DetailItem label="Mängd" value={`${installation.refrigerantAmount} kg`} />
-          <DetailItem
-            label="Läckagevarningssystem"
-            value={installation.hasLeakDetectionSystem ? "Ja" : "Nej"}
-          />
-          <DetailItem label="GWP" value={compliance.gwp.toString()} />
-          <DetailItem label="CO₂e" value={`${compliance.co2eTon.toFixed(2)} ton`} />
-          <DetailItem
-            label="Kontrollintervall"
-            value={formatInspectionInterval(compliance)}
-          />
-          <DetailItem
-            label="Installationsdatum"
-            value={formatDate(installation.installationDate)}
-          />
-          <DetailItem
-            label="Senaste kontroll"
-            value={formatOptionalDate(installation.lastInspection)}
-          />
-          <DetailItem
-            label="Nästa kontroll"
-            value={formatOptionalDate(installation.nextInspection)}
-          />
-        </dl>
-
-        {installation.notes && (
-          <div style={{ marginTop: 20 }}>
-            <h3>Anteckningar</h3>
-            <p>{installation.notes}</p>
+      <section className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-950">{installation.name}</h1>
+            <p className="mt-2 text-slate-600">{installation.location}</p>
           </div>
-        )}
+          <div className="flex flex-wrap gap-2">
+            <RiskBadge level={risk.level} />
+            <ComplianceBadge status={compliance.status} />
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <SummaryItem label="Köldmedium" value={installation.refrigerantType} />
+          <SummaryItem label="Fyllnadsmängd" value={`${formatNumber(installation.refrigerantAmount)} kg`} />
+          <SummaryItem label="CO₂e" value={`${formatNumber(compliance.co2eTon)} ton`} />
+          <SummaryItem label="Senaste kontroll" value={formatOptionalDate(installation.lastInspection)} />
+          <SummaryItem label="Nästa kontroll" value={formatOptionalDate(installation.nextInspection)} />
+        </div>
       </section>
 
       {canManage && (
-        <section className="installation-form-surface" style={sectionStyle}>
-          <h2>Redigera installation</h2>
+        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
+          <h2 className="text-lg font-semibold text-slate-950">Snabbåtgärder</h2>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <QuickActionButton label="+ Lägg till kontroll" onClick={() => handleQuickEvent("INSPECTION")} />
+            <QuickActionButton label="+ Registrera läckage" onClick={() => handleQuickEvent("LEAK")} />
+            <QuickActionButton label="+ Registrera påfyllning" onClick={() => handleQuickEvent("REFILL")} />
+            <QuickActionButton label="+ Lägg till service" onClick={() => handleQuickEvent("SERVICE")} />
+          </div>
+        </section>
+      )}
+
+      <section className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_0.6fr]">
+        <div className="rounded-lg border border-slate-200 bg-white p-5">
+          <h2 className="text-lg font-semibold text-slate-950">Installationsdetaljer</h2>
+          <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <DetailItem label="Fastighet" value={formatOptionalText(installation.propertyName)} />
+            <DetailItem label="Utrustnings-ID" value={formatOptionalText(installation.equipmentId)} />
+            <DetailItem label="Serienummer" value={formatOptionalText(installation.serialNumber)} />
+            <DetailItem label="Utrustningstyp" value={formatOptionalText(installation.equipmentType)} />
+            <DetailItem label="Operatör" value={formatOptionalText(installation.operatorName)} />
+            <DetailItem
+              label="Läckagevarningssystem"
+              value={installation.hasLeakDetectionSystem ? "Ja" : "Nej"}
+            />
+            <DetailItem label="GWP" value={String(compliance.gwp)} />
+            <DetailItem label="Kontrollintervall" value={formatInspectionInterval(compliance)} />
+            <DetailItem label="Installationsdatum" value={formatDate(installation.installationDate)} />
+          </dl>
+          {installation.notes && (
+            <div className="mt-5 rounded-md bg-slate-50 p-4">
+              <h3 className="font-semibold text-slate-950">Anteckningar</h3>
+              <p className="mt-1 text-sm text-slate-700">{installation.notes}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-lg border border-slate-200 bg-white p-5">
+          <h2 className="text-lg font-semibold text-slate-950">Läckagehistorik</h2>
+          <div className="mt-4 grid gap-4">
+            <SummaryItem label="Antal läckage" value={String(leakageEvents.length)} />
+            <SummaryItem label="Total läckagemängd" value={`${formatNumber(totalLeakageKg)} kg`} />
+            <SummaryItem label="Senaste läckage" value={formatOptionalDate(latestLeakage)} />
+          </div>
+        </div>
+      </section>
+
+      {canManage && (
+        <section className="installation-form-surface mt-6 rounded-lg border border-slate-200 bg-white p-5">
+          <h2 className="text-lg font-semibold text-slate-950">Redigera installation</h2>
 
           {!isEditing ? (
-            <button type="button" onClick={() => setIsEditing(true)}>
+            <button
+              className="mt-4 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+              type="button"
+              onClick={() => setIsEditing(true)}
+            >
               Redigera
             </button>
           ) : (
-            <form className="installation-form-surface" onSubmit={handleEditSubmit} style={formStyle}>
-              <label style={fieldStyle}>
-                Namn
-                <input name="name" value={editForm.name} onChange={handleEditChange} required />
-              </label>
-              <label style={fieldStyle}>
-                Plats
-                <input name="location" value={editForm.location} onChange={handleEditChange} required />
-              </label>
-              <label style={fieldStyle}>
-                Fastighet
-                <input name="propertyName" value={editForm.propertyName} onChange={handleEditChange} />
-              </label>
-              <label style={fieldStyle}>
-                Utrustnings-ID
-                <input name="equipmentId" value={editForm.equipmentId} onChange={handleEditChange} />
-              </label>
-              <label style={fieldStyle}>
-                Serienummer
-                <input name="serialNumber" value={editForm.serialNumber} onChange={handleEditChange} />
-              </label>
-              <label style={fieldStyle}>
-                Utrustningstyp
-                <input name="equipmentType" value={editForm.equipmentType} onChange={handleEditChange} />
-              </label>
-              <label style={fieldStyle}>
-                Operatör
-                <input name="operatorName" value={editForm.operatorName} onChange={handleEditChange} />
-              </label>
-              <label style={fieldStyle}>
-                Köldmedium
-                <input name="refrigerantType" value={editForm.refrigerantType} onChange={handleEditChange} required />
-              </label>
-              <label style={fieldStyle}>
-                Mängd kg
-                <input name="refrigerantAmount" value={editForm.refrigerantAmount} onChange={handleEditChange} required />
-              </label>
-              <label>
+            <form className="mt-4 grid max-w-xl gap-3" onSubmit={handleEditSubmit}>
+              <label className={fieldClassName}>Namn<input name="name" value={editForm.name} onChange={handleEditChange} required /></label>
+              <label className={fieldClassName}>Plats<input name="location" value={editForm.location} onChange={handleEditChange} required /></label>
+              <label className={fieldClassName}>Fastighet<input name="propertyName" value={editForm.propertyName} onChange={handleEditChange} /></label>
+              <label className={fieldClassName}>Utrustnings-ID<input name="equipmentId" value={editForm.equipmentId} onChange={handleEditChange} /></label>
+              <label className={fieldClassName}>Serienummer<input name="serialNumber" value={editForm.serialNumber} onChange={handleEditChange} /></label>
+              <label className={fieldClassName}>Utrustningstyp<input name="equipmentType" value={editForm.equipmentType} onChange={handleEditChange} /></label>
+              <label className={fieldClassName}>Operatör<input name="operatorName" value={editForm.operatorName} onChange={handleEditChange} /></label>
+              <label className={fieldClassName}>Köldmedium<input name="refrigerantType" value={editForm.refrigerantType} onChange={handleEditChange} required /></label>
+              <label className={fieldClassName}>Mängd kg<input name="refrigerantAmount" value={editForm.refrigerantAmount} onChange={handleEditChange} required /></label>
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
                 <input
                   name="hasLeakDetectionSystem"
                   type="checkbox"
@@ -548,17 +627,19 @@ export default function InstallationDetailPage() {
                 />
                 Läckagevarningssystem
               </label>
-              <label style={fieldStyle}>
-                Anteckningar
-                <textarea name="notes" value={editForm.notes} onChange={handleEditChange} />
-              </label>
-              {editError && <p style={{ color: "#b91c1c" }}>{editError}</p>}
-              {editSuccess && <p style={{ color: "#047857" }}>{editSuccess}</p>}
-              <div style={{ display: "flex", gap: 8 }}>
+              <label className={fieldClassName}>Anteckningar<textarea name="notes" value={editForm.notes} onChange={handleEditChange} /></label>
+              {editError && <p className="text-sm font-semibold text-red-700">{editError}</p>}
+              {editSuccess && <p className="text-sm font-semibold text-green-700">{editSuccess}</p>}
+              <div className="flex gap-2">
                 <button type="submit" disabled={isSavingEdit}>
                   {isSavingEdit ? "Sparar..." : "Spara ändringar"}
                 </button>
-                <button type="button" onClick={() => setIsEditing(false)} disabled={isSavingEdit}>
+                <button
+                  className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  disabled={isSavingEdit}
+                >
                   Avbryt
                 </button>
               </div>
@@ -566,12 +647,17 @@ export default function InstallationDetailPage() {
           )}
 
           {!isEditing && editSuccess && (
-            <p style={{ color: "#047857" }}>{editSuccess}</p>
+            <p className="mt-3 text-sm font-semibold text-green-700">{editSuccess}</p>
           )}
 
-          <div style={{ marginTop: 24 }}>
-            {archiveError && <p style={{ color: "#b91c1c" }}>{archiveError}</p>}
-            <button type="button" onClick={handleArchiveInstallation} disabled={isArchiving}>
+          <div className="mt-6">
+            {archiveError && <p className="mb-2 text-sm font-semibold text-red-700">{archiveError}</p>}
+            <button
+              className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
+              type="button"
+              onClick={handleArchiveInstallation}
+              disabled={isArchiving}
+            >
               {isArchiving ? "Arkiverar..." : "Arkivera installation"}
             </button>
           </div>
@@ -579,18 +665,12 @@ export default function InstallationDetailPage() {
       )}
 
       {canManage && (
-        <section className="installation-form-surface" style={sectionStyle}>
-          <h2>Registrera kontroll</h2>
-          <form className="installation-form-surface" onSubmit={handleInspectionSubmit} style={formStyle}>
-            <label style={fieldStyle}>
-              Datum
-              <input name="inspectionDate" type="date" value={inspectionForm.inspectionDate} onChange={handleInspectionChange} required />
-            </label>
-            <label style={fieldStyle}>
-              Kontrollant
-              <input name="inspectorName" value={inspectionForm.inspectorName} onChange={handleInspectionChange} required />
-            </label>
-            <label style={fieldStyle}>
+        <section className="installation-form-surface mt-6 rounded-lg border border-slate-200 bg-white p-5">
+          <h2 className="text-lg font-semibold text-slate-950">Registrera kontroll</h2>
+          <form className="mt-4 grid max-w-xl gap-3" onSubmit={handleInspectionSubmit}>
+            <label className={fieldClassName}>Datum<input name="inspectionDate" type="date" value={inspectionForm.inspectionDate} onChange={handleInspectionChange} required /></label>
+            <label className={fieldClassName}>Kontrollant<input name="inspectorName" value={inspectionForm.inspectorName} onChange={handleInspectionChange} required /></label>
+            <label className={fieldClassName}>
               Resultat
               <select name="status" value={inspectionForm.status} onChange={handleInspectionChange} required>
                 <option value="">Välj resultat</option>
@@ -599,12 +679,9 @@ export default function InstallationDetailPage() {
                 <option value="Ej godkänd">Ej godkänd</option>
               </select>
             </label>
-            <label style={fieldStyle}>
-              Noteringar
-              <textarea name="notes" value={inspectionForm.notes} onChange={handleInspectionChange} />
-            </label>
-            {submitError && <p style={{ color: "#b91c1c" }}>{submitError}</p>}
-            {submitSuccess && <p style={{ color: "#047857" }}>{submitSuccess}</p>}
+            <label className={fieldClassName}>Noteringar<textarea name="notes" value={inspectionForm.notes} onChange={handleInspectionChange} /></label>
+            {submitError && <p className="text-sm font-semibold text-red-700">{submitError}</p>}
+            {submitSuccess && <p className="text-sm font-semibold text-green-700">{submitSuccess}</p>}
             <button type="submit" disabled={isSubmitting}>
               {isSubmitting ? "Sparar..." : "Spara kontroll"}
             </button>
@@ -613,15 +690,17 @@ export default function InstallationDetailPage() {
       )}
 
       {canManage && (
-        <section className="installation-form-surface" style={sectionStyle}>
-          <h2>Lägg till händelse</h2>
-          <p>Kontrollhändelser uppdaterar automatiskt senaste och nästa kontroll.</p>
-          <form className="installation-form-surface" onSubmit={handleEventSubmit} style={formStyle}>
-            <label style={fieldStyle}>
-              Datum
-              <input name="date" type="date" value={eventForm.date} onChange={handleEventChange} required />
-            </label>
-            <label style={fieldStyle}>
+        <section
+          className="installation-form-surface mt-6 rounded-lg border border-slate-200 bg-white p-5"
+          id="event-form"
+        >
+          <h2 className="text-lg font-semibold text-slate-950">Lägg till händelse</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Kontrollhändelser uppdaterar automatiskt senaste och nästa kontroll.
+          </p>
+          <form className="mt-4 grid max-w-xl gap-3" onSubmit={handleEventSubmit}>
+            <label className={fieldClassName}>Datum<input name="date" type="date" value={eventForm.date} onChange={handleEventChange} required /></label>
+            <label className={fieldClassName}>
               Typ
               <select name="type" value={eventForm.type} onChange={handleEventChange} required>
                 <option value="INSPECTION">Kontroll</option>
@@ -631,7 +710,7 @@ export default function InstallationDetailPage() {
               </select>
             </label>
             {eventForm.type === "REFILL" && (
-              <label style={fieldStyle}>
+              <label className={fieldClassName}>
                 Påfylld mängd kg
                 <input
                   name="refrigerantAddedKg"
@@ -641,7 +720,7 @@ export default function InstallationDetailPage() {
                 />
               </label>
             )}
-            <label style={fieldStyle}>
+            <label className={fieldClassName}>
               Anteckningar
               <textarea
                 name="notes"
@@ -650,8 +729,8 @@ export default function InstallationDetailPage() {
                 required={eventForm.type === "LEAK"}
               />
             </label>
-            {eventError && <p style={{ color: "#b91c1c" }}>{eventError}</p>}
-            {eventSuccess && <p style={{ color: "#047857" }}>{eventSuccess}</p>}
+            {eventError && <p className="text-sm font-semibold text-red-700">{eventError}</p>}
+            {eventSuccess && <p className="text-sm font-semibold text-green-700">{eventSuccess}</p>}
             <button type="submit" disabled={isSubmittingEvent}>
               {isSubmittingEvent ? "Sparar..." : "Lägg till händelse"}
             </button>
@@ -659,95 +738,138 @@ export default function InstallationDetailPage() {
         </section>
       )}
 
-      <section style={sectionStyle}>
-        <h2>Kontrollhistorik</h2>
+      <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
+        <h2 className="text-lg font-semibold text-slate-950">Kontrollhistorik</h2>
         {installation.inspections.length === 0 ? (
-          <p>Inga kontroller registrerade ännu.</p>
+          <p className="mt-4 text-sm text-slate-600">Inga kontroller registrerade ännu.</p>
         ) : (
-          <table style={tableStyle}>
-            <thead>
-              <tr>
-                <th style={cellStyle}>Datum</th>
-                <th style={cellStyle}>Kontrollant</th>
-                <th style={cellStyle}>Status</th>
-                <th style={cellStyle}>Nästa kontroll</th>
-                <th style={cellStyle}>Noteringar</th>
-                <th style={cellStyle}>Äldre fynd</th>
-              </tr>
-            </thead>
-            <tbody>
-              {installation.inspections.map((inspection) => (
-                <tr key={inspection.id}>
-                  <td style={cellStyle}>{formatDate(inspection.inspectionDate)}</td>
-                  <td style={cellStyle}>{inspection.inspectorName}</td>
-                  <td style={cellStyle}>{inspection.status || "-"}</td>
-                  <td style={cellStyle}>{formatOptionalDate(inspection.nextDueDate)}</td>
-                  <td style={cellStyle}>{inspection.notes || "-"}</td>
-                  <td style={cellStyle}>{inspection.findings || "-"}</td>
+          <div className="mt-4 overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <TableHeader>Datum</TableHeader>
+                  <TableHeader>Kontrollant</TableHeader>
+                  <TableHeader>Status</TableHeader>
+                  <TableHeader>Nästa kontroll</TableHeader>
+                  <TableHeader>Noteringar</TableHeader>
+                  <TableHeader>Äldre fynd</TableHeader>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {installation.inspections.map((inspection) => (
+                  <tr key={inspection.id}>
+                    <TableCell>{formatDate(inspection.inspectionDate)}</TableCell>
+                    <TableCell>{inspection.inspectorName}</TableCell>
+                    <TableCell>{inspection.status || "-"}</TableCell>
+                    <TableCell>{formatOptionalDate(inspection.nextDueDate)}</TableCell>
+                    <TableCell>{inspection.notes || "-"}</TableCell>
+                    <TableCell>{inspection.findings || "-"}</TableCell>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
-      <section style={sectionStyle}>
-        <h2>Historik</h2>
+      <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
+        <h2 className="text-lg font-semibold text-slate-950">Händelsetimeline</h2>
         {events.length === 0 ? (
-          <p>Inga händelser registrerade ännu.</p>
+          <p className="mt-4 text-sm text-slate-600">Inga händelser registrerade ännu.</p>
         ) : (
-          <table style={tableStyle}>
-            <thead>
-              <tr>
-                <th style={cellStyle}>Datum</th>
-                <th style={cellStyle}>Typ</th>
-                <th style={cellStyle}>Påfylld mängd kg</th>
-                <th style={cellStyle}>Anteckningar</th>
-                <th style={cellStyle}>Skapad av</th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.map((event) => (
-                <tr key={event.id}>
-                  <td style={cellStyle}>{formatDate(event.date)}</td>
-                  <td style={cellStyle}>
-                    <EventBadge type={event.type} />
-                  </td>
-                  <td style={cellStyle}>{event.refrigerantAddedKg ?? "-"}</td>
-                  <td style={cellStyle}>{event.notes || "-"}</td>
-                  <td style={cellStyle}>{formatCreatedBy(event.createdBy)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="mt-5 grid gap-4">
+            {events.map((event) => (
+              <EventTimelineItem event={event} key={event.id} />
+            ))}
+          </div>
         )}
       </section>
     </main>
   )
 }
 
-function DetailItem({ label, value }: { label: string; value: string }) {
+function SummaryItem({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <dt style={{ fontWeight: 700 }}>{label}</dt>
-      <dd style={{ margin: "4px 0 0" }}>{value}</dd>
+    <div className="rounded-md bg-slate-50 p-4">
+      <dt className="text-sm font-medium text-slate-600">{label}</dt>
+      <dd className="mt-1 font-semibold text-slate-950">{value}</dd>
     </div>
   )
 }
 
-function EventBadge({ type }: { type: InstallationEventType }) {
-  const config: Record<InstallationEventType, { label: string; style: React.CSSProperties }> = {
-    INSPECTION: { label: "Kontroll", style: { color: "#1d4ed8", borderColor: "#1d4ed8" } },
-    LEAK: { label: "Läckage", style: { color: "#b91c1c", borderColor: "#b91c1c" } },
-    REFILL: { label: "Påfyllning", style: { color: "#b45309", borderColor: "#b45309" } },
-    SERVICE: { label: "Service", style: { color: "#525252", borderColor: "#525252" } },
-  }
-
+function DetailItem({ label, value }: { label: string; value: string }) {
   return (
-    <span style={{ ...badgeStyle, ...config[type].style }}>
-      {config[type].label}
+    <div>
+      <dt className="text-sm font-medium text-slate-600">{label}</dt>
+      <dd className="mt-1 font-semibold text-slate-950">{value}</dd>
+    </div>
+  )
+}
+
+function QuickActionButton({
+  label,
+  onClick,
+}: {
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+      type="button"
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  )
+}
+
+function RiskBadge({ level }: { level: InstallationRiskLevel }) {
+  return (
+    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${RISK_TONE[level]}`}>
+      Risknivå {level}
     </span>
   )
+}
+
+function ComplianceBadge({ status }: { status: ComplianceStatus }) {
+  return (
+    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${COMPLIANCE_TONE[status]}`}>
+      {COMPLIANCE_LABELS[status]}
+    </span>
+  )
+}
+
+function EventTimelineItem({ event }: { event: InstallationEvent }) {
+  return (
+    <article className={`rounded-lg border p-4 ${EVENT_TONE[event.type]}`}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="text-sm font-semibold">{formatDate(event.date)}</div>
+          <h3 className="mt-1 text-base font-bold">{EVENT_LABELS[event.type]}</h3>
+        </div>
+        {event.refrigerantAddedKg !== null && event.refrigerantAddedKg !== undefined && (
+          <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold">
+            {formatNumber(event.refrigerantAddedKg)} kg
+          </span>
+        )}
+      </div>
+      <p className="mt-3 text-sm">{event.notes || "Ingen anteckning"}</p>
+      <p className="mt-2 text-xs opacity-80">Skapad av: {formatCreatedBy(event.createdBy)}</p>
+    </article>
+  )
+}
+
+function TableHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+      {children}
+    </th>
+  )
+}
+
+function TableCell({ children }: { children: React.ReactNode }) {
+  return <td className="px-4 py-3 text-slate-800">{children}</td>
 }
 
 function formatDate(value: string) {
@@ -785,50 +907,12 @@ function formatInspectionInterval(compliance: {
   return `Var ${compliance.inspectionIntervalMonths}:e månad (basintervall ${compliance.baseInspectionIntervalMonths}:e månad, förlängt med läckagevarningssystem)`
 }
 
-const pageStyle: React.CSSProperties = {
-  maxWidth: 1100,
-  margin: "60px auto",
-  padding: 20,
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("sv-SE", {
+    maximumFractionDigits: 2,
+  }).format(value)
 }
 
-const sectionStyle: React.CSSProperties = {
-  marginTop: 32,
-}
-
-const detailsGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-  gap: 16,
-}
-
-const formStyle: React.CSSProperties = {
-  display: "grid",
-  gap: 12,
-  maxWidth: 520,
-}
-
-const fieldStyle: React.CSSProperties = {
-  display: "grid",
-  gap: 6,
-}
-
-const tableStyle: React.CSSProperties = {
-  width: "100%",
-  borderCollapse: "collapse",
-  marginTop: 20,
-}
-
-const cellStyle: React.CSSProperties = {
-  border: "1px solid #ddd",
-  padding: "10px",
-  textAlign: "left",
-}
-
-const badgeStyle: React.CSSProperties = {
-  display: "inline-block",
-  border: "1px solid",
-  borderRadius: 999,
-  padding: "3px 8px",
-  fontSize: 13,
-  fontWeight: 600,
+function getTodayInputValue() {
+  return new Date().toISOString().slice(0, 10)
 }
