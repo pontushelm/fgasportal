@@ -30,6 +30,15 @@ type InstallationEvent = {
   } | null
 }
 
+type CreateEventResponse = {
+  event?: InstallationEvent
+  inspectionSchedule?: {
+    lastInspection: string | null
+    nextInspection: string | null
+  } | null
+  error?: string
+}
+
 type InstallationDetail = {
   id: string
   name: string
@@ -368,7 +377,7 @@ export default function InstallationDetailPage() {
       }),
     })
 
-    const result: InstallationEvent & { error?: string } = await res.json()
+    const result: CreateEventResponse = await res.json()
 
     if (res.status === 401) {
       router.push("/login")
@@ -381,7 +390,27 @@ export default function InstallationDetailPage() {
       return
     }
 
-    setEvents((current) => [result, ...current].sort(compareEventsByDateDesc))
+    if (!result.event) {
+      setEventError("Kunde inte lägga till händelsen")
+      setIsSubmittingEvent(false)
+      return
+    }
+
+    const createdEvent = result.event
+    setEvents((current) => [createdEvent, ...current].sort(compareEventsByDateDesc))
+
+    if (result.inspectionSchedule) {
+      setInstallation((current) =>
+        current
+          ? {
+              ...current,
+              lastInspection: result.inspectionSchedule?.lastInspection ?? null,
+              nextInspection: result.inspectionSchedule?.nextInspection ?? null,
+            }
+          : current
+      )
+    }
+
     setEventForm(initialEventFormData)
     setEventSuccess("Händelsen har lagts till")
     setIsSubmittingEvent(false)
@@ -586,6 +615,7 @@ export default function InstallationDetailPage() {
       {canManage && (
         <section style={sectionStyle}>
           <h2>Lägg till händelse</h2>
+          <p>Kontrollhändelser uppdaterar automatiskt senaste och nästa kontroll.</p>
           <form onSubmit={handleEventSubmit} style={formStyle}>
             <label style={fieldStyle}>
               Datum

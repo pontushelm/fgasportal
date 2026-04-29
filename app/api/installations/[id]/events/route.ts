@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { ZodError } from "zod"
 import { authenticateApiRequest } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 import { createInstallationEventSchema } from "@/lib/validations"
 
 type RouteContext = {
@@ -80,6 +81,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       },
       select: {
         id: true,
+        inspectionIntervalMonths: true,
       },
     })
 
@@ -88,6 +90,57 @@ export async function POST(request: NextRequest, context: RouteContext) {
         { error: "Installationen hittades inte" },
         { status: 404 }
       )
+    }
+
+    if (validatedData.type === "INSPECTION") {
+      const result = await prisma.$transaction(async (tx) => {
+        const event = await tx.installationEvent.create({
+          data: {
+            installationId: installation.id,
+            date: validatedData.date,
+            type: validatedData.type,
+            refrigerantAddedKg: validatedData.refrigerantAddedKg,
+            notes: emptyToNull(validatedData.notes),
+            createdById: userId,
+          },
+          include: {
+            createdBy: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+          },
+        })
+
+        const nextInspection = calculateNextInspectionDate(
+          validatedData.date,
+          installation.inspectionIntervalMonths
+        )
+        const updatedInstallation = await tx.installation.update({
+          where: {
+            id: installation.id,
+          },
+          data: {
+            lastInspection: validatedData.date,
+            nextInspection,
+          },
+          select: {
+            lastInspection: true,
+            nextInspection: true,
+          },
+        })
+
+        return {
+          event,
+          inspectionSchedule: {
+            lastInspection: updatedInstallation.lastInspection,
+            nextInspection: updatedInstallation.nextInspection,
+          },
+        }
+      })
+
+      return NextResponse.json(result, { status: 201 })
     }
 
     const event = await prisma.installationEvent.create({
@@ -109,7 +162,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       },
     })
 
-    return NextResponse.json(event, { status: 201 })
+    return NextResponse.json(
+      {
+        event,
+        inspectionSchedule: null,
+      },
+      { status: 201 }
+    )
   } catch (error: unknown) {
     console.error("Create installation event error:", error)
 
