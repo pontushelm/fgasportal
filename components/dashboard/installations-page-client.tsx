@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
+import CreateInstallationForm from "@/components/installations/create-installation-form"
 import type { UserRole } from "@/lib/auth"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 import { REFRIGERANT_GWP } from "@/lib/refrigerants"
@@ -115,6 +116,7 @@ export default function InstallationsPageClient() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [contractorId, setContractorId] = useState("")
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
@@ -504,9 +506,13 @@ export default function InstallationsPageClient() {
         </div>
         <div className="flex flex-wrap gap-2">
           {canManage && (
-            <Link className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700" href="/dashboard">
+            <button
+              className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              type="button"
+              onClick={() => setIsCreateModalOpen(true)}
+            >
               Skapa aggregat
-            </Link>
+            </button>
           )}
           <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/installations/import">
             Import Excel
@@ -864,6 +870,34 @@ export default function InstallationsPageClient() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/40 px-4 py-8">
+          <div className="w-full max-w-2xl rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-950">Skapa aggregat</h2>
+                <p className="mt-1 text-sm text-slate-700">
+                  Lägg till ett nytt aggregat i registret.
+                </p>
+              </div>
+              <button
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                type="button"
+                onClick={() => setIsCreateModalOpen(false)}
+              >
+                Stäng
+              </button>
+            </div>
+            <CreateInstallationForm
+              onInstallationCreated={() => {
+                setIsCreateModalOpen(false)
+                setRefreshKey((current) => current + 1)
+              }}
+            />
+          </div>
         </div>
       )}
 

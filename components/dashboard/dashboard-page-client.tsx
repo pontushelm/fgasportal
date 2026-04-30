@@ -2,31 +2,9 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
-import CreateInstallationForm from "@/components/installations/create-installation-form"
+import { useEffect, useMemo, useState } from "react"
 import type { UserRole } from "@/lib/auth"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
-import type { InstallationRiskLevel } from "@/lib/risk-classification"
-
-type Installation = {
-  id: string
-  name: string
-  location: string
-  refrigerantType: string
-  refrigerantAmount: number
-  gwp: number
-  co2eTon: number
-  baseInspectionInterval: number | null
-  inspectionInterval: number | null
-  hasAdjustedInspectionInterval: boolean
-  complianceStatus: ComplianceStatus
-  daysUntilDue: number | null
-  nextInspection?: string | null
-  risk: {
-    level: InstallationRiskLevel
-    score: number
-  }
-}
 
 type CurrentUser = {
   userId: string
@@ -39,18 +17,6 @@ type DistributionItem = {
   count: number
   co2eTon: number
   refrigerantAmount: number
-}
-
-type AttentionItem = {
-  id: string
-  installationId: string
-  installationName: string
-  location: string
-  type: ComplianceStatus | "LEAK"
-  label: string
-  date: string | null
-  daysUntilDue: number | null
-  notes: string | null
 }
 
 type ActionItem = {
@@ -94,37 +60,15 @@ type DashboardData = {
   }
   statusDistribution: Record<ComplianceStatus, number>
   refrigerantDistribution: DistributionItem[]
-  installations: Installation[]
-  attentionItems: AttentionItem[]
   actionItems: ActionItem[]
 }
 
-type ComplianceFilter = "ALL" | ComplianceStatus
-
-const FILTERS: Array<{ label: string; value: ComplianceFilter }> = [
-  { label: "Alla", value: "ALL" },
-  { label: "Försenade", value: "OVERDUE" },
-  { label: "Inom 30 dagar", value: "DUE_SOON" },
-  { label: "Ej kontrollerade", value: "NOT_INSPECTED" },
-  { label: "OK", value: "OK" },
-  { label: "Ej kontrollpliktiga", value: "NOT_REQUIRED" },
-]
-
 const STATUS_LABELS: Record<ComplianceStatus, string> = {
   OK: "OK",
-  DUE_SOON: "Kontroller inom 30 dagar",
-  OVERDUE: "Försenade kontroller",
+  DUE_SOON: "Inom 30 dagar",
+  OVERDUE: "Försenade",
   NOT_REQUIRED: "Ej kontrollpliktiga",
   NOT_INSPECTED: "Ej kontrollerade",
-}
-
-const STATUS_TONE: Record<ComplianceStatus | "LEAK", string> = {
-  OK: "border-emerald-300 bg-emerald-50 text-emerald-900",
-  DUE_SOON: "border-amber-300 bg-amber-50 text-amber-900",
-  OVERDUE: "border-red-300 bg-red-50 text-red-900",
-  NOT_REQUIRED: "border-slate-300 bg-slate-50 text-slate-800",
-  NOT_INSPECTED: "border-sky-300 bg-sky-50 text-sky-900",
-  LEAK: "border-rose-300 bg-rose-50 text-rose-900",
 }
 
 const STATUS_BAR_TONE: Record<ComplianceStatus, string> = {
@@ -133,24 +77,6 @@ const STATUS_BAR_TONE: Record<ComplianceStatus, string> = {
   OVERDUE: "bg-red-500",
   NOT_REQUIRED: "bg-slate-500",
   NOT_INSPECTED: "bg-sky-500",
-}
-
-const RISK_LABELS: Record<InstallationRiskLevel, string> = {
-  HIGH: "Hög",
-  MEDIUM: "Medel",
-  LOW: "Låg",
-}
-
-const RISK_TONE: Record<InstallationRiskLevel, string> = {
-  HIGH: "bg-red-100 text-red-700",
-  MEDIUM: "bg-amber-100 text-amber-700",
-  LOW: "bg-green-100 text-green-700",
-}
-
-const RISK_SORT_ORDER: Record<InstallationRiskLevel, number> = {
-  HIGH: 1,
-  MEDIUM: 2,
-  LOW: 3,
 }
 
 const ACTION_PRIORITY_LABELS: Record<ActionItem["priority"], string> = {
@@ -165,13 +91,26 @@ const ACTION_PRIORITY_TONE: Record<ActionItem["priority"], string> = {
   LOW: "bg-slate-100 text-slate-700",
 }
 
+const ACTION_TYPE_ORDER: Record<ActionItem["type"], number> = {
+  OVERDUE_INSPECTION: 1,
+  NOT_INSPECTED: 2,
+  RECENT_LEAKAGE: 3,
+  HIGH_RISK: 4,
+  NO_SERVICE_PARTNER: 5,
+  DUE_SOON_INSPECTION: 6,
+}
+
+const PRIORITY_ORDER: Record<ActionItem["priority"], number> = {
+  HIGH: 1,
+  MEDIUM: 2,
+  LOW: 3,
+}
+
 export default function DashboardPage() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
-  const [activeFilter, setActiveFilter] = useState<ComplianceFilter>("ALL")
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
-  const [refreshKey, setRefreshKey] = useState(0)
   const router = useRouter()
 
   useEffect(() => {
@@ -197,7 +136,7 @@ export default function DashboardPage() {
 
       if (!response.ok || !userResponse.ok) {
         if (!isMounted) return
-        setError("Kunde inte hämta compliance-dashboarden")
+        setError("Kunde inte hämta dashboarden")
         setIsLoading(false)
         return
       }
@@ -217,203 +156,110 @@ export default function DashboardPage() {
     return () => {
       isMounted = false
     }
-  }, [refreshKey, router])
+  }, [router])
 
   const canManage = currentUser?.role === "ADMIN"
-  const installations = dashboardData?.installations ?? []
-  const filteredInstallations =
-    activeFilter === "ALL"
-      ? installations
-      : installations.filter((item) => item.complianceStatus === activeFilter)
-  const highestRiskInstallations = [...installations]
-    .sort(compareRiskInstallations)
-    .slice(0, 8)
+  const topActionItems = useMemo(
+    () => [...(dashboardData?.actionItems ?? [])].sort(compareActionItems).slice(0, 5),
+    [dashboardData?.actionItems]
+  )
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
-      <div className="flex flex-col gap-4 border-b border-slate-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-slate-600">
-            Compliance dashboard
-          </p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight">
-            F-gasöversikt
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm text-slate-700">
-            Samlad kontroll över aggregat, kontrollintervall, CO₂e och
-            läckagehändelser.
-          </p>
-        </div>
+    <main className="mx-auto max-w-7xl px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
+      <section className="border-b border-slate-200 pb-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wide text-slate-600">
+              SaaS-översikt
+            </p>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight">
+              F-gasöversikt
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm text-slate-700">
+              Se compliance-läget, prioriterade åtgärder och risker för era
+              köldmedieaggregat.
+            </p>
+          </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/reports">
-            Rapporter
-          </Link>
-          <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/leakage">
-            Läckageanalys
-          </Link>
-          {currentUser?.role === "CONTRACTOR" && (
-            <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/service">
-              Serviceuppdrag
+          <div className="flex flex-wrap gap-2">
+            {canManage && (
+              <Link
+                className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                href="/dashboard/installations"
+              >
+                + Lägg till aggregat
+              </Link>
+            )}
+            <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/installations">
+              Hantera aggregat
             </Link>
-          )}
-          {canManage && (
-            <>
-              <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/installations">
-                Hantera aggregat
-              </Link>
-              <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/company">
-                Företagsinställningar
-              </Link>
+            <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/reports">
+              Rapporter
+            </Link>
+            {canManage && (
               <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/installations/import">
                 Import Excel
               </Link>
-              <Link className="rounded-md border border-slate-900 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-900 hover:text-white" href="/api/installations/export">
-                Export CSV
-              </Link>
-              <Link className="rounded-md border border-slate-900 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-900 hover:text-white" href="/api/installations/export/pdf">
-                Export PDF
-              </Link>
-            </>
-          )}
+            )}
+          </div>
         </div>
-      </div>
-
-      {canManage && (
-        <div className="mt-8">
-          <CreateInstallationForm onInstallationCreated={() => setRefreshKey((current) => current + 1)} />
-        </div>
-      )}
+      </section>
 
       {isLoading && <p className="mt-8 text-slate-700">Laddar...</p>}
       {error && <p className="mt-8 text-red-700">{error}</p>}
 
       {dashboardData && (
         <>
-          <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5">
-            <div>
-              <h2 className="text-xl font-semibold text-slate-950">Att göra</h2>
-              <p className="mt-1 text-sm text-slate-700">
-                Prioriterade åtgärder för att minska compliance-risk.
-              </p>
-            </div>
-
-            {dashboardData.actionItems.length === 0 ? (
-              <p className="mt-5 text-sm text-slate-700">
-                Inga prioriterade åtgärder just nu.
-              </p>
-            ) : (
-              <div className="mt-5 grid gap-3">
-                {dashboardData.actionItems.map((item) => (
-                  <div
-                    className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
-                    key={item.id}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <PriorityBadge priority={item.priority} />
-                        <h3 className="font-semibold text-slate-950">{item.title}</h3>
-                      </div>
-                      <p className="mt-1 text-sm text-slate-700">{item.description}</p>
-                    </div>
-                    <Link
-                      className="shrink-0 rounded-md bg-slate-900 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-slate-700"
-                      href={item.href}
-                    >
-                      Visa aggregat
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
-            <MetricCard label="Totalt antal aggregat" value={dashboardData.metrics.totalInstallations} />
+          <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+            <MetricCard label="Totalt" value={dashboardData.metrics.totalInstallations} />
             <MetricCard label="OK" value={dashboardData.metrics.ok} tone="emerald" />
-            <MetricCard label="Försenade kontroller" value={dashboardData.metrics.overdue} tone="red" />
-            <MetricCard label="Kontroller inom 30 dagar" value={dashboardData.metrics.dueSoon} tone="amber" />
+            <MetricCard label="Försenade" value={dashboardData.metrics.overdue} tone="red" />
+            <MetricCard label="Inom 30 dagar" value={dashboardData.metrics.dueSoon} tone="amber" />
             <MetricCard label="Ej kontrollerade" value={dashboardData.metrics.notInspected} tone="sky" />
             <MetricCard label="Ej kontrollpliktiga" value={dashboardData.metrics.notRequired} />
+            <MetricCard label="Läckage" value={dashboardData.environmental.leakageEvents} tone="red" />
+            <MetricCard label="Total CO₂e" value={`${formatNumber(dashboardData.environmental.totalCo2eTon)} t`} />
           </section>
 
-          <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <MetricCard label="Total CO₂e" value={`${formatNumber(dashboardData.environmental.totalCo2eTon)} ton`} />
-            <MetricCard label="Köldmediemängd" value={`${formatNumber(dashboardData.environmental.totalRefrigerantAmount)} kg`} />
-            <MetricCard label="Kontrollpliktiga aggregat" value={dashboardData.environmental.requiringInspection} />
-            <MetricCard label="Läckagehändelser" value={dashboardData.environmental.leakageEvents} tone="red" />
-          </section>
-
-          <section className="mt-10">
-            <div>
-              <h2 className="text-xl font-semibold">Riskklassning</h2>
-              <p className="mt-1 text-sm text-slate-700">
-                Klimat- och compliance-risk baserat på CO₂e, mängd köldmedium
-                och registrerade läckagehändelser.
-              </p>
-            </div>
-
-            <div className="mt-5 grid gap-4 sm:grid-cols-3">
-              <MetricCard label="Hög risk" value={dashboardData.riskSummary.high} tone="red" />
-              <MetricCard label="Medel risk" value={dashboardData.riskSummary.medium} tone="amber" />
-              <MetricCard label="Låg risk" value={dashboardData.riskSummary.low} tone="emerald" />
-            </div>
-
-            {highestRiskInstallations.length === 0 ? (
-              <p className="mt-5 text-sm text-slate-700">
-                Inga aggregat finns att riskklassa.
-              </p>
-            ) : (
-              <RiskTable installations={highestRiskInstallations} />
-            )}
-          </section>
-
-          <section className="mt-10 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.85fr)]">
             <div className="rounded-lg border border-slate-200 bg-white p-5">
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold">Behöver åtgärd</h2>
+                  <h2 className="text-xl font-semibold text-slate-950">Att göra</h2>
                   <p className="mt-1 text-sm text-slate-700">
-                    Prioriterat efter försenade kontroller, kommande kontroller,
-                    ej kontrollerade aggregat och senaste läckage.
+                    De fem viktigaste åtgärderna just nu.
                   </p>
                 </div>
+                <Link
+                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                  href="/dashboard/installations?status=overdue"
+                >
+                  Visa alla åtgärder
+                </Link>
               </div>
 
-              {dashboardData.attentionItems.length === 0 ? (
+              {topActionItems.length === 0 ? (
                 <p className="mt-5 text-sm text-slate-700">
-                  Inga aggregat kräver åtgärd just nu.
+                  Inga prioriterade åtgärder just nu.
                 </p>
               ) : (
-                <div className="mt-5 divide-y divide-slate-200">
-                  {dashboardData.attentionItems.map((item) => (
-                    <Link
-                      className="flex flex-col gap-2 py-3 hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between"
-                      href={`/dashboard/installations/${item.installationId}`}
-                      key={item.id}
-                    >
-                      <div>
-                        <div className="font-semibold text-slate-950">
-                          {item.installationName}
-                        </div>
-                        <div className="text-sm text-slate-700">
-                          {item.location}
-                          {item.date ? ` · ${formatDate(item.date)}` : ""}
-                          {item.notes ? ` · ${item.notes}` : ""}
-                        </div>
-                      </div>
-                      <StatusBadge
-                        daysUntilDue={item.daysUntilDue}
-                        label={item.label}
-                        status={item.type}
-                      />
-                    </Link>
+                <div className="mt-5 grid gap-3">
+                  {topActionItems.map((item) => (
+                    <ActionRow item={item} key={item.id} />
                   ))}
                 </div>
               )}
             </div>
 
-            <div className="space-y-6">
+            <div className="grid gap-4">
+              <VisualCard title="Riskklassning">
+                <div className="grid grid-cols-3 gap-2">
+                  <MiniMetric label="Hög" value={dashboardData.riskSummary.high} tone="red" />
+                  <MiniMetric label="Medel" value={dashboardData.riskSummary.medium} tone="amber" />
+                  <MiniMetric label="Låg" value={dashboardData.riskSummary.low} tone="emerald" />
+                </div>
+              </VisualCard>
+
               <VisualCard title="Statusfördelning">
                 <SegmentedStatusBar
                   distribution={dashboardData.statusDistribution}
@@ -431,7 +277,7 @@ export default function DashboardPage() {
 
               <VisualCard title="Köldmedier">
                 <DistributionBars
-                  items={dashboardData.refrigerantDistribution.map((item) => ({
+                  items={dashboardData.refrigerantDistribution.slice(0, 5).map((item) => ({
                     label: item.label,
                     value: item.count,
                   }))}
@@ -440,54 +286,24 @@ export default function DashboardPage() {
 
               <VisualCard title="CO₂e per köldmedium">
                 <DistributionBars
-                  items={dashboardData.refrigerantDistribution.map((item) => ({
+                  items={dashboardData.refrigerantDistribution.slice(0, 5).map((item) => ({
                     label: item.label,
                     value: item.co2eTon,
-                    suffix: "ton",
+                    suffix: "t",
                   }))}
                 />
               </VisualCard>
             </div>
           </section>
 
-          <section className="mt-10">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="text-xl font-semibold">Registrerade aggregat</h2>
-                <p className="mt-1 text-sm text-slate-700">
-                  Filtrera listan utifrån aktuell kontrollstatus.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {FILTERS.map((filter) => (
-                  <button
-                    className={`rounded-md border px-3 py-2 text-sm font-semibold ${
-                      activeFilter === filter.value
-                        ? "border-slate-900 bg-slate-900 text-white"
-                        : "border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
-                    }`}
-                    key={filter.value}
-                    onClick={() => setActiveFilter(filter.value)}
-                    type="button"
-                  >
-                    {filter.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {installations.length === 0 ? (
-              <p className="mt-5 text-sm text-slate-700">
-                Inga aggregat registrerade ännu.
-              </p>
-            ) : filteredInstallations.length === 0 ? (
-              <p className="mt-5 text-sm text-slate-700">
-                Inga aggregat matchar filtret.
-              </p>
-            ) : (
-              <InstallationTable installations={filteredInstallations} />
-            )}
-          </section>
+          <div className="mt-6 flex justify-end">
+            <Link
+              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+              href="/dashboard/installations"
+            >
+              Visa alla aggregat
+            </Link>
+          </div>
         </>
       )}
     </main>
@@ -505,16 +321,66 @@ function MetricCard({
 }) {
   const toneClass = {
     neutral: "border-slate-200 bg-white",
-    emerald: "border-emerald-300 bg-emerald-50",
-    red: "border-red-300 bg-red-50",
-    amber: "border-amber-300 bg-amber-50",
-    sky: "border-sky-300 bg-sky-50",
+    emerald: "border-emerald-200 bg-emerald-50",
+    red: "border-red-200 bg-red-50",
+    amber: "border-amber-200 bg-amber-50",
+    sky: "border-sky-200 bg-sky-50",
   }[tone]
 
   return (
-    <div className={`rounded-lg border p-4 ${toneClass}`}>
-      <div className="text-sm font-semibold text-slate-700">{label}</div>
-      <div className="mt-2 break-words text-2xl font-bold text-slate-950">{value}</div>
+    <div className={`rounded-lg border px-3 py-3 ${toneClass}`}>
+      <div className="text-xs font-semibold uppercase tracking-wide text-slate-600">{label}</div>
+      <div className="mt-1 break-words text-xl font-bold text-slate-950">{value}</div>
+    </div>
+  )
+}
+
+function MiniMetric({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: number
+  tone: "emerald" | "red" | "amber"
+}) {
+  const toneClass = {
+    emerald: "bg-emerald-50 text-emerald-800",
+    red: "bg-red-50 text-red-800",
+    amber: "bg-amber-50 text-amber-800",
+  }[tone]
+
+  return (
+    <div className={`rounded-md p-3 text-center ${toneClass}`}>
+      <div className="text-xs font-semibold uppercase">{label}</div>
+      <div className="mt-1 text-xl font-bold">{value}</div>
+    </div>
+  )
+}
+
+function ActionRow({ item }: { item: ActionItem }) {
+  const installationName = extractInstallationName(item.description)
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <PriorityBadge priority={item.priority} />
+          <h3 className="font-semibold text-slate-950">{item.title}</h3>
+        </div>
+        {installationName && (
+          <p className="mt-1 text-sm font-semibold text-slate-900">
+            {installationName}
+          </p>
+        )}
+        <p className="mt-1 text-sm text-slate-700">{item.description}</p>
+      </div>
+      <Link
+        className="shrink-0 rounded-md bg-slate-900 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-slate-700"
+        href={item.href}
+      >
+        Visa
+      </Link>
     </div>
   )
 }
@@ -527,8 +393,8 @@ function VisualCard({
   children: React.ReactNode
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5">
-      <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
+    <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <h2 className="text-base font-semibold text-slate-950">{title}</h2>
       <div className="mt-4">{children}</div>
     </div>
   )
@@ -596,9 +462,9 @@ function DistributionBars({
     <div className="grid gap-3">
       {items.map((item) => (
         <div key={item.label}>
-          <div className="mb-1 flex items-center justify-between text-sm">
-            <span className="font-semibold text-slate-800">{item.label}</span>
-            <span className="text-slate-700">
+          <div className="mb-1 flex items-center justify-between gap-3 text-sm">
+            <span className="truncate font-semibold text-slate-800">{item.label}</span>
+            <span className="shrink-0 text-slate-700">
               {formatNumber(item.value)} {item.suffix ?? ""}
             </span>
           </div>
@@ -614,129 +480,6 @@ function DistributionBars({
   )
 }
 
-function InstallationTable({ installations }: { installations: Installation[] }) {
-  return (
-    <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-      <table className="min-w-full divide-y divide-slate-200 text-sm">
-        <thead className="bg-slate-50">
-          <tr>
-            <TableHeader>Aggregat</TableHeader>
-            <TableHeader>Plats</TableHeader>
-            <TableHeader>Köldmedium</TableHeader>
-            <TableHeader>Mängd</TableHeader>
-            <TableHeader>GWP</TableHeader>
-            <TableHeader>CO₂e</TableHeader>
-            <TableHeader>Kontrollintervall</TableHeader>
-            <TableHeader>Nästa kontroll</TableHeader>
-            <TableHeader>Status</TableHeader>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-200">
-          {installations.map((item) => (
-            <tr className="hover:bg-slate-50" key={item.id}>
-              <TableCell>
-                <Link className="font-semibold text-slate-950 underline-offset-4 hover:underline" href={`/dashboard/installations/${item.id}`}>
-                  {item.name}
-                </Link>
-              </TableCell>
-              <TableCell>{item.location}</TableCell>
-              <TableCell>{item.refrigerantType}</TableCell>
-              <TableCell>{formatNumber(item.refrigerantAmount)} kg</TableCell>
-              <TableCell>{item.gwp}</TableCell>
-              <TableCell>{formatNumber(item.co2eTon)} ton</TableCell>
-              <TableCell>{formatInspectionInterval(item)}</TableCell>
-              <TableCell>{formatOptionalDate(item.nextInspection)}</TableCell>
-              <TableCell>
-                <StatusBadge
-                  daysUntilDue={item.daysUntilDue}
-                  status={item.complianceStatus}
-                />
-              </TableCell>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-function RiskTable({ installations }: { installations: Installation[] }) {
-  return (
-    <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-      <table className="min-w-full divide-y divide-slate-200 text-sm">
-        <thead className="bg-slate-50">
-          <tr>
-            <TableHeader>Aggregat</TableHeader>
-            <TableHeader>Plats</TableHeader>
-            <TableHeader>Köldmedium</TableHeader>
-            <TableHeader>Mängd kg</TableHeader>
-            <TableHeader>CO₂e ton</TableHeader>
-            <TableHeader>Risknivå</TableHeader>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-200">
-          {installations.map((item) => (
-            <tr className="hover:bg-slate-50" key={item.id}>
-              <TableCell>
-                <Link className="font-semibold text-slate-950 underline-offset-4 hover:underline" href={`/dashboard/installations/${item.id}`}>
-                  {item.name}
-                </Link>
-              </TableCell>
-              <TableCell>{item.location}</TableCell>
-              <TableCell>{item.refrigerantType}</TableCell>
-              <TableCell>{formatNumber(item.refrigerantAmount)}</TableCell>
-              <TableCell>{formatNumber(item.co2eTon)}</TableCell>
-              <TableCell>
-                <RiskBadge level={item.risk.level} />
-              </TableCell>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-function TableHeader({ children }: { children: React.ReactNode }) {
-  return (
-    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-      {children}
-    </th>
-  )
-}
-
-function TableCell({ children }: { children: React.ReactNode }) {
-  return <td className="whitespace-nowrap px-4 py-3 text-slate-800">{children}</td>
-}
-
-function StatusBadge({
-  status,
-  daysUntilDue,
-  label,
-}: {
-  status: ComplianceStatus | "LEAK"
-  daysUntilDue?: number | null
-  label?: string
-}) {
-  const badgeLabel =
-    label ??
-    (status === "DUE_SOON" ? formatDueSoonLabel(daysUntilDue ?? null) : STATUS_LABELS[status as ComplianceStatus])
-
-  return (
-    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${STATUS_TONE[status]}`}>
-      {badgeLabel}
-    </span>
-  )
-}
-
-function RiskBadge({ level }: { level: InstallationRiskLevel }) {
-  return (
-    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${RISK_TONE[level]}`}>
-      {RISK_LABELS[level]}
-    </span>
-  )
-}
-
 function PriorityBadge({ priority }: { priority: ActionItem["priority"] }) {
   return (
     <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${ACTION_PRIORITY_TONE[priority]}`}>
@@ -745,40 +488,30 @@ function PriorityBadge({ priority }: { priority: ActionItem["priority"] }) {
   )
 }
 
-function compareRiskInstallations(first: Installation, second: Installation) {
-  const levelDiff =
-    RISK_SORT_ORDER[first.risk.level] - RISK_SORT_ORDER[second.risk.level]
+function compareActionItems(first: ActionItem, second: ActionItem) {
+  const typeDiff = ACTION_TYPE_ORDER[first.type] - ACTION_TYPE_ORDER[second.type]
+  if (typeDiff !== 0) return typeDiff
 
-  if (levelDiff !== 0) return levelDiff
-  if (second.risk.score !== first.risk.score) {
-    return second.risk.score - first.risk.score
-  }
+  const priorityDiff =
+    PRIORITY_ORDER[first.priority] - PRIORITY_ORDER[second.priority]
+  if (priorityDiff !== 0) return priorityDiff
 
-  return second.co2eTon - first.co2eTon
+  return compareOptionalDates(first.dueDate ?? first.createdAt, second.dueDate ?? second.createdAt)
 }
 
-function formatDueSoonLabel(daysUntilDue: number | null) {
-  if (daysUntilDue === null) return "Kontroll inom 30 dagar"
-  if (daysUntilDue === 0) return "Förfaller idag"
-  return `Förfaller om ${daysUntilDue} dagar`
+function compareOptionalDates(firstDate?: string | null, secondDate?: string | null) {
+  if (!firstDate && !secondDate) return 0
+  if (!firstDate) return 1
+  if (!secondDate) return -1
+
+  return new Date(firstDate).getTime() - new Date(secondDate).getTime()
 }
 
-function formatInspectionInterval(installation: Installation) {
-  if (!installation.inspectionInterval) return "Ingen kontrollplikt"
-
-  if (!installation.hasAdjustedInspectionInterval) {
-    return `Var ${installation.inspectionInterval}:e månad`
-  }
-
-  return `Var ${installation.inspectionInterval}:e månad (bas ${installation.baseInspectionInterval}:e månad, läckagevarning)`
-}
-
-function formatOptionalDate(value?: string | null) {
-  return value ? formatDate(value) : "-"
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("sv-SE").format(new Date(value))
+function extractInstallationName(description: string) {
+  return description.split(" skulle ")[0]
+    .split(" ska ")[0]
+    .split(" saknar ")[0]
+    .split(" har ")[0]
 }
 
 function formatNumber(value: number) {
