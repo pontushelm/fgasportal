@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
     const validatedData = createInstallationSchema.parse(body)
     const {
       assignedContractorId: rawAssignedContractorId,
+      propertyId: rawPropertyId,
       ...installationData
     } = validatedData
     const assignedContractorId = await validateAssignedContractor(
@@ -33,6 +34,14 @@ export async function POST(request: NextRequest) {
     if (assignedContractorId === false) {
       return NextResponse.json(
         { error: 'Ogiltig servicepartner' },
+        { status: 400 }
+      )
+    }
+    const propertyId = await validateProperty(rawPropertyId, companyId)
+
+    if (propertyId === false) {
+      return NextResponse.json(
+        { error: 'Ogiltig fastighet' },
         { status: 400 }
       )
     }
@@ -55,6 +64,7 @@ export async function POST(request: NextRequest) {
         equipmentId: emptyToNull(validatedData.equipmentId),
         serialNumber: emptyToNull(validatedData.serialNumber),
         propertyName: emptyToNull(validatedData.propertyName),
+        propertyId: propertyId ?? null,
         equipmentType: emptyToNull(validatedData.equipmentType),
         operatorName: emptyToNull(validatedData.operatorName),
         assignedContractorId: assignedContractorId ?? null,
@@ -160,6 +170,29 @@ async function validateAssignedContractor(
   return contractor ? contractor.id : false
 }
 
+async function validateProperty(
+  value: string | null | undefined,
+  companyId: string
+) {
+  if (value === undefined) return undefined
+
+  const propertyId = emptyToNull(value)
+
+  if (!propertyId) return null
+
+  const property = await prisma.property.findFirst({
+    where: {
+      id: propertyId,
+      companyId,
+    },
+    select: {
+      id: true,
+    },
+  })
+
+  return property ? property.id : false
+}
+
 export async function GET(request: NextRequest) {
   try {
     const auth = authenticateApiRequest(request)
@@ -171,6 +204,8 @@ export async function GET(request: NextRequest) {
     const archived = searchParams.get('archived') || 'active'
     const refrigerantType = searchParams.get('refrigerantType')?.trim()
     const contractorId = searchParams.get('contractorId')?.trim()
+    const propertyId = searchParams.get('propertyId')?.trim()
+    const municipality = searchParams.get('municipality')?.trim()
     const statusFilter = searchParams.get('status')?.trim()
     const sort = searchParams.get('sort') || 'updatedAt'
     const direction = searchParams.get('direction') === 'asc' ? 'asc' : 'desc'
@@ -194,6 +229,8 @@ export async function GET(request: NextRequest) {
           }
         : {}),
       ...(refrigerantType ? { refrigerantType } : {}),
+      ...(propertyId ? { propertyId } : {}),
+      ...(municipality ? { property: { municipality } } : {}),
       ...(contractorId
         ? contractorId === 'unassigned'
           ? { assignedContractorId: null }
@@ -212,6 +249,14 @@ export async function GET(request: NextRequest) {
             id: true,
             name: true,
             email: true,
+          },
+        },
+        property: {
+          select: {
+            id: true,
+            name: true,
+            municipality: true,
+            city: true,
           },
         },
         events: {

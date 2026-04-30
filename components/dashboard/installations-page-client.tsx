@@ -12,6 +12,8 @@ type Installation = {
   id: string
   name: string
   location: string
+  propertyId?: string | null
+  property?: PropertyOption | null
   equipmentId?: string | null
   serialNumber?: string | null
   refrigerantType: string
@@ -36,6 +38,13 @@ type Contractor = {
   id: string
   name: string
   email: string
+}
+
+type PropertyOption = {
+  id: string
+  name: string
+  municipality?: string | null
+  city?: string | null
 }
 
 type InstallationEventType = "INSPECTION" | "LEAK" | "REFILL" | "SERVICE"
@@ -101,6 +110,7 @@ export default function InstallationsPageClient() {
   const [installations, setInstallations] = useState<Installation[]>([])
   const [filterSourceInstallations, setFilterSourceInstallations] = useState<Installation[]>([])
   const [contractors, setContractors] = useState<Contractor[]>([])
+  const [properties, setProperties] = useState<PropertyOption[]>([])
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [contractorId, setContractorId] = useState("")
@@ -127,6 +137,8 @@ export default function InstallationsPageClient() {
   const archivedValue = searchParams.get("archived") || "active"
   const refrigerantValue = searchParams.get("refrigerantType") || ""
   const contractorFilterValue = searchParams.get("contractorId") || ""
+  const propertyFilterValue = searchParams.get("propertyId") || ""
+  const municipalityFilterValue = searchParams.get("municipality") || ""
   const statusValue = searchParams.get("status") || ""
   const sortValue = `${searchParams.get("sort") || "updatedAt"}:${searchParams.get("direction") || "desc"}`
 
@@ -138,7 +150,7 @@ export default function InstallationsPageClient() {
       setError("")
 
       const installationsUrl = `/api/installations${queryString ? `?${queryString}` : ""}`
-      const [installationsRes, userRes, filterSourceRes, savedFiltersRes] = await Promise.all([
+      const [installationsRes, userRes, filterSourceRes, savedFiltersRes, propertiesRes] = await Promise.all([
         fetch(installationsUrl, {
           credentials: "include",
         }),
@@ -151,18 +163,22 @@ export default function InstallationsPageClient() {
         fetch(`/api/saved-filters?page=${SAVED_FILTER_PAGE}`, {
           credentials: "include",
         }),
+        fetch("/api/properties", {
+          credentials: "include",
+        }),
       ])
 
       if (
         installationsRes.status === 401 ||
         userRes.status === 401 ||
-        savedFiltersRes.status === 401
+        savedFiltersRes.status === 401 ||
+        propertiesRes.status === 401
       ) {
         router.push("/login")
         return
       }
 
-      if (!installationsRes.ok || !userRes.ok || !filterSourceRes.ok || !savedFiltersRes.ok) {
+      if (!installationsRes.ok || !userRes.ok || !filterSourceRes.ok || !savedFiltersRes.ok || !propertiesRes.ok) {
         if (!isMounted) return
         setError("Kunde inte hämta aggregat")
         setIsLoading(false)
@@ -173,6 +189,7 @@ export default function InstallationsPageClient() {
       const userData: CurrentUser = await userRes.json()
       const filterSourceData: Installation[] = await filterSourceRes.json()
       const savedFiltersData: SavedFilter[] = await savedFiltersRes.json()
+      const propertiesData: PropertyOption[] = await propertiesRes.json()
       const contractorsData: Contractor[] =
         userData.role === "ADMIN"
           ? await fetch("/api/company/contractors", {
@@ -186,6 +203,7 @@ export default function InstallationsPageClient() {
       setFilterSourceInstallations(filterSourceData)
       setCurrentUser(userData)
       setContractors(contractorsData)
+      setProperties(propertiesData)
       setSavedFilters(savedFiltersData)
       setSelectedIds([])
       setIsLoading(false)
@@ -258,11 +276,27 @@ export default function InstallationsPageClient() {
       ).sort((first, second) => first.localeCompare(second, "sv")),
     [filterSourceInstallations]
   )
+  const municipalityOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [
+            ...properties.map((property) => property.municipality),
+            ...filterSourceInstallations.map(
+              (installation) => installation.property?.municipality
+            ),
+          ].filter((value): value is string => Boolean(value))
+        )
+      ).sort((first, second) => first.localeCompare(second, "sv")),
+    [filterSourceInstallations, properties]
+  )
   const hasActiveFilters = Boolean(
     searchValue ||
       archivedValue !== "active" ||
       refrigerantValue ||
       contractorFilterValue ||
+      propertyFilterValue ||
+      municipalityFilterValue ||
       statusValue
   )
 
@@ -481,7 +515,7 @@ export default function InstallationsPageClient() {
       </div>
 
       <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
-        <div className="grid gap-4 lg:grid-cols-[minmax(220px,1.4fr)_repeat(5,minmax(150px,1fr))]">
+        <div className="grid gap-4 lg:grid-cols-[minmax(220px,1.4fr)_repeat(7,minmax(150px,1fr))]">
           <label className="grid gap-1 text-sm font-medium text-slate-700">
             Sök
             <input
@@ -526,6 +560,32 @@ export default function InstallationsPageClient() {
             {contractors.map((contractor) => (
               <option key={contractor.id} value={contractor.id}>
                 {contractor.name}
+              </option>
+            ))}
+          </FilterSelect>
+
+          <FilterSelect
+            label="Fastighet"
+            value={propertyFilterValue}
+            onChange={(value) => updateQueryParam("propertyId", value)}
+          >
+            <option value="">Alla</option>
+            {properties.map((property) => (
+              <option key={property.id} value={property.id}>
+                {property.name}
+              </option>
+            ))}
+          </FilterSelect>
+
+          <FilterSelect
+            label="Kommun"
+            value={municipalityFilterValue}
+            onChange={(value) => updateQueryParam("municipality", value)}
+          >
+            <option value="">Alla</option>
+            {municipalityOptions.map((municipality) => (
+              <option key={municipality} value={municipality}>
+                {municipality}
               </option>
             ))}
           </FilterSelect>
@@ -686,6 +746,8 @@ export default function InstallationsPageClient() {
                 )}
                 <TableHeader>Aggregat</TableHeader>
                 <TableHeader>Plats</TableHeader>
+                <TableHeader>Fastighet</TableHeader>
+                <TableHeader>Kommun</TableHeader>
                 <TableHeader>Köldmedium</TableHeader>
                 <TableHeader>Mängd</TableHeader>
                 <TableHeader>CO₂e</TableHeader>
@@ -726,6 +788,8 @@ export default function InstallationsPageClient() {
                     )}
                   </TableCell>
                   <TableCell>{installation.location}</TableCell>
+                  <TableCell>{installation.property?.name || "-"}</TableCell>
+                  <TableCell>{installation.property?.municipality || "-"}</TableCell>
                   <TableCell>{installation.refrigerantType}</TableCell>
                   <TableCell>{formatNumber(installation.refrigerantAmount)} kg</TableCell>
                   <TableCell>{formatNumber(installation.co2eTon)} ton</TableCell>
@@ -868,6 +932,14 @@ function InstallationQuickView({
             </h3>
             <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
               <QuickViewItem label="Köldmedium" value={installation.refrigerantType} />
+              <QuickViewItem
+                label="Fastighet"
+                value={installation.property?.name || "-"}
+              />
+              <QuickViewItem
+                label="Kommun"
+                value={installation.property?.municipality || "-"}
+              />
               <QuickViewItem
                 label="Fyllnadsmängd"
                 value={`${formatNumber(installation.refrigerantAmount)} kg`}

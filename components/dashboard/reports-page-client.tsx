@@ -37,6 +37,12 @@ type ReportData = {
   }>
 }
 
+type PropertyOption = {
+  id: string
+  name: string
+  municipality?: string | null
+}
+
 const EVENT_LABELS: Record<EventType, string> = {
   INSPECTION: "Kontroll",
   LEAK: "Läckage",
@@ -58,10 +64,34 @@ export default function ReportsPage() {
     [currentYear]
   )
   const [selectedYear, setSelectedYear] = useState(currentYear)
+  const [selectedMunicipality, setSelectedMunicipality] = useState("")
+  const [selectedPropertyId, setSelectedPropertyId] = useState("")
+  const [properties, setProperties] = useState<PropertyOption[]>([])
   const [reportData, setReportData] = useState<ReportData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
   const router = useRouter()
+  const municipalityOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          properties
+            .map((property) => property.municipality)
+            .filter((value): value is string => Boolean(value))
+        )
+      ).sort((first, second) => first.localeCompare(second, "sv")),
+    [properties]
+  )
+  const reportQuery = useMemo(() => {
+    const params = new URLSearchParams({
+      year: String(selectedYear),
+    })
+
+    if (selectedMunicipality) params.set("municipality", selectedMunicipality)
+    if (selectedPropertyId) params.set("propertyId", selectedPropertyId)
+
+    return params.toString()
+  }, [selectedMunicipality, selectedPropertyId, selectedYear])
 
   useEffect(() => {
     let isMounted = true
@@ -70,16 +100,21 @@ export default function ReportsPage() {
       setIsLoading(true)
       setError("")
 
-      const response = await fetch(`/api/reports/fgas?year=${selectedYear}`, {
-        credentials: "include",
-      })
+      const [response, propertiesResponse] = await Promise.all([
+        fetch(`/api/reports/fgas?${reportQuery}`, {
+          credentials: "include",
+        }),
+        fetch("/api/properties", {
+          credentials: "include",
+        }),
+      ])
 
-      if (response.status === 401) {
+      if (response.status === 401 || propertiesResponse.status === 401) {
         router.push("/login")
         return
       }
 
-      if (!response.ok) {
+      if (!response.ok || !propertiesResponse.ok) {
         if (!isMounted) return
         setError("Kunde inte hämta årsrapporten")
         setIsLoading(false)
@@ -87,10 +122,12 @@ export default function ReportsPage() {
       }
 
       const data: ReportData = await response.json()
+      const propertiesData: PropertyOption[] = await propertiesResponse.json()
 
       if (!isMounted) return
 
       setReportData(data)
+      setProperties(propertiesData)
       setIsLoading(false)
     }
 
@@ -99,7 +136,7 @@ export default function ReportsPage() {
     return () => {
       isMounted = false
     }
-  }, [router, selectedYear])
+  }, [reportQuery, router])
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-neutral-950 sm:px-6 lg:px-8">
@@ -135,15 +172,54 @@ export default function ReportsPage() {
               ))}
             </select>
           </label>
+          <label className="grid gap-1 text-sm font-semibold text-neutral-700">
+            Kommun
+            <select
+              className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
+              onChange={(event) => {
+                setSelectedMunicipality(event.target.value)
+                setSelectedPropertyId("")
+              }}
+              value={selectedMunicipality}
+            >
+              <option value="">Alla kommuner</option>
+              {municipalityOptions.map((municipality) => (
+                <option key={municipality} value={municipality}>
+                  {municipality}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm font-semibold text-neutral-700">
+            Fastighet
+            <select
+              className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
+              onChange={(event) => setSelectedPropertyId(event.target.value)}
+              value={selectedPropertyId}
+            >
+              <option value="">Alla fastigheter</option>
+              {properties
+                .filter((property) =>
+                  selectedMunicipality
+                    ? property.municipality === selectedMunicipality
+                    : true
+                )
+                .map((property) => (
+                  <option key={property.id} value={property.id}>
+                    {property.name}
+                  </option>
+                ))}
+            </select>
+          </label>
           <a
             className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-            href={`/api/reports/fgas/export?year=${selectedYear}&format=csv`}
+            href={`/api/reports/fgas/export?${reportQuery}&format=csv`}
           >
             Exportera CSV
           </a>
           <a
             className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-50"
-            href={`/api/reports/fgas/export?year=${selectedYear}&format=pdf`}
+            href={`/api/reports/fgas/export?${reportQuery}&format=pdf`}
           >
             Exportera PDF
           </a>

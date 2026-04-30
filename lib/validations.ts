@@ -95,6 +95,7 @@ const installationRegisterFieldsSchema = {
   equipmentId: optionalRegisterField,
   serialNumber: optionalRegisterField,
   propertyName: optionalRegisterField,
+  propertyId: optionalContractorField,
   equipmentType: optionalRegisterField,
   operatorName: optionalRegisterField,
   hasLeakDetectionSystem: z.boolean().optional(),

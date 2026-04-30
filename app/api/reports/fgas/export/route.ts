@@ -24,6 +24,8 @@ export async function GET(request: NextRequest) {
 
     const year = parseReportYear(request.nextUrl.searchParams.get("year"))
     const format = request.nextUrl.searchParams.get("format") ?? "csv"
+    const municipality = request.nextUrl.searchParams.get("municipality")?.trim()
+    const propertyId = request.nextUrl.searchParams.get("propertyId")?.trim()
 
     if (!year) {
       return NextResponse.json({ error: "Ogiltigt årtal" }, { status: 400 })
@@ -47,6 +49,8 @@ export async function GET(request: NextRequest) {
     const report = await getFgasAnnualReport({
       companyId: auth.user.companyId,
       assignedContractorId: isContractor(auth.user) ? auth.user.userId : undefined,
+      municipality: municipality || undefined,
+      propertyId: propertyId || undefined,
       year,
     })
 

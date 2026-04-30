@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 import type { InspectionReminderStatus } from "@/lib/inspection-reminders"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
@@ -9,6 +9,7 @@ import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 type InstallationFormData = {
   name: string
   location: string
+  propertyId: string
   equipmentId: string
   serialNumber: string
   propertyName: string
@@ -21,6 +22,12 @@ type InstallationFormData = {
   lastInspection: string
   inspectionIntervalMonths: string
   notes: string
+}
+
+type PropertyOption = {
+  id: string
+  name: string
+  municipality?: string | null
 }
 
 type CreatedInstallation = {
@@ -53,6 +60,7 @@ type CreatedInstallation = {
 const initialFormData: InstallationFormData = {
   name: "",
   location: "",
+  propertyId: "",
   equipmentId: "",
   serialNumber: "",
   propertyName: "",
@@ -78,8 +86,30 @@ export default function CreateInstallationForm({
   onInstallationCreated: (installation: CreatedInstallation) => void
 }) {
   const [formData, setFormData] = useState<InstallationFormData>(initialFormData)
+  const [properties, setProperties] = useState<PropertyOption[]>([])
   const [error, setError] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function fetchProperties() {
+      const res = await fetch("/api/properties", {
+        credentials: "include",
+      })
+
+      if (!isMounted || !res.ok) return
+
+      const data: PropertyOption[] = await res.json()
+      setProperties(data)
+    }
+
+    void fetchProperties()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -134,6 +164,17 @@ export default function CreateInstallationForm({
 
       <input className={inputClassName} name="name" placeholder="Namn" value={formData.name} onChange={handleChange} required />
       <input className={inputClassName} name="location" placeholder="Plats" value={formData.location} onChange={handleChange} required />
+      <label className={labelClassName}>
+        Fastighet
+        <select className={inputClassName} name="propertyId" value={formData.propertyId} onChange={handleChange}>
+          <option value="">Ingen vald fastighet</option>
+          {properties.map((property) => (
+            <option key={property.id} value={property.id}>
+              {property.name}{property.municipality ? `, ${property.municipality}` : ""}
+            </option>
+          ))}
+        </select>
+      </label>
       <input className={inputClassName} name="propertyName" placeholder="Fastighet" value={formData.propertyName} onChange={handleChange} />
       <input className={inputClassName} name="equipmentId" placeholder="Utrustnings-ID" value={formData.equipmentId} onChange={handleChange} />
       <input className={inputClassName} name="serialNumber" placeholder="Serienummer" value={formData.serialNumber} onChange={handleChange} />

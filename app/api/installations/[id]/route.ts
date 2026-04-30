@@ -35,6 +35,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
         ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
       },
       include: {
+        property: {
+          select: {
+            id: true,
+            name: true,
+            municipality: true,
+            city: true,
+          },
+        },
         inspections: {
           orderBy: {
             inspectionDate: "desc",
@@ -75,10 +83,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       validatedData.assignedContractorId,
       companyId
     )
+    const propertyId = await validateProperty(validatedData.propertyId, companyId)
 
     if (assignedContractorId === false) {
       return NextResponse.json(
         { error: "Ogiltig servicepartner" },
+        { status: 400 }
+      )
+    }
+
+    if (propertyId === false) {
+      return NextResponse.json(
+        { error: "Ogiltig fastighet" },
         { status: 400 }
       )
     }
@@ -116,6 +132,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       assignedContractorId === undefined
         ? {}
         : { assignedContractorId }
+    const propertyUpdate =
+      propertyId === undefined
+        ? {}
+        : { propertyId }
 
     const updatedInstallation = await prisma.installation.update({
       where: {
@@ -127,6 +147,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         equipmentId: emptyToNull(validatedData.equipmentId),
         serialNumber: emptyToNull(validatedData.serialNumber),
         propertyName: emptyToNull(validatedData.propertyName),
+        ...propertyUpdate,
         equipmentType: emptyToNull(validatedData.equipmentType),
         operatorName: emptyToNull(validatedData.operatorName),
         ...assignedContractorUpdate,
@@ -243,6 +264,29 @@ async function validateAssignedContractor(
   })
 
   return contractor ? contractor.id : false
+}
+
+async function validateProperty(
+  value: string | null | undefined,
+  companyId: string
+) {
+  if (value === undefined) return undefined
+
+  const propertyId = emptyToNull(value)
+
+  if (!propertyId) return null
+
+  const property = await prisma.property.findFirst({
+    where: {
+      id: propertyId,
+      companyId,
+    },
+    select: {
+      id: true,
+    },
+  })
+
+  return property ? property.id : false
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {

@@ -86,6 +86,13 @@ type InstallationDetail = {
   id: string
   name: string
   location: string
+  propertyId?: string | null
+  property?: {
+    id: string
+    name: string
+    municipality?: string | null
+    city?: string | null
+  } | null
   equipmentId?: string | null
   serialNumber?: string | null
   propertyName?: string | null
@@ -131,6 +138,7 @@ type DocumentFormData = {
 type InstallationEditFormData = {
   name: string
   location: string
+  propertyId: string
   equipmentId: string
   serialNumber: string
   propertyName: string
@@ -147,6 +155,12 @@ type Contractor = {
   id: string
   name: string
   email: string
+}
+
+type PropertyOption = {
+  id: string
+  name: string
+  municipality?: string | null
 }
 
 const initialInspectionFormData: InspectionFormData = {
@@ -172,6 +186,7 @@ const initialDocumentFormData: DocumentFormData = {
 const initialEditFormData: InstallationEditFormData = {
   name: "",
   location: "",
+  propertyId: "",
   equipmentId: "",
   serialNumber: "",
   propertyName: "",
@@ -253,6 +268,7 @@ export default function InstallationDetailPage() {
   const [documents, setDocuments] = useState<InstallationDocument[]>([])
   const [activityLogs, setActivityLogs] = useState<ActivityLogEntry[]>([])
   const [contractors, setContractors] = useState<Contractor[]>([])
+  const [properties, setProperties] = useState<PropertyOption[]>([])
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
@@ -295,6 +311,7 @@ export default function InstallationDetailPage() {
         eventsRes,
         documentsRes,
         activityRes,
+        propertiesRes,
       ] = await Promise.all([
         fetch(`/api/installations/${params.id}`, {
           credentials: "include",
@@ -311,6 +328,9 @@ export default function InstallationDetailPage() {
         fetch(`/api/installations/${params.id}/activity`, {
           credentials: "include",
         }),
+        fetch("/api/properties", {
+          credentials: "include",
+        }),
       ])
 
       if (
@@ -318,7 +338,8 @@ export default function InstallationDetailPage() {
         userRes.status === 401 ||
         eventsRes.status === 401 ||
         documentsRes.status === 401 ||
-        activityRes.status === 401
+        activityRes.status === 401 ||
+        propertiesRes.status === 401
       ) {
         router.push("/login")
         return
@@ -336,7 +357,8 @@ export default function InstallationDetailPage() {
         !userRes.ok ||
         !eventsRes.ok ||
         !documentsRes.ok ||
-        !activityRes.ok
+        !activityRes.ok ||
+        !propertiesRes.ok
       ) {
         if (!isMounted) return
         setError("Kunde inte hämta installationen")
@@ -349,6 +371,7 @@ export default function InstallationDetailPage() {
       const eventsData: InstallationEvent[] = await eventsRes.json()
       const documentsData: InstallationDocument[] = await documentsRes.json()
       const activityData: ActivityLogEntry[] = await activityRes.json()
+      const propertiesData: PropertyOption[] = await propertiesRes.json()
       const contractorsData: Contractor[] =
         userData.role === "ADMIN"
           ? await fetch("/api/company/contractors", {
@@ -363,10 +386,12 @@ export default function InstallationDetailPage() {
       setDocuments(documentsData)
       setActivityLogs(activityData)
       setContractors(contractorsData)
+      setProperties(propertiesData)
       setCurrentUser(userData)
       setEditForm({
         name: data.name,
         location: data.location,
+        propertyId: data.propertyId || "",
         equipmentId: data.equipmentId || "",
         serialNumber: data.serialNumber || "",
         propertyName: data.propertyName || "",
@@ -778,6 +803,8 @@ export default function InstallationDetailPage() {
         <div className="rounded-lg border border-slate-200 bg-white p-5">
           <h2 className="text-lg font-semibold text-slate-950">Installationsdetaljer</h2>
           <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <DetailItem label="Kopplad fastighet" value={formatOptionalText(installation.property?.name)} />
+            <DetailItem label="Kommun" value={formatOptionalText(installation.property?.municipality)} />
             <DetailItem label="Fastighet" value={formatOptionalText(installation.propertyName)} />
             <DetailItem label="Utrustnings-ID" value={formatOptionalText(installation.equipmentId)} />
             <DetailItem label="Serienummer" value={formatOptionalText(installation.serialNumber)} />
@@ -825,6 +852,17 @@ export default function InstallationDetailPage() {
             <form className="mt-4 grid max-w-xl gap-3" onSubmit={handleEditSubmit}>
               <label className={fieldClassName}>Namn<input name="name" value={editForm.name} onChange={handleEditChange} required /></label>
               <label className={fieldClassName}>Plats<input name="location" value={editForm.location} onChange={handleEditChange} required /></label>
+              <label className={fieldClassName}>
+                Kopplad fastighet
+                <select name="propertyId" value={editForm.propertyId} onChange={handleEditChange}>
+                  <option value="">Ingen vald fastighet</option>
+                  {properties.map((property) => (
+                    <option key={property.id} value={property.id}>
+                      {property.name}{property.municipality ? `, ${property.municipality}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className={fieldClassName}>Fastighet<input name="propertyName" value={editForm.propertyName} onChange={handleEditChange} /></label>
               <label className={fieldClassName}>Utrustnings-ID<input name="equipmentId" value={editForm.equipmentId} onChange={handleEditChange} /></label>
               <label className={fieldClassName}>Serienummer<input name="serialNumber" value={editForm.serialNumber} onChange={handleEditChange} /></label>

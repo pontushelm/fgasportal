@@ -43,6 +43,7 @@ model Company {
   planType  String   @default("free")
 
   users         User[]
+  properties    Property[]
   installations Installation[]
   invitations   Invitation[]
   installationDocuments InstallationDocument[]
@@ -120,6 +121,9 @@ model Installation {
   companyId String
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
   createdById String
   createdBy   User @relation("CreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
 
@@ -136,6 +140,26 @@ model Installation {
   activityLogs ActivityLog[]
 
   @@map("installations")
+}
+
+model Property {
+  id                  String   @id @default(cuid())
+  companyId           String
+  name                String
+  address             String?
+  postalCode          String?
+  city                String?
+  municipality        String?
+  propertyDesignation String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  installations Installation[]
+
+  @@index([companyId])
+  @@index([municipality])
+  @@map("properties")
 }
 
 model Inspection {
