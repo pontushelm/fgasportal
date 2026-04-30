@@ -48,6 +48,14 @@ type InstallationEvent = {
   notes?: string | null
 }
 
+type SavedFilter = {
+  id: string
+  name: string
+  page: string
+  queryParams: Record<string, string>
+  createdAt: string
+}
+
 const STATUS_LABELS: Record<ComplianceStatus, string> = {
   OK: "OK",
   DUE_SOON: "Kontroll inom 30 dagar",
@@ -84,6 +92,7 @@ const SORT_OPTIONS = [
   { value: "co2e:desc", label: "CO₂e, högst först" },
   { value: "co2e:asc", label: "CO₂e, lägst först" },
 ]
+const SAVED_FILTER_PAGE = "installations"
 
 export default function InstallationsPageClient() {
   const router = useRouter()
@@ -106,6 +115,13 @@ export default function InstallationsPageClient() {
   const [selectedEvents, setSelectedEvents] = useState<InstallationEvent[]>([])
   const [isQuickViewLoading, setIsQuickViewLoading] = useState(false)
   const [quickViewError, setQuickViewError] = useState("")
+  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([])
+  const [selectedSavedFilterId, setSelectedSavedFilterId] = useState("")
+  const [isSaveFilterOpen, setIsSaveFilterOpen] = useState(false)
+  const [saveFilterName, setSaveFilterName] = useState("")
+  const [isSavingFilter, setIsSavingFilter] = useState(false)
+  const [savedFilterError, setSavedFilterError] = useState("")
+  const [savedFilterSuccess, setSavedFilterSuccess] = useState("")
 
   const searchValue = searchParams.get("q") || ""
   const archivedValue = searchParams.get("archived") || "active"
@@ -122,7 +138,7 @@ export default function InstallationsPageClient() {
       setError("")
 
       const installationsUrl = `/api/installations${queryString ? `?${queryString}` : ""}`
-      const [installationsRes, userRes, filterSourceRes] = await Promise.all([
+      const [installationsRes, userRes, filterSourceRes, savedFiltersRes] = await Promise.all([
         fetch(installationsUrl, {
           credentials: "include",
         }),
@@ -132,14 +148,21 @@ export default function InstallationsPageClient() {
         fetch("/api/installations?archived=all", {
           credentials: "include",
         }),
+        fetch(`/api/saved-filters?page=${SAVED_FILTER_PAGE}`, {
+          credentials: "include",
+        }),
       ])
 
-      if (installationsRes.status === 401 || userRes.status === 401) {
+      if (
+        installationsRes.status === 401 ||
+        userRes.status === 401 ||
+        savedFiltersRes.status === 401
+      ) {
         router.push("/login")
         return
       }
 
-      if (!installationsRes.ok || !userRes.ok || !filterSourceRes.ok) {
+      if (!installationsRes.ok || !userRes.ok || !filterSourceRes.ok || !savedFiltersRes.ok) {
         if (!isMounted) return
         setError("Kunde inte hämta aggregat")
         setIsLoading(false)
@@ -149,6 +172,7 @@ export default function InstallationsPageClient() {
       const installationsData: Installation[] = await installationsRes.json()
       const userData: CurrentUser = await userRes.json()
       const filterSourceData: Installation[] = await filterSourceRes.json()
+      const savedFiltersData: SavedFilter[] = await savedFiltersRes.json()
       const contractorsData: Contractor[] =
         userData.role === "ADMIN"
           ? await fetch("/api/company/contractors", {
@@ -162,6 +186,7 @@ export default function InstallationsPageClient() {
       setFilterSourceInstallations(filterSourceData)
       setCurrentUser(userData)
       setContractors(contractorsData)
+      setSavedFilters(savedFiltersData)
       setSelectedIds([])
       setIsLoading(false)
     }
@@ -243,6 +268,8 @@ export default function InstallationsPageClient() {
 
   function updateQueryParam(name: string, value: string) {
     const params = new URLSearchParams(searchParams.toString())
+    setSelectedSavedFilterId("")
+    setSavedFilterSuccess("")
 
     if (value) {
       params.set(name, value)
@@ -256,6 +283,8 @@ export default function InstallationsPageClient() {
   function updateSort(value: string) {
     const [sort, direction] = value.split(":")
     const params = new URLSearchParams(searchParams.toString())
+    setSelectedSavedFilterId("")
+    setSavedFilterSuccess("")
 
     params.set("sort", sort)
     params.set("direction", direction)
@@ -264,6 +293,66 @@ export default function InstallationsPageClient() {
 
   function clearFilters() {
     router.replace("/dashboard/installations")
+    setSelectedSavedFilterId("")
+  }
+
+  function applySavedFilter(savedFilterId: string) {
+    setSelectedSavedFilterId(savedFilterId)
+
+    if (!savedFilterId) return
+
+    const savedFilter = savedFilters.find((filter) => filter.id === savedFilterId)
+    if (!savedFilter) return
+
+    const params = new URLSearchParams(savedFilter.queryParams)
+    router.replace(`/dashboard/installations${params.toString() ? `?${params.toString()}` : ""}`)
+  }
+
+  async function handleSaveFilter(event: React.FormEvent) {
+    event.preventDefault()
+    setSavedFilterError("")
+    setSavedFilterSuccess("")
+
+    const trimmedName = saveFilterName.trim()
+
+    if (!trimmedName) {
+      setSavedFilterError("Ange ett namn för filtret")
+      return
+    }
+
+    setIsSavingFilter(true)
+
+    const res = await fetch("/api/saved-filters", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        name: trimmedName,
+        page: SAVED_FILTER_PAGE,
+        queryParams: Object.fromEntries(searchParams.entries()),
+      }),
+    })
+    const result: SavedFilter & { error?: string } = await res.json()
+
+    if (res.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!res.ok) {
+      setSavedFilterError(result.error || "Kunde inte spara filtret")
+      setIsSavingFilter(false)
+      return
+    }
+
+    setSavedFilters((current) => [result, ...current])
+    setSelectedSavedFilterId(result.id)
+    setSaveFilterName("")
+    setIsSaveFilterOpen(false)
+    setSavedFilterSuccess("Filtret har sparats")
+    setIsSavingFilter(false)
   }
 
   function toggleAll() {
@@ -460,6 +549,78 @@ export default function InstallationsPageClient() {
             ))}
           </FilterSelect>
         </div>
+
+        <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 lg:flex-row lg:items-end lg:justify-between">
+          <label className="grid gap-1 text-sm font-medium text-slate-700 lg:min-w-72">
+            Mina sparade filter
+            <select
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900"
+              value={selectedSavedFilterId}
+              onChange={(event) => applySavedFilter(event.target.value)}
+            >
+              <option value="">Välj sparat filter</option>
+              {savedFilters.map((filter) => (
+                <option key={filter.id} value={filter.id}>
+                  {filter.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            {isSaveFilterOpen ? (
+              <form className="flex flex-col gap-2 sm:flex-row sm:items-end" onSubmit={handleSaveFilter}>
+                <label className="grid gap-1 text-sm font-medium text-slate-700">
+                  Filternamn
+                  <input
+                    className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400"
+                    placeholder="Ex. Försenade R410A"
+                    value={saveFilterName}
+                    onChange={(event) => setSaveFilterName(event.target.value)}
+                  />
+                </label>
+                <button
+                  className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
+                  type="submit"
+                  disabled={isSavingFilter}
+                >
+                  {isSavingFilter ? "Sparar..." : "Spara"}
+                </button>
+                <button
+                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                  type="button"
+                  disabled={isSavingFilter}
+                  onClick={() => {
+                    setIsSaveFilterOpen(false)
+                    setSaveFilterName("")
+                    setSavedFilterError("")
+                  }}
+                >
+                  Avbryt
+                </button>
+              </form>
+            ) : (
+              <button
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                type="button"
+                onClick={() => {
+                  setIsSaveFilterOpen(true)
+                  setSavedFilterError("")
+                  setSavedFilterSuccess("")
+                }}
+              >
+                Spara filter
+              </button>
+            )}
+          </div>
+        </div>
+
+        {savedFilterError && (
+          <p className="mt-3 text-sm font-semibold text-red-700">{savedFilterError}</p>
+        )}
+        {savedFilterSuccess && (
+          <p className="mt-3 text-sm font-semibold text-green-700">{savedFilterSuccess}</p>
+        )}
 
         {hasActiveFilters && (
           <button

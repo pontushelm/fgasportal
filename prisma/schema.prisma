@@ -47,6 +47,7 @@ model Company {
   invitations   Invitation[]
   installationDocuments InstallationDocument[]
   activityLogs ActivityLog[]
+  savedFilters SavedFilter[]
 
   @@map("companies")
 }
@@ -71,6 +72,7 @@ model User {
   installationEvents   InstallationEvent[]
   uploadedInstallationDocuments InstallationDocument[]
   activityLogs ActivityLog[]
+  savedFilters SavedFilter[]
 
   @@map("users")
 }
@@ -236,4 +238,22 @@ model ActivityLog {
   @@index([userId])
   @@index([createdAt])
   @@map("activity_logs")
+}
+
+model SavedFilter {
+  id          String   @id @default(cuid())
+  name        String
+  userId      String
+  companyId   String
+  page        String
+  queryParams Json
+  createdAt   DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([page])
+  @@map("saved_filters")
 }
