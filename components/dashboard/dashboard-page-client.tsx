@@ -86,10 +86,17 @@ const ACTION_PRIORITY_LABELS: Record<ActionItem["priority"], string> = {
 }
 
 const ACTION_PRIORITY_TONE: Record<ActionItem["priority"], string> = {
-  HIGH: "bg-red-100 text-red-700",
-  MEDIUM: "bg-amber-100 text-amber-700",
-  LOW: "bg-slate-100 text-slate-700",
+  HIGH: "border-red-200 bg-red-50 text-red-700",
+  MEDIUM: "border-amber-200 bg-amber-50 text-amber-700",
+  LOW: "border-slate-200 bg-slate-50 text-slate-700",
 }
+
+const primaryButtonClassName =
+  "rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+const secondaryButtonClassName =
+  "rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+const cardClassName =
+  "rounded-2xl border border-slate-200 bg-white shadow-sm"
 
 const ACTION_TYPE_ORDER: Record<ActionItem["type"], number> = {
   OVERDUE_INSPECTION: 1,
@@ -165,14 +172,15 @@ export default function DashboardPage() {
   )
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
-      <section className="border-b border-slate-200 pb-6">
+    <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
+      <section className="mx-auto max-w-7xl">
+        <div className={`${cardClassName} px-5 py-6 sm:px-6 lg:px-8`}>
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-slate-600">
-              SaaS-översikt
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">
+              Compliance dashboard
             </p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight">
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
               F-gasöversikt
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-700">
@@ -184,32 +192,33 @@ export default function DashboardPage() {
           <div className="flex flex-wrap gap-2">
             {canManage && (
               <Link
-                className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                className={primaryButtonClassName}
                 href="/dashboard/installations"
               >
                 + Lägg till aggregat
               </Link>
             )}
-            <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/installations">
+            <Link className={secondaryButtonClassName} href="/dashboard/installations">
               Hantera aggregat
             </Link>
-            <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/reports">
+            <Link className={secondaryButtonClassName} href="/dashboard/reports">
               Rapporter
             </Link>
             {canManage && (
-              <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/installations/import">
+              <Link className={secondaryButtonClassName} href="/dashboard/installations/import">
                 Import Excel
               </Link>
             )}
           </div>
         </div>
+        </div>
       </section>
 
-      {isLoading && <p className="mt-8 text-slate-700">Laddar...</p>}
-      {error && <p className="mt-8 text-red-700">{error}</p>}
+      {isLoading && <p className="mx-auto mt-8 max-w-7xl text-slate-700">Laddar...</p>}
+      {error && <p className="mx-auto mt-8 max-w-7xl text-red-700">{error}</p>}
 
       {dashboardData && (
-        <>
+        <div className="mx-auto max-w-7xl">
           <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
             <MetricCard label="Totalt" value={dashboardData.metrics.totalInstallations} />
             <MetricCard label="OK" value={dashboardData.metrics.ok} tone="emerald" />
@@ -222,16 +231,19 @@ export default function DashboardPage() {
           </section>
 
           <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.85fr)]">
-            <div className="rounded-lg border border-slate-200 bg-white p-5">
+            <div className={`${cardClassName} p-5 sm:p-6`}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold text-slate-950">Att göra</h2>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Prioritering
+                  </p>
+                  <h2 className="mt-1 text-xl font-semibold text-slate-950">Att göra</h2>
                   <p className="mt-1 text-sm text-slate-700">
                     De fem viktigaste åtgärderna just nu.
                   </p>
                 </div>
                 <Link
-                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                  className={secondaryButtonClassName}
                   href="/dashboard/installations?status=overdue"
                 >
                   Visa alla åtgärder
@@ -298,13 +310,13 @@ export default function DashboardPage() {
 
           <div className="mt-6 flex justify-end">
             <Link
-              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+              className={secondaryButtonClassName}
               href="/dashboard/installations"
             >
               Visa alla aggregat
             </Link>
           </div>
-        </>
+        </div>
       )}
     </main>
   )
@@ -320,17 +332,17 @@ function MetricCard({
   tone?: "neutral" | "emerald" | "red" | "amber" | "sky"
 }) {
   const toneClass = {
-    neutral: "border-slate-200 bg-white",
-    emerald: "border-emerald-200 bg-emerald-50",
-    red: "border-red-200 bg-red-50",
-    amber: "border-amber-200 bg-amber-50",
-    sky: "border-sky-200 bg-sky-50",
+    neutral: "border-l-slate-300",
+    emerald: "border-l-emerald-500",
+    red: "border-l-red-500",
+    amber: "border-l-amber-500",
+    sky: "border-l-sky-500",
   }[tone]
 
   return (
-    <div className={`rounded-lg border px-3 py-3 ${toneClass}`}>
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-600">{label}</div>
-      <div className="mt-1 break-words text-xl font-bold text-slate-950">{value}</div>
+    <div className={`min-h-24 rounded-xl border border-slate-200 border-l-4 bg-white px-3 py-3 shadow-sm ${toneClass}`}>
+      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="mt-2 break-words text-2xl font-bold tracking-tight text-slate-950">{value}</div>
     </div>
   )
 }
@@ -345,14 +357,14 @@ function MiniMetric({
   tone: "emerald" | "red" | "amber"
 }) {
   const toneClass = {
-    emerald: "bg-emerald-50 text-emerald-800",
-    red: "bg-red-50 text-red-800",
-    amber: "bg-amber-50 text-amber-800",
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    red: "border-red-200 bg-red-50 text-red-800",
+    amber: "border-amber-200 bg-amber-50 text-amber-800",
   }[tone]
 
   return (
-    <div className={`rounded-md p-3 text-center ${toneClass}`}>
-      <div className="text-xs font-semibold uppercase">{label}</div>
+    <div className={`rounded-xl border p-3 text-center ${toneClass}`}>
+      <div className="text-xs font-semibold uppercase tracking-wide">{label}</div>
       <div className="mt-1 text-xl font-bold">{value}</div>
     </div>
   )
@@ -362,7 +374,7 @@ function ActionRow({ item }: { item: ActionItem }) {
   const installationName = extractInstallationName(item.description)
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <PriorityBadge priority={item.priority} />
@@ -376,7 +388,7 @@ function ActionRow({ item }: { item: ActionItem }) {
         <p className="mt-1 text-sm text-slate-700">{item.description}</p>
       </div>
       <Link
-        className="shrink-0 rounded-md bg-slate-900 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-slate-700"
+        className="shrink-0 rounded-lg bg-blue-600 px-3.5 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
         href={item.href}
       >
         Visa
@@ -393,8 +405,8 @@ function VisualCard({
   children: React.ReactNode
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <h2 className="text-base font-semibold text-slate-950">{title}</h2>
+    <div className={`${cardClassName} p-4`}>
+      <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
       <div className="mt-4">{children}</div>
     </div>
   )
@@ -470,7 +482,7 @@ function DistributionBars({
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-100">
             <div
-              className="h-full rounded-full bg-slate-900"
+              className="h-full rounded-full bg-blue-600"
               style={{ width: `${(item.value / maxValue) * 100}%` }}
             />
           </div>
@@ -482,7 +494,7 @@ function DistributionBars({
 
 function PriorityBadge({ priority }: { priority: ActionItem["priority"] }) {
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${ACTION_PRIORITY_TONE[priority]}`}>
+    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${ACTION_PRIORITY_TONE[priority]}`}>
       {ACTION_PRIORITY_LABELS[priority]}
     </span>
   )
