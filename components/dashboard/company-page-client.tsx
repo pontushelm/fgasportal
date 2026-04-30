@@ -43,6 +43,7 @@ type CompanyProfile = {
   postalCode?: string | null
   city?: string | null
   supervisoryAuthority?: string | null
+  sendInspectionRemindersToContractors: boolean
   email: string
   phone?: string | null
 }
@@ -57,6 +58,7 @@ type CompanyProfileFormData = {
   postalCode: string
   city: string
   supervisoryAuthority: string
+  sendInspectionRemindersToContractors: boolean
 }
 
 type CurrentUser = {
@@ -85,6 +87,7 @@ const initialProfileFormData: CompanyProfileFormData = {
   postalCode: "",
   city: "",
   supervisoryAuthority: "",
+  sendInspectionRemindersToContractors: false,
 }
 
 const fieldClassName = "grid gap-1 text-sm font-medium text-slate-700"
@@ -170,12 +173,13 @@ export default function CompanySettingsPage() {
 
   const canAdminister = currentUser?.role === "ADMIN"
 
-  function handleProfileChange(
-    event: React.ChangeEvent<HTMLInputElement>
-  ) {
+  function handleProfileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const value =
+      event.target.type === "checkbox" ? event.target.checked : event.target.value
+
     setProfileForm({
       ...profileForm,
-      [event.target.name]: event.target.value,
+      [event.target.name]: value,
     })
   }
 
@@ -348,6 +352,23 @@ export default function CompanySettingsPage() {
                   Tillsynsmyndighet
                   <input className={inputClassName} name="supervisoryAuthority" value={profileForm.supervisoryAuthority} onChange={handleProfileChange} />
                 </label>
+                <label className="flex gap-3 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 md:col-span-2">
+                  <input
+                    className="mt-1 h-4 w-4 rounded border-slate-300"
+                    name="sendInspectionRemindersToContractors"
+                    type="checkbox"
+                    checked={profileForm.sendInspectionRemindersToContractors}
+                    onChange={handleProfileChange}
+                  />
+                  <span>
+                    <span className="block font-semibold text-slate-900">
+                      Skicka kontrollpåminnelser till tilldelade servicepartners
+                    </span>
+                    <span className="mt-1 block">
+                      När detta är aktiverat får servicepartnern endast påminnelser för aggregat där de är tilldelade.
+                    </span>
+                  </span>
+                </label>
                 <div className="flex flex-wrap gap-2 md:col-span-2">
                   <button
                     className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
@@ -382,6 +403,10 @@ export default function CompanySettingsPage() {
                 <ProfileItem label="Postnummer" value={companyProfile.postalCode} />
                 <ProfileItem label="Ort" value={companyProfile.city} />
                 <ProfileItem label="Tillsynsmyndighet" value={companyProfile.supervisoryAuthority} />
+                <ProfileItem
+                  label="Påminnelser till servicepartners"
+                  value={companyProfile.sendInspectionRemindersToContractors ? "Aktiverat" : "Avstängt"}
+                />
               </dl>
             )}
 
@@ -539,6 +564,8 @@ function toProfileFormData(company: CompanyProfile): CompanyProfileFormData {
     postalCode: company.postalCode || "",
     city: company.city || "",
     supervisoryAuthority: company.supervisoryAuthority || "",
+    sendInspectionRemindersToContractors:
+      company.sendInspectionRemindersToContractors,
   }
 }
 

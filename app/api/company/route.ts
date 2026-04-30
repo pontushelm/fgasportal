@@ -27,6 +27,7 @@ const updateCompanySchema = z.object({
   postalCode: optionalText(20),
   city: optionalText(100),
   supervisoryAuthority: optionalText(150),
+  sendInspectionRemindersToContractors: z.boolean().optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -50,6 +51,7 @@ export async function GET(request: NextRequest) {
         postalCode: true,
         city: true,
         supervisoryAuthority: true,
+        sendInspectionRemindersToContractors: true,
         email: true,
         phone: true,
       },
@@ -99,6 +101,7 @@ export async function PATCH(request: NextRequest) {
         postalCode: true,
         city: true,
         supervisoryAuthority: true,
+        sendInspectionRemindersToContractors: true,
         email: true,
         phone: true,
       },

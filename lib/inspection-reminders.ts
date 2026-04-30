@@ -22,6 +22,10 @@ type ReminderSummary = {
 }
 
 const DUE_SOON_DAYS = 30
+type ReminderRecipient = {
+  id: string
+  email: string
+}
 
 export async function sendInspectionReminders(
   today = new Date()
@@ -55,6 +59,14 @@ export async function sendInspectionReminders(
           },
         },
       },
+      assignedContractor: {
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          isActive: true,
+        },
+      },
     },
   })
   const summary: ReminderSummary = {
@@ -81,16 +93,14 @@ export async function sendInspectionReminders(
       continue
     }
 
-    const admins = installation.company.users.filter((user) =>
-      Boolean(user.email)
-    )
+    const recipients = getReminderRecipients(installation)
 
-    if (admins.length === 0) {
+    if (recipients.length === 0) {
       summary.skipped += 1
       continue
     }
 
-    for (const user of admins) {
+    for (const user of recipients) {
       const reminderKey = createReminderKey(status, installation.nextInspection)
       const alreadySent = await prisma.reminderLog.findUnique({
         where: {
@@ -151,6 +161,43 @@ export async function sendInspectionReminders(
   }
 
   return summary
+}
+
+function getReminderRecipients(installation: {
+  company: {
+    sendInspectionRemindersToContractors: boolean
+    users: ReminderRecipient[]
+  }
+  assignedContractor: {
+    id: string
+    email: string
+    role: string
+    isActive: boolean
+  } | null
+}) {
+  const recipientsByEmail = new Map<string, ReminderRecipient>()
+
+  for (const admin of installation.company.users) {
+    if (admin.email) {
+      recipientsByEmail.set(admin.email.toLowerCase(), admin)
+    }
+  }
+
+  const contractor = installation.assignedContractor
+
+  if (
+    installation.company.sendInspectionRemindersToContractors &&
+    contractor?.email &&
+    contractor.isActive &&
+    contractor.role === "CONTRACTOR"
+  ) {
+    recipientsByEmail.set(contractor.email.toLowerCase(), {
+      id: contractor.id,
+      email: contractor.email,
+    })
+  }
+
+  return Array.from(recipientsByEmail.values())
 }
 
 export function classifyInspectionReminderStatus(
