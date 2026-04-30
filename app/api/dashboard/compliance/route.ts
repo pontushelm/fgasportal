@@ -29,6 +29,28 @@ type AttentionItem = {
   notes: string | null
 }
 
+type ActionItemType =
+  | "OVERDUE_INSPECTION"
+  | "DUE_SOON_INSPECTION"
+  | "NOT_INSPECTED"
+  | "HIGH_RISK"
+  | "NO_SERVICE_PARTNER"
+  | "RECENT_LEAKAGE"
+
+type ActionItemPriority = "HIGH" | "MEDIUM" | "LOW"
+
+type ActionItem = {
+  id: string
+  type: ActionItemType
+  title: string
+  description: string
+  priority: ActionItemPriority
+  installationId?: string
+  href: string
+  dueDate?: Date | null
+  createdAt?: Date | null
+}
+
 type RiskSummary = {
   high: number
   medium: number
@@ -41,6 +63,21 @@ const STATUS_SORT_ORDER: Record<ComplianceStatus, number> = {
   NOT_INSPECTED: 3,
   OK: 4,
   NOT_REQUIRED: 5,
+}
+
+const ACTION_PRIORITY_ORDER: Record<ActionItemPriority, number> = {
+  HIGH: 1,
+  MEDIUM: 2,
+  LOW: 3,
+}
+
+const ACTION_TYPE_ORDER: Record<ActionItemType, number> = {
+  OVERDUE_INSPECTION: 1,
+  DUE_SOON_INSPECTION: 2,
+  NOT_INSPECTED: 3,
+  HIGH_RISK: 4,
+  NO_SERVICE_PARTNER: 5,
+  RECENT_LEAKAGE: 6,
 }
 
 export async function GET(request: NextRequest) {
@@ -130,6 +167,8 @@ export async function GET(request: NextRequest) {
         complianceStatus: compliance.status,
         daysUntilDue: compliance.daysUntilDue,
         nextInspection: installation.nextInspection,
+        lastInspection: installation.lastInspection,
+        assignedContractorId: installation.assignedContractorId,
         leakageEventsCount,
         risk,
       }
@@ -182,6 +221,9 @@ export async function GET(request: NextRequest) {
     const attentionItems = [...complianceAttention, ...leakageAttention].sort(
       compareAttentionItems
     )
+    const actionItems = buildActionItems(installationRows, leakageEvents).sort(
+      compareActionItems
+    ).slice(0, 10)
 
     const totalCo2eTon = installationRows.reduce(
       (sum, installation) => sum + installation.co2eTon,
@@ -219,6 +261,7 @@ export async function GET(request: NextRequest) {
         ),
         installations: installationRows.sort(compareInstallations),
         attentionItems,
+        actionItems,
       },
       { status: 200 }
     )
@@ -230,6 +273,115 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+function buildActionItems(
+  installations: Array<{
+    id: string
+    name: string
+    nextInspection: Date | null
+    lastInspection: Date | null
+    inspectionInterval: number | null
+    complianceStatus: ComplianceStatus
+    daysUntilDue: number | null
+    assignedContractorId: string | null
+    risk: { level: InstallationRiskLevel; score: number }
+  }>,
+  leakageEvents: Array<{
+    id: string
+    installationId: string
+    installationName: string
+    date: Date
+  }>
+): ActionItem[] {
+  const items: ActionItem[] = []
+  const today = startOfDay(new Date())
+  const recentLeakageThreshold = new Date(today)
+  recentLeakageThreshold.setDate(recentLeakageThreshold.getDate() - 30)
+
+  installations.forEach((installation) => {
+    const href = `/dashboard/installations/${installation.id}`
+
+    if (installation.complianceStatus === "OVERDUE" && installation.nextInspection) {
+      items.push({
+        id: `overdue-${installation.id}`,
+        type: "OVERDUE_INSPECTION",
+        title: "Försenad kontroll",
+        description: `${installation.name} skulle ha kontrollerats ${formatDate(installation.nextInspection)}`,
+        priority: "HIGH",
+        installationId: installation.id,
+        href,
+        dueDate: installation.nextInspection,
+      })
+    }
+
+    if (installation.complianceStatus === "DUE_SOON" && installation.nextInspection) {
+      items.push({
+        id: `due-soon-${installation.id}`,
+        type: "DUE_SOON_INSPECTION",
+        title: "Kontroll inom 30 dagar",
+        description: `${installation.name} ska kontrolleras ${formatDate(installation.nextInspection)}`,
+        priority: "MEDIUM",
+        installationId: installation.id,
+        href,
+        dueDate: installation.nextInspection,
+      })
+    }
+
+    if (installation.complianceStatus === "NOT_INSPECTED") {
+      items.push({
+        id: `not-inspected-${installation.id}`,
+        type: "NOT_INSPECTED",
+        title: "Aggregat saknar kontroll",
+        description: `${installation.name} saknar registrerad kontroll`,
+        priority: installation.inspectionInterval ? "HIGH" : "LOW",
+        installationId: installation.id,
+        href,
+      })
+    }
+
+    if (installation.risk.level === "HIGH") {
+      items.push({
+        id: `high-risk-${installation.id}`,
+        type: "HIGH_RISK",
+        title: "Aggregat med hög risk",
+        description: `${installation.name} har hög klimat- eller compliance-risk`,
+        priority: "HIGH",
+        installationId: installation.id,
+        href,
+      })
+    }
+
+    if (installation.inspectionInterval && !installation.assignedContractorId) {
+      items.push({
+        id: `no-service-partner-${installation.id}`,
+        type: "NO_SERVICE_PARTNER",
+        title: "Servicepartner saknas",
+        description: `${installation.name} saknar tilldelad servicepartner`,
+        priority: "MEDIUM",
+        installationId: installation.id,
+        href,
+      })
+    }
+  })
+
+  leakageEvents.forEach((event) => {
+    const eventDate = startOfDay(event.date)
+    const isRecent = eventDate >= recentLeakageThreshold
+
+    items.push({
+      id: `recent-leakage-${event.id}`,
+      type: "RECENT_LEAKAGE",
+      title: "Nyligt läckage registrerat",
+      description: `${event.installationName} har läckage registrerat ${formatDate(event.date)}`,
+      priority: isRecent ? "HIGH" : "MEDIUM",
+      installationId: event.installationId,
+      href: `/dashboard/installations/${event.installationId}`,
+      createdAt: event.date,
+    })
+  })
+
+  return items
 }
 
 function compareInstallations(
@@ -260,6 +412,29 @@ function compareOptionalDates(firstDate?: Date | null, secondDate?: Date | null)
   return firstDate.getTime() - secondDate.getTime()
 }
 
+function compareActionItems(first: ActionItem, second: ActionItem) {
+  const priorityDiff =
+    ACTION_PRIORITY_ORDER[first.priority] - ACTION_PRIORITY_ORDER[second.priority]
+  if (priorityDiff !== 0) return priorityDiff
+
+  const typeDiff = ACTION_TYPE_ORDER[first.type] - ACTION_TYPE_ORDER[second.type]
+  if (typeDiff !== 0) return typeDiff
+
+  if (first.type === "RECENT_LEAKAGE" && second.type === "RECENT_LEAKAGE") {
+    return compareOptionalDatesDesc(first.createdAt, second.createdAt)
+  }
+
+  return compareOptionalDates(first.dueDate, second.dueDate)
+}
+
+function compareOptionalDatesDesc(firstDate?: Date | null, secondDate?: Date | null) {
+  if (!firstDate && !secondDate) return 0
+  if (!firstDate) return 1
+  if (!secondDate) return -1
+
+  return secondDate.getTime() - firstDate.getTime()
+}
+
 function incrementRiskSummary(
   summary: RiskSummary,
   level: InstallationRiskLevel
@@ -287,4 +462,14 @@ function getStatusLabel(status: ComplianceStatus) {
   }
 
   return labels[status]
+}
+
+function startOfDay(value: Date) {
+  const date = new Date(value)
+  date.setHours(0, 0, 0, 0)
+  return date
+}
+
+function formatDate(value: Date) {
+  return new Intl.DateTimeFormat("sv-SE").format(value)
 }

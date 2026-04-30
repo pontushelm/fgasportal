@@ -53,6 +53,24 @@ type AttentionItem = {
   notes: string | null
 }
 
+type ActionItem = {
+  id: string
+  type:
+    | "OVERDUE_INSPECTION"
+    | "DUE_SOON_INSPECTION"
+    | "NOT_INSPECTED"
+    | "HIGH_RISK"
+    | "NO_SERVICE_PARTNER"
+    | "RECENT_LEAKAGE"
+  title: string
+  description: string
+  priority: "HIGH" | "MEDIUM" | "LOW"
+  installationId?: string
+  href: string
+  dueDate?: string | null
+  createdAt?: string | null
+}
+
 type DashboardData = {
   metrics: {
     totalInstallations: number
@@ -78,6 +96,7 @@ type DashboardData = {
   refrigerantDistribution: DistributionItem[]
   installations: Installation[]
   attentionItems: AttentionItem[]
+  actionItems: ActionItem[]
 }
 
 type ComplianceFilter = "ALL" | ComplianceStatus
@@ -132,6 +151,18 @@ const RISK_SORT_ORDER: Record<InstallationRiskLevel, number> = {
   HIGH: 1,
   MEDIUM: 2,
   LOW: 3,
+}
+
+const ACTION_PRIORITY_LABELS: Record<ActionItem["priority"], string> = {
+  HIGH: "Hög",
+  MEDIUM: "Medel",
+  LOW: "Låg",
+}
+
+const ACTION_PRIORITY_TONE: Record<ActionItem["priority"], string> = {
+  HIGH: "bg-red-100 text-red-700",
+  MEDIUM: "bg-amber-100 text-amber-700",
+  LOW: "bg-slate-100 text-slate-700",
 }
 
 export default function DashboardPage() {
@@ -256,6 +287,44 @@ export default function DashboardPage() {
 
       {dashboardData && (
         <>
+          <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5">
+            <div>
+              <h2 className="text-xl font-semibold text-slate-950">Att göra</h2>
+              <p className="mt-1 text-sm text-slate-700">
+                Prioriterade åtgärder för att minska compliance-risk.
+              </p>
+            </div>
+
+            {dashboardData.actionItems.length === 0 ? (
+              <p className="mt-5 text-sm text-slate-700">
+                Inga prioriterade åtgärder just nu.
+              </p>
+            ) : (
+              <div className="mt-5 grid gap-3">
+                {dashboardData.actionItems.map((item) => (
+                  <div
+                    className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+                    key={item.id}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <PriorityBadge priority={item.priority} />
+                        <h3 className="font-semibold text-slate-950">{item.title}</h3>
+                      </div>
+                      <p className="mt-1 text-sm text-slate-700">{item.description}</p>
+                    </div>
+                    <Link
+                      className="shrink-0 rounded-md bg-slate-900 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-slate-700"
+                      href={item.href}
+                    >
+                      Visa aggregat
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
           <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
             <MetricCard label="Totalt antal aggregat" value={dashboardData.metrics.totalInstallations} />
             <MetricCard label="OK" value={dashboardData.metrics.ok} tone="emerald" />
@@ -661,6 +730,14 @@ function RiskBadge({ level }: { level: InstallationRiskLevel }) {
   return (
     <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${RISK_TONE[level]}`}>
       {RISK_LABELS[level]}
+    </span>
+  )
+}
+
+function PriorityBadge({ priority }: { priority: ActionItem["priority"] }) {
+  return (
+    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${ACTION_PRIORITY_TONE[priority]}`}>
+      {ACTION_PRIORITY_LABELS[priority]}
     </span>
   )
 }
