@@ -218,6 +218,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
   document_uploaded: "Dokument uppladdat",
   document_deleted: "Dokument borttaget",
   report_exported: "Rapport exporterad",
+  installation_archived: "Aggregat arkiverat",
 }
 
 const RISK_TONE: Record<InstallationRiskLevel, string> = {
