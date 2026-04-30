@@ -9,6 +9,7 @@ import { classifyInspectionReminderStatus } from "@/lib/inspection-reminders"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 import { logActivity } from "@/lib/activity-log"
 import { notifyContractorsAboutNewAssignments } from "@/lib/contractor-assignment-notifications"
+import { calculateInstallationRisk } from "@/lib/risk-classification"
 
 export async function POST(request: NextRequest) {
   try {
@@ -213,11 +214,20 @@ export async function GET(request: NextRequest) {
             email: true,
           },
         },
+        events: {
+          where: {
+            type: "LEAK",
+          },
+          select: {
+            id: true,
+          },
+        },
       },
       orderBy,
     })
 
     const installationsWithCompliance = installations.map((installation) => {
+      const { events: leakEvents, ...installationData } = installation
       const compliance = calculateInstallationCompliance(
         installation.refrigerantType,
         installation.refrigerantAmount,
@@ -225,12 +235,21 @@ export async function GET(request: NextRequest) {
         installation.lastInspection,
         installation.nextInspection
       )
+      const risk = calculateInstallationRisk({
+        refrigerantType: installation.refrigerantType,
+        refrigerantAmount: installation.refrigerantAmount,
+        gwp: compliance.gwp,
+        hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
+        leakageEventsCount: leakEvents.length,
+      })
 
       return {
-        ...installation,
+        ...installationData,
         gwp: compliance.gwp,
         co2eKg: compliance.co2eKg,
         co2eTon: compliance.co2eTon,
+        riskLevel: risk.level,
+        riskScore: risk.score,
         inspectionInterval: compliance.inspectionIntervalMonths,
         baseInspectionInterval: compliance.baseInspectionIntervalMonths,
         hasAdjustedInspectionInterval: compliance.hasAdjustedInspectionInterval,

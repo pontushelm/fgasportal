@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react"
 import type { UserRole } from "@/lib/auth"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 import { REFRIGERANT_GWP } from "@/lib/refrigerants"
+import type { InstallationRiskLevel } from "@/lib/risk-classification"
 
 type Installation = {
   id: string
@@ -16,6 +17,8 @@ type Installation = {
   refrigerantType: string
   refrigerantAmount: number
   co2eTon: number
+  riskLevel: InstallationRiskLevel
+  riskScore: number
   complianceStatus: ComplianceStatus
   nextInspection?: string | null
   updatedAt: string
@@ -35,6 +38,16 @@ type Contractor = {
   email: string
 }
 
+type InstallationEventType = "INSPECTION" | "LEAK" | "REFILL" | "SERVICE"
+
+type InstallationEvent = {
+  id: string
+  date: string
+  type: InstallationEventType
+  refrigerantAddedKg?: number | null
+  notes?: string | null
+}
+
 const STATUS_LABELS: Record<ComplianceStatus, string> = {
   OK: "OK",
   DUE_SOON: "Kontroll inom 30 dagar",
@@ -49,6 +62,18 @@ const STATUS_TONE: Record<ComplianceStatus, string> = {
   OVERDUE: "border-red-300 bg-red-50 text-red-900",
   NOT_REQUIRED: "border-slate-300 bg-slate-50 text-slate-800",
   NOT_INSPECTED: "border-sky-300 bg-sky-50 text-sky-900",
+}
+
+const RISK_LABELS: Record<InstallationRiskLevel, string> = {
+  LOW: "Låg",
+  MEDIUM: "Medel",
+  HIGH: "Hög",
+}
+
+const RISK_TONE: Record<InstallationRiskLevel, string> = {
+  LOW: "border-emerald-300 bg-emerald-50 text-emerald-900",
+  MEDIUM: "border-amber-300 bg-amber-50 text-amber-900",
+  HIGH: "border-red-300 bg-red-50 text-red-900",
 }
 
 const SORT_OPTIONS = [
@@ -76,6 +101,11 @@ export default function InstallationsPageClient() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [refreshKey, setRefreshKey] = useState(0)
+  const [selectedInstallation, setSelectedInstallation] =
+    useState<Installation | null>(null)
+  const [selectedEvents, setSelectedEvents] = useState<InstallationEvent[]>([])
+  const [isQuickViewLoading, setIsQuickViewLoading] = useState(false)
+  const [quickViewError, setQuickViewError] = useState("")
 
   const searchValue = searchParams.get("q") || ""
   const archivedValue = searchParams.get("archived") || "active"
@@ -142,6 +172,49 @@ export default function InstallationsPageClient() {
       isMounted = false
     }
   }, [queryString, refreshKey, router])
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function fetchSelectedEvents() {
+      if (!selectedInstallation) {
+        setSelectedEvents([])
+        setQuickViewError("")
+        return
+      }
+
+      setIsQuickViewLoading(true)
+      setQuickViewError("")
+
+      const res = await fetch(`/api/installations/${selectedInstallation.id}/events`, {
+        credentials: "include",
+      })
+
+      if (!isMounted) return
+
+      if (res.status === 401) {
+        router.push("/login")
+        return
+      }
+
+      if (!res.ok) {
+        setQuickViewError("Kunde inte hämta historik")
+        setSelectedEvents([])
+        setIsQuickViewLoading(false)
+        return
+      }
+
+      const events: InstallationEvent[] = await res.json()
+      setSelectedEvents(events)
+      setIsQuickViewLoading(false)
+    }
+
+    void fetchSelectedEvents()
+
+    return () => {
+      isMounted = false
+    }
+  }, [router, selectedInstallation])
 
   const canManage = currentUser?.role === "ADMIN"
   const allSelected = useMemo(
@@ -462,9 +535,13 @@ export default function InstallationsPageClient() {
             </thead>
             <tbody className="divide-y divide-slate-200">
               {installations.map((installation) => (
-                <tr className="hover:bg-slate-50" key={installation.id}>
+                <tr
+                  className="cursor-pointer hover:bg-slate-50"
+                  key={installation.id}
+                  onClick={() => setSelectedInstallation(installation)}
+                >
                   {canManage && (
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
                       <input
                         aria-label={`Välj ${installation.name}`}
                         checked={selectedIds.includes(installation.id)}
@@ -474,9 +551,13 @@ export default function InstallationsPageClient() {
                     </td>
                   )}
                   <TableCell>
-                    <Link className="font-semibold text-slate-950 underline-offset-4 hover:underline" href={`/dashboard/installations/${installation.id}`}>
+                    <button
+                      className="text-left font-semibold text-slate-950 underline-offset-4 hover:underline"
+                      type="button"
+                      onClick={() => setSelectedInstallation(installation)}
+                    >
                       {installation.name}
-                    </Link>
+                    </button>
                     {(installation.equipmentId || installation.serialNumber) && (
                       <div className="mt-1 text-xs text-slate-500">
                         {[installation.equipmentId, installation.serialNumber].filter(Boolean).join(" · ")}
@@ -560,7 +641,150 @@ export default function InstallationsPageClient() {
           </form>
         </div>
       )}
+
+      {selectedInstallation && (
+        <InstallationQuickView
+          events={selectedEvents}
+          installation={selectedInstallation}
+          isLoading={isQuickViewLoading}
+          error={quickViewError}
+          onClose={() => setSelectedInstallation(null)}
+        />
+      )}
     </main>
+  )
+}
+
+function InstallationQuickView({
+  error,
+  events,
+  installation,
+  isLoading,
+  onClose,
+}: {
+  error: string
+  events: InstallationEvent[]
+  installation: Installation
+  isLoading: boolean
+  onClose: () => void
+}) {
+  const latestInspection = getLatestEvent(events, "INSPECTION")
+  const latestLeak = getLatestEvent(events, "LEAK")
+  const latestService = getLatestEvent(events, "SERVICE")
+
+  return (
+    <div className="fixed inset-0 z-40 overflow-hidden">
+      <button
+        aria-label="Stäng snabbvy"
+        className="absolute inset-0 h-full w-full bg-slate-950/40"
+        type="button"
+        onClick={onClose}
+      />
+      <aside className="absolute inset-y-0 right-0 flex w-full max-w-xl flex-col overflow-y-auto bg-white shadow-2xl sm:border-l sm:border-slate-200">
+        <div className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-5 py-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Snabbvy
+            </p>
+            <h2 className="mt-1 text-xl font-bold text-slate-950">
+              {installation.name}
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">{installation.location}</p>
+          </div>
+          <button
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            type="button"
+            onClick={onClose}
+          >
+            Stäng
+          </button>
+        </div>
+
+        <div className="grid gap-5 p-5">
+          <section className="rounded-lg border border-slate-200 bg-white p-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              Installation
+            </h3>
+            <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
+              <QuickViewItem label="Köldmedium" value={installation.refrigerantType} />
+              <QuickViewItem
+                label="Fyllnadsmängd"
+                value={`${formatNumber(installation.refrigerantAmount)} kg`}
+              />
+              <QuickViewItem
+                label="CO₂e"
+                value={`${formatNumber(installation.co2eTon)} ton`}
+              />
+              <QuickViewItem
+                label="Riskpoäng"
+                value={`${installation.riskScore} / ${RISK_LABELS[installation.riskLevel]}`}
+              />
+            </dl>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <RiskBadge level={installation.riskLevel} />
+              <StatusBadge status={installation.complianceStatus} />
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              Status
+            </h3>
+            <dl className="mt-4 grid gap-3 text-sm">
+              <QuickViewItem
+                label="Nästa kontroll"
+                value={formatOptionalDate(installation.nextInspection)}
+              />
+              <QuickViewItem
+                label="Servicepartner"
+                value={installation.assignedContractor?.name || "-"}
+              />
+            </dl>
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              Senaste historik
+            </h3>
+            {isLoading && <p className="mt-4 text-sm text-slate-600">Hämtar historik...</p>}
+            {error && <p className="mt-4 text-sm font-semibold text-red-700">{error}</p>}
+            {!isLoading && !error && (
+              <div className="mt-4 grid gap-3">
+                <HistoryItem label="Senaste kontroll" event={latestInspection} />
+                <HistoryItem label="Senaste läckage" event={latestLeak} />
+                <HistoryItem label="Senaste service" event={latestService} />
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              Snabbåtgärder
+            </h3>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <QuickAction href={`/dashboard/installations/${installation.id}#event-form`}>
+                Lägg till kontroll
+              </QuickAction>
+              <QuickAction href={`/dashboard/installations/${installation.id}#event-form`}>
+                Registrera läckage
+              </QuickAction>
+              <QuickAction href={`/dashboard/installations/${installation.id}#event-form`}>
+                Lägg till service
+              </QuickAction>
+              <QuickAction href={`/dashboard/installations/${installation.id}#documents`}>
+                Ladda upp dokument
+              </QuickAction>
+              <Link
+                className="rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-blue-700 sm:col-span-2"
+                href={`/dashboard/installations/${installation.id}`}
+              >
+                Öppna hela aggregatsidan
+              </Link>
+            </div>
+          </section>
+        </div>
+      </aside>
+    </div>
   )
 }
 
@@ -607,6 +831,77 @@ function StatusBadge({ status }: { status: ComplianceStatus }) {
       {STATUS_LABELS[status]}
     </span>
   )
+}
+
+function RiskBadge({ level }: { level: InstallationRiskLevel }) {
+  return (
+    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${RISK_TONE[level]}`}>
+      Risk: {RISK_LABELS[level]}
+    </span>
+  )
+}
+
+function QuickViewItem({
+  label,
+  value,
+}: {
+  label: string
+  value: string
+}) {
+  return (
+    <div>
+      <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+        {label}
+      </dt>
+      <dd className="mt-1 font-semibold text-slate-950">{value || "-"}</dd>
+    </div>
+  )
+}
+
+function HistoryItem({
+  event,
+  label,
+}: {
+  event?: InstallationEvent
+  label: string
+}) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-semibold text-slate-900">{label}</p>
+        <p className="text-sm text-slate-600">
+          {event ? formatOptionalDate(event.date) : "-"}
+        </p>
+      </div>
+      {event?.notes && <p className="mt-2 text-sm text-slate-700">{event.notes}</p>}
+      {event?.refrigerantAddedKg != null && (
+        <p className="mt-2 text-sm text-slate-700">
+          Mängd: {formatNumber(event.refrigerantAddedKg)} kg
+        </p>
+      )}
+    </div>
+  )
+}
+
+function QuickAction({
+  children,
+  href,
+}: {
+  children: React.ReactNode
+  href: string
+}) {
+  return (
+    <Link
+      className="rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-semibold text-slate-800 hover:bg-slate-50"
+      href={href}
+    >
+      {children}
+    </Link>
+  )
+}
+
+function getLatestEvent(events: InstallationEvent[], type: InstallationEventType) {
+  return events.find((event) => event.type === type)
 }
 
 function deriveContractors(installations: Installation[]) {
