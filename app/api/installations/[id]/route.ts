@@ -11,6 +11,7 @@ import { prisma } from "@/lib/db"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 import { editInstallationSchema } from "@/lib/validations"
 import { logActivity } from "@/lib/activity-log"
+import { notifyContractorsAboutNewAssignments } from "@/lib/contractor-assignment-notifications"
 
 type RouteContext = {
   params: Promise<{
@@ -167,6 +168,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           assignedContractorId,
         },
       })
+
+      if (assignedContractorId) {
+        await notifyContractorsAboutNewAssignments(companyId, [
+          assignedContractorId,
+        ])
+      }
     }
 
     const compliance = calculateInstallationCompliance(

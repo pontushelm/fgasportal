@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z, ZodError } from "zod"
 import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
 import { logActivity } from "@/lib/activity-log"
+import { notifyContractorsAboutNewAssignments } from "@/lib/contractor-assignment-notifications"
 import { prisma } from "@/lib/db"
 
 const bulkAssignSchema = z.object({
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
       },
       select: {
         id: true,
-        name: true,
+        assignedContractorId: true,
       },
     })
 
@@ -62,21 +63,30 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    await prisma.installation.updateMany({
-      where: {
-        id: {
-          in: uniqueInstallationIds,
+    const changedInstallations = installations.filter(
+      (installation) => installation.assignedContractorId !== contractor.id
+    )
+    const changedInstallationIds = changedInstallations.map(
+      (installation) => installation.id
+    )
+
+    if (changedInstallationIds.length > 0) {
+      await prisma.installation.updateMany({
+        where: {
+          id: {
+            in: changedInstallationIds,
+          },
+          companyId,
+          archivedAt: null,
         },
-        companyId,
-        archivedAt: null,
-      },
-      data: {
-        assignedContractorId: contractor.id,
-      },
-    })
+        data: {
+          assignedContractorId: contractor.id,
+        },
+      })
+    }
 
     await Promise.all(
-      installations.map((installation) =>
+      changedInstallations.map((installation) =>
         logActivity({
           companyId,
           installationId: installation.id,
@@ -86,6 +96,7 @@ export async function POST(request: NextRequest) {
           entityId: installation.id,
           metadata: {
             bulkAction: true,
+            previousAssignedContractorId: installation.assignedContractorId,
             contractorId: contractor.id,
             contractorName: contractor.name,
             contractorEmail: contractor.email,
@@ -94,9 +105,14 @@ export async function POST(request: NextRequest) {
       )
     )
 
+    await notifyContractorsAboutNewAssignments(
+      companyId,
+      changedInstallationIds.length > 0 ? [contractor.id] : []
+    )
+
     return NextResponse.json(
       {
-        updated: installations.length,
+        updated: changedInstallations.length,
       },
       { status: 200 }
     )

@@ -8,6 +8,7 @@ import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { classifyInspectionReminderStatus } from "@/lib/inspection-reminders"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 import { logActivity } from "@/lib/activity-log"
+import { notifyContractorsAboutNewAssignments } from "@/lib/contractor-assignment-notifications"
 
 export async function POST(request: NextRequest) {
   try {
@@ -90,6 +91,10 @@ export async function POST(request: NextRequest) {
           assignedContractorId,
         },
       })
+
+      await notifyContractorsAboutNewAssignments(companyId, [
+        assignedContractorId,
+      ])
     }
 
     return NextResponse.json({
