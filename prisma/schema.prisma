@@ -38,6 +38,7 @@ model Company {
   installations Installation[]
   invitations   Invitation[]
   installationDocuments InstallationDocument[]
+  activityLogs ActivityLog[]
 
   @@map("companies")
 }
@@ -61,6 +62,7 @@ model User {
   sentInvitations      Invitation[]   @relation("InvitedBy")
   installationEvents   InstallationEvent[]
   uploadedInstallationDocuments InstallationDocument[]
+  activityLogs ActivityLog[]
 
   @@map("users")
 }
@@ -121,6 +123,7 @@ model Installation {
   reminderLogs ReminderLog[]
   events InstallationEvent[]
   documents InstallationDocument[]
+  activityLogs ActivityLog[]
 
   @@map("installations")
 }
@@ -203,4 +206,26 @@ model InstallationDocument {
   @@index([companyId])
   @@index([uploadedById])
   @@map("installation_documents")
+}
+
+model ActivityLog {
+  id             String   @id @default(cuid())
+  companyId      String
+  installationId String?
+  userId         String?
+  action         String
+  entityType     String
+  entityId       String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  installation Installation? @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([installationId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("activity_logs")
 }

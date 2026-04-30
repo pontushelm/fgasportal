@@ -8,6 +8,7 @@ import {
   type FgasReportData,
   type FgasReportEventType,
 } from "@/lib/fgas-report"
+import { logActivity } from "@/lib/activity-log"
 
 const EVENT_LABELS: Record<FgasReportEventType, string> = {
   INSPECTION: "Kontroll",
@@ -57,6 +58,19 @@ export async function GET(request: NextRequest) {
       ) as ArrayBuffer
       const filename = `fgas-arsrapport-${year}.pdf`
 
+      await logActivity({
+        companyId: auth.user.companyId,
+        userId: auth.user.userId,
+        action: "report_exported",
+        entityType: "report",
+        entityId: `fgas-${year}`,
+        metadata: {
+          reportType: "fgas_annual",
+          year,
+          format: "pdf",
+        },
+      })
+
       return new NextResponse(body, {
         status: 200,
         headers: {
@@ -68,6 +82,19 @@ export async function GET(request: NextRequest) {
 
     const csv = createReportCsv(report)
     const filename = `fgas-arsrapport-${year}.csv`
+
+    await logActivity({
+      companyId: auth.user.companyId,
+      userId: auth.user.userId,
+      action: "report_exported",
+      entityType: "report",
+      entityId: `fgas-${year}`,
+      metadata: {
+        reportType: "fgas_annual",
+        year,
+        format: "csv",
+      },
+    })
 
     return new NextResponse(csv, {
       status: 200,

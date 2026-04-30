@@ -3,6 +3,7 @@ import { del } from "@vercel/blob"
 import { prisma } from "@/lib/db"
 import { authenticateApiRequest, forbiddenResponse } from "@/lib/auth"
 import { canDeleteInstallationDocument } from "@/lib/document-access"
+import { logActivity } from "@/lib/activity-log"
 
 type RouteContext = {
   params: Promise<{
@@ -58,6 +59,19 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     await prisma.installationDocument.delete({
       where: {
         id: document.id,
+      },
+    })
+
+    await logActivity({
+      companyId: auth.user.companyId,
+      installationId: id,
+      userId: auth.user.userId,
+      action: "document_deleted",
+      entityType: "document",
+      entityId: document.id,
+      metadata: {
+        fileName: document.originalFileName,
+        documentType: document.documentType,
       },
     })
 

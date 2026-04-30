@@ -7,6 +7,7 @@ import {
   canAccessInstallationDocuments,
   canUploadInstallationDocument,
 } from "@/lib/document-access"
+import { logActivity } from "@/lib/activity-log"
 
 type RouteContext = {
   params: Promise<{
@@ -254,6 +255,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
       })
       throw error
     }
+
+    await logActivity({
+      companyId: auth.user.companyId,
+      installationId: installation.id,
+      userId: auth.user.userId,
+      action: "document_uploaded",
+      entityType: "document",
+      entityId: document.id,
+      metadata: {
+        fileName: document.originalFileName,
+        documentType: document.documentType,
+        eventId: document.eventId,
+      },
+    })
 
     return NextResponse.json(
       {

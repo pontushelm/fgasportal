@@ -5,6 +5,7 @@ import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 import { createInspectionSchema } from "@/lib/validations"
+import { logActivity } from "@/lib/activity-log"
 
 type RouteContext = {
   params: Promise<{
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (!isAdmin(auth.user)) return forbiddenResponse()
 
     const { id } = await context.params
-    const { companyId } = auth.user
+    const { companyId, userId } = auth.user
     const body = await request.json()
     const validatedData = createInspectionSchema.parse(body)
 
@@ -71,6 +72,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
       })
 
       return createdInspection
+    })
+
+    await logActivity({
+      companyId,
+      installationId: installation.id,
+      userId,
+      action: "inspection_added",
+      entityType: "inspection",
+      entityId: inspection.id,
+      metadata: {
+        inspectionDate: inspection.inspectionDate.toISOString(),
+        inspectorName: inspection.inspectorName,
+        status: inspection.status,
+      },
     })
 
     return NextResponse.json(inspection, { status: 201 })

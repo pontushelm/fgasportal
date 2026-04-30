@@ -6,6 +6,7 @@ import { createInstallationSchema } from '@/lib/validations'
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { classifyInspectionReminderStatus } from "@/lib/inspection-reminders"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
+import { logActivity } from "@/lib/activity-log"
 
 export async function POST(request: NextRequest) {
   try {
@@ -62,6 +63,33 @@ export async function POST(request: NextRequest) {
         updatedById: userId
       }
     })
+
+    await logActivity({
+      companyId,
+      installationId: installation.id,
+      userId,
+      action: 'installation_created',
+      entityType: 'installation',
+      entityId: installation.id,
+      metadata: {
+        name: installation.name,
+        location: installation.location,
+      },
+    })
+
+    if (assignedContractorId) {
+      await logActivity({
+        companyId,
+        installationId: installation.id,
+        userId,
+        action: 'service_partner_assigned',
+        entityType: 'installation',
+        entityId: installation.id,
+        metadata: {
+          assignedContractorId,
+        },
+      })
+    }
 
     return NextResponse.json({
       ...installation,

@@ -10,6 +10,7 @@ import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 import { editInstallationSchema } from "@/lib/validations"
+import { logActivity } from "@/lib/activity-log"
 
 type RouteContext = {
   params: Promise<{
@@ -66,7 +67,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (!isAdmin(auth.user)) return forbiddenResponse()
 
     const { id } = await context.params
-    const { companyId } = auth.user
+    const { companyId, userId } = auth.user
     const body = await request.json()
     const validatedData = editInstallationSchema.parse(body)
     const assignedContractorId = await validateAssignedContractor(
@@ -137,6 +138,36 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         notes: emptyToNull(validatedData.notes),
       },
     })
+
+    await logActivity({
+      companyId,
+      installationId: updatedInstallation.id,
+      userId,
+      action: "installation_updated",
+      entityType: "installation",
+      entityId: updatedInstallation.id,
+      metadata: {
+        name: updatedInstallation.name,
+      },
+    })
+
+    if (
+      assignedContractorId !== undefined &&
+      assignedContractorId !== installation.assignedContractorId
+    ) {
+      await logActivity({
+        companyId,
+        installationId: updatedInstallation.id,
+        userId,
+        action: "service_partner_assigned",
+        entityType: "installation",
+        entityId: updatedInstallation.id,
+        metadata: {
+          previousAssignedContractorId: installation.assignedContractorId,
+          assignedContractorId,
+        },
+      })
+    }
 
     const compliance = calculateInstallationCompliance(
       updatedInstallation.refrigerantType,

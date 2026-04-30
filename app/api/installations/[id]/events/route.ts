@@ -4,6 +4,7 @@ import { authenticateApiRequest, isContractor } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 import { createInstallationEventSchema } from "@/lib/validations"
+import { getEventActivityAction, logActivity } from "@/lib/activity-log"
 
 type RouteContext = {
   params: Promise<{
@@ -142,6 +143,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
         }
       })
 
+      await logActivity({
+        companyId,
+        installationId: installation.id,
+        userId,
+        action: getEventActivityAction(result.event.type),
+        entityType: "event",
+        entityId: result.event.id,
+        metadata: {
+          eventType: result.event.type,
+          date: result.event.date.toISOString(),
+        },
+      })
+
       return NextResponse.json(result, { status: 201 })
     }
 
@@ -161,6 +175,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
             email: true,
           },
         },
+      },
+    })
+
+    await logActivity({
+      companyId,
+      installationId: installation.id,
+      userId,
+      action: getEventActivityAction(event.type),
+      entityType: "event",
+      entityId: event.id,
+      metadata: {
+        eventType: event.type,
+        date: event.date.toISOString(),
+        refrigerantAddedKg: event.refrigerantAddedKg,
       },
     })
 

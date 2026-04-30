@@ -63,6 +63,16 @@ type InstallationDocument = {
   } | null
 }
 
+type ActivityLogEntry = {
+  id: string
+  action: string
+  entityType: string
+  entityId?: string | null
+  metadata?: Record<string, unknown> | null
+  createdAt: string
+  user?: InstallationEvent["createdBy"]
+}
+
 type CreateEventResponse = {
   event?: InstallationEvent
   inspectionSchedule?: {
@@ -197,6 +207,19 @@ const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   OTHER: "Övrigt",
 }
 
+const ACTIVITY_LABELS: Record<string, string> = {
+  installation_created: "Aggregat skapat",
+  installation_updated: "Aggregat uppdaterat",
+  service_partner_assigned: "Servicepartner tilldelad",
+  inspection_added: "Kontroll registrerad",
+  leak_registered: "Läckage registrerat",
+  refill_registered: "Påfyllning registrerad",
+  service_added: "Service registrerad",
+  document_uploaded: "Dokument uppladdat",
+  document_deleted: "Dokument borttaget",
+  report_exported: "Rapport exporterad",
+}
+
 const RISK_TONE: Record<InstallationRiskLevel, string> = {
   LOW: "bg-green-100 text-green-700",
   MEDIUM: "bg-amber-100 text-amber-700",
@@ -227,6 +250,7 @@ export default function InstallationDetailPage() {
   const [installation, setInstallation] = useState<InstallationDetail | null>(null)
   const [events, setEvents] = useState<InstallationEvent[]>([])
   const [documents, setDocuments] = useState<InstallationDocument[]>([])
+  const [activityLogs, setActivityLogs] = useState<ActivityLogEntry[]>([])
   const [contractors, setContractors] = useState<Contractor[]>([])
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -264,7 +288,13 @@ export default function InstallationDetailPage() {
     let isMounted = true
 
     async function fetchInstallation() {
-      const [installationRes, userRes, eventsRes, documentsRes] = await Promise.all([
+      const [
+        installationRes,
+        userRes,
+        eventsRes,
+        documentsRes,
+        activityRes,
+      ] = await Promise.all([
         fetch(`/api/installations/${params.id}`, {
           credentials: "include",
         }),
@@ -277,13 +307,17 @@ export default function InstallationDetailPage() {
         fetch(`/api/installations/${params.id}/documents`, {
           credentials: "include",
         }),
+        fetch(`/api/installations/${params.id}/activity`, {
+          credentials: "include",
+        }),
       ])
 
       if (
         installationRes.status === 401 ||
         userRes.status === 401 ||
         eventsRes.status === 401 ||
-        documentsRes.status === 401
+        documentsRes.status === 401 ||
+        activityRes.status === 401
       ) {
         router.push("/login")
         return
@@ -296,7 +330,13 @@ export default function InstallationDetailPage() {
         return
       }
 
-      if (!installationRes.ok || !userRes.ok || !eventsRes.ok || !documentsRes.ok) {
+      if (
+        !installationRes.ok ||
+        !userRes.ok ||
+        !eventsRes.ok ||
+        !documentsRes.ok ||
+        !activityRes.ok
+      ) {
         if (!isMounted) return
         setError("Kunde inte hämta installationen")
         setIsLoading(false)
@@ -307,6 +347,7 @@ export default function InstallationDetailPage() {
       const userData: CurrentUser = await userRes.json()
       const eventsData: InstallationEvent[] = await eventsRes.json()
       const documentsData: InstallationDocument[] = await documentsRes.json()
+      const activityData: ActivityLogEntry[] = await activityRes.json()
       const contractorsData: Contractor[] =
         userData.role === "ADMIN"
           ? await fetch("/api/company/contractors", {
@@ -319,6 +360,7 @@ export default function InstallationDetailPage() {
       setInstallation(data)
       setEvents(eventsData)
       setDocuments(documentsData)
+      setActivityLogs(activityData)
       setContractors(contractorsData)
       setCurrentUser(userData)
       setEditForm({
@@ -566,6 +608,7 @@ export default function InstallationDetailPage() {
 
     setEventForm(initialEventFormData)
     setEventSuccess("Händelsen har lagts till")
+    setRefreshKey((current) => current + 1)
     setIsSubmittingEvent(false)
   }
 
@@ -609,6 +652,7 @@ export default function InstallationDetailPage() {
     setDocumentForm(initialDocumentFormData)
     setDocumentFile(null)
     setDocumentSuccess("Dokumentet har laddats upp")
+    setRefreshKey((current) => current + 1)
     setIsUploadingDocument(false)
   }
 
@@ -636,6 +680,7 @@ export default function InstallationDetailPage() {
 
     setDocuments((current) => current.filter((document) => document.id !== documentId))
     setDocumentSuccess("Dokumentet har tagits bort")
+    setRefreshKey((current) => current + 1)
     setDeletingDocumentId(null)
   }
 
@@ -1084,6 +1129,37 @@ export default function InstallationDetailPage() {
           </div>
         )}
       </section>
+
+      <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
+        <h2 className="text-lg font-semibold text-slate-950">Aktivitetslogg</h2>
+        {activityLogs.length === 0 ? (
+          <p className="mt-4 text-sm text-slate-600">Ingen aktivitet registrerad ännu.</p>
+        ) : (
+          <div className="mt-5 grid gap-3">
+            {activityLogs.map((entry) => (
+              <article
+                className="rounded-lg border border-slate-200 bg-slate-50 p-4"
+                key={entry.id}
+              >
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-950">
+                      {formatActivityLabel(entry.action)}
+                    </div>
+                    <div className="mt-1 text-sm text-slate-600">
+                      {formatActivityMetadata(entry)}
+                    </div>
+                  </div>
+                  <div className="text-sm text-slate-600 sm:text-right">
+                    <div>{formatDate(entry.createdAt)}</div>
+                    <div>{formatCreatedBy(entry.user)}</div>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
     </main>
   )
 }
@@ -1205,6 +1281,28 @@ function formatCreatedBy(createdBy?: InstallationEvent["createdBy"]) {
 function formatLinkedEvent(event?: InstallationDocument["event"]) {
   if (!event) return "-"
   return `${formatDate(event.date)} - ${EVENT_LABELS[event.type]}`
+}
+
+function formatActivityLabel(action: string) {
+  return ACTIVITY_LABELS[action] ?? action
+}
+
+function formatActivityMetadata(entry: ActivityLogEntry) {
+  const metadata = entry.metadata
+
+  if (!metadata) return entry.entityType
+
+  if (typeof metadata.fileName === "string") return metadata.fileName
+  if (typeof metadata.inspectorName === "string") return metadata.inspectorName
+  if (typeof metadata.eventType === "string") {
+    return EVENT_LABELS[metadata.eventType as InstallationEventType] ?? metadata.eventType
+  }
+  if (typeof metadata.name === "string") return metadata.name
+  if (typeof metadata.format === "string" && typeof metadata.year === "number") {
+    return `F-gas årsrapport ${metadata.year} (${metadata.format.toUpperCase()})`
+  }
+
+  return entry.entityType
 }
 
 function formatFileSize(sizeBytes: number) {
