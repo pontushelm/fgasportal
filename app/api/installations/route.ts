@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import type { Prisma } from '@prisma/client'
 import { ZodError } from 'zod'
 import { authenticateApiRequest, forbiddenResponse, isAdmin, isContractor } from '@/lib/auth'
 import { prisma } from '@/lib/db'
@@ -159,14 +160,56 @@ export async function GET(request: NextRequest) {
     if (auth.response) return auth.response
 
     const { companyId, userId } = auth.user
+    const searchParams = request.nextUrl.searchParams
+    const search = searchParams.get('q')?.trim()
+    const archived = searchParams.get('archived') || 'active'
+    const refrigerantType = searchParams.get('refrigerantType')?.trim()
+    const contractorId = searchParams.get('contractorId')?.trim()
+    const statusFilter = searchParams.get('status')?.trim()
+    const sort = searchParams.get('sort') || 'updatedAt'
+    const direction = searchParams.get('direction') === 'asc' ? 'asc' : 'desc'
+
+    const where: Prisma.InstallationWhereInput = {
+      companyId,
+      ...(archived === 'archived'
+        ? { archivedAt: { not: null } }
+        : archived === 'all'
+          ? {}
+          : { archivedAt: null }),
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: 'insensitive' } },
+              { location: { contains: search, mode: 'insensitive' } },
+              { equipmentId: { contains: search, mode: 'insensitive' } },
+              { serialNumber: { contains: search, mode: 'insensitive' } },
+              { propertyName: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+      ...(refrigerantType ? { refrigerantType } : {}),
+      ...(contractorId
+        ? contractorId === 'unassigned'
+          ? { assignedContractorId: null }
+          : { assignedContractorId: contractorId }
+        : {}),
+      ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
+    }
+
+    const orderBy = getInstallationOrderBy(sort, direction)
 
     const installations = await prisma.installation.findMany({
-      where: {
-        companyId,
-        archivedAt: null,
-        ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
+      where,
+      include: {
+        assignedContractor: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy,
     })
 
     const installationsWithCompliance = installations.map((installation) => {
@@ -193,8 +236,20 @@ export async function GET(request: NextRequest) {
           : null,
       }
     })
+    const filteredInstallations = statusFilter
+      ? installationsWithCompliance.filter((installation) =>
+          matchesStatusFilter(installation.complianceStatus, statusFilter)
+        )
+      : installationsWithCompliance
+    const sortedInstallations =
+      sort === 'co2e'
+        ? [...filteredInstallations].sort((first, second) => {
+            const multiplier = direction === 'asc' ? 1 : -1
+            return (first.co2eTon - second.co2eTon) * multiplier
+          })
+        : filteredInstallations
 
-    return NextResponse.json(installationsWithCompliance, { status: 200 })
+    return NextResponse.json(sortedInstallations, { status: 200 })
 
   } catch (error: unknown) {
     console.error('Get installations error:', error)
@@ -203,4 +258,22 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+function getInstallationOrderBy(
+  sort: string,
+  direction: 'asc' | 'desc'
+): Prisma.InstallationOrderByWithRelationInput {
+  if (sort === 'nextInspectionDate') {
+    return { nextInspection: { sort: direction, nulls: 'last' } }
+  }
+
+  return { updatedAt: direction }
+}
+
+function matchesStatusFilter(status: string, filter: string) {
+  if (filter === 'overdue') return status === 'OVERDUE'
+  if (filter === 'dueSoon') return status === 'DUE_SOON'
+  if (filter === 'ok') return status === 'OK'
+  return true
 }

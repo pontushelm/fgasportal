@@ -1,19 +1,26 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import type { UserRole } from "@/lib/auth"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
+import { REFRIGERANT_GWP } from "@/lib/refrigerants"
 
 type Installation = {
   id: string
   name: string
   location: string
+  equipmentId?: string | null
+  serialNumber?: string | null
   refrigerantType: string
   refrigerantAmount: number
+  co2eTon: number
   complianceStatus: ComplianceStatus
   nextInspection?: string | null
+  updatedAt: string
+  archivedAt?: string | null
+  assignedContractor?: Contractor | null
 }
 
 type CurrentUser = {
@@ -26,10 +33,6 @@ type Contractor = {
   id: string
   name: string
   email: string
-}
-
-type DashboardData = {
-  installations: Installation[]
 }
 
 const STATUS_LABELS: Record<ComplianceStatus, string> = {
@@ -48,9 +51,21 @@ const STATUS_TONE: Record<ComplianceStatus, string> = {
   NOT_INSPECTED: "border-sky-300 bg-sky-50 text-sky-900",
 }
 
-export default function InstallationsPage() {
+const SORT_OPTIONS = [
+  { value: "updatedAt:desc", label: "Senast uppdaterad" },
+  { value: "updatedAt:asc", label: "Äldst uppdaterad" },
+  { value: "nextInspectionDate:asc", label: "Nästa kontroll, tidigast först" },
+  { value: "nextInspectionDate:desc", label: "Nästa kontroll, senast först" },
+  { value: "co2e:desc", label: "CO₂e, högst först" },
+  { value: "co2e:asc", label: "CO₂e, lägst först" },
+]
+
+export default function InstallationsPageClient() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const queryString = searchParams.toString()
   const [installations, setInstallations] = useState<Installation[]>([])
+  const [filterSourceInstallations, setFilterSourceInstallations] = useState<Installation[]>([])
   const [contractors, setContractors] = useState<Contractor[]>([])
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -62,6 +77,13 @@ export default function InstallationsPage() {
   const [success, setSuccess] = useState("")
   const [refreshKey, setRefreshKey] = useState(0)
 
+  const searchValue = searchParams.get("q") || ""
+  const archivedValue = searchParams.get("archived") || "active"
+  const refrigerantValue = searchParams.get("refrigerantType") || ""
+  const contractorFilterValue = searchParams.get("contractorId") || ""
+  const statusValue = searchParams.get("status") || ""
+  const sortValue = `${searchParams.get("sort") || "updatedAt"}:${searchParams.get("direction") || "desc"}`
+
   useEffect(() => {
     let isMounted = true
 
@@ -69,39 +91,45 @@ export default function InstallationsPage() {
       setIsLoading(true)
       setError("")
 
-      const [dashboardRes, userRes] = await Promise.all([
-        fetch("/api/dashboard/compliance", {
+      const installationsUrl = `/api/installations${queryString ? `?${queryString}` : ""}`
+      const [installationsRes, userRes, filterSourceRes] = await Promise.all([
+        fetch(installationsUrl, {
           credentials: "include",
         }),
         fetch("/api/auth/me", {
           credentials: "include",
         }),
+        fetch("/api/installations?archived=all", {
+          credentials: "include",
+        }),
       ])
 
-      if (dashboardRes.status === 401 || userRes.status === 401) {
+      if (installationsRes.status === 401 || userRes.status === 401) {
         router.push("/login")
         return
       }
 
-      if (!dashboardRes.ok || !userRes.ok) {
+      if (!installationsRes.ok || !userRes.ok || !filterSourceRes.ok) {
         if (!isMounted) return
         setError("Kunde inte hämta aggregat")
         setIsLoading(false)
         return
       }
 
-      const dashboardData: DashboardData = await dashboardRes.json()
+      const installationsData: Installation[] = await installationsRes.json()
       const userData: CurrentUser = await userRes.json()
+      const filterSourceData: Installation[] = await filterSourceRes.json()
       const contractorsData: Contractor[] =
         userData.role === "ADMIN"
           ? await fetch("/api/company/contractors", {
               credentials: "include",
             }).then((response) => (response.ok ? response.json() : []))
-          : []
+          : deriveContractors(filterSourceData)
 
       if (!isMounted) return
 
-      setInstallations(dashboardData.installations)
+      setInstallations(installationsData)
+      setFilterSourceInstallations(filterSourceData)
       setCurrentUser(userData)
       setContractors(contractorsData)
       setSelectedIds([])
@@ -113,13 +141,57 @@ export default function InstallationsPage() {
     return () => {
       isMounted = false
     }
-  }, [refreshKey, router])
+  }, [queryString, refreshKey, router])
 
   const canManage = currentUser?.role === "ADMIN"
   const allSelected = useMemo(
     () => installations.length > 0 && selectedIds.length === installations.length,
     [installations.length, selectedIds.length]
   )
+  const refrigerantOptions = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...Object.keys(REFRIGERANT_GWP),
+          ...filterSourceInstallations
+            .map((installation) => installation.refrigerantType)
+            .filter(Boolean),
+        ])
+      ).sort((first, second) => first.localeCompare(second, "sv")),
+    [filterSourceInstallations]
+  )
+  const hasActiveFilters = Boolean(
+    searchValue ||
+      archivedValue !== "active" ||
+      refrigerantValue ||
+      contractorFilterValue ||
+      statusValue
+  )
+
+  function updateQueryParam(name: string, value: string) {
+    const params = new URLSearchParams(searchParams.toString())
+
+    if (value) {
+      params.set(name, value)
+    } else {
+      params.delete(name)
+    }
+
+    router.replace(`/dashboard/installations${params.toString() ? `?${params.toString()}` : ""}`)
+  }
+
+  function updateSort(value: string) {
+    const [sort, direction] = value.split(":")
+    const params = new URLSearchParams(searchParams.toString())
+
+    params.set("sort", sort)
+    params.set("direction", direction)
+    router.replace(`/dashboard/installations?${params.toString()}`)
+  }
+
+  function clearFilters() {
+    router.replace("/dashboard/installations")
+  }
 
   function toggleAll() {
     setSelectedIds(allSelected ? [] : installations.map((installation) => installation.id))
@@ -231,56 +303,144 @@ export default function InstallationsPage() {
             Registrerade aggregat
           </h1>
           <p className="mt-2 text-sm text-slate-700">
-            Välj flera aggregat för att tilldela servicepartner eller markera dem som inaktiva.
+            Sök, filtrera och sortera aggregatlistan. Administratörer kan även göra bulkåtgärder.
           </p>
         </div>
-        <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/installations/import">
-          Import Excel
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          {canManage && (
+            <Link className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700" href="/dashboard">
+              Skapa aggregat
+            </Link>
+          )}
+          <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/installations/import">
+            Import Excel
+          </Link>
+        </div>
       </div>
+
+      <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
+        <div className="grid gap-4 lg:grid-cols-[minmax(220px,1.4fr)_repeat(5,minmax(150px,1fr))]">
+          <label className="grid gap-1 text-sm font-medium text-slate-700">
+            Sök
+            <input
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400"
+              placeholder="Namn, plats eller ID"
+              type="search"
+              value={searchValue}
+              onChange={(event) => updateQueryParam("q", event.target.value)}
+            />
+          </label>
+
+          <FilterSelect
+            label="Status"
+            value={archivedValue}
+            onChange={(value) => updateQueryParam("archived", value === "active" ? "" : value)}
+          >
+            <option value="active">Aktiva</option>
+            <option value="archived">Inaktiva</option>
+            <option value="all">Alla</option>
+          </FilterSelect>
+
+          <FilterSelect
+            label="Köldmedium"
+            value={refrigerantValue}
+            onChange={(value) => updateQueryParam("refrigerantType", value)}
+          >
+            <option value="">Alla</option>
+            {refrigerantOptions.map((refrigerant) => (
+              <option key={refrigerant} value={refrigerant}>
+                {refrigerant}
+              </option>
+            ))}
+          </FilterSelect>
+
+          <FilterSelect
+            label="Servicepartner"
+            value={contractorFilterValue}
+            onChange={(value) => updateQueryParam("contractorId", value)}
+          >
+            <option value="">Alla</option>
+            <option value="unassigned">Ingen servicepartner</option>
+            {contractors.map((contractor) => (
+              <option key={contractor.id} value={contractor.id}>
+                {contractor.name}
+              </option>
+            ))}
+          </FilterSelect>
+
+          <FilterSelect
+            label="Kontrollstatus"
+            value={statusValue}
+            onChange={(value) => updateQueryParam("status", value)}
+          >
+            <option value="">Alla</option>
+            <option value="overdue">Försenad</option>
+            <option value="dueSoon">Inom 30 dagar</option>
+            <option value="ok">OK</option>
+          </FilterSelect>
+
+          <FilterSelect label="Sortering" value={sortValue} onChange={updateSort}>
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </FilterSelect>
+        </div>
+
+        {hasActiveFilters && (
+          <button
+            className="mt-4 text-sm font-semibold text-slate-700 underline-offset-4 hover:underline"
+            type="button"
+            onClick={clearFilters}
+          >
+            Rensa filter
+          </button>
+        )}
+      </section>
 
       {isLoading && <p className="mt-8 text-slate-700">Laddar...</p>}
       {error && <p className="mt-8 font-semibold text-red-700">{error}</p>}
       {success && <p className="mt-8 font-semibold text-green-700">{success}</p>}
 
       {!isLoading && !canManage && (
-        <p className="mt-8 text-slate-700">
-          Endast administratörer kan använda bulkåtgärder.
+        <p className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+          Du kan visa aggregatlistan. Endast administratörer kan använda bulkåtgärder.
         </p>
       )}
 
-      {!isLoading && canManage && (
-        <>
-          {selectedIds.length > 0 && (
-            <div className="mt-6 flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="font-semibold text-slate-950">
-                {selectedIds.length} aggregat valda
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={() => setIsAssignModalOpen(true)}
-                >
-                  Tilldela servicepartner
-                </button>
-                <button
-                  className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:text-slate-400"
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={() => void handleArchiveSelected()}
-                >
-                  Markera som inaktivt
-                </button>
-              </div>
-            </div>
-          )}
+      {!isLoading && canManage && selectedIds.length > 0 && (
+        <div className="mt-6 flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="font-semibold text-slate-950">
+            {selectedIds.length} aggregat valda
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => setIsAssignModalOpen(true)}
+            >
+              Tilldela servicepartner
+            </button>
+            <button
+              className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:text-slate-400"
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => void handleArchiveSelected()}
+            >
+              Markera som inaktivt
+            </button>
+          </div>
+        </div>
+      )}
 
-          <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50">
-                <tr>
+      {!isLoading && installations.length > 0 && (
+        <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+          <table className="min-w-full divide-y divide-slate-200 text-sm">
+            <thead className="bg-slate-50">
+              <tr>
+                {canManage && (
                   <th className="w-12 px-4 py-3 text-left">
                     <input
                       aria-label="Välj alla aggregat"
@@ -289,17 +449,21 @@ export default function InstallationsPage() {
                       type="checkbox"
                     />
                   </th>
-                  <TableHeader>Aggregat</TableHeader>
-                  <TableHeader>Plats</TableHeader>
-                  <TableHeader>Köldmedium</TableHeader>
-                  <TableHeader>Mängd</TableHeader>
-                  <TableHeader>Nästa kontroll</TableHeader>
-                  <TableHeader>Status</TableHeader>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {installations.map((installation) => (
-                  <tr className="hover:bg-slate-50" key={installation.id}>
+                )}
+                <TableHeader>Aggregat</TableHeader>
+                <TableHeader>Plats</TableHeader>
+                <TableHeader>Köldmedium</TableHeader>
+                <TableHeader>Mängd</TableHeader>
+                <TableHeader>CO₂e</TableHeader>
+                <TableHeader>Servicepartner</TableHeader>
+                <TableHeader>Nästa kontroll</TableHeader>
+                <TableHeader>Status</TableHeader>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {installations.map((installation) => (
+                <tr className="hover:bg-slate-50" key={installation.id}>
+                  {canManage && (
                     <td className="px-4 py-3">
                       <input
                         aria-label={`Välj ${installation.name}`}
@@ -308,28 +472,49 @@ export default function InstallationsPage() {
                         type="checkbox"
                       />
                     </td>
-                    <TableCell>
-                      <Link className="font-semibold text-slate-950 underline-offset-4 hover:underline" href={`/dashboard/installations/${installation.id}`}>
-                        {installation.name}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{installation.location}</TableCell>
-                    <TableCell>{installation.refrigerantType}</TableCell>
-                    <TableCell>{formatNumber(installation.refrigerantAmount)} kg</TableCell>
-                    <TableCell>{formatOptionalDate(installation.nextInspection)}</TableCell>
-                    <TableCell>
-                      <StatusBadge status={installation.complianceStatus} />
-                    </TableCell>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                  )}
+                  <TableCell>
+                    <Link className="font-semibold text-slate-950 underline-offset-4 hover:underline" href={`/dashboard/installations/${installation.id}`}>
+                      {installation.name}
+                    </Link>
+                    {(installation.equipmentId || installation.serialNumber) && (
+                      <div className="mt-1 text-xs text-slate-500">
+                        {[installation.equipmentId, installation.serialNumber].filter(Boolean).join(" · ")}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell>{installation.location}</TableCell>
+                  <TableCell>{installation.refrigerantType}</TableCell>
+                  <TableCell>{formatNumber(installation.refrigerantAmount)} kg</TableCell>
+                  <TableCell>{formatNumber(installation.co2eTon)} ton</TableCell>
+                  <TableCell>{installation.assignedContractor?.name || "-"}</TableCell>
+                  <TableCell>{formatOptionalDate(installation.nextInspection)}</TableCell>
+                  <TableCell>
+                    <StatusBadge status={installation.complianceStatus} />
+                  </TableCell>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-          {installations.length === 0 && (
-            <p className="mt-6 text-sm text-slate-700">Inga aggregat registrerade.</p>
+      {!isLoading && installations.length === 0 && (
+        <div className="mt-6 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+          <h2 className="text-lg font-semibold text-slate-950">Inga aggregat matchar filtret</h2>
+          <p className="mt-2 text-sm text-slate-700">
+            Justera sökning, filter eller sortering för att hitta rätt aggregat.
+          </p>
+          {hasActiveFilters && (
+            <button
+              className="mt-4 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+              type="button"
+              onClick={clearFilters}
+            >
+              Visa alla aktiva aggregat
+            </button>
           )}
-        </>
+        </div>
       )}
 
       {isAssignModalOpen && (
@@ -379,6 +564,31 @@ export default function InstallationsPage() {
   )
 }
 
+function FilterSelect({
+  children,
+  label,
+  onChange,
+  value,
+}: {
+  children: React.ReactNode
+  label: string
+  onChange: (value: string) => void
+  value: string
+}) {
+  return (
+    <label className="grid gap-1 text-sm font-medium text-slate-700">
+      {label}
+      <select
+        className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {children}
+      </select>
+    </label>
+  )
+}
+
 function TableHeader({ children }: { children: React.ReactNode }) {
   return (
     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
@@ -396,6 +606,20 @@ function StatusBadge({ status }: { status: ComplianceStatus }) {
     <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${STATUS_TONE[status]}`}>
       {STATUS_LABELS[status]}
     </span>
+  )
+}
+
+function deriveContractors(installations: Installation[]) {
+  const contractors = new Map<string, Contractor>()
+
+  for (const installation of installations) {
+    if (installation.assignedContractor) {
+      contractors.set(installation.assignedContractor.id, installation.assignedContractor)
+    }
+  }
+
+  return Array.from(contractors.values()).sort((first, second) =>
+    first.name.localeCompare(second.name, "sv")
   )
 }
 
