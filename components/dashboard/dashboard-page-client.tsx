@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
+import { Badge, buttonClassName, Card, PageHeader } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 
@@ -85,18 +86,7 @@ const ACTION_PRIORITY_LABELS: Record<ActionItem["priority"], string> = {
   LOW: "Låg",
 }
 
-const ACTION_PRIORITY_TONE: Record<ActionItem["priority"], string> = {
-  HIGH: "border-red-200 bg-red-50 text-red-700",
-  MEDIUM: "border-amber-200 bg-amber-50 text-amber-700",
-  LOW: "border-slate-200 bg-slate-50 text-slate-700",
-}
-
-const primaryButtonClassName =
-  "rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
-const secondaryButtonClassName =
-  "rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-const cardClassName =
-  "rounded-2xl border border-slate-200 bg-white shadow-sm"
+const secondaryButtonClassName = buttonClassName({ variant: "secondary" })
 
 const ACTION_TYPE_ORDER: Record<ActionItem["type"], number> = {
   OVERDUE_INSPECTION: 1,
@@ -174,7 +164,35 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
       <section className="mx-auto max-w-7xl">
-        <div className={`${cardClassName} px-5 py-6 sm:px-6 lg:px-8`}>
+        <PageHeader
+          actions={
+            <>
+              {canManage && (
+                <Link
+                  className={buttonClassName({ variant: "primary" })}
+                  href="/dashboard/installations"
+                >
+                  + LÃ¤gg till aggregat
+                </Link>
+              )}
+              <Link className={secondaryButtonClassName} href="/dashboard/installations">
+                Hantera aggregat
+              </Link>
+              <Link className={secondaryButtonClassName} href="/dashboard/reports">
+                Rapporter
+              </Link>
+              {canManage && (
+                <Link className={secondaryButtonClassName} href="/dashboard/installations/import">
+                  Import Excel
+                </Link>
+              )}
+            </>
+          }
+          eyebrow="Compliance dashboard"
+          title="F-gasÃ¶versikt"
+          subtitle="Se compliance-lÃ¤get, prioriterade Ã¥tgÃ¤rder och risker fÃ¶r era kÃ¶ldmedieaggregat."
+        />
+        <Card className="hidden px-5 py-6 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">
@@ -192,7 +210,7 @@ export default function DashboardPage() {
           <div className="flex flex-wrap gap-2">
             {canManage && (
               <Link
-                className={primaryButtonClassName}
+                className={buttonClassName({ variant: "primary" })}
                 href="/dashboard/installations"
               >
                 + Lägg till aggregat
@@ -211,7 +229,7 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
-        </div>
+        </Card>
       </section>
 
       {isLoading && <p className="mx-auto mt-8 max-w-7xl text-slate-700">Laddar...</p>}
@@ -231,7 +249,7 @@ export default function DashboardPage() {
           </section>
 
           <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.85fr)]">
-            <div className={`${cardClassName} p-5 sm:p-6`}>
+            <Card className="p-5 sm:p-6">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -261,7 +279,7 @@ export default function DashboardPage() {
                   ))}
                 </div>
               )}
-            </div>
+            </Card>
 
             <div className="grid gap-4">
               <VisualCard title="Riskklassning">
@@ -405,10 +423,10 @@ function VisualCard({
   children: React.ReactNode
 }) {
   return (
-    <div className={`${cardClassName} p-4`}>
+    <Card className="p-4">
       <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
       <div className="mt-4">{children}</div>
-    </div>
+    </Card>
   )
 }
 
@@ -493,10 +511,12 @@ function DistributionBars({
 }
 
 function PriorityBadge({ priority }: { priority: ActionItem["priority"] }) {
+  const variant = priority === "HIGH" ? "danger" : priority === "MEDIUM" ? "warning" : "neutral"
+
   return (
-    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${ACTION_PRIORITY_TONE[priority]}`}>
+    <Badge variant={variant}>
       {ACTION_PRIORITY_LABELS[priority]}
-    </span>
+    </Badge>
   )
 }
 

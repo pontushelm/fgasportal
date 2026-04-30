@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import CreateInstallationForm from "@/components/installations/create-installation-form"
+import { Button, buttonClassName, Card, PageHeader } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 import { REFRIGERANT_GWP } from "@/lib/refrigerants"
@@ -488,11 +489,35 @@ export default function InstallationsPageClient() {
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
-      <Link className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline" href="/dashboard">
-        Tillbaka till dashboard
-      </Link>
+      <PageHeader
+        actions={
+          <>
+            {canManage && (
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => setIsCreateModalOpen(true)}
+              >
+                Skapa aggregat
+              </Button>
+            )}
+            <Link
+              className={buttonClassName({ variant: "secondary" })}
+              href="/dashboard/installations/import"
+            >
+              Import Excel
+            </Link>
+          </>
+        }
+        backHref="/dashboard"
+        backLabel="Tillbaka till dashboard"
+        eyebrow="Aggregat"
+        title="Registrerade aggregat"
+        subtitle="SÃ¶k, filtrera och sortera aggregatlistan. AdministratÃ¶rer kan Ã¤ven gÃ¶ra bulkÃ¥tgÃ¤rder."
+      />
 
-      <div className="mt-6 flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
+      {false && (
+      <div className="hidden">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-slate-600">
             Aggregat
@@ -519,8 +544,9 @@ export default function InstallationsPageClient() {
           </Link>
         </div>
       </div>
+      )}
 
-      <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
+      <Card className="mt-6 p-4">
         <div className="grid gap-4 lg:grid-cols-[minmax(220px,1.4fr)_repeat(7,minmax(150px,1fr))]">
           <label className="grid gap-1 text-sm font-medium text-slate-700">
             Sök
@@ -697,7 +723,7 @@ export default function InstallationsPageClient() {
             Rensa filter
           </button>
         )}
-      </section>
+      </Card>
 
       {isLoading && <p className="mt-8 text-slate-700">Laddar...</p>}
       {error && <p className="mt-8 font-semibold text-red-700">{error}</p>}

@@ -1,8 +1,8 @@
 "use client"
 
-import Link from "next/link"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { Card, PageHeader } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
 
 type CompanyUser = {
@@ -376,10 +376,14 @@ export default function CompanySettingsPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 text-slate-900 sm:px-6 lg:px-8">
-      <Link className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline" href="/dashboard">
-        Tillbaka till dashboard
-      </Link>
-      <div className="mt-6 border-b border-slate-200 pb-6">
+      <PageHeader
+        backHref="/dashboard"
+        backLabel="Tillbaka till dashboard"
+        eyebrow="Administration"
+        title="FÃ¶retagsinstÃ¤llningar"
+        subtitle="Hantera fÃ¶retagsuppgifter, anvÃ¤ndare och inbjudningar fÃ¶r organisationen."
+      />
+      <div className="hidden">
         <p className="text-sm font-semibold uppercase tracking-wide text-slate-600">
           Administration
         </p>
@@ -396,7 +400,7 @@ export default function CompanySettingsPage() {
 
       {!isLoading && !error && companyProfile && (
         <>
-          <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5">
+          <Card className="mt-8 p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-slate-950">Företagsuppgifter</h2>
@@ -514,9 +518,9 @@ export default function CompanySettingsPage() {
             {profileSuccess && !isEditingProfile && (
               <p className="mt-4 text-sm font-semibold text-green-700">{profileSuccess}</p>
             )}
-          </section>
+          </Card>
 
-          <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5">
+          <Card className="mt-8 p-5">
             <h2 className="text-xl font-semibold text-slate-950">Fastigheter</h2>
             <p className="mt-1 text-sm text-slate-700">
               Strukturerade fastighetsuppgifter används för filtrering och årsrapporter.
@@ -596,9 +600,9 @@ export default function CompanySettingsPage() {
                 properties={properties}
               />
             )}
-          </section>
+          </Card>
 
-          <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5">
+          <Card className="mt-8 p-5">
             <h2 className="text-xl font-semibold text-slate-950">Användare</h2>
             {data.users.length === 0 ? (
               <p className="mt-4 text-sm text-slate-700">Inga användare hittades.</p>
@@ -613,10 +617,10 @@ export default function CompanySettingsPage() {
                 ])}
               />
             )}
-          </section>
+          </Card>
 
           {canAdminister && (
-            <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5">
+            <Card className="mt-8 p-5">
               <h2 className="text-xl font-semibold text-slate-950">Bjud in användare</h2>
               <form className="mt-5 grid max-w-md gap-4" onSubmit={handleInviteSubmit}>
                 <label className={fieldClassName}>
@@ -661,10 +665,10 @@ export default function CompanySettingsPage() {
                   {isSubmittingInvite ? "Skapar..." : "Skapa inbjudan"}
                 </button>
               </form>
-            </section>
+            </Card>
           )}
 
-          <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5">
+          <Card className="mt-8 p-5">
             <h2 className="text-xl font-semibold text-slate-950">Väntande inbjudningar</h2>
             {data.invitations.length === 0 ? (
               <p className="mt-4 text-sm text-slate-700">Inga väntande inbjudningar.</p>
@@ -679,7 +683,7 @@ export default function CompanySettingsPage() {
                 ])}
               />
             )}
-          </section>
+          </Card>
         </>
       )}
     </main>

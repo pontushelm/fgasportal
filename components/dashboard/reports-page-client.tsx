@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
+import { Badge, buttonClassName, Card, EmptyState as UiEmptyState, PageHeader, SectionHeader } from "@/components/ui"
 
 type EventType = "INSPECTION" | "LEAK" | "REFILL" | "SERVICE"
 
@@ -140,7 +141,83 @@ export default function ReportsPage() {
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-neutral-950 sm:px-6 lg:px-8">
-      <div className="flex flex-col gap-4 border-b border-neutral-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
+      <PageHeader
+        actions={
+          <>
+            <label className="grid gap-1 text-sm font-semibold text-slate-700">
+              År
+              <select
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                onChange={(event) => setSelectedYear(Number(event.target.value))}
+                value={selectedYear}
+              >
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm font-semibold text-slate-700">
+              Kommun
+              <select
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                onChange={(event) => {
+                  setSelectedMunicipality(event.target.value)
+                  setSelectedPropertyId("")
+                }}
+                value={selectedMunicipality}
+              >
+                <option value="">Alla kommuner</option>
+                {municipalityOptions.map((municipality) => (
+                  <option key={municipality} value={municipality}>
+                    {municipality}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm font-semibold text-slate-700">
+              Fastighet
+              <select
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                onChange={(event) => setSelectedPropertyId(event.target.value)}
+                value={selectedPropertyId}
+              >
+                <option value="">Alla fastigheter</option>
+                {properties
+                  .filter((property) =>
+                    selectedMunicipality
+                      ? property.municipality === selectedMunicipality
+                      : true
+                  )
+                  .map((property) => (
+                    <option key={property.id} value={property.id}>
+                      {property.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <a
+              className={buttonClassName({ variant: "primary" })}
+              href={`/api/reports/fgas/export?${reportQuery}&format=csv`}
+            >
+              Exportera CSV
+            </a>
+            <a
+              className={buttonClassName({ variant: "secondary" })}
+              href={`/api/reports/fgas/export?${reportQuery}&format=pdf`}
+            >
+              Exportera PDF
+            </a>
+          </>
+        }
+        backHref="/dashboard"
+        backLabel="Till dashboard"
+        eyebrow="Rapportering"
+        title="F-gas årsrapport"
+        subtitle="Årssammanställning av aggregat, kontrollhändelser, läckagehändelser, påfyllningar och klimatpåverkan."
+      />
+      <div className="hidden flex-col gap-4 border-b border-neutral-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <Link className="text-sm font-semibold text-neutral-600 underline-offset-4 hover:underline" href="/dashboard">
             Till dashboard
@@ -212,13 +289,13 @@ export default function ReportsPage() {
             </select>
           </label>
           <a
-            className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+            className={buttonClassName({ variant: "primary" })}
             href={`/api/reports/fgas/export?${reportQuery}&format=csv`}
           >
             Exportera CSV
           </a>
           <a
-            className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-50"
+            className={buttonClassName({ variant: "secondary" })}
             href={`/api/reports/fgas/export?${reportQuery}&format=pdf`}
           >
             Exportera PDF
@@ -243,12 +320,10 @@ export default function ReportsPage() {
           </section>
 
           <section className="mt-10">
-            <div>
-              <h2 className="text-xl font-semibold">Köldmediesammanställning</h2>
-              <p className="mt-1 text-sm text-neutral-600">
-                Summerat per köldmedium för aktiva, ej arkiverade aggregat.
-              </p>
-            </div>
+            <SectionHeader
+              title="Köldmediesammanställning"
+              subtitle="Summerat per köldmedium för aktiva, ej arkiverade aggregat."
+            />
 
             {reportData.refrigerants.length === 0 ? (
               <EmptyState text="Inga aggregat finns att summera för valt år." />
@@ -283,13 +358,10 @@ export default function ReportsPage() {
           </section>
 
           <section className="mt-10">
-            <div>
-              <h2 className="text-xl font-semibold">Händelser under året</h2>
-              <p className="mt-1 text-sm text-neutral-600">
-                Senaste kontroll-, läckage-, påfyllnings- och servicehändelser
-                för valt år.
-              </p>
-            </div>
+            <SectionHeader
+              title="Händelser under året"
+              subtitle="Senaste kontroll-, läckage-, påfyllnings- och servicehändelser för valt år."
+            />
 
             {reportData.events.length === 0 ? (
               <EmptyState text="Inga händelser registrerade för valt år." />
@@ -356,18 +428,20 @@ function MetricCard({
   }[tone]
 
   return (
-    <div className={`rounded-lg border p-4 ${toneClass}`}>
+    <Card className={`p-4 ${toneClass}`}>
       <div className="text-sm font-medium text-neutral-600">{label}</div>
       <div className="mt-2 text-2xl font-bold text-neutral-950">{value}</div>
-    </div>
+    </Card>
   )
 }
 
 function EventBadge({ type }: { type: EventType }) {
+  const variant = type === "LEAK" ? "danger" : type === "REFILL" ? "warning" : type === "INSPECTION" ? "info" : "neutral"
+
   return (
-    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${EVENT_TONE[type]}`}>
+    <Badge className={EVENT_TONE[type]} variant={variant}>
       {EVENT_LABELS[type]}
-    </span>
+    </Badge>
   )
 }
 
@@ -384,11 +458,7 @@ function TableCell({ children }: { children: React.ReactNode }) {
 }
 
 function EmptyState({ text }: { text: string }) {
-  return (
-    <div className="mt-5 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-6 text-sm text-neutral-600">
-      {text}
-    </div>
-  )
+  return <UiEmptyState className="mt-5" description={text} />
 }
 
 function formatDate(value: string) {
