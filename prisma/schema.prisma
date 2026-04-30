@@ -26,7 +26,14 @@ model Company {
   id        String   @id @default(cuid())
   name      String
   orgNumber String   @unique
+  organizationNumber String?
+  contactPerson String?
+  contactEmail String?
+  contactPhone String?
   address   String?
+  postalCode String?
+  city String?
+  supervisoryAuthority String?
   email     String   @unique
   phone     String?
   createdAt DateTime @default(now())
