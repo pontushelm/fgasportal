@@ -37,6 +37,32 @@ type InstallationEvent = {
   } | null
 }
 
+type DocumentType =
+  | "INSPECTION_REPORT"
+  | "SERVICE_REPORT"
+  | "LEAK_REPORT"
+  | "PHOTO"
+  | "AUTHORITY_DOCUMENT"
+  | "OTHER"
+
+type InstallationDocument = {
+  id: string
+  uploadedById: string
+  originalFileName: string
+  fileUrl: string
+  mimeType: string
+  sizeBytes: number
+  documentType: DocumentType
+  description?: string | null
+  createdAt: string
+  uploadedBy?: InstallationEvent["createdBy"]
+  event?: {
+    id: string
+    type: InstallationEventType
+    date: string
+  } | null
+}
+
 type CreateEventResponse = {
   event?: InstallationEvent
   inspectionSchedule?: {
@@ -86,6 +112,12 @@ type EventFormData = {
   notes: string
 }
 
+type DocumentFormData = {
+  documentType: DocumentType
+  description: string
+  eventId: string
+}
+
 type InstallationEditFormData = {
   name: string
   location: string
@@ -121,6 +153,12 @@ const initialEventFormData: EventFormData = {
   notes: "",
 }
 
+const initialDocumentFormData: DocumentFormData = {
+  documentType: "OTHER",
+  description: "",
+  eventId: "",
+}
+
 const initialEditFormData: InstallationEditFormData = {
   name: "",
   location: "",
@@ -148,6 +186,15 @@ const EVENT_TONE: Record<InstallationEventType, string> = {
   LEAK: "border-red-200 bg-red-50 text-red-800",
   REFILL: "border-amber-200 bg-amber-50 text-amber-800",
   SERVICE: "border-slate-200 bg-slate-50 text-slate-700",
+}
+
+const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+  INSPECTION_REPORT: "Kontrollrapport",
+  SERVICE_REPORT: "Serviceprotokoll",
+  LEAK_REPORT: "Läckagerapport",
+  PHOTO: "Foto",
+  AUTHORITY_DOCUMENT: "Myndighetsunderlag",
+  OTHER: "Övrigt",
 }
 
 const RISK_TONE: Record<InstallationRiskLevel, string> = {
@@ -179,6 +226,7 @@ export default function InstallationDetailPage() {
   const router = useRouter()
   const [installation, setInstallation] = useState<InstallationDetail | null>(null)
   const [events, setEvents] = useState<InstallationEvent[]>([])
+  const [documents, setDocuments] = useState<InstallationDocument[]>([])
   const [contractors, setContractors] = useState<Contractor[]>([])
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -187,12 +235,20 @@ export default function InstallationDetailPage() {
     initialInspectionFormData
   )
   const [eventForm, setEventForm] = useState<EventFormData>(initialEventFormData)
+  const [documentForm, setDocumentForm] = useState<DocumentFormData>(
+    initialDocumentFormData
+  )
+  const [documentFile, setDocumentFile] = useState<File | null>(null)
   const [submitError, setSubmitError] = useState("")
   const [submitSuccess, setSubmitSuccess] = useState("")
   const [eventError, setEventError] = useState("")
   const [eventSuccess, setEventSuccess] = useState("")
+  const [documentError, setDocumentError] = useState("")
+  const [documentSuccess, setDocumentSuccess] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmittingEvent, setIsSubmittingEvent] = useState(false)
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false)
+  const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<InstallationEditFormData>(
     initialEditFormData
   )
@@ -208,7 +264,7 @@ export default function InstallationDetailPage() {
     let isMounted = true
 
     async function fetchInstallation() {
-      const [installationRes, userRes, eventsRes] = await Promise.all([
+      const [installationRes, userRes, eventsRes, documentsRes] = await Promise.all([
         fetch(`/api/installations/${params.id}`, {
           credentials: "include",
         }),
@@ -218,12 +274,16 @@ export default function InstallationDetailPage() {
         fetch(`/api/installations/${params.id}/events`, {
           credentials: "include",
         }),
+        fetch(`/api/installations/${params.id}/documents`, {
+          credentials: "include",
+        }),
       ])
 
       if (
         installationRes.status === 401 ||
         userRes.status === 401 ||
-        eventsRes.status === 401
+        eventsRes.status === 401 ||
+        documentsRes.status === 401
       ) {
         router.push("/login")
         return
@@ -236,7 +296,7 @@ export default function InstallationDetailPage() {
         return
       }
 
-      if (!installationRes.ok || !userRes.ok || !eventsRes.ok) {
+      if (!installationRes.ok || !userRes.ok || !eventsRes.ok || !documentsRes.ok) {
         if (!isMounted) return
         setError("Kunde inte hämta installationen")
         setIsLoading(false)
@@ -246,6 +306,7 @@ export default function InstallationDetailPage() {
       const data: InstallationDetail = await installationRes.json()
       const userData: CurrentUser = await userRes.json()
       const eventsData: InstallationEvent[] = await eventsRes.json()
+      const documentsData: InstallationDocument[] = await documentsRes.json()
       const contractorsData: Contractor[] =
         userData.role === "ADMIN"
           ? await fetch("/api/company/contractors", {
@@ -257,6 +318,7 @@ export default function InstallationDetailPage() {
 
       setInstallation(data)
       setEvents(eventsData)
+      setDocuments(documentsData)
       setContractors(contractorsData)
       setCurrentUser(userData)
       setEditForm({
@@ -299,6 +361,19 @@ export default function InstallationDetailPage() {
       ...eventForm,
       [event.target.name]: event.target.value,
     })
+  }
+
+  function handleDocumentChange(
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) {
+    setDocumentForm({
+      ...documentForm,
+      [event.target.name]: event.target.value,
+    })
+  }
+
+  function handleDocumentFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    setDocumentFile(event.target.files?.[0] ?? null)
   }
 
   function handleEditChange(
@@ -494,6 +569,76 @@ export default function InstallationDetailPage() {
     setIsSubmittingEvent(false)
   }
 
+  async function handleDocumentSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    setDocumentError("")
+    setDocumentSuccess("")
+
+    if (!documentFile) {
+      setDocumentError("Välj en fil att ladda upp")
+      return
+    }
+
+    setIsUploadingDocument(true)
+
+    const formData = new FormData()
+    formData.append("file", documentFile)
+    formData.append("documentType", documentForm.documentType)
+    formData.append("description", documentForm.description)
+    formData.append("eventId", documentForm.eventId)
+
+    const res = await fetch(`/api/installations/${params.id}/documents`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    })
+    const result: InstallationDocument & { error?: string } = await res.json()
+
+    if (res.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!res.ok) {
+      setDocumentError(result.error || "Kunde inte ladda upp dokumentet")
+      setIsUploadingDocument(false)
+      return
+    }
+
+    setDocuments((current) => [result, ...current])
+    setDocumentForm(initialDocumentFormData)
+    setDocumentFile(null)
+    setDocumentSuccess("Dokumentet har laddats upp")
+    setIsUploadingDocument(false)
+  }
+
+  async function handleDeleteDocument(documentId: string) {
+    setDocumentError("")
+    setDocumentSuccess("")
+    setDeletingDocumentId(documentId)
+
+    const res = await fetch(`/api/installations/${params.id}/documents/${documentId}`, {
+      method: "DELETE",
+      credentials: "include",
+    })
+
+    if (res.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!res.ok) {
+      const result: { error?: string } = await res.json()
+      setDocumentError(result.error || "Kunde inte ta bort dokumentet")
+      setDeletingDocumentId(null)
+      return
+    }
+
+    setDocuments((current) => current.filter((document) => document.id !== documentId))
+    setDocumentSuccess("Dokumentet har tagits bort")
+    setDeletingDocumentId(null)
+  }
+
   if (isLoading) {
     return (
       <main className="mx-auto max-w-6xl px-4 py-10 text-slate-900">
@@ -538,6 +683,11 @@ export default function InstallationDetailPage() {
     leakageEventsCount: leakageEvents.length,
   })
   const canManage = currentUser?.role === "ADMIN"
+  const documentsByEventId = documents.reduce<Record<string, number>>((counts, document) => {
+    if (!document.event?.id) return counts
+    counts[document.event.id] = (counts[document.event.id] ?? 0) + 1
+    return counts
+  }, {})
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 text-slate-900">
@@ -767,6 +917,123 @@ export default function InstallationDetailPage() {
         </section>
       )}
 
+      <section className="installation-form-surface mt-6 rounded-lg border border-slate-200 bg-white p-5" id="documents">
+        <h2 className="text-lg font-semibold text-slate-950">Dokument</h2>
+        <form className="mt-4 grid max-w-2xl gap-3" onSubmit={handleDocumentSubmit}>
+          <label className={fieldClassName}>
+            Ladda upp dokument
+            <input
+              accept=".pdf,.png,.jpg,.jpeg,.webp,.csv,.xlsx,application/pdf,image/png,image/jpeg,image/webp,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              onChange={handleDocumentFileChange}
+              type="file"
+            />
+          </label>
+          <label className={fieldClassName}>
+            Dokumenttyp
+            <select
+              name="documentType"
+              value={documentForm.documentType}
+              onChange={handleDocumentChange}
+            >
+              {Object.entries(DOCUMENT_TYPE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={fieldClassName}>
+            Beskrivning
+            <textarea
+              name="description"
+              value={documentForm.description}
+              onChange={handleDocumentChange}
+            />
+          </label>
+          {events.length > 0 && (
+            <label className={fieldClassName}>
+              Koppla till händelse
+              <select
+                name="eventId"
+                value={documentForm.eventId}
+                onChange={handleDocumentChange}
+              >
+                <option value="">Ingen kopplad händelse</option>
+                {events.map((event) => (
+                  <option key={event.id} value={event.id}>
+                    {formatDate(event.date)} - {EVENT_LABELS[event.type]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {documentError && <p className="text-sm font-semibold text-red-700">{documentError}</p>}
+          {documentSuccess && <p className="text-sm font-semibold text-green-700">{documentSuccess}</p>}
+          <button type="submit" disabled={isUploadingDocument}>
+            {isUploadingDocument ? "Laddar upp..." : "Ladda upp dokument"}
+          </button>
+        </form>
+
+        {documents.length === 0 ? (
+          <p className="mt-6 text-sm text-slate-600">Inga dokument uppladdade ännu.</p>
+        ) : (
+          <div className="mt-6 overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <TableHeader>Dokument</TableHeader>
+                  <TableHeader>Dokumenttyp</TableHeader>
+                  <TableHeader>Kopplad händelse</TableHeader>
+                  <TableHeader>Uppladdad av</TableHeader>
+                  <TableHeader>Uppladdad datum</TableHeader>
+                  <TableHeader>Storlek</TableHeader>
+                  <TableHeader>Åtgärder</TableHeader>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {documents.map((document) => (
+                  <tr key={document.id}>
+                    <TableCell>
+                      <div className="font-semibold text-slate-950">{document.originalFileName}</div>
+                      {document.description && (
+                        <div className="mt-1 text-xs text-slate-600">{document.description}</div>
+                      )}
+                    </TableCell>
+                    <TableCell>{DOCUMENT_TYPE_LABELS[document.documentType]}</TableCell>
+                    <TableCell>{formatLinkedEvent(document.event)}</TableCell>
+                    <TableCell>{formatCreatedBy(document.uploadedBy)}</TableCell>
+                    <TableCell>{formatDate(document.createdAt)}</TableCell>
+                    <TableCell>{formatFileSize(document.sizeBytes)}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-2">
+                        <a
+                          className="font-semibold text-blue-700 underline-offset-4 hover:underline"
+                          href={document.fileUrl}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          Öppna dokument
+                        </a>
+                        {canDeleteDocument(document, currentUser) && (
+                          <button
+                            className="font-semibold text-red-700 underline-offset-4 hover:underline disabled:text-slate-400"
+                            type="button"
+                            disabled={deletingDocumentId === document.id}
+                            onClick={() => void handleDeleteDocument(document.id)}
+                          >
+                            {deletingDocumentId === document.id ? "Tar bort..." : "Ta bort"}
+                          </button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
         <h2 className="text-lg font-semibold text-slate-950">Kontrollhistorik</h2>
         {installation.inspections.length === 0 ? (
@@ -808,7 +1075,11 @@ export default function InstallationDetailPage() {
         ) : (
           <div className="mt-5 grid gap-4">
             {events.map((event) => (
-              <EventTimelineItem event={event} key={event.id} />
+              <EventTimelineItem
+                documentCount={documentsByEventId[event.id] ?? 0}
+                event={event}
+                key={event.id}
+              />
             ))}
           </div>
         )}
@@ -869,7 +1140,13 @@ function ComplianceBadge({ status }: { status: ComplianceStatus }) {
   )
 }
 
-function EventTimelineItem({ event }: { event: InstallationEvent }) {
+function EventTimelineItem({
+  event,
+  documentCount,
+}: {
+  event: InstallationEvent
+  documentCount: number
+}) {
   return (
     <article className={`rounded-lg border p-4 ${EVENT_TONE[event.type]}`}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -884,7 +1161,14 @@ function EventTimelineItem({ event }: { event: InstallationEvent }) {
         )}
       </div>
       <p className="mt-3 text-sm">{event.notes || "Ingen anteckning"}</p>
-      <p className="mt-2 text-xs opacity-80">Skapad av: {formatCreatedBy(event.createdBy)}</p>
+      <div className="mt-2 flex flex-wrap gap-3 text-xs opacity-80">
+        <span>Skapad av: {formatCreatedBy(event.createdBy)}</span>
+        {documentCount > 0 && (
+          <a className="font-semibold underline-offset-4 hover:underline" href="#documents">
+            {documentCount} dokument
+          </a>
+        )}
+      </div>
     </article>
   )
 }
@@ -916,6 +1200,29 @@ function formatOptionalText(value?: string | null) {
 function formatCreatedBy(createdBy?: InstallationEvent["createdBy"]) {
   if (!createdBy) return "-"
   return createdBy.name || createdBy.email
+}
+
+function formatLinkedEvent(event?: InstallationDocument["event"]) {
+  if (!event) return "-"
+  return `${formatDate(event.date)} - ${EVENT_LABELS[event.type]}`
+}
+
+function formatFileSize(sizeBytes: number) {
+  if (sizeBytes < 1024 * 1024) {
+    return `${Math.max(1, Math.round(sizeBytes / 1024))} kB`
+  }
+
+  return `${formatNumber(sizeBytes / 1024 / 1024)} MB`
+}
+
+function canDeleteDocument(
+  document: InstallationDocument,
+  currentUser: CurrentUser | null
+) {
+  if (!currentUser) return false
+  if (currentUser.role === "ADMIN") return true
+
+  return document.uploadedById === currentUser.userId
 }
 
 function compareEventsByDateDesc(first: InstallationEvent, second: InstallationEvent) {

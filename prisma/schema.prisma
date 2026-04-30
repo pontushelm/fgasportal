@@ -13,6 +13,15 @@ enum InstallationEventType {
   SERVICE
 }
 
+enum DocumentType {
+  INSPECTION_REPORT
+  SERVICE_REPORT
+  LEAK_REPORT
+  PHOTO
+  AUTHORITY_DOCUMENT
+  OTHER
+}
+
 model Company {
   id        String   @id @default(cuid())
   name      String
@@ -28,6 +37,7 @@ model Company {
   users         User[]
   installations Installation[]
   invitations   Invitation[]
+  installationDocuments InstallationDocument[]
 
   @@map("companies")
 }
@@ -50,6 +60,7 @@ model User {
   assignedInstallations Installation[] @relation("AssignedContractor")
   sentInvitations      Invitation[]   @relation("InvitedBy")
   installationEvents   InstallationEvent[]
+  uploadedInstallationDocuments InstallationDocument[]
 
   @@map("users")
 }
@@ -109,6 +120,7 @@ model Installation {
   inspections Inspection[]
   reminderLogs ReminderLog[]
   events InstallationEvent[]
+  documents InstallationDocument[]
 
   @@map("installations")
 }
@@ -159,7 +171,36 @@ model InstallationEvent {
   createdById        String?
   createdBy          User?                 @relation(fields: [createdById], references: [id])
   createdAt          DateTime              @default(now())
+  documents          InstallationDocument[]
 
   @@index([installationId])
   @@map("installation_events")
+}
+
+model InstallationDocument {
+  id               String       @id @default(cuid())
+  installationId   String
+  eventId          String?
+  companyId        String
+  uploadedById     String
+  fileName         String
+  originalFileName String
+  fileUrl          String
+  blobPath         String
+  mimeType         String
+  sizeBytes        Int
+  documentType     DocumentType
+  description      String?
+  createdAt        DateTime     @default(now())
+
+  installation Installation       @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  event        InstallationEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  company      Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  uploadedBy   User               @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([installationId])
+  @@index([eventId])
+  @@index([companyId])
+  @@index([uploadedById])
+  @@map("installation_documents")
 }
