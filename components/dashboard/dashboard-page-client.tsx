@@ -175,15 +175,6 @@ export default function DashboardPage() {
                   + Lägg till aggregat
                 </Link>
               )}
-              <Link className={secondaryButtonClassName} href="/dashboard/installations">
-                Hantera aggregat
-              </Link>
-              <Link className={secondaryButtonClassName} href="/dashboard/properties">
-                Fastigheter
-              </Link>
-              <Link className={secondaryButtonClassName} href="/dashboard/reports">
-                Rapporter
-              </Link>
             </>
           }
           eyebrow="Compliance dashboard"
