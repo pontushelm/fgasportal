@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -40,30 +41,67 @@ export default function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
+    <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)}>
       <div>
+        <label className={labelClassName} htmlFor="email">
+          E-post
+        </label>
         <input
+          id="email"
+          className={inputClassName}
           type="email"
-          placeholder="E-post"
+          placeholder="namn@example.se"
           {...register("email")}
         />
-        <p>{errors.email?.message}</p>
+        {errors.email?.message && (
+          <p className={errorClassName}>{errors.email.message}</p>
+        )}
       </div>
 
       <div>
+        <label className={labelClassName} htmlFor="password">
+          Lösenord
+        </label>
         <input
+          id="password"
+          className={inputClassName}
           type="password"
           placeholder="Lösenord"
           {...register("password")}
         />
-        <p>{errors.password?.message}</p>
+        {errors.password?.message && (
+          <p className={errorClassName}>{errors.password.message}</p>
+        )}
       </div>
 
-      {error && <p>{error}</p>}
+      {error && (
+        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+          {error}
+        </p>
+      )}
 
-      <button type="submit" disabled={isSubmitting}>
+      <button className={submitButtonClassName} type="submit" disabled={isSubmitting}>
         {isSubmitting ? "Loggar in..." : "Logga in"}
       </button>
+
+      <div className="grid gap-2 border-t border-slate-200 pt-4 text-sm text-slate-600">
+        <p>
+          Saknar konto?{" "}
+          <Link className="font-semibold text-blue-700 hover:text-blue-800" href="/register">
+            Skapa konto
+          </Link>
+        </p>
+        <Link className="font-semibold text-slate-700 hover:text-slate-950" href="/">
+          Tillbaka till startsidan
+        </Link>
+      </div>
     </form>
   )
 }
+
+const labelClassName = "mb-1 block text-sm font-semibold text-slate-700"
+const inputClassName =
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+const errorClassName = "mt-1 text-sm font-medium text-red-700"
+const submitButtonClassName =
+  "mt-2 w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"

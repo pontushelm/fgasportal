@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { registerSchema, type RegisterFormData } from "@/lib/validations"
@@ -97,57 +98,120 @@ export default function RegisterForm({ inviteToken }: { inviteToken?: string }) 
   }
 
   if (isInviteMode && inviteError) {
-    return <p style={{ color: "#b91c1c" }}>{inviteError}</p>
+    return (
+      <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+        {inviteError}
+      </p>
+    )
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
+    <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)}>
       {isInviteMode && inviteContext && (
-        <div style={{ marginBottom: 20 }}>
-          <h3>Inbjudan till {inviteContext.companyName}</h3>
-          <p>Du registreras som {inviteContext.role}.</p>
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+          <h3 className="font-semibold">Inbjudan till {inviteContext.companyName}</h3>
+          <p className="mt-1">Du registreras som {inviteContext.role}.</p>
         </div>
       )}
 
       {!isInviteMode && (
         <>
-          <h3>Företag</h3>
+          <h3 className={sectionTitleClassName}>Företag</h3>
 
-          <input placeholder="Företagsnamn" {...register("companyName")} />
-          <p>{errors.companyName?.message as string}</p>
+          <Field label="Företagsnamn" error={errors.companyName?.message as string}>
+            <input className={inputClassName} placeholder="Företagsnamn" {...register("companyName")} />
+          </Field>
 
-          <input placeholder="Organisationsnummer" {...register("orgNumber")} />
-          <p>{errors.orgNumber?.message as string}</p>
+          <Field label="Organisationsnummer" error={errors.orgNumber?.message as string}>
+            <input className={inputClassName} placeholder="Organisationsnummer" {...register("orgNumber")} />
+          </Field>
 
-          <input placeholder="Företags-email" {...register("companyEmail")} />
-          <p>{errors.companyEmail?.message as string}</p>
+          <Field label="Företags-e-post" error={errors.companyEmail?.message as string}>
+            <input className={inputClassName} placeholder="foretag@example.se" {...register("companyEmail")} />
+          </Field>
         </>
       )}
 
-      <h3>Användare</h3>
+      <h3 className={sectionTitleClassName}>Användare</h3>
 
-      <input placeholder="Namn" {...register("userName")} />
-      <p>{errors.userName?.message as string}</p>
+      <Field label="Namn" error={errors.userName?.message as string}>
+        <input className={inputClassName} placeholder="Namn" {...register("userName")} />
+      </Field>
 
-      <input
-        placeholder="Email"
-        readOnly={isInviteMode}
-        {...register("userEmail")}
-      />
-      <p>{errors.userEmail?.message as string}</p>
+      <Field label="E-post" error={errors.userEmail?.message as string}>
+        <input
+          className={`${inputClassName} ${isInviteMode ? "bg-slate-100" : ""}`}
+          placeholder="namn@example.se"
+          readOnly={isInviteMode}
+          {...register("userEmail")}
+        />
+      </Field>
 
-      <input type="password" placeholder="Lösenord" {...register("password")} />
-      <p>{errors.password?.message as string}</p>
+      <Field label="Lösenord" error={errors.password?.message as string}>
+        <input className={inputClassName} type="password" placeholder="Lösenord" {...register("password")} />
+      </Field>
 
-      <input type="password" placeholder="Bekräfta lösenord" {...register("confirmPassword")} />
-      <p>{errors.confirmPassword?.message as string}</p>
+      <Field label="Bekräfta lösenord" error={errors.confirmPassword?.message as string}>
+        <input className={inputClassName} type="password" placeholder="Bekräfta lösenord" {...register("confirmPassword")} />
+      </Field>
 
-      {submitError && <p style={{ color: "#b91c1c" }}>{submitError}</p>}
-      {submitMessage && <p style={{ color: "#047857" }}>{submitMessage}</p>}
+      {submitError && (
+        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+          {submitError}
+        </p>
+      )}
+      {submitMessage && (
+        <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">
+          {submitMessage}
+        </p>
+      )}
 
-      <button type="submit" disabled={isSubmitting || Boolean(inviteToken && !inviteContext)}>
-        {isSubmitting ? "Registrerar..." : "Registrera"}
+      <button
+        className={submitButtonClassName}
+        type="submit"
+        disabled={isSubmitting || Boolean(inviteToken && !inviteContext)}
+      >
+        {isSubmitting ? "Registrerar..." : isInviteMode ? "Skapa användare" : "Skapa konto"}
       </button>
+
+      <div className="grid gap-2 border-t border-slate-200 pt-4 text-sm text-slate-600">
+        <p>
+          Har du redan konto?{" "}
+          <Link className="font-semibold text-blue-700 hover:text-blue-800" href="/login">
+            Logga in
+          </Link>
+        </p>
+        <Link className="font-semibold text-slate-700 hover:text-slate-950" href="/">
+          Tillbaka till startsidan
+        </Link>
+      </div>
     </form>
   )
 }
+
+function Field({
+  children,
+  error,
+  label,
+}: {
+  children: React.ReactNode
+  error?: string
+  label: string
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-sm font-semibold text-slate-700">
+        {label}
+      </span>
+      {children}
+      {error && <p className="mt-1 text-sm font-medium text-red-700">{error}</p>}
+    </label>
+  )
+}
+
+const sectionTitleClassName =
+  "border-t border-slate-200 pt-4 text-sm font-semibold uppercase tracking-wide text-slate-500 first:border-t-0 first:pt-0"
+const inputClassName =
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+const submitButtonClassName =
+  "mt-2 w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"

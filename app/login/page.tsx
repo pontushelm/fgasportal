@@ -1,10 +1,10 @@
 import LoginForm from "@/components/auth/login-form"
+import { AuthShell } from "@/components/auth/auth-shell"
 
 export default function LoginPage() {
   return (
-    <main style={{ maxWidth: 420, margin: "60px auto" }}>
-      <h1>Logga in</h1>
+    <AuthShell title="Logga in" subtitle="Fortsätt till ert F-gasregister.">
       <LoginForm />
-    </main>
+    </AuthShell>
   )
 }

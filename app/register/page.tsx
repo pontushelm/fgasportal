@@ -2,6 +2,7 @@
 
 import { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
+import { AuthShell } from "@/components/auth/auth-shell"
 import RegisterForm from "@/components/auth/register-form"
 
 function RegisterContent() {
@@ -9,10 +10,16 @@ function RegisterContent() {
   const inviteToken = searchParams.get("invite") || undefined
 
   return (
-    <div style={{ maxWidth: 500, margin: "40px auto" }}>
-      <h1>{inviteToken ? "Acceptera inbjudan" : "Registrera företag"}</h1>
+    <AuthShell
+      title={inviteToken ? "Acceptera inbjudan" : "Skapa konto"}
+      subtitle={
+        inviteToken
+          ? "Skapa en användare för den inbjudna organisationen."
+          : "Kom igång med FgasPortal."
+      }
+    >
       <RegisterForm inviteToken={inviteToken} />
-    </div>
+    </AuthShell>
   )
 }
 
@@ -20,9 +27,9 @@ export default function RegisterPage() {
   return (
     <Suspense
       fallback={
-        <div style={{ maxWidth: 500, margin: "40px auto" }}>
-          <h1>Registrera företag</h1>
-        </div>
+        <AuthShell title="Skapa konto" subtitle="Kom igång med FgasPortal.">
+          <p className="text-sm text-slate-600">Laddar...</p>
+        </AuthShell>
       }
     >
       <RegisterContent />
