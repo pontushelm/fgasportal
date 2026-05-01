@@ -1,351 +1,404 @@
 import Link from "next/link"
 
-const dashboardStats = [
-  { label: "Compliance dashboard", value: "Live", tone: "text-emerald-700 dark:text-emerald-300" },
-  { label: "Riskklassning", value: "Hög/Medel/Låg", tone: "text-red-700 dark:text-red-300" },
-  { label: "Läckageanalys", value: "CO₂e + kg", tone: "text-amber-700 dark:text-amber-300" },
-  { label: "F-gas årsrapport", value: "Årsdata", tone: "text-blue-700 dark:text-blue-300" },
+const previewStats = [
+  { label: "Totalt aggregat", value: "248", tone: "border-l-blue-500" },
+  { label: "Försenade kontroller", value: "7", tone: "border-l-red-500" },
+  { label: "Total CO₂e", value: "1 840 t", tone: "border-l-emerald-500" },
+  { label: "Hög risk", value: "18", tone: "border-l-amber-500" },
 ]
 
-const problemCards = [
+const previewTags = ["Årsrapport", "Fastigheter", "Dokument", "Servicepartners"]
+
+const problems = [
   "Excel-register blir snabbt inaktuella",
-  "Svårt att bevaka kontrollintervall",
-  "Risk för missade F-gas-krav",
+  "Kontrollintervall missas",
+  "Underlag inför årsrapport sprids ut",
+  "Svårt att följa upp servicepartners",
   "Begränsad överblick över CO₂e och läckage",
+  "Dokument och historik saknas på rätt aggregat",
 ]
 
-const targetCustomers = [
+const features = [
+  {
+    title: "Installationsregister",
+    text: "Samla aggregat, köldmedium, fyllnadsmängd, fastighet och servicepartner i ett strukturerat register.",
+  },
+  {
+    title: "Kontrollintervall och påminnelser",
+    text: "Följ nästa kontroll och minska risken för missade läckagekontroller.",
+  },
+  {
+    title: "Fastigheter och kommuner",
+    text: "Gruppera aggregat per fastighet och kommun för bättre överblick och rapportering.",
+  },
+  {
+    title: "Contractor-portal",
+    text: "Bjud in servicepartners som kan se tilldelade aggregat och registrera utfört arbete.",
+  },
+  {
+    title: "Dokument och aktivitetslogg",
+    text: "Koppla kontrollrapporter, serviceprotokoll och historik till rätt aggregat.",
+  },
+  {
+    title: "Risk och klimatpåverkan",
+    text: "Se CO₂e, riskklassning, läckagehistorik och prioriterade åtgärder.",
+  },
+  {
+    title: "Årsrapport och export",
+    text: "Samla underlag för svensk F-gas årsrapport och exportera till CSV eller PDF.",
+  },
+  {
+    title: "Excel-import och bulkhantering",
+    text: "Importera många aggregat och uppdatera fastighet eller servicepartner i bulk.",
+  },
+]
+
+const workflowSteps = [
+  "Importera eller skapa aggregat",
+  "Koppla till fastigheter och servicepartners",
+  "Följ kontrollintervall, risk och läckage",
+  "Samla dokument och historik",
+  "Exportera årsrapport och underlag",
+]
+
+const audiences = [
   "Fastighetsbolag",
   "Kommuner",
   "Regioner och sjukhus",
   "Industriella verksamheter",
   "Driftorganisationer",
-  "Kylentreprenörer",
+  "Servicepartners",
 ]
 
-const climatePoints = [
-  "identifiera högriskaggregat",
-  "följa upp läckage",
-  "förstå CO₂e-belastning",
-  "prioritera åtgärder",
-  "planera bättre underhåll",
-]
-
-const servicePillars = [
-  {
-    title: "Compliance dashboard",
-    angle: "Se direkt vilka aggregat som kräver åtgärd.",
-    points: [
-      "Försenade kontroller och kommande kontrollbehov",
-      "Aggregat utan registrerad kontroll",
-      "Riskklassning och prioriterad åtgärdslista",
-      "Samlad CO₂e-översikt för intern uppföljning",
-    ],
-  },
-  {
-    title: "Kontrollhistorik per aggregat",
-    angle: "All kontrollhistorik samlad per aggregat.",
-    points: [
-      "Senaste kontroll och nästa kontroll",
-      "Historik vid tillsyn",
-      "Spårbarhet över tid",
-      "Anteckningar kopplade till installationen",
-    ],
-  },
-  {
-    title: "Läckage- och servicelog",
-    angle: "Följ läckage, påfyllning och åtgärder över tid.",
-    points: [
-      "Läckagehändelser och serviceanteckningar",
-      "Påfylld eller läckt mängd köldmedium",
-      "Läckageanalys per aggregat och köldmedium",
-      "Underlag för bättre underhållsplanering",
-    ],
-  },
-  {
-    title: "Automatiskt kontrollintervall från CO₂e",
-    angle: "Systemet hjälper till att räkna ut rätt kontrollintervall.",
-    points: [
-      "CO₂e-beräkning från köldmedium och fyllnadsmängd",
-      "Kontrollintervall och nästa kontroll",
-      "Påminnelser inför förfall",
-      "Minskad risk för missade kontroller",
-    ],
-  },
-  {
-    title: "Rapporter och organisationsstöd",
-    angle: "Vi kan hjälpa till att registerhålla åt er.",
-    points: [
-      "F-gas årsrapport",
-      "Import från Excel",
-      "Löpande bevakning",
-      "Rapportunderlag inför tillsyn",
-    ],
-  },
-]
-
-const offers = [
-  {
-    title: "System",
-    points: [
-      "Eget digitalt F-gasregister",
-      "Import från Excel",
-      "Automatiska påminnelser",
-      "Export till CSV/PDF",
-    ],
-  },
-  {
-    title: "Registerhållning som tjänst",
-    points: [
-      "Vi strukturerar ert register",
-      "Vi bevakar kontrollintervall",
-      "Vi flaggar risker och försenade kontroller",
-      "Vi tar fram underlag vid tillsyn",
-    ],
-  },
+const riskPoints = [
+  "CO₂e per aggregat och köldmedium",
+  "Riskklassning för prioritering",
+  "Läckagehistorik över tid",
+  "Prioriterade åtgärder i dashboarden",
+  "Fastigheter med hög klimatpåverkan",
 ]
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
-      <header className="border-b border-zinc-200 bg-white/90 dark:border-zinc-800 dark:bg-zinc-950/90">
-        <nav className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-          <Link href="/" className="text-lg font-semibold tracking-normal">
+    <main className="min-h-screen bg-slate-50 text-slate-950">
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
+        <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          <Link className="text-lg font-bold tracking-tight text-slate-950" href="/">
             FgasPortal
           </Link>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/login"
-              className="rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white"
-            >
+          <div className="flex items-center gap-2">
+            <Link className={secondaryLinkClassName} href="/login">
               Logga in
             </Link>
-            <Link
-              href="/register"
-              className="rounded-md bg-zinc-950 px-3 py-2 text-sm font-semibold text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
-            >
+            <Link className={secondaryLinkClassName} href="/register">
               Skapa konto
             </Link>
+            <a className={primaryLinkClassName} href="mailto:info@fgasportal.se">
+              Boka demo
+            </a>
           </div>
         </nav>
       </header>
 
-      <section className="mx-auto grid max-w-6xl gap-10 px-5 py-16 md:grid-cols-[1fr_0.9fr] md:items-center md:py-24">
+      <section className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(420px,0.82fr)] lg:items-center lg:px-8 lg:py-24">
         <div>
-          <p className="mb-4 text-sm font-semibold uppercase text-emerald-700 dark:text-emerald-300">
-            Managed compliance service + SaaS för F-gas
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
+            SaaS för F-gasregister och uppföljning
           </p>
-          <h1 className="max-w-3xl text-4xl font-bold leading-tight md:text-6xl">
-            Bättre kontroll på F-gasregister, kontroller och klimatpåverkan
+          <h1 className="mt-4 max-w-4xl text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
+            F-gasregister, kontroller och rapporter – samlat i ett system
           </h1>
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-zinc-700 dark:text-zinc-300">
-            FgasPortal hjälper operatörer att hålla ett tillförlitligt
-            köldmedieregister, bevaka kontrollintervall, analysera läckage och
-            ta fram rapportunderlag för intern uppföljning och tillsyn.
+          <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-700">
+            FgasPortal hjälper fastighetsägare, kommuner, regioner och
+            driftorganisationer att hålla ordning på köldmedieaggregat,
+            kontrollintervall, servicepartners, dokument och årsrapporter.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <a
-              href="mailto:info@fgasportal.se"
-              className="rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800"
-            >
+            <a className={primaryLargeLinkClassName} href="mailto:info@fgasportal.se">
               Boka demo
             </a>
-            <Link
-              href="/login"
-              className="rounded-md border border-zinc-300 bg-white px-5 py-3 text-sm font-semibold text-zinc-950 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:hover:bg-zinc-800"
-            >
+            <Link className={secondaryLargeLinkClassName} href="/login">
               Logga in
             </Link>
-            <Link
-              href="/register"
-              className="rounded-md border border-zinc-300 bg-white px-5 py-3 text-sm font-semibold text-zinc-950 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:hover:bg-zinc-800"
-            >
+            <Link className={ghostLargeLinkClassName} href="/register">
               Skapa konto
             </Link>
           </div>
         </div>
 
-        <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="mb-5 flex items-center justify-between border-b border-zinc-200 pb-4 dark:border-zinc-800">
-            <div>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">Produktöversikt</p>
-              <h2 className="text-xl font-semibold">Se status, risk och rapporter</h2>
-            </div>
-            <span className="rounded-full border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">
-              Bevakning
-            </span>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {dashboardStats.map((item) => (
-              <div
-                key={item.label}
-                className="rounded-md border border-zinc-200 p-4 dark:border-zinc-800"
-              >
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">{item.label}</p>
-                <p className={`mt-2 text-2xl font-bold ${item.tone}`}>{item.value}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-5 rounded-md bg-zinc-100 p-4 text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-            Fokusera på aggregat med försenade kontroller, hög risk,
-            registrerade läckage eller behov av årsrapportering.
-          </div>
-        </div>
+        <DashboardPreview />
       </section>
 
-      <section className="border-y border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="mx-auto max-w-6xl px-5 py-14">
-          <div className="max-w-3xl">
-            <h2 className="text-3xl font-bold">Vanliga problem med köldmedieregister</h2>
-            <p className="mt-4 text-zinc-700 dark:text-zinc-300">
-              Många organisationer har bra teknisk kontroll på sina anläggningar,
-              men register, intervall och rapportunderlag hamnar ofta i manuella
-              rutiner som är svåra att hålla aktuella.
-            </p>
-          </div>
-          <div className="mt-8 grid gap-4 md:grid-cols-4">
-            {problemCards.map((problem) => (
-              <article
-                key={problem}
-                className="rounded-lg border border-zinc-200 bg-zinc-50 p-5 dark:border-zinc-800 dark:bg-zinc-950"
-              >
-                <h3 className="font-semibold">{problem}</h3>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto grid max-w-6xl gap-8 px-5 py-14 md:grid-cols-2">
-        <div>
-          <h2 className="text-3xl font-bold">Byggt för organisationer med många aggregat</h2>
-          <p className="mt-4 text-zinc-700 dark:text-zinc-300">
-            FgasPortal passar verksamheter som behöver samordna flera
-            anläggningar, kontaktpersoner, kontrollintervall och rapportbehov.
-          </p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {targetCustomers.map((customer) => (
-            <div
-              key={customer}
-              className="rounded-md border border-zinc-200 bg-white px-4 py-3 text-sm font-semibold dark:border-zinc-800 dark:bg-zinc-900"
-            >
-              {customer}
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="border-y border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="mx-auto grid max-w-6xl gap-8 px-5 py-14 md:grid-cols-2">
-          <div>
-            <h2 className="text-3xl font-bold">Minska klimatpåverkan från köldmedier</h2>
-          </div>
-          <div className="space-y-4 text-zinc-700 dark:text-zinc-300">
-            <p>
-              FgasPortal hjälper organisationer att förstå var klimatpåverkan
-              uppstår och vilka aggregat som bör prioriteras i uppföljning och
-              underhåll.
-            </p>
-            <ul className="grid gap-2 text-sm leading-6">
-              {climatePoints.map((point) => (
-                <li key={point}>• Hjälper er att {point}</li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-5 py-16">
-        <div className="max-w-3xl">
-          <p className="text-sm font-semibold uppercase text-emerald-700 dark:text-emerald-300">
-            Fem servicepelare
-          </p>
-          <h2 className="mt-3 text-3xl font-bold">Systemstöd och praktisk hjälp för F-gasarbetet</h2>
-          <p className="mt-4 text-zinc-700 dark:text-zinc-300">
-            Använd FgasPortal som ett digitalt verktyg i er organisation, eller
-            som en del av en löpande tjänst för registerhållning och bevakning.
-          </p>
-        </div>
-        <div className="mt-8 grid gap-4 lg:grid-cols-2">
-          {servicePillars.map((pillar) => (
-            <article
-              key={pillar.title}
-              className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900"
-            >
-              <h3 className="text-xl font-semibold">{pillar.title}</h3>
-              <p className="mt-2 font-medium text-emerald-700 dark:text-emerald-300">
-                {pillar.angle}
-              </p>
-              <ul className="mt-4 space-y-2 text-sm leading-6 text-zinc-700 dark:text-zinc-300">
-                {pillar.points.map((point) => (
-                  <li key={point}>• {point}</li>
-                ))}
-              </ul>
+      <Section
+        eyebrow="Utmaningar"
+        title="Vanliga utmaningar med F-gasregister"
+        description="Många organisationer har kontroll på tekniken, men saknar ett samlat system för register, uppföljning och rapportunderlag."
+      >
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {problems.map((problem) => (
+            <article className={cardClassName} key={problem}>
+              <h3 className="text-base font-semibold text-slate-950">{problem}</h3>
             </article>
           ))}
         </div>
-      </section>
+      </Section>
 
-      <section className="bg-zinc-950 text-white">
-        <div className="mx-auto max-w-6xl px-5 py-16">
-          <div className="max-w-3xl">
-            <h2 className="text-3xl font-bold">Vill ni slippa hålla registret själva?</h2>
-            <p className="mt-4 leading-8 text-zinc-300">
-              FgasPortal kan användas som ett verktyg av er organisation, eller
-              som en tjänst där vi hjälper till med registerhållning,
-              kontrollbevakning och rapportunderlag.
+      <Section
+        eyebrow="Lösning"
+        title="Ett system för hela F-gasflödet"
+        description="Från import av aggregat till kontrollbevakning, dokumentation, serviceuppdrag och rapportering."
+      >
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {features.map((feature) => (
+            <article className={cardClassName} key={feature.title}>
+              <h3 className="font-semibold text-slate-950">{feature.title}</h3>
+              <p className="mt-3 text-sm leading-6 text-slate-600">{feature.text}</p>
+            </article>
+          ))}
+        </div>
+      </Section>
+
+      <section className="border-y border-slate-200 bg-white">
+        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[0.85fr_1.15fr] lg:px-8">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
+              Arbetsflöde
+            </p>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
+              Från register till uppföljning
+            </h2>
+            <p className="mt-4 text-sm leading-6 text-slate-600">
+              FgasPortal är byggt för löpande drift, inte bara årsvis
+              rapportering. Systemet hjälper er att strukturera data och följa
+              upp det som behöver åtgärdas.
             </p>
           </div>
-          <div className="mt-8 grid gap-4 md:grid-cols-2">
-            {offers.map((offer) => (
-              <article
-                key={offer.title}
-                className="rounded-lg border border-zinc-800 bg-zinc-900 p-6"
+          <div className="grid gap-3">
+            {workflowSteps.map((step, index) => (
+              <div
+                className="flex gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4"
+                key={step}
               >
-                <h3 className="text-xl font-semibold">{offer.title}</h3>
-                <ul className="mt-4 space-y-2 text-sm leading-6 text-zinc-300">
-                  {offer.points.map((point) => (
-                    <li key={point}>• {point}</li>
-                  ))}
-                </ul>
-              </article>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
+                  {index + 1}
+                </span>
+                <p className="self-center font-semibold text-slate-900">{step}</p>
+              </div>
             ))}
           </div>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <a
-              href="mailto:info@fgasportal.se"
-              className="rounded-md bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
-            >
+        </div>
+      </section>
+
+      <Section
+        eyebrow="Målgrupper"
+        title="Byggt för organisationer med många aggregat"
+        description="FgasPortal passar verksamheter som behöver bättre struktur, spårbarhet och överblick över flera fastigheter, anläggningar eller serviceflöden."
+      >
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {audiences.map((audience) => (
+            <div className="rounded-xl border border-slate-200 bg-white p-5 font-semibold text-slate-900 shadow-sm" key={audience}>
+              {audience}
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <section className="border-y border-slate-200 bg-white">
+        <div className="mx-auto grid max-w-7xl gap-6 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:px-8">
+          <article className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+            <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
+              Operatörer
+            </p>
+            <h2 className="mt-3 text-2xl font-bold text-slate-950">
+              Registret ägs av operatören
+            </h2>
+            <p className="mt-4 text-sm leading-6 text-slate-600">
+              Operatören behåller överblicken över aggregat, fastigheter,
+              kontrollintervall, dokument och årsrapporter. FgasPortal hjälper
+              till att samla informationen och göra uppföljningen tydligare.
+            </p>
+          </article>
+
+          <article className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+            <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
+              Servicepartners
+            </p>
+            <h2 className="mt-3 text-2xl font-bold text-slate-950">
+              Contractors bjuds in utan kostnad
+            </h2>
+            <p className="mt-4 text-sm leading-6 text-slate-600">
+              Servicepartners kan se tilldelade aggregat, registrera kontroller,
+              service, läckage och påfyllning samt ladda upp dokument direkt på
+              rätt installation.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <Section
+        eyebrow="Risk och klimat"
+        title="Bättre överblick över risk och klimatpåverkan"
+        description="FgasPortal ger en tydligare bild av vilka aggregat och fastigheter som bör prioriteras i uppföljning och underhåll."
+      >
+        <div className="grid gap-4 md:grid-cols-5">
+          {riskPoints.map((point) => (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900" key={point}>
+              {point}
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
+        <div className="rounded-2xl border border-slate-200 bg-slate-950 p-8 text-white shadow-sm sm:p-10">
+          <h2 className="max-w-3xl text-3xl font-bold tracking-tight">
+            Vill ni få bättre kontroll på era F-gasregister?
+          </h2>
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300">
+            Boka en demo för att se hur FgasPortal kan hjälpa er att samla
+            register, dokument, serviceuppföljning och rapportunderlag.
+          </p>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <a className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700" href="mailto:info@fgasportal.se">
               Boka demo
             </a>
-            <Link
-              href="/login"
-              className="rounded-md bg-white px-5 py-3 text-sm font-semibold text-zinc-950 hover:bg-zinc-200"
-            >
-              Logga in
-            </Link>
-            <Link
-              href="/register"
-              className="rounded-md border border-zinc-700 px-5 py-3 text-sm font-semibold text-white hover:bg-zinc-900"
-            >
+            <Link className="rounded-lg bg-white px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-slate-100" href="/register">
               Skapa konto
+            </Link>
+            <Link className="rounded-lg border border-slate-600 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-900" href="/login">
+              Logga in
             </Link>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-5 py-16">
-        <div className="rounded-lg border border-zinc-200 bg-white p-8 dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="text-3xl font-bold">Mindre manuellt arbete, bättre kontroll</h2>
-          <p className="mt-4 max-w-3xl leading-8 text-zinc-700 dark:text-zinc-300">
-            FgasPortal ersätter inte operatörens ansvar och garanterar inte
-            regelefterlevnad. Tjänsten hjälper till att strukturera information,
-            bevaka kontrollintervall, synliggöra risker och ta fram
-            uppföljningsunderlag.
+      <footer className="border-t border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-8 text-sm text-slate-600 sm:px-6 lg:px-8">
+          <p className="font-semibold text-slate-950">FgasPortal</p>
+          <p>
+            FgasPortal ersätter inte operatörens ansvar, men hjälper till att
+            strukturera information, uppföljning och rapportunderlag.
           </p>
         </div>
-      </section>
+      </footer>
     </main>
   )
 }
+
+function DashboardPreview() {
+  return (
+    <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
+        <div>
+          <p className="text-sm font-semibold text-slate-500">Produktöversikt</p>
+          <h2 className="mt-1 text-xl font-bold text-slate-950">
+            Compliance dashboard
+          </h2>
+        </div>
+        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+          Liveöversikt
+        </span>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        {previewStats.map((item) => (
+          <div
+            className={`rounded-xl border border-slate-200 border-l-4 bg-slate-50 p-4 ${item.tone}`}
+            key={item.label}
+          >
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              {item.label}
+            </p>
+            <p className="mt-2 text-2xl font-bold text-slate-950">{item.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
+        <p className="text-sm font-semibold text-slate-950">Prioriterade åtgärder</p>
+        <div className="mt-3 grid gap-2">
+          <MockAction title="Försenad kontroll" meta="Kylaggregat hus A" tone="red" />
+          <MockAction title="Hög risk" meta="R404A, hög CO₂e" tone="amber" />
+          <MockAction title="Dokument saknas" meta="Serviceprotokoll" tone="blue" />
+        </div>
+      </div>
+
+      <div className="mt-5 flex flex-wrap gap-2">
+        {previewTags.map((tag) => (
+          <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700" key={tag}>
+            {tag}
+          </span>
+        ))}
+      </div>
+    </aside>
+  )
+}
+
+function MockAction({
+  meta,
+  title,
+  tone,
+}: {
+  meta: string
+  title: string
+  tone: "red" | "amber" | "blue"
+}) {
+  const toneClass = {
+    red: "bg-red-100 text-red-700",
+    amber: "bg-amber-100 text-amber-700",
+    blue: "bg-blue-100 text-blue-700",
+  }[tone]
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 p-3">
+      <div>
+        <p className="text-sm font-semibold text-slate-950">{title}</p>
+        <p className="text-xs text-slate-500">{meta}</p>
+      </div>
+      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${toneClass}`}>
+        Åtgärd
+      </span>
+    </div>
+  )
+}
+
+function Section({
+  children,
+  description,
+  eyebrow,
+  title,
+}: {
+  children: React.ReactNode
+  description: string
+  eyebrow: string
+  title: string
+}) {
+  return (
+    <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+      <div className="max-w-3xl">
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
+          {eyebrow}
+        </p>
+        <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
+          {title}
+        </h2>
+        <p className="mt-4 text-sm leading-6 text-slate-600">{description}</p>
+      </div>
+      <div className="mt-8">{children}</div>
+    </section>
+  )
+}
+
+const cardClassName =
+  "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+
+const primaryLinkClassName =
+  "rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+const secondaryLinkClassName =
+  "rounded-lg px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-950"
+const primaryLargeLinkClassName =
+  "rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+const secondaryLargeLinkClassName =
+  "rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+const ghostLargeLinkClassName =
+  "rounded-lg px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-100"
