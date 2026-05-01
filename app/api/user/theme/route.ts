@@ -4,7 +4,7 @@ import { authenticateApiRequest } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 
 const updateThemeSchema = z.object({
-  themePreference: z.enum(["system", "light", "dark"]),
+  themePreference: z.enum(["light", "dark"]),
 })
 
 export async function PATCH(request: NextRequest) {

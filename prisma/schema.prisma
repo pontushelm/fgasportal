@@ -22,6 +22,13 @@ enum DocumentType {
   OTHER
 }
 
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
+  CONTRACTOR
+}
+
 model Company {
   id        String   @id @default(cuid())
   name      String
@@ -58,8 +65,8 @@ model User {
   email     String   @unique
   name      String
   password  String
-  role      String   @default("ADMIN")
-  themePreference String @default("system")
+  role      UserRole @default(ADMIN)
+  themePreference String @default("light")
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, PageHeader } from "@/components/ui"
-import { ThemeSelect } from "@/components/theme/theme-select"
 import type { UserRole } from "@/lib/auth"
+import { formatRoleLabel, isAdminRole } from "@/lib/roles"
 
 type CompanyUser = {
   id: string
@@ -159,6 +159,31 @@ export default function CompanySettingsPage() {
     let isMounted = true
 
     async function fetchCompanySettings() {
+      const accessRes = await fetch("/api/auth/me", {
+        credentials: "include",
+      })
+
+      if (accessRes.status === 401) {
+        router.push("/login")
+        return
+      }
+
+      if (!accessRes.ok) {
+        if (!isMounted) return
+        setError("Kunde inte hämta företagsinställningar")
+        setIsLoading(false)
+        return
+      }
+
+      const accessUser: CurrentUser = await accessRes.json()
+
+      if (!isMounted) return
+
+      if (!isAdminRole(accessUser.role)) {
+        router.replace("/dashboard/settings")
+        return
+      }
+
       const [companyRes, invitationsRes, userRes, propertiesRes] = await Promise.all([
         fetch("/api/company", {
           credentials: "include",
@@ -199,6 +224,11 @@ export default function CompanySettingsPage() {
 
       if (!isMounted) return
 
+      if (!isAdminRole(userData.role)) {
+        router.replace("/dashboard/settings")
+        return
+      }
+
       setCompanyProfile(company)
       setProfileForm(toProfileFormData(company))
       setCurrentUser(userData)
@@ -214,7 +244,7 @@ export default function CompanySettingsPage() {
     }
   }, [router])
 
-  const canAdminister = currentUser?.role === "ADMIN"
+  const canAdminister = isAdminRole(currentUser?.role)
 
   function handleProfileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const value =
@@ -401,18 +431,6 @@ export default function CompanySettingsPage() {
 
       {!isLoading && !error && companyProfile && (
         <>
-          <Card className="mt-8 p-5">
-            <h2 className="text-xl font-semibold text-slate-950 dark:text-slate-100">
-              Personliga inställningar
-            </h2>
-            <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
-              Dessa val gäller bara för ditt användarkonto.
-            </p>
-            <div className="mt-5">
-              <ThemeSelect />
-            </div>
-          </Card>
-
           <Card className="mt-8 p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
@@ -625,7 +643,7 @@ export default function CompanySettingsPage() {
                 rows={data.users.map((user) => [
                   user.name,
                   user.email,
-                  user.role,
+                  formatRoleLabel(user.role),
                   user.isActive ? "Aktiv" : "Inaktiv",
                 ])}
               />
@@ -656,9 +674,9 @@ export default function CompanySettingsPage() {
                     value={invitationForm.role}
                     onChange={handleInvitationChange}
                   >
-                    <option value="MEMBER">MEMBER</option>
-                    <option value="ADMIN">ADMIN</option>
-                    <option value="CONTRACTOR">CONTRACTOR</option>
+                    <option value="MEMBER">{formatRoleLabel("MEMBER")}</option>
+                    <option value="ADMIN">{formatRoleLabel("ADMIN")}</option>
+                    <option value="CONTRACTOR">{formatRoleLabel("CONTRACTOR")}</option>
                   </select>
                 </label>
 
@@ -690,7 +708,7 @@ export default function CompanySettingsPage() {
                 headers={["E-post", "Roll", "Inbjuden av", "Går ut"]}
                 rows={data.invitations.map((invitation) => [
                   invitation.email,
-                  invitation.role,
+                  formatRoleLabel(invitation.role),
                   invitation.invitedByUser.email,
                   formatDate(invitation.expiresAt),
                 ])}

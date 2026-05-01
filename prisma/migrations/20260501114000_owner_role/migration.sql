@@ -1,0 +1,10 @@
+CREATE TYPE "UserRole" AS ENUM ('OWNER', 'ADMIN', 'MEMBER', 'CONTRACTOR');
+
+ALTER TABLE "users"
+ALTER COLUMN "role" DROP DEFAULT;
+
+ALTER TABLE "users"
+ALTER COLUMN "role" TYPE "UserRole" USING "role"::"UserRole";
+
+ALTER TABLE "users"
+ALTER COLUMN "role" SET DEFAULT 'ADMIN';

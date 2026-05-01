@@ -12,6 +12,8 @@ export async function GET(request: NextRequest) {
         id: auth.user.userId,
       },
       select: {
+        email: true,
+        name: true,
         themePreference: true,
       },
     })
@@ -19,7 +21,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         ...auth.user,
-        themePreference: user?.themePreference ?? "system",
+        email: user?.email ?? null,
+        name: user?.name ?? null,
+        themePreference: normalizeThemePreference(user?.themePreference),
       },
       { status: 200 }
     )
@@ -31,4 +35,8 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+function normalizeThemePreference(themePreference?: string | null) {
+  return themePreference === "dark" ? "dark" : "light"
 }

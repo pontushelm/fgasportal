@@ -6,7 +6,7 @@ import {
   type NormalRegisterData,
   type RegisterFormData,
 } from "@/lib/validations"
-import { hashPassword } from "@/lib/auth"
+import { hashPassword, type UserRole } from "@/lib/auth"
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
             name: normalData.userName,
             email: normalData.userEmail,
             password: hashedPassword,
-            role: "ADMIN",
+            role: "OWNER",
           },
         },
       },
@@ -141,13 +141,14 @@ async function registerInvitedUser(data: InvitedRegisterData) {
   }
 
   const hashedPassword = await hashPassword(data.password)
+  const invitedRole = normalizeInvitedUserRole(invitation.role)
   const user = await prisma.$transaction(async (tx) => {
     const createdUser = await tx.user.create({
       data: {
         name: data.userName,
         email: data.userEmail,
         password: hashedPassword,
-        role: invitation.role,
+        role: invitedRole,
         companyId: invitation.companyId,
       },
     })
@@ -173,4 +174,12 @@ async function registerInvitedUser(data: InvitedRegisterData) {
     },
     { status: 201 }
   )
+}
+
+function normalizeInvitedUserRole(role: string): UserRole {
+  if (role === "ADMIN" || role === "MEMBER" || role === "CONTRACTOR") {
+    return role
+  }
+
+  return "MEMBER"
 }

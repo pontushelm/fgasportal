@@ -1,4 +1,5 @@
 import type { AuthenticatedUser } from "@/lib/auth"
+import { isAdminRole } from "@/lib/roles"
 
 export type DocumentAccessInstallation = {
   companyId: string
@@ -34,7 +35,7 @@ export function canDeleteInstallationDocument(
   document: DocumentAccessRecord
 ) {
   if (!canAccessInstallationDocuments(user, document.installation)) return false
-  if (user.role === "ADMIN") return true
+  if (isAdminRole(user.role)) return true
 
   return document.uploadedById === user.userId
 }

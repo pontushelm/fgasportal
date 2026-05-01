@@ -4,7 +4,6 @@ import { useState } from "react"
 import { useTheme, type ThemePreference } from "./theme-provider"
 
 const themeOptions: Array<{ label: string; value: ThemePreference }> = [
-  { label: "Systeminställning", value: "system" },
   { label: "Ljust tema", value: "light" },
   { label: "Mörkt tema", value: "dark" },
 ]
@@ -55,8 +54,7 @@ export function ThemeSelect() {
         ))}
       </select>
       <p className="text-sm text-slate-600 dark:text-slate-400">
-        Välj ett tema för ditt eget konto. Systeminställning följer enhetens
-        ljusa eller mörka läge.
+        Välj ett tema för ditt eget konto.
       </p>
       {error && <p className="text-sm font-semibold text-red-700">{error}</p>}
     </div>

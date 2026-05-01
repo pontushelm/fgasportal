@@ -10,6 +10,7 @@ import type { UserRole } from "@/lib/auth"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 import { REFRIGERANT_GWP } from "@/lib/refrigerants"
 import type { InstallationRiskLevel } from "@/lib/risk-classification"
+import { isAdminRole } from "@/lib/roles"
 
 type Installation = {
   id: string
@@ -198,7 +199,7 @@ export default function InstallationsPageClient() {
       const savedFiltersData: SavedFilter[] = await savedFiltersRes.json()
       const propertiesData: PropertyOption[] = await propertiesRes.json()
       const contractorsData: Contractor[] =
-        userData.role === "ADMIN"
+        isAdminRole(userData.role)
           ? await fetch("/api/company/contractors", {
               credentials: "include",
             }).then((response) => (response.ok ? response.json() : []))
@@ -266,7 +267,7 @@ export default function InstallationsPageClient() {
     }
   }, [router, selectedInstallation])
 
-  const canManage = currentUser?.role === "ADMIN"
+  const canManage = isAdminRole(currentUser?.role)
   const allSelected = useMemo(
     () => installations.length > 0 && selectedIds.length === installations.length,
     [installations.length, selectedIds.length]

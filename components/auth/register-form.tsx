@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { registerSchema, type RegisterFormData } from "@/lib/validations"
+import { formatRoleLabel } from "@/lib/roles"
 
 type RegisterFormFields = RegisterFormData & {
   companyName?: string
@@ -110,7 +111,9 @@ export default function RegisterForm({ inviteToken }: { inviteToken?: string }) 
       {isInviteMode && inviteContext && (
         <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
           <h3 className="font-semibold">Inbjudan till {inviteContext.companyName}</h3>
-          <p className="mt-1">Du registreras som {inviteContext.role}.</p>
+          <p className="mt-1">
+            Du registreras som {formatRoleLabel(inviteContext.role)}.
+          </p>
         </div>
       )}
 

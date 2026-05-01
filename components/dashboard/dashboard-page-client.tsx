@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react"
 import { Badge, buttonClassName, Card, PageHeader } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
+import { isAdminRole } from "@/lib/roles"
 
 type CurrentUser = {
   userId: string
@@ -155,7 +156,7 @@ export default function DashboardPage() {
     }
   }, [router])
 
-  const canManage = currentUser?.role === "ADMIN"
+  const canManage = isAdminRole(currentUser?.role)
   const topActionItems = useMemo(
     () => [...(dashboardData?.actionItems ?? [])].sort(compareActionItems).slice(0, 5),
     [dashboardData?.actionItems]

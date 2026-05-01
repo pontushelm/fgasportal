@@ -1,11 +1,12 @@
 import bcrypt from 'bcryptjs'
 import jwt, { type JwtPayload } from 'jsonwebtoken'
 import { NextRequest, NextResponse } from 'next/server'
+import { isAdminRole } from '@/lib/roles'
 
 export const AUTH_COOKIE_NAME = 'auth-token'
 export const AUTH_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 
-export type UserRole = 'ADMIN' | 'MEMBER' | 'CONTRACTOR'
+export type UserRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'CONTRACTOR'
 
 export type AuthenticatedUser = {
   userId: string
@@ -94,7 +95,7 @@ export function authenticateApiRequest(request: NextRequest): AuthResult {
 }
 
 export function isAdmin(user: AuthenticatedUser): boolean {
-  return user.role === 'ADMIN'
+  return isAdminRole(user.role)
 }
 
 export function isContractor(user: AuthenticatedUser): boolean {
@@ -120,5 +121,10 @@ function isAuthTokenPayload(
 }
 
 function isUserRole(role: unknown): role is UserRole {
-  return role === 'ADMIN' || role === 'MEMBER' || role === 'CONTRACTOR'
+  return (
+    role === 'OWNER' ||
+    role === 'ADMIN' ||
+    role === 'MEMBER' ||
+    role === 'CONTRACTOR'
+  )
 }

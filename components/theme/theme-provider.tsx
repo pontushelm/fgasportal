@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react"
 
-export type ThemePreference = "system" | "light" | "dark"
+export type ThemePreference = "light" | "dark"
 
 type ThemeContextValue = {
   themePreference: ThemePreference
@@ -18,18 +18,17 @@ type ThemeContextValue = {
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
-
 const storageKey = "fgasportal-theme"
 
 export function ThemeProvider({
   children,
-  initialThemePreference = "system",
+  initialThemePreference = "light",
 }: {
   children: ReactNode
   initialThemePreference?: ThemePreference
 }) {
-  const [themePreference, setThemePreferenceState] = useState<ThemePreference>(() =>
-    readStoredTheme() ?? initialThemePreference
+  const [themePreference, setThemePreferenceState] = useState<ThemePreference>(
+    () => readStoredTheme() ?? initialThemePreference
   )
 
   useEffect(() => {
@@ -42,7 +41,7 @@ export function ThemeProvider({
 
       if (!response.ok || !isMounted) return
 
-      const user: { themePreference?: ThemePreference } = await response.json()
+      const user: { themePreference?: string } = await response.json()
       const nextTheme = normalizeThemePreference(user.themePreference)
 
       setThemePreferenceState(nextTheme)
@@ -55,7 +54,7 @@ export function ThemeProvider({
     return () => {
       isMounted = false
     }
-  }, [initialThemePreference])
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -66,16 +65,6 @@ export function ThemeProvider({
 
   useEffect(() => {
     applyTheme(themePreference)
-
-    if (themePreference !== "system") return
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
-    const handleChange = () => applyTheme("system")
-
-    mediaQuery.addEventListener("change", handleChange)
-
-    return () => {
-      mediaQuery.removeEventListener("change", handleChange)
-    }
   }, [themePreference])
 
   const setThemePreference = useCallback(async (nextTheme: ThemePreference) => {
@@ -123,10 +112,7 @@ export function useTheme() {
 }
 
 function applyTheme(themePreference: ThemePreference) {
-  const prefersDark =
-    themePreference === "system" &&
-    window.matchMedia("(prefers-color-scheme: dark)").matches
-  const shouldUseDark = themePreference === "dark" || prefersDark
+  const shouldUseDark = themePreference === "dark"
 
   document.documentElement.classList.toggle("dark", shouldUseDark)
   document.documentElement.style.colorScheme = shouldUseDark ? "dark" : "light"
@@ -135,15 +121,7 @@ function applyTheme(themePreference: ThemePreference) {
 function normalizeThemePreference(
   themePreference: ThemePreference | string | undefined
 ): ThemePreference {
-  if (
-    themePreference === "system" ||
-    themePreference === "light" ||
-    themePreference === "dark"
-  ) {
-    return themePreference
-  }
-
-  return "system"
+  return themePreference === "dark" ? "dark" : "light"
 }
 
 function readStoredTheme() {

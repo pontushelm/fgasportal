@@ -8,6 +8,7 @@ import {
   type ComplianceStatus,
 } from "@/lib/fgas-calculations"
 import type { UserRole } from "@/lib/auth"
+import { isAdminRole } from "@/lib/roles"
 import {
   calculateInstallationRisk,
   type InstallationRiskLevel,
@@ -375,7 +376,7 @@ export default function InstallationDetailPage() {
       const activityData: ActivityLogEntry[] = await activityRes.json()
       const propertiesData: PropertyOption[] = await propertiesRes.json()
       const contractorsData: Contractor[] =
-        userData.role === "ADMIN"
+        isAdminRole(userData.role)
           ? await fetch("/api/company/contractors", {
               credentials: "include",
             }).then((response) => (response.ok ? response.json() : []))
@@ -755,7 +756,7 @@ export default function InstallationDetailPage() {
     hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
     leakageEventsCount: leakageEvents.length,
   })
-  const canManage = currentUser?.role === "ADMIN"
+  const canManage = isAdminRole(currentUser?.role)
   const documentsByEventId = documents.reduce<Record<string, number>>((counts, document) => {
     if (!document.event?.id) return counts
     counts[document.event.id] = (counts[document.event.id] ?? 0) + 1
@@ -1359,7 +1360,7 @@ function canDeleteDocument(
   currentUser: CurrentUser | null
 ) {
   if (!currentUser) return false
-  if (currentUser.role === "ADMIN") return true
+  if (isAdminRole(currentUser.role)) return true
 
   return document.uploadedById === currentUser.userId
 }
