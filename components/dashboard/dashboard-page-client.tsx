@@ -178,6 +178,9 @@ export default function DashboardPage() {
               <Link className={secondaryButtonClassName} href="/dashboard/installations">
                 Hantera aggregat
               </Link>
+              <Link className={secondaryButtonClassName} href="/dashboard/properties">
+                Fastigheter
+              </Link>
               <Link className={secondaryButtonClassName} href="/dashboard/reports">
                 Rapporter
               </Link>
