@@ -3,8 +3,9 @@
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
+import ImportInstallationsPage from "@/components/dashboard/installations-import-page-client"
 import CreateInstallationForm from "@/components/installations/create-installation-form"
-import { Button, buttonClassName, Card, PageHeader } from "@/components/ui"
+import { Button, Card, PageHeader } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 import { REFRIGERANT_GWP } from "@/lib/refrigerants"
@@ -118,6 +119,7 @@ export default function InstallationsPageClient() {
   const [contractorId, setContractorId] = useState("")
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
@@ -501,50 +503,21 @@ export default function InstallationsPageClient() {
                 Skapa aggregat
               </Button>
             )}
-            <Link
-              className={buttonClassName({ variant: "secondary" })}
-              href="/dashboard/installations/import"
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setIsImportModalOpen(true)}
             >
               Import Excel
-            </Link>
+            </Button>
           </>
         }
         backHref="/dashboard"
         backLabel="Tillbaka till dashboard"
         eyebrow="Aggregat"
         title="Registrerade aggregat"
-        subtitle="SÃ¶k, filtrera och sortera aggregatlistan. AdministratÃ¶rer kan Ã¤ven gÃ¶ra bulkÃ¥tgÃ¤rder."
+        subtitle="Sök, filtrera och sortera aggregatlistan. Administratörer kan även göra bulkåtgärder."
       />
-
-      {false && (
-      <div className="hidden">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-slate-600">
-            Aggregat
-          </p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight">
-            Registrerade aggregat
-          </h1>
-          <p className="mt-2 text-sm text-slate-700">
-            Sök, filtrera och sortera aggregatlistan. Administratörer kan även göra bulkåtgärder.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {canManage && (
-            <button
-              className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-              type="button"
-              onClick={() => setIsCreateModalOpen(true)}
-            >
-              Skapa aggregat
-            </button>
-          )}
-          <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50" href="/dashboard/installations/import">
-            Import Excel
-          </Link>
-        </div>
-      </div>
-      )}
 
       <Card className="mt-6 p-4">
         <div className="grid gap-4 lg:grid-cols-[minmax(220px,1.4fr)_repeat(7,minmax(150px,1fr))]">
@@ -922,6 +895,35 @@ export default function InstallationsPageClient() {
                 setIsCreateModalOpen(false)
                 setRefreshKey((current) => current + 1)
               }}
+            />
+          </div>
+        </div>
+      )}
+
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/40 px-4 py-8">
+          <div className="w-full max-w-5xl rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Import
+                </p>
+                <h2 className="mt-1 text-lg font-semibold text-slate-950">
+                  Import Excel
+                </h2>
+              </div>
+              <button
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                type="button"
+                onClick={() => setIsImportModalOpen(false)}
+              >
+                Stäng
+              </button>
+            </div>
+            <ImportInstallationsPage
+              embedded
+              onClose={() => setIsImportModalOpen(false)}
+              onImported={() => setRefreshKey((current) => current + 1)}
             />
           </div>
         </div>

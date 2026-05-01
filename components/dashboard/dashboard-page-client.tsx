@@ -172,7 +172,7 @@ export default function DashboardPage() {
                   className={buttonClassName({ variant: "primary" })}
                   href="/dashboard/installations"
                 >
-                  + LÃ¤gg till aggregat
+                  + Lägg till aggregat
                 </Link>
               )}
               <Link className={secondaryButtonClassName} href="/dashboard/installations">
@@ -181,55 +181,13 @@ export default function DashboardPage() {
               <Link className={secondaryButtonClassName} href="/dashboard/reports">
                 Rapporter
               </Link>
-              {canManage && (
-                <Link className={secondaryButtonClassName} href="/dashboard/installations/import">
-                  Import Excel
-                </Link>
-              )}
             </>
           }
           eyebrow="Compliance dashboard"
-          title="F-gasÃ¶versikt"
-          subtitle="Se compliance-lÃ¤get, prioriterade Ã¥tgÃ¤rder och risker fÃ¶r era kÃ¶ldmedieaggregat."
+          title="F-gasöversikt"
+          subtitle="Se compliance-läget, prioriterade åtgärder och risker för era köldmedieaggregat."
         />
-        <Card className="hidden px-5 py-6 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">
-              Compliance dashboard
-            </p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
-              F-gasöversikt
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-700">
-              Se compliance-läget, prioriterade åtgärder och risker för era
-              köldmedieaggregat.
-            </p>
-          </div>
 
-          <div className="flex flex-wrap gap-2">
-            {canManage && (
-              <Link
-                className={buttonClassName({ variant: "primary" })}
-                href="/dashboard/installations"
-              >
-                + Lägg till aggregat
-              </Link>
-            )}
-            <Link className={secondaryButtonClassName} href="/dashboard/installations">
-              Hantera aggregat
-            </Link>
-            <Link className={secondaryButtonClassName} href="/dashboard/reports">
-              Rapporter
-            </Link>
-            {canManage && (
-              <Link className={secondaryButtonClassName} href="/dashboard/installations/import">
-                Import Excel
-              </Link>
-            )}
-          </div>
-        </div>
-        </Card>
       </section>
 
       {isLoading && <p className="mx-auto mt-8 max-w-7xl text-slate-700">Laddar...</p>}

@@ -380,8 +380,8 @@ export default function CompanySettingsPage() {
         backHref="/dashboard"
         backLabel="Tillbaka till dashboard"
         eyebrow="Administration"
-        title="FÃ¶retagsinstÃ¤llningar"
-        subtitle="Hantera fÃ¶retagsuppgifter, anvÃ¤ndare och inbjudningar fÃ¶r organisationen."
+        title="Företagsinställningar"
+        subtitle="Hantera företagsuppgifter, användare och inbjudningar för organisationen."
       />
       <div className="hidden">
         <p className="text-sm font-semibold uppercase tracking-wide text-slate-600">

@@ -17,7 +17,17 @@ type ImportSummary = {
   errors: Array<{ row: number; message: string }>
 }
 
-export default function ImportInstallationsPage() {
+type ImportInstallationsPageProps = {
+  embedded?: boolean
+  onClose?: () => void
+  onImported?: () => void
+}
+
+export default function ImportInstallationsPage({
+  embedded = false,
+  onClose,
+  onImported,
+}: ImportInstallationsPageProps = {}) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [rows, setRows] = useState<ParsedImportRow[]>([])
   const [error, setError] = useState("")
@@ -91,85 +101,114 @@ export default function ImportInstallationsPage() {
     }
 
     setSummary(result)
+    onImported?.()
   }
 
-  return (
-    <main style={{ maxWidth: 1100, margin: "60px auto", padding: 20 }}>
-      <Link href="/dashboard">Tillbaka till dashboard</Link>
-      <h1>Importera installationer</h1>
-      <p>
-        Ladda upp en .xlsx- eller .csv-fil, granska raderna och importera bara
-        de rader som är giltiga.
-      </p>
-
-      <section style={sectionStyle}>
-        <input
-          type="file"
-          accept=".xlsx,.csv"
-          onChange={handleFileChange}
-        />
-        <div style={actionsStyle}>
-          <button
-            type="button"
-            onClick={handlePreviewFile}
-            disabled={!selectedFile || isParsing}
+  const content = (
+    <>
+      <div>
+        {!embedded && (
+          <Link
+            className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline"
+            href="/dashboard/installations"
           >
-            {isParsing ? "Förhandsgranskar..." : "Förhandsgranska fil"}
-          </button>
+            Tillbaka till aggregat
+          </Link>
+        )}
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
+          Importera aggregat
+        </h1>
+        <p className="mt-2 text-sm text-slate-700">
+          Ladda upp en .xlsx- eller .csv-fil, förhandsgranska raderna och
+          importera bara de rader som är giltiga.
+        </p>
+      </div>
+
+      <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+        <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+          Stödda kolumner är till exempel namn, plats, köldmedium, mängd,
+          senaste kontroll och kontrollintervall.
         </div>
-        {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+        <div className="mt-4 grid gap-3">
+          <input
+            className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-blue-700"
+            type="file"
+            accept=".xlsx,.csv"
+            onChange={handleFileChange}
+          />
+          <div className="flex flex-wrap gap-2">
+            <button
+              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
+              type="button"
+              onClick={handlePreviewFile}
+              disabled={!selectedFile || isParsing}
+            >
+              {isParsing ? "Förhandsgranskar..." : "Förhandsgranska fil"}
+            </button>
+            {onClose && (
+              <button
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                type="button"
+                onClick={onClose}
+              >
+                Stäng
+              </button>
+            )}
+          </div>
+        </div>
+        {error && <p className="mt-3 text-sm font-semibold text-red-700">{error}</p>}
       </section>
 
       {rows.length > 0 && (
-        <section style={sectionStyle}>
-          <div style={actionsStyle}>
+        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-slate-700">
+              {validRows.length} av {rows.length} rader är giltiga.
+            </p>
             <button
+              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
               type="button"
               onClick={handleImport}
               disabled={validRows.length === 0 || isImporting}
             >
               {isImporting ? "Importerar..." : `Importera ${validRows.length} giltiga rader`}
             </button>
-            <Link href="/dashboard">Avbryt</Link>
           </div>
 
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
-              <thead>
+          <div className="mt-4 max-h-[50vh] overflow-auto rounded-lg border border-slate-200">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="sticky top-0 bg-slate-50">
                 <tr>
-                  <th style={cellStyle}>Rad</th>
-                  <th style={cellStyle}>Namn</th>
-                  <th style={cellStyle}>Plats</th>
-                  <th style={cellStyle}>Köldmedium</th>
-                  <th style={cellStyle}>Mängd</th>
-                  <th style={cellStyle}>Senaste kontroll</th>
-                  <th style={cellStyle}>Intervall</th>
-                  <th style={cellStyle}>Nästa kontroll</th>
-                  <th style={cellStyle}>Status / fel</th>
+                  <th className={tableHeaderClassName}>Rad</th>
+                  <th className={tableHeaderClassName}>Namn</th>
+                  <th className={tableHeaderClassName}>Plats</th>
+                  <th className={tableHeaderClassName}>Köldmedium</th>
+                  <th className={tableHeaderClassName}>Mängd</th>
+                  <th className={tableHeaderClassName}>Senaste kontroll</th>
+                  <th className={tableHeaderClassName}>Intervall</th>
+                  <th className={tableHeaderClassName}>Nästa kontroll</th>
+                  <th className={tableHeaderClassName}>Status / fel</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-200 bg-white">
                 {rows.map((row) => (
                   <tr key={row.row}>
-                    <td style={cellStyle}>{row.row}</td>
-                    <td style={cellStyle}>{row.name || "-"}</td>
-                    <td style={cellStyle}>{row.location || "-"}</td>
-                    <td style={cellStyle}>{row.refrigerantType || "-"}</td>
-                    <td style={cellStyle}>
-                      {row.refrigerantAmount ?? "-"}
-                    </td>
-                    <td style={cellStyle}>{row.lastInspection || "-"}</td>
-                    <td style={cellStyle}>
+                    <td className={tableCellClassName}>{row.row}</td>
+                    <td className={tableCellClassName}>{row.name || "-"}</td>
+                    <td className={tableCellClassName}>{row.location || "-"}</td>
+                    <td className={tableCellClassName}>{row.refrigerantType || "-"}</td>
+                    <td className={tableCellClassName}>{row.refrigerantAmount ?? "-"}</td>
+                    <td className={tableCellClassName}>{row.lastInspection || "-"}</td>
+                    <td className={tableCellClassName}>
                       {row.inspectionIntervalMonths
                         ? `${row.inspectionIntervalMonths} mån`
                         : "-"}
                     </td>
-                    <td style={cellStyle}>{row.nextInspection || "-"}</td>
+                    <td className={tableCellClassName}>{row.nextInspection || "-"}</td>
                     <td
-                      style={{
-                        ...cellStyle,
-                        color: row.errors.length > 0 ? "#b91c1c" : "#047857",
-                      }}
+                      className={`${tableCellClassName} font-semibold ${
+                        row.errors.length > 0 ? "text-red-700" : "text-emerald-700"
+                      }`}
                     >
                       {row.errors.length > 0 ? row.errors.join(", ") : "Giltig"}
                     </td>
@@ -182,12 +221,12 @@ export default function ImportInstallationsPage() {
       )}
 
       {summary && (
-        <section style={sectionStyle}>
-          <h2>Import klar</h2>
-          <p>Skapade: {summary.created}</p>
+        <section className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          <h2 className="font-semibold">Import klar</h2>
+          <p className="mt-2">Skapade: {summary.created}</p>
           <p>Hoppade över: {summary.skipped}</p>
           {summary.errors.length > 0 && (
-            <ul>
+            <ul className="mt-2 list-disc pl-5">
               {summary.errors.map((item) => (
                 <li key={`${item.row}-${item.message}`}>
                   Rad {item.row}: {item.message}
@@ -197,25 +236,18 @@ export default function ImportInstallationsPage() {
           )}
         </section>
       )}
+    </>
+  )
+
+  if (embedded) return content
+
+  return (
+    <main className="mx-auto max-w-6xl px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
+      {content}
     </main>
   )
 }
 
-const sectionStyle: React.CSSProperties = {
-  marginTop: 24,
-}
-
-const actionsStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 12,
-  flexWrap: "wrap",
-  marginTop: 12,
-}
-
-const cellStyle: React.CSSProperties = {
-  border: "1px solid #ddd",
-  padding: "8px",
-  textAlign: "left",
-  verticalAlign: "top",
-}
+const tableHeaderClassName =
+  "px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600"
+const tableCellClassName = "whitespace-nowrap px-4 py-3 text-slate-800"
