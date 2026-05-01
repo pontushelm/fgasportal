@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, PageHeader } from "@/components/ui"
+import { ThemeSelect } from "@/components/theme/theme-select"
 import type { UserRole } from "@/lib/auth"
 
 type CompanyUser = {
@@ -400,6 +401,18 @@ export default function CompanySettingsPage() {
 
       {!isLoading && !error && companyProfile && (
         <>
+          <Card className="mt-8 p-5">
+            <h2 className="text-xl font-semibold text-slate-950 dark:text-slate-100">
+              Personliga inställningar
+            </h2>
+            <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
+              Dessa val gäller bara för ditt användarkonto.
+            </p>
+            <div className="mt-5">
+              <ThemeSelect />
+            </div>
+          </Card>
+
           <Card className="mt-8 p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>

@@ -1,8 +1,15 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
+}
+
+.dark {
+  --background: #020617;
+  --foreground: #f8fafc;
 }
 
 @theme inline {
@@ -18,14 +25,91 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
+.dark body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.dark .bg-white {
+  background-color: #0f172a;
+}
+
+.dark .bg-slate-50 {
+  background-color: #020617;
+}
+
+.dark .bg-slate-100 {
+  background-color: #1e293b;
+}
+
+.dark .border-slate-200,
+.dark .border-slate-300,
+.dark .border-neutral-200,
+.dark .border-neutral-300 {
+  border-color: #1e293b;
+}
+
+.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-neutral-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #1e293b;
+}
+
+.dark .text-slate-950,
+.dark .text-slate-900,
+.dark .text-neutral-950,
+.dark .text-neutral-900 {
+  color: #f8fafc;
+}
+
+.dark .text-slate-800,
+.dark .text-slate-700,
+.dark .text-neutral-800,
+.dark .text-neutral-700 {
+  color: #cbd5e1;
+}
+
+.dark .text-slate-600,
+.dark .text-slate-500,
+.dark .text-neutral-600,
+.dark .text-neutral-500 {
+  color: #94a3b8;
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b;
+}
+
+.dark tr:hover {
+  background-color: #1e293b;
+}
+
 .installation-form-surface {
   background: #ffffff;
   color: #0f172a;
 }
 
+.dark .installation-form-surface {
+  background: #0f172a;
+  color: #f8fafc;
+  border-color: #1e293b;
+}
+
 .installation-form-surface label {
   color: #334155;
   font-weight: 500;
+}
+
+.dark .installation-form-surface label {
+  color: #cbd5e1;
 }
 
 .installation-form-surface input,
@@ -38,9 +122,22 @@ body {
   padding: 8px 10px;
 }
 
+.dark .installation-form-surface input,
+.dark .installation-form-surface select,
+.dark .installation-form-surface textarea {
+  background: #020617;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
 .installation-form-surface input::placeholder,
 .installation-form-surface textarea::placeholder {
   color: #94a3b8;
+}
+
+.dark .installation-form-surface input::placeholder,
+.dark .installation-form-surface textarea::placeholder {
+  color: #64748b;
 }
 
 .installation-form-surface button[type="submit"] {
