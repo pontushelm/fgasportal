@@ -234,6 +234,8 @@ const ACTIVITY_LABELS: Record<string, string> = {
   document_deleted: "Dokument borttaget",
   report_exported: "Rapport exporterad",
   installation_archived: "Aggregat arkiverat",
+  property_assigned: "Fastighet tilldelad",
+  property_removed: "Fastighet borttagen",
 }
 
 const RISK_TONE: Record<InstallationRiskLevel, string> = {

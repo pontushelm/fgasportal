@@ -117,7 +117,9 @@ export default function InstallationsPageClient() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [contractorId, setContractorId] = useState("")
+  const [bulkPropertyId, setBulkPropertyId] = useState("")
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
+  const [isPropertyModalOpen, setIsPropertyModalOpen] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -489,6 +491,43 @@ export default function InstallationsPageClient() {
     setRefreshKey((current) => current + 1)
   }
 
+  async function handleAssignProperty(event: React.FormEvent) {
+    event.preventDefault()
+    setError("")
+    setSuccess("")
+    setIsSubmitting(true)
+
+    const res = await fetch("/api/installations/bulk/assign-property", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        installationIds: selectedIds,
+        propertyId: bulkPropertyId || null,
+      }),
+    })
+    const result: { error?: string; updated?: number } = await res.json()
+
+    if (res.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!res.ok) {
+      setError(result.error || "Kunde inte tilldela fastighet")
+      setIsSubmitting(false)
+      return
+    }
+
+    setSuccess(`${result.updated ?? selectedIds.length} aggregat uppdaterade`)
+    setBulkPropertyId("")
+    setIsPropertyModalOpen(false)
+    setIsSubmitting(false)
+    setRefreshKey((current) => current + 1)
+  }
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
       <PageHeader
@@ -723,6 +762,14 @@ export default function InstallationsPageClient() {
               Tilldela servicepartner
             </button>
             <button
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:text-slate-400"
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => setIsPropertyModalOpen(true)}
+            >
+              Tilldela fastighet
+            </button>
+            <button
               className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:text-slate-400"
               type="button"
               disabled={isSubmitting}
@@ -866,6 +913,57 @@ export default function InstallationsPageClient() {
                 disabled={isSubmitting}
               >
                 {isSubmitting ? "Sparar..." : "Tilldela"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {isPropertyModalOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 px-4">
+          <form className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-xl" onSubmit={handleAssignProperty}>
+            <h2 className="text-lg font-semibold text-slate-950">Tilldela fastighet</h2>
+            <p className="mt-1 text-sm text-slate-700">
+              Välj fastighet för {selectedIds.length} valda aggregat, eller ta bort
+              befintlig fastighetskoppling.
+            </p>
+            <label className="mt-4 grid gap-1 text-sm font-medium text-slate-700">
+              Fastighet
+              <select
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900"
+                value={bulkPropertyId}
+                onChange={(event) => setBulkPropertyId(event.target.value)}
+              >
+                <option value="">Ingen fastighet</option>
+                {properties.map((property) => (
+                  <option key={property.id} value={property.id}>
+                    {property.name}
+                    {property.municipality ? `, ${property.municipality}` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="mt-2 text-xs text-slate-600">
+              Välj Ingen fastighet för att ta bort fastighetskopplingen.
+            </p>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => {
+                  setBulkPropertyId("")
+                  setIsPropertyModalOpen(false)
+                }}
+              >
+                Avbryt
+              </button>
+              <button
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
+                type="submit"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Sparar..." : "Uppdatera fastighet"}
               </button>
             </div>
           </form>
