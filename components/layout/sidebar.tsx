@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import { Badge, Button } from "@/components/ui"
@@ -97,10 +98,20 @@ export function Sidebar() {
       <div className="sticky top-0 z-40 border-b border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:hidden">
         <div className="flex items-center justify-between gap-3">
           <Link
-            className="font-bold tracking-tight text-slate-950 dark:text-slate-100"
+            className="inline-flex items-center gap-2 font-bold tracking-tight text-slate-950 dark:text-slate-100"
             href={currentUser?.role === "CONTRACTOR" ? "/dashboard/service" : "/dashboard"}
           >
-            FgasPortal
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white ring-1 ring-slate-200 dark:ring-slate-700">
+              <Image
+                alt="FgasPortal"
+                className="h-7 w-7"
+                height={256}
+                priority
+                src="/logo-mark.png"
+                width={256}
+              />
+            </span>
+            <span>FgasPortal</span>
           </Link>
           <Button
             type="button"
@@ -126,10 +137,20 @@ export function Sidebar() {
         <div className="flex h-full flex-col px-4 py-5">
           <div className="px-2">
             <Link
-              className="text-xl font-bold tracking-tight text-slate-950 dark:text-slate-100"
+              className="inline-flex items-center gap-3 text-xl font-bold tracking-tight text-slate-950 dark:text-slate-100"
               href={currentUser?.role === "CONTRACTOR" ? "/dashboard/service" : "/dashboard"}
             >
-              FgasPortal
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200 dark:ring-slate-700">
+                <Image
+                  alt="FgasPortal"
+                  className="h-8 w-8"
+                  height={256}
+                  priority
+                  src="/logo-mark.png"
+                  width={256}
+                />
+              </span>
+              <span>FgasPortal</span>
             </Link>
             <div className="mt-2 flex items-center gap-2">
               <Badge variant="info">F-gas</Badge>

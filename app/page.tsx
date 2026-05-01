@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 
 const previewStats = [
   { label: "Totalt aggregat", value: "248", tone: "border-l-blue-500" },
@@ -83,8 +84,15 @@ export default function Home() {
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <Link className="text-lg font-bold tracking-tight text-slate-950" href="/">
-            FgasPortal
+          <Link className="inline-flex items-center" href="/">
+            <Image
+              alt="FgasPortal"
+              className="h-auto w-40 sm:w-44"
+              height={130}
+              priority
+              src="/logo-full.png"
+              width={520}
+            />
           </Link>
           <div className="flex items-center gap-2">
             <Link className={secondaryLinkClassName} href="/login">

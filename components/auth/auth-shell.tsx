@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 import type { ReactNode } from "react"
 
 export function AuthShell({
@@ -14,8 +15,15 @@ export function AuthShell({
     <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
       <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-6xl gap-10 lg:grid-cols-[0.9fr_1fr] lg:items-center">
         <section className="max-w-xl">
-          <Link className="text-xl font-bold tracking-tight text-slate-950" href="/">
-            FgasPortal
+          <Link className="inline-flex items-center" href="/">
+            <Image
+              alt="FgasPortal"
+              className="h-auto w-44 sm:w-52"
+              height={130}
+              priority
+              src="/logo-full.png"
+              width={520}
+            />
           </Link>
           <p className="mt-6 text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
             F-gasregister och uppföljning
