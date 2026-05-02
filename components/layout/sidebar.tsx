@@ -1,7 +1,7 @@
 "use client"
 
-import Link from "next/link"
 import Image from "next/image"
+import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import { Badge, Button } from "@/components/ui"
@@ -35,6 +35,11 @@ const primaryNavigation: NavigationItem[] = [
   {
     href: "/dashboard/reports",
     label: "Rapporter",
+    roles: ["OWNER", "ADMIN", "MEMBER"],
+  },
+  {
+    href: "/dashboard/activity",
+    label: "Aktivitetslogg",
     roles: ["OWNER", "ADMIN", "MEMBER"],
   },
   { href: "/dashboard/service", label: "Serviceuppdrag", roles: ["CONTRACTOR"] },
@@ -92,6 +97,8 @@ export function Sidebar() {
     () => filterNavigationByRole(secondaryNavigation, currentUser?.role),
     [currentUser?.role]
   )
+  const homeHref =
+    currentUser?.role === "CONTRACTOR" ? "/dashboard/service" : "/dashboard"
 
   return (
     <>
@@ -99,7 +106,7 @@ export function Sidebar() {
         <div className="flex items-center justify-between gap-3">
           <Link
             className="inline-flex items-center gap-2 font-bold tracking-tight text-slate-950 dark:text-slate-100"
-            href={currentUser?.role === "CONTRACTOR" ? "/dashboard/service" : "/dashboard"}
+            href={homeHref}
           >
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white ring-1 ring-slate-200 dark:ring-slate-700">
               <Image
@@ -138,7 +145,7 @@ export function Sidebar() {
           <div className="px-2">
             <Link
               className="inline-flex items-center gap-3 text-xl font-bold tracking-tight text-slate-950 dark:text-slate-100"
-              href={currentUser?.role === "CONTRACTOR" ? "/dashboard/service" : "/dashboard"}
+              href={homeHref}
             >
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200 dark:ring-slate-700">
                 <Image
