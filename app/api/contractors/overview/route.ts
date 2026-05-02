@@ -1,0 +1,143 @@
+import { NextRequest, NextResponse } from "next/server"
+import { authenticateApiRequest, forbiddenResponse, isContractor } from "@/lib/auth"
+import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
+import { prisma } from "@/lib/db"
+import { calculateInstallationRisk } from "@/lib/risk-classification"
+
+export async function GET(request: NextRequest) {
+  try {
+    const auth = authenticateApiRequest(request)
+    if (auth.response) return auth.response
+    if (isContractor(auth.user)) return forbiddenResponse()
+
+    const contractors = await prisma.user.findMany({
+      where: {
+        companyId: auth.user.companyId,
+        role: "CONTRACTOR",
+      },
+      include: {
+        assignedInstallations: {
+          where: {
+            companyId: auth.user.companyId,
+            archivedAt: null,
+          },
+          include: {
+            events: {
+              where: {
+                type: "LEAK",
+              },
+              select: {
+                id: true,
+              },
+            },
+            activityLogs: {
+              orderBy: {
+                createdAt: "desc",
+              },
+              select: {
+                createdAt: true,
+              },
+              take: 1,
+            },
+          },
+        },
+      },
+      orderBy: [
+        {
+          name: "asc",
+        },
+        {
+          email: "asc",
+        },
+      ],
+    })
+
+    const rows = contractors.map((contractor) => {
+      let overdueInspections = 0
+      let dueSoonInspections = 0
+      let highRiskInstallations = 0
+      let leakageEventsCount = 0
+      let latestActivityDate: Date | null = null
+
+      contractor.assignedInstallations.forEach((installation) => {
+        const compliance = calculateInstallationCompliance(
+          installation.refrigerantType,
+          installation.refrigerantAmount,
+          installation.hasLeakDetectionSystem,
+          installation.lastInspection,
+          installation.nextInspection
+        )
+
+        if (compliance.status === "OVERDUE") overdueInspections += 1
+        if (compliance.status === "DUE_SOON") dueSoonInspections += 1
+
+        const installationLeakageEventsCount = installation.events.length
+        leakageEventsCount += installationLeakageEventsCount
+
+        const risk = calculateInstallationRisk({
+          refrigerantType: installation.refrigerantType,
+          refrigerantAmount: installation.refrigerantAmount,
+          gwp: compliance.gwp,
+          hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
+          leakageEventsCount: installationLeakageEventsCount,
+        })
+
+        if (risk.level === "HIGH") highRiskInstallations += 1
+
+        const latestInstallationActivity = installation.activityLogs[0]?.createdAt
+        if (
+          latestInstallationActivity &&
+          (!latestActivityDate || latestInstallationActivity > latestActivityDate)
+        ) {
+          latestActivityDate = latestInstallationActivity
+        }
+      })
+
+      return {
+        id: contractor.id,
+        name: contractor.name,
+        email: contractor.email,
+        isActive: contractor.isActive,
+        assignedInstallationsCount: contractor.assignedInstallations.length,
+        overdueInspections,
+        dueSoonInspections,
+        highRiskInstallations,
+        leakageEventsCount,
+        latestActivityDate,
+      }
+    })
+
+    const summary = rows.reduce(
+      (totals, contractor) => ({
+        totalContractors: totals.totalContractors + 1,
+        assignedInstallations:
+          totals.assignedInstallations + contractor.assignedInstallationsCount,
+        overdueInspections:
+          totals.overdueInspections + contractor.overdueInspections,
+        highRiskInstallations:
+          totals.highRiskInstallations + contractor.highRiskInstallations,
+      }),
+      {
+        totalContractors: 0,
+        assignedInstallations: 0,
+        overdueInspections: 0,
+        highRiskInstallations: 0,
+      }
+    )
+
+    return NextResponse.json(
+      {
+        summary,
+        contractors: rows,
+      },
+      { status: 200 }
+    )
+  } catch (error: unknown) {
+    console.error("Get contractors overview error:", error)
+
+    return NextResponse.json(
+      { error: "Ett oväntat fel uppstod" },
+      { status: 500 }
+    )
+  }
+}

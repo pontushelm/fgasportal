@@ -38,6 +38,11 @@ const primaryNavigation: NavigationItem[] = [
     roles: ["OWNER", "ADMIN", "MEMBER"],
   },
   {
+    href: "/dashboard/contractors",
+    label: "Servicepartners",
+    roles: ["OWNER", "ADMIN", "MEMBER"],
+  },
+  {
     href: "/dashboard/activity",
     label: "Aktivitetslogg",
     roles: ["OWNER", "ADMIN", "MEMBER"],
