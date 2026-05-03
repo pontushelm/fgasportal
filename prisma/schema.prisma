@@ -67,6 +67,11 @@ model User {
   password  String
   role      UserRole @default(ADMIN)
   themePreference String @default("light")
+  notifyAssignmentEmails Boolean @default(true)
+  notifyInspectionReminderEmails Boolean @default(true)
+  notifyDocumentEmails Boolean @default(true)
+  notifyAnnualReportDeadlineEmails Boolean @default(true)
+  notifyLeakEmails Boolean @default(true)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

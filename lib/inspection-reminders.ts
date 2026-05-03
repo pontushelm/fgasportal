@@ -25,6 +25,7 @@ const DUE_SOON_DAYS = 30
 type ReminderRecipient = {
   id: string
   email: string
+  notifyInspectionReminderEmails: boolean
 }
 
 export async function sendInspectionReminders(
@@ -53,10 +54,12 @@ export async function sendInspectionReminders(
               email: {
                 not: "",
               },
+              notifyInspectionReminderEmails: true,
             },
             select: {
               id: true,
               email: true,
+              notifyInspectionReminderEmails: true,
             },
           },
         },
@@ -67,6 +70,7 @@ export async function sendInspectionReminders(
           email: true,
           role: true,
           isActive: true,
+          notifyInspectionReminderEmails: true,
         },
       },
     },
@@ -175,6 +179,7 @@ function getReminderRecipients(installation: {
     email: string
     role: string
     isActive: boolean
+    notifyInspectionReminderEmails: boolean
   } | null
 }) {
   const recipientsByEmail = new Map<string, ReminderRecipient>()
@@ -191,11 +196,13 @@ function getReminderRecipients(installation: {
     installation.company.sendInspectionRemindersToContractors &&
     contractor?.email &&
     contractor.isActive &&
-    contractor.role === "CONTRACTOR"
+    contractor.role === "CONTRACTOR" &&
+    contractor.notifyInspectionReminderEmails
   ) {
     recipientsByEmail.set(contractor.email.toLowerCase(), {
       id: contractor.id,
       email: contractor.email,
+      notifyInspectionReminderEmails: contractor.notifyInspectionReminderEmails,
     })
   }
 

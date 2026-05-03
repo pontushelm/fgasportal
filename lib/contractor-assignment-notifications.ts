@@ -20,6 +20,7 @@ export async function notifyContractorsAboutNewAssignments(
         companyId,
         role: "CONTRACTOR",
         isActive: true,
+        notifyAssignmentEmails: true,
         email: {
           not: "",
         },

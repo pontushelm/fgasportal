@@ -15,6 +15,11 @@ export async function GET(request: NextRequest) {
         email: true,
         name: true,
         themePreference: true,
+        notifyAssignmentEmails: true,
+        notifyInspectionReminderEmails: true,
+        notifyDocumentEmails: true,
+        notifyAnnualReportDeadlineEmails: true,
+        notifyLeakEmails: true,
       },
     })
 
@@ -24,6 +29,13 @@ export async function GET(request: NextRequest) {
         email: user?.email ?? null,
         name: user?.name ?? null,
         themePreference: normalizeThemePreference(user?.themePreference),
+        notifyAssignmentEmails: user?.notifyAssignmentEmails ?? true,
+        notifyInspectionReminderEmails:
+          user?.notifyInspectionReminderEmails ?? true,
+        notifyDocumentEmails: user?.notifyDocumentEmails ?? true,
+        notifyAnnualReportDeadlineEmails:
+          user?.notifyAnnualReportDeadlineEmails ?? true,
+        notifyLeakEmails: user?.notifyLeakEmails ?? true,
       },
       { status: 200 }
     )
