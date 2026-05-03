@@ -43,7 +43,6 @@ type CompanyProfile = {
   address?: string | null
   postalCode?: string | null
   city?: string | null
-  supervisoryAuthority?: string | null
   sendInspectionRemindersToContractors: boolean
   email: string
   phone?: string | null
@@ -58,7 +57,6 @@ type CompanyProfileFormData = {
   address: string
   postalCode: string
   city: string
-  supervisoryAuthority: string
   sendInspectionRemindersToContractors: boolean
 }
 
@@ -106,7 +104,6 @@ const initialProfileFormData: CompanyProfileFormData = {
   address: "",
   postalCode: "",
   city: "",
-  supervisoryAuthority: "",
   sendInspectionRemindersToContractors: false,
 }
 
@@ -484,10 +481,6 @@ export default function CompanySettingsPage() {
                   Ort
                   <input className={inputClassName} name="city" value={profileForm.city} onChange={handleProfileChange} />
                 </label>
-                <label className={`${fieldClassName} md:col-span-2`}>
-                  Tillsynsmyndighet
-                  <input className={inputClassName} name="supervisoryAuthority" value={profileForm.supervisoryAuthority} onChange={handleProfileChange} />
-                </label>
                 <label className="flex gap-3 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 md:col-span-2">
                   <input
                     className="mt-1 h-4 w-4 rounded border-slate-300"
@@ -538,7 +531,6 @@ export default function CompanySettingsPage() {
                 <ProfileItem label="Adress" value={companyProfile.address} />
                 <ProfileItem label="Postnummer" value={companyProfile.postalCode} />
                 <ProfileItem label="Ort" value={companyProfile.city} />
-                <ProfileItem label="Tillsynsmyndighet" value={companyProfile.supervisoryAuthority} />
                 <ProfileItem
                   label="Påminnelser till servicepartners"
                   value={companyProfile.sendInspectionRemindersToContractors ? "Aktiverat" : "Avstängt"}
@@ -811,7 +803,6 @@ function toProfileFormData(company: CompanyProfile): CompanyProfileFormData {
     address: company.address || "",
     postalCode: company.postalCode || "",
     city: company.city || "",
-    supervisoryAuthority: company.supervisoryAuthority || "",
     sendInspectionRemindersToContractors:
       company.sendInspectionRemindersToContractors,
   }

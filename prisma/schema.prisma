@@ -40,6 +40,7 @@ model Company {
   address   String?
   postalCode String?
   city String?
+  /// Deprecated: retained for backward compatibility, not edited in company settings.
   supervisoryAuthority String?
   sendInspectionRemindersToContractors Boolean @default(false)
   email     String   @unique
