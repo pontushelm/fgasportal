@@ -4,6 +4,7 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   service_partner_assigned: "Servicepartner tilldelad",
   property_assigned: "Fastighet tilldelad",
   property_removed: "Fastighet borttagen",
+  company_billing_updated: "Fakturauppgifter uppdaterade",
   inspection_added: "Kontroll registrerad",
   leak_registered: "Läckage registrerat",
   refill_registered: "Påfyllning registrerad",

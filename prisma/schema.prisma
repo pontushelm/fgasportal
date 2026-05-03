@@ -40,6 +40,11 @@ model Company {
   address   String?
   postalCode String?
   city String?
+  billingEmail String?
+  invoiceReference String?
+  billingAddress String?
+  vatNumber String?
+  eInvoiceId String?
   /// Deprecated: retained for backward compatibility, not edited in company settings.
   supervisoryAuthority String?
   sendInspectionRemindersToContractors Boolean @default(false)

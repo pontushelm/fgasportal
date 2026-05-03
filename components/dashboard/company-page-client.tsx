@@ -43,6 +43,11 @@ type CompanyProfile = {
   address?: string | null
   postalCode?: string | null
   city?: string | null
+  billingEmail?: string | null
+  invoiceReference?: string | null
+  billingAddress?: string | null
+  vatNumber?: string | null
+  eInvoiceId?: string | null
   sendInspectionRemindersToContractors: boolean
   email: string
   phone?: string | null
@@ -58,6 +63,14 @@ type CompanyProfileFormData = {
   postalCode: string
   city: string
   sendInspectionRemindersToContractors: boolean
+}
+
+type BillingFormData = {
+  billingEmail: string
+  invoiceReference: string
+  billingAddress: string
+  vatNumber: string
+  eInvoiceId: string
 }
 
 type Property = {
@@ -107,6 +120,14 @@ const initialProfileFormData: CompanyProfileFormData = {
   sendInspectionRemindersToContractors: false,
 }
 
+const initialBillingFormData: BillingFormData = {
+  billingEmail: "",
+  invoiceReference: "",
+  billingAddress: "",
+  vatNumber: "",
+  eInvoiceId: "",
+}
+
 const initialPropertyFormData: PropertyFormData = {
   name: "",
   address: "",
@@ -132,6 +153,9 @@ export default function CompanySettingsPage() {
   const [profileForm, setProfileForm] = useState<CompanyProfileFormData>(
     initialProfileFormData
   )
+  const [billingForm, setBillingForm] = useState<BillingFormData>(
+    initialBillingFormData
+  )
   const [propertyForm, setPropertyForm] = useState<PropertyFormData>(
     initialPropertyFormData
   )
@@ -140,11 +164,15 @@ export default function CompanySettingsPage() {
   )
   const [isLoading, setIsLoading] = useState(true)
   const [isEditingProfile, setIsEditingProfile] = useState(false)
+  const [isEditingBilling, setIsEditingBilling] = useState(false)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [isSavingBilling, setIsSavingBilling] = useState(false)
   const [isSubmittingInvite, setIsSubmittingInvite] = useState(false)
   const [error, setError] = useState("")
   const [profileError, setProfileError] = useState("")
   const [profileSuccess, setProfileSuccess] = useState("")
+  const [billingError, setBillingError] = useState("")
+  const [billingSuccess, setBillingSuccess] = useState("")
   const [inviteError, setInviteError] = useState("")
   const [inviteSuccess, setInviteSuccess] = useState("")
   const [inviteLink, setInviteLink] = useState("")
@@ -228,6 +256,7 @@ export default function CompanySettingsPage() {
 
       setCompanyProfile(company)
       setProfileForm(toProfileFormData(company))
+      setBillingForm(toBillingFormData(company))
       setCurrentUser(userData)
       setData(invitationsData)
       setProperties(propertiesData)
@@ -242,6 +271,7 @@ export default function CompanySettingsPage() {
   }, [router])
 
   const canAdminister = isAdminRole(currentUser?.role)
+  const canEditBilling = currentUser?.role === "OWNER"
 
   function handleProfileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const value =
@@ -250,6 +280,13 @@ export default function CompanySettingsPage() {
     setProfileForm({
       ...profileForm,
       [event.target.name]: value,
+    })
+  }
+
+  function handleBillingChange(event: React.ChangeEvent<HTMLInputElement>) {
+    setBillingForm({
+      ...billingForm,
+      [event.target.name]: event.target.value,
     })
   }
 
@@ -353,6 +390,44 @@ export default function CompanySettingsPage() {
     setIsEditingProfile(false)
     setProfileSuccess("Företagsuppgifter har sparats")
     setIsSavingProfile(false)
+  }
+
+  async function handleBillingSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    setBillingError("")
+    setBillingSuccess("")
+    setIsSavingBilling(true)
+
+    const res = await fetch("/api/company/billing", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify(billingForm),
+    })
+    const result: Partial<CompanyProfile> & { error?: string } = await res.json()
+
+    if (res.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!res.ok) {
+      setBillingError(result.error || "Kunde inte spara fakturauppgifter")
+      setIsSavingBilling(false)
+      return
+    }
+
+    const updatedCompany = {
+      ...companyProfile,
+      ...result,
+    } as CompanyProfile
+    setCompanyProfile(updatedCompany)
+    setBillingForm(toBillingFormData(updatedCompany))
+    setIsEditingBilling(false)
+    setBillingSuccess("Fakturauppgifter har sparats")
+    setIsSavingBilling(false)
   }
 
   async function handleInviteSubmit(event: React.FormEvent) {
@@ -540,6 +615,85 @@ export default function CompanySettingsPage() {
 
             {profileSuccess && !isEditingProfile && (
               <p className="mt-4 text-sm font-semibold text-green-700">{profileSuccess}</p>
+            )}
+          </Card>
+
+          <Card className="mt-8 p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-950">Fakturauppgifter</h2>
+                <p className="mt-1 text-sm text-slate-700">
+                  Uppgifter som används för fakturering. Endast ägare kan ändra dem.
+                </p>
+              </div>
+              {canEditBilling && !isEditingBilling && (
+                <button
+                  className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                  type="button"
+                  onClick={() => setIsEditingBilling(true)}
+                >
+                  Redigera
+                </button>
+              )}
+            </div>
+
+            {isEditingBilling ? (
+              <form className="mt-5 grid gap-4 md:grid-cols-2" onSubmit={handleBillingSubmit}>
+                <label className={fieldClassName}>
+                  Faktura-e-post
+                  <input className={inputClassName} name="billingEmail" type="email" value={billingForm.billingEmail} onChange={handleBillingChange} />
+                </label>
+                <label className={fieldClassName}>
+                  Fakturareferens
+                  <input className={inputClassName} name="invoiceReference" value={billingForm.invoiceReference} onChange={handleBillingChange} />
+                </label>
+                <label className={fieldClassName}>
+                  VAT-nummer
+                  <input className={inputClassName} name="vatNumber" value={billingForm.vatNumber} onChange={handleBillingChange} />
+                </label>
+                <label className={fieldClassName}>
+                  E-faktura-ID
+                  <input className={inputClassName} name="eInvoiceId" value={billingForm.eInvoiceId} onChange={handleBillingChange} />
+                </label>
+                <label className={`${fieldClassName} md:col-span-2`}>
+                  Fakturaadress
+                  <input className={inputClassName} name="billingAddress" value={billingForm.billingAddress} onChange={handleBillingChange} />
+                </label>
+                <div className="flex flex-wrap gap-2 md:col-span-2">
+                  <button
+                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
+                    type="submit"
+                    disabled={isSavingBilling}
+                  >
+                    {isSavingBilling ? "Sparar..." : "Spara fakturauppgifter"}
+                  </button>
+                  <button
+                    className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                    type="button"
+                    disabled={isSavingBilling}
+                    onClick={() => {
+                      setBillingForm(toBillingFormData(companyProfile))
+                      setIsEditingBilling(false)
+                      setBillingError("")
+                    }}
+                  >
+                    Avbryt
+                  </button>
+                </div>
+                {billingError && <p className="font-semibold text-red-700 md:col-span-2">{billingError}</p>}
+              </form>
+            ) : (
+              <dl className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <ProfileItem label="Faktura-e-post" value={companyProfile.billingEmail} />
+                <ProfileItem label="Fakturareferens" value={companyProfile.invoiceReference} />
+                <ProfileItem label="Fakturaadress" value={companyProfile.billingAddress} />
+                <ProfileItem label="VAT-nummer" value={companyProfile.vatNumber} />
+                <ProfileItem label="E-faktura-ID" value={companyProfile.eInvoiceId} />
+              </dl>
+            )}
+
+            {billingSuccess && !isEditingBilling && (
+              <p className="mt-4 text-sm font-semibold text-green-700">{billingSuccess}</p>
             )}
           </Card>
 
@@ -805,6 +959,16 @@ function toProfileFormData(company: CompanyProfile): CompanyProfileFormData {
     city: company.city || "",
     sendInspectionRemindersToContractors:
       company.sendInspectionRemindersToContractors,
+  }
+}
+
+function toBillingFormData(company: CompanyProfile): BillingFormData {
+  return {
+    billingEmail: company.billingEmail || "",
+    invoiceReference: company.invoiceReference || "",
+    billingAddress: company.billingAddress || "",
+    vatNumber: company.vatNumber || "",
+    eInvoiceId: company.eInvoiceId || "",
   }
 }
 
