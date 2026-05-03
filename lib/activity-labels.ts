@@ -5,6 +5,8 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   property_assigned: "Fastighet tilldelad",
   property_removed: "Fastighet borttagen",
   company_billing_updated: "Fakturauppgifter uppdaterade",
+  user_role_changed: "Användarroll ändrad",
+  user_removed: "Användare borttagen",
   inspection_added: "Kontroll registrerad",
   leak_registered: "Läckage registrerat",
   refill_registered: "Påfyllning registrerad",
@@ -53,6 +55,9 @@ export function formatActivityDescription({
       return `F-gas årsrapport ${metadata.year} (${metadata.format.toUpperCase()})`
     }
     if (typeof metadata.name === "string") return metadata.name
+    if (typeof metadata.targetUserEmail === "string") {
+      return metadata.targetUserEmail
+    }
   }
 
   if (action === "report_exported") return "Rapport exporterad"

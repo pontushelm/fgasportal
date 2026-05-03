@@ -178,6 +178,9 @@ export default function CompanySettingsPage() {
   const [inviteLink, setInviteLink] = useState("")
   const [propertyError, setPropertyError] = useState("")
   const [propertySuccess, setPropertySuccess] = useState("")
+  const [userManagementError, setUserManagementError] = useState("")
+  const [userManagementSuccess, setUserManagementSuccess] = useState("")
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null)
   const [isSavingProperty, setIsSavingProperty] = useState(false)
 
   useEffect(() => {
@@ -272,6 +275,7 @@ export default function CompanySettingsPage() {
 
   const canAdminister = isAdminRole(currentUser?.role)
   const canEditBilling = currentUser?.role === "OWNER"
+  const canManageUsers = currentUser?.role === "OWNER"
 
   function handleProfileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const value =
@@ -475,6 +479,83 @@ export default function CompanySettingsPage() {
       const refreshedData: CompanySettingsData = await refreshRes.json()
       setData(refreshedData)
     }
+  }
+
+  async function handleRoleChange(user: CompanyUser, role: UserRole) {
+    if (role === "OWNER") return
+
+    setUserManagementError("")
+    setUserManagementSuccess("")
+    setUpdatingUserId(user.id)
+
+    const res = await fetch(`/api/company/users/${user.id}/role`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({ role }),
+    })
+    const result: CompanyUser & { error?: string } = await res.json()
+
+    if (res.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!res.ok) {
+      setUserManagementError(result.error || "Kunde inte ändra roll")
+      setUpdatingUserId(null)
+      return
+    }
+
+    setData((current) => ({
+      ...current,
+      users: current.users.map((currentUser) =>
+        currentUser.id === result.id ? result : currentUser
+      ),
+    }))
+    setUserManagementSuccess("Användarrollen har uppdaterats")
+    setUpdatingUserId(null)
+  }
+
+  async function handleRemoveUser(user: CompanyUser) {
+    setUserManagementError("")
+    setUserManagementSuccess("")
+
+    const confirmed = window.confirm(
+      `Vill du ta bort ${user.name || user.email} från företaget? Användaren inaktiveras och kan inte längre logga in.`
+    )
+
+    if (!confirmed) return
+
+    setUpdatingUserId(user.id)
+
+    const res = await fetch(`/api/company/users/${user.id}`, {
+      method: "DELETE",
+      credentials: "include",
+    })
+    const result: CompanyUser & { error?: string } = await res.json()
+
+    if (res.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!res.ok) {
+      setUserManagementError(result.error || "Kunde inte ta bort användaren")
+      setUpdatingUserId(null)
+      return
+    }
+
+    setData((current) => ({
+      ...current,
+      users: current.users.map((currentUser) =>
+        currentUser.id === result.id ? result : currentUser
+      ),
+    }))
+    setUserManagementSuccess("Användaren har inaktiverats")
+    setUpdatingUserId(null)
   }
 
   return (
@@ -783,6 +864,26 @@ export default function CompanySettingsPage() {
             <h2 className="text-xl font-semibold text-slate-950">Användare</h2>
             {data.users.length === 0 ? (
               <p className="mt-4 text-sm text-slate-700">Inga användare hittades.</p>
+            ) : canManageUsers ? (
+              <>
+                <ManagedUsersTable
+                  currentUserId={currentUser?.userId || ""}
+                  disabledUserId={updatingUserId}
+                  users={data.users}
+                  onRemoveUser={handleRemoveUser}
+                  onRoleChange={handleRoleChange}
+                />
+                {userManagementError && (
+                  <p className="mt-4 font-semibold text-red-700">
+                    {userManagementError}
+                  </p>
+                )}
+                {userManagementSuccess && (
+                  <p className="mt-4 font-semibold text-green-700">
+                    {userManagementSuccess}
+                  </p>
+                )}
+              </>
             ) : (
               <CompanyTable
                 headers={["Namn", "E-post", "Roll", "Status"]}
@@ -878,6 +979,113 @@ function ProfileItem({
     <div className="rounded-md bg-slate-50 p-4">
       <dt className="text-sm font-medium text-slate-600">{label}</dt>
       <dd className="mt-1 font-semibold text-slate-950">{value || "-"}</dd>
+    </div>
+  )
+}
+
+function ManagedUsersTable({
+  currentUserId,
+  disabledUserId,
+  onRemoveUser,
+  onRoleChange,
+  users,
+}: {
+  currentUserId: string
+  disabledUserId: string | null
+  onRemoveUser: (user: CompanyUser) => void
+  onRoleChange: (user: CompanyUser, role: UserRole) => void
+  users: CompanyUser[]
+}) {
+  return (
+    <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200">
+      <table className="min-w-full divide-y divide-slate-200 text-sm">
+        <thead className="bg-slate-50">
+          <tr>
+            {["Namn", "E-post", "Roll", "Status", "Åtgärd"].map((header) => (
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600" key={header}>
+                {header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-200 bg-white">
+          {users.map((user) => {
+            const isCurrentUser = user.id === currentUserId
+            const isUpdating = disabledUserId === user.id
+            const canShowRoleSelect = user.role !== "OWNER"
+
+            return (
+              <tr key={user.id}>
+                <td className="whitespace-nowrap px-4 py-3 text-slate-800">
+                  {user.name}
+                  {isCurrentUser && (
+                    <span className="ml-2 rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
+                      Du
+                    </span>
+                  )}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-slate-800">
+                  {user.email}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-slate-800">
+                  {canShowRoleSelect ? (
+                    <select
+                      className={inputClassName}
+                      disabled={isUpdating || !user.isActive}
+                      value={user.role}
+                      onChange={(event) =>
+                        onRoleChange(user, event.target.value as UserRole)
+                      }
+                    >
+                      <option value="ADMIN">{formatRoleLabel("ADMIN")}</option>
+                      <option value="MEMBER">{formatRoleLabel("MEMBER")}</option>
+                      <option value="CONTRACTOR">
+                        {formatRoleLabel("CONTRACTOR")}
+                      </option>
+                    </select>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-slate-950">
+                        {formatRoleLabel(user.role)}
+                      </span>
+                      <select
+                        className={inputClassName}
+                        disabled={isUpdating || !user.isActive}
+                        defaultValue=""
+                        onChange={(event) => {
+                          const nextRole = event.target.value
+                          if (nextRole) onRoleChange(user, nextRole as UserRole)
+                          event.target.value = ""
+                        }}
+                      >
+                        <option value="">Ändra till...</option>
+                        <option value="ADMIN">{formatRoleLabel("ADMIN")}</option>
+                        <option value="MEMBER">{formatRoleLabel("MEMBER")}</option>
+                        <option value="CONTRACTOR">
+                          {formatRoleLabel("CONTRACTOR")}
+                        </option>
+                      </select>
+                    </div>
+                  )}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-slate-800">
+                  {user.isActive ? "Aktiv" : "Inaktiv"}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-slate-800">
+                  <button
+                    className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    type="button"
+                    disabled={isCurrentUser || isUpdating || !user.isActive}
+                    onClick={() => onRemoveUser(user)}
+                  >
+                    Ta bort användare
+                  </button>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
     </div>
   )
 }
