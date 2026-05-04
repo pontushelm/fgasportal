@@ -458,6 +458,7 @@ export default function CompanySettingsPage() {
     })
     const result: {
       error?: string
+      message?: string
       inviteLink?: string
       invitation?: PendingInvitation
     } = await res.json()
@@ -473,7 +474,7 @@ export default function CompanySettingsPage() {
       return
     }
 
-    setInviteSuccess("Inbjudan har skapats")
+    setInviteSuccess(result.message || "Inbjudan har skapats")
     setInviteLink(result.inviteLink || "")
     setInvitationForm(initialInvitationFormData)
     setIsSubmittingInvite(false)

@@ -5,6 +5,7 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   property_assigned: "Fastighet tilldelad",
   property_removed: "Fastighet borttagen",
   company_billing_updated: "Fakturauppgifter uppdaterade",
+  user_added_to_company: "Användare tillagd i företag",
   user_role_changed: "Användarroll ändrad",
   user_removed: "Användare borttagen",
   ownership_transferred: "Ägarskap överfört",

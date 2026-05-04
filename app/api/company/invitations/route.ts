@@ -1,6 +1,8 @@
 import crypto from "crypto"
+import { Prisma } from "@prisma/client"
 import { NextRequest, NextResponse } from "next/server"
 import { ZodError } from "zod"
+import { logActivity } from "@/lib/activity-log"
 import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { createInvitationSchema } from "@/lib/validations"
@@ -71,7 +73,7 @@ export async function POST(request: NextRequest) {
   try {
     const auth = authenticateApiRequest(request)
     if (auth.response) return auth.response
-    if (!isAdmin(auth.user)) return forbiddenResponse()
+    if (auth.user.role !== "OWNER") return forbiddenResponse()
 
     const { companyId, userId } = auth.user
     const body = await request.json()
@@ -80,13 +82,72 @@ export async function POST(request: NextRequest) {
       where: {
         email: validatedData.email,
       },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        companyId: true,
+      },
     })
 
     if (existingUser) {
-      return NextResponse.json(
-        { error: "En användare med denna e-post finns redan" },
-        { status: 400 }
-      )
+      const existingMembership = await prisma.companyMembership.findUnique({
+        where: {
+          userId_companyId: {
+            userId: existingUser.id,
+            companyId,
+          },
+        },
+      })
+
+      if (existingUser.companyId === companyId || existingMembership) {
+        return NextResponse.json(
+          { error: "Användaren tillhör redan detta företag" },
+          { status: 400 }
+        )
+      }
+
+      try {
+        const membership = await prisma.companyMembership.create({
+          data: {
+            userId: existingUser.id,
+            companyId,
+            role: validatedData.role,
+            isActive: true,
+          },
+        })
+
+        await logActivity({
+          companyId,
+          userId,
+          action: "user_added_to_company",
+          entityType: "user",
+          entityId: existingUser.id,
+          metadata: {
+            targetUserEmail: existingUser.email,
+            targetUserName: existingUser.name,
+            role: validatedData.role,
+            membershipId: membership.id,
+          },
+        })
+
+        return NextResponse.json(
+          {
+            message: "Användaren har lagts till i företaget",
+            membership,
+          },
+          { status: 201 }
+        )
+      } catch (error) {
+        if (isUniqueMembershipError(error)) {
+          return NextResponse.json(
+            { error: "Användaren tillhör redan detta företag" },
+            { status: 400 }
+          )
+        }
+
+        throw error
+      }
     }
 
     const token = crypto.randomBytes(32).toString("hex")
@@ -127,4 +188,11 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+function isUniqueMembershipError(error: unknown) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  )
 }
