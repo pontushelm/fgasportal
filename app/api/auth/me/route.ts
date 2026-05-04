@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { authenticateApiRequest } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { getActiveMembership } from "@/lib/memberships"
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,12 +25,16 @@ export async function GET(request: NextRequest) {
         notifyLeakEmails: true,
       },
     })
+    const membership = await getActiveMembership(
+      auth.user.userId,
+      auth.user.companyId
+    )
 
     return NextResponse.json(
       {
         ...auth.user,
-        companyId: user?.companyId ?? auth.user.companyId,
-        role: user?.role ?? auth.user.role,
+        companyId: membership?.companyId ?? user?.companyId ?? auth.user.companyId,
+        role: membership?.role ?? user?.role ?? auth.user.role,
         email: user?.email ?? null,
         name: user?.name ?? null,
         themePreference: normalizeThemePreference(user?.themePreference),

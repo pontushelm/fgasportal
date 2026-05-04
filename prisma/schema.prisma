@@ -56,6 +56,7 @@ model Company {
   planType  String   @default("free")
 
   users         User[]
+  memberships   CompanyMembership[]
   properties    Property[]
   installations Installation[]
   invitations   Invitation[]
@@ -84,6 +85,7 @@ model User {
 
   companyId String
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  memberships CompanyMembership[]
 
   createdInstallations Installation[] @relation("CreatedBy")
   updatedInstallations Installation[] @relation("UpdatedBy")
@@ -95,6 +97,24 @@ model User {
   savedFilters SavedFilter[]
 
   @@map("users")
+}
+
+model CompanyMembership {
+  id        String   @id @default(cuid())
+  userId    String
+  companyId String
+  role      UserRole
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId])
+  @@index([companyId])
+  @@index([userId])
+  @@map("company_memberships")
 }
 
 model Invitation {

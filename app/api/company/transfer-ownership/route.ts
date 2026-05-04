@@ -93,6 +93,24 @@ export async function POST(request: NextRequest) {
           createdAt: true,
         },
       }),
+      prisma.companyMembership.updateMany({
+        where: {
+          userId: targetUser.id,
+          companyId: auth.user.companyId,
+        },
+        data: {
+          role: "OWNER",
+        },
+      }),
+      prisma.companyMembership.updateMany({
+        where: {
+          userId: auth.user.userId,
+          companyId: auth.user.companyId,
+        },
+        data: {
+          role: "ADMIN",
+        },
+      }),
     ])
 
     await logActivity({

@@ -46,25 +46,38 @@ export async function POST(request: NextRequest) {
 
     const hashedPassword = await hashPassword(normalData.password)
 
-    const company = await prisma.company.create({
-      data: {
-        name: normalData.companyName,
-        orgNumber: normalData.orgNumber,
-        email: normalData.companyEmail,
-        address: normalData.companyAddress || null,
-        phone: normalData.companyPhone || null,
-        users: {
-          create: {
-            name: normalData.userName,
-            email: normalData.userEmail,
-            password: hashedPassword,
-            role: "OWNER",
+    const company = await prisma.$transaction(async (tx) => {
+      const createdCompany = await tx.company.create({
+        data: {
+          name: normalData.companyName,
+          orgNumber: normalData.orgNumber,
+          email: normalData.companyEmail,
+          address: normalData.companyAddress || null,
+          phone: normalData.companyPhone || null,
+          users: {
+            create: {
+              name: normalData.userName,
+              email: normalData.userEmail,
+              password: hashedPassword,
+              role: "OWNER",
+            },
           },
         },
-      },
-      include: {
-        users: true,
-      },
+        include: {
+          users: true,
+        },
+      })
+
+      await tx.companyMembership.create({
+        data: {
+          userId: createdCompany.users[0].id,
+          companyId: createdCompany.id,
+          role: "OWNER",
+          isActive: true,
+        },
+      })
+
+      return createdCompany
     })
 
     return NextResponse.json(
@@ -150,6 +163,15 @@ async function registerInvitedUser(data: InvitedRegisterData) {
         password: hashedPassword,
         role: invitedRole,
         companyId: invitation.companyId,
+      },
+    })
+
+    await tx.companyMembership.create({
+      data: {
+        userId: createdUser.id,
+        companyId: invitation.companyId,
+        role: invitedRole,
+        isActive: true,
       },
     })
 

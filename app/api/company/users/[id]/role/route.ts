@@ -74,22 +74,33 @@ export async function PATCH(
       }
     }
 
-    const updatedUser = await prisma.user.update({
-      where: {
-        id: targetUser.id,
-      },
-      data: {
-        role: validation.data.role,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-      },
-    })
+    const [updatedUser] = await prisma.$transaction([
+      prisma.user.update({
+        where: {
+          id: targetUser.id,
+        },
+        data: {
+          role: validation.data.role,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          isActive: true,
+          createdAt: true,
+        },
+      }),
+      prisma.companyMembership.updateMany({
+        where: {
+          userId: targetUser.id,
+          companyId: auth.user.companyId,
+        },
+        data: {
+          role: validation.data.role,
+        },
+      }),
+    ])
 
     await logActivity({
       companyId: auth.user.companyId,
