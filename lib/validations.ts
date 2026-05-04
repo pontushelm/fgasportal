@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-const passwordSchema = z.string()
+export const passwordSchema = z.string()
   .min(8)
   .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
     "Lösenord måste innehålla stor bokstav, liten bokstav och siffra")
@@ -67,6 +67,18 @@ export const loginSchema = z.object({
 })
 
 export type LoginFormData = z.infer<typeof loginSchema>
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Ogiltig emailadress"),
+})
+
+export type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+}).and(passwordConfirmationSchema)
+
+export type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>
 
 const optionalRegisterField = z.string().optional()
 const optionalContractorField = z.union([z.string(), z.null()])

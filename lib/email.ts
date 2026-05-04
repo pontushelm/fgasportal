@@ -14,6 +14,11 @@ type SendContractorAssignmentEmailInput = {
   contractorPortalUrl: string
 }
 
+type SendPasswordResetEmailInput = {
+  to: string
+  resetUrl: string
+}
+
 let resend: Resend | null = null
 
 export async function sendInspectionReminderEmail({
@@ -85,6 +90,43 @@ export async function sendContractorAssignmentEmail({
     from,
     to,
     subject: "You have been assigned new installations in FgasPortal",
+    text,
+  })
+
+  if (result.error) {
+    throw new Error(result.error.message)
+  }
+
+  return result.data
+}
+
+export async function sendPasswordResetEmail({
+  to,
+  resetUrl,
+}: SendPasswordResetEmailInput) {
+  const apiKey = requireEnv("RESEND_API_KEY")
+  const from = requireEnv("REMINDER_FROM_EMAIL")
+  const text = [
+    "Hej,",
+    "",
+    "Vi har tagit emot en begäran om att återställa lösenordet till ditt FgasPortal-konto.",
+    "",
+    "Återställ lösenordet via länken nedan. Länken gäller i 1 timme och kan bara användas en gång.",
+    "",
+    resetUrl,
+    "",
+    "Om du inte begärde detta kan du bortse från meddelandet.",
+    "",
+    "Vänliga hälsningar,",
+    "FgasPortal",
+  ].join("\n")
+
+  resend ??= new Resend(apiKey)
+
+  const result = await resend.emails.send({
+    from,
+    to,
+    subject: "Återställ ditt lösenord i FgasPortal",
     text,
   })
 

@@ -16,14 +16,20 @@ export function AuthShell({
       <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-6xl gap-10 lg:grid-cols-[0.9fr_1fr] lg:items-center">
         <section className="max-w-xl">
           <Link className="inline-flex items-center" href="/">
-            <Image
-              alt="FgasPortal"
-              className="h-auto w-44 sm:w-52"
-              height={130}
-              priority
-              src="/logo-full.png"
-              width={520}
-            />
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-50">
+              <Image
+                alt=""
+                className="h-10 w-10 mix-blend-multiply"
+                height={256}
+                priority
+                src="/logo-mark.png"
+                width={256}
+              />
+            </span>
+            <span className="ml-3 text-2xl font-bold tracking-tight">
+              <span className="text-slate-950">Fgas</span>
+              <span className="text-emerald-700">Portal</span>
+            </span>
           </Link>
           <p className="mt-6 text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
             F-gasregister och uppföljning

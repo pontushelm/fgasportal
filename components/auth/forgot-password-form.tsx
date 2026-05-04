@@ -1,43 +1,44 @@
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { loginSchema, type LoginFormData } from "@/lib/validations"
+import {
+  forgotPasswordSchema,
+  type ForgotPasswordFormData,
+} from "@/lib/validations"
 
-export default function LoginForm() {
+export default function ForgotPasswordForm() {
+  const [message, setMessage] = useState("")
   const [error, setError] = useState("")
-  const router = useRouter()
-
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
+  } = useForm<ForgotPasswordFormData>({
+    resolver: zodResolver(forgotPasswordSchema),
   })
 
-  async function onSubmit(data: LoginFormData) {
+  async function onSubmit(data: ForgotPasswordFormData) {
+    setMessage("")
     setError("")
 
-    const res = await fetch("/api/auth/login", {
+    const response = await fetch("/api/auth/forgot-password", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(data),
     })
+    const result: { message?: string; error?: string } = await response.json()
 
-    const result = await res.json()
-
-    if (!res.ok) {
-      setError(result.error || "Inloggning misslyckades")
+    if (!response.ok) {
+      setError(result.error || "Kunde inte skicka instruktioner")
       return
     }
 
-    router.push("/dashboard")
+    setMessage(result.message || "Om e-postadressen finns registrerad har vi skickat instruktioner.")
   }
 
   return (
@@ -58,28 +59,11 @@ export default function LoginForm() {
         )}
       </div>
 
-      <div>
-        <label className={labelClassName} htmlFor="password">
-          Lösenord
-        </label>
-        <input
-          id="password"
-          className={inputClassName}
-          type="password"
-          placeholder="Lösenord"
-          {...register("password")}
-        />
-        {errors.password?.message && (
-          <p className={errorClassName}>{errors.password.message}</p>
-        )}
-        <Link
-          className="mt-2 inline-flex text-sm font-semibold text-blue-700 hover:text-blue-800"
-          href="/forgot-password"
-        >
-          Glömt lösenord?
-        </Link>
-      </div>
-
+      {message && (
+        <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">
+          {message}
+        </p>
+      )}
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
           {error}
@@ -87,20 +71,12 @@ export default function LoginForm() {
       )}
 
       <button className={submitButtonClassName} type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Loggar in..." : "Logga in"}
+        {isSubmitting ? "Skickar..." : "Skicka instruktioner"}
       </button>
 
-      <div className="grid gap-2 border-t border-slate-200 pt-4 text-sm text-slate-600">
-        <p>
-          Saknar konto?{" "}
-          <Link className="font-semibold text-blue-700 hover:text-blue-800" href="/register">
-            Skapa konto
-          </Link>
-        </p>
-        <Link className="font-semibold text-slate-700 hover:text-slate-950" href="/">
-          Tillbaka till startsidan
-        </Link>
-      </div>
+      <Link className="text-sm font-semibold text-slate-700 hover:text-slate-950" href="/login">
+        Tillbaka till inloggning
+      </Link>
     </form>
   )
 }
