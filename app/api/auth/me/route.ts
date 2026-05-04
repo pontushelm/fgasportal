@@ -9,7 +9,7 @@ import {
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
     const user = await prisma.user.findUnique({

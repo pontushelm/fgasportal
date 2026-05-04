@@ -39,7 +39,7 @@ const PDF_COLUMNS: Array<{ label: string; key: keyof PdfRow; width: number }> = 
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
     if (!isAdmin(auth.user)) return forbiddenResponse()
 

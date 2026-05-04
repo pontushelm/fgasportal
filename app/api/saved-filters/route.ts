@@ -11,7 +11,7 @@ const savedFilterSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
     const page = request.nextUrl.searchParams.get("page")?.trim()
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
     const body = await request.json()

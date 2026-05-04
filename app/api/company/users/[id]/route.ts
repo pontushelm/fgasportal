@@ -8,7 +8,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
     if (auth.user.role !== "OWNER") return forbiddenResponse()
 

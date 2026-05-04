@@ -29,7 +29,7 @@ const updateBillingSchema = z.object({
 
 export async function PATCH(request: NextRequest) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
     if (auth.user.role !== "OWNER") return forbiddenResponse()
 

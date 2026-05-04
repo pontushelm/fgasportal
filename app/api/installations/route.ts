@@ -13,7 +13,7 @@ import { calculateInstallationRisk } from "@/lib/risk-classification"
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
     if (!isAdmin(auth.user)) return forbiddenResponse()
 
@@ -201,7 +201,7 @@ async function validateProperty(
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
     const { companyId, userId } = auth.user

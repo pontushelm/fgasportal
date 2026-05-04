@@ -21,7 +21,7 @@ type RouteContext = {
 
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
     const { id } = await context.params
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
     if (!isAdmin(auth.user)) return forbiddenResponse()
 
@@ -297,7 +297,7 @@ async function validateProperty(
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
     if (!isAdmin(auth.user)) return forbiddenResponse()
 

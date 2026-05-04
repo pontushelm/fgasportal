@@ -4,7 +4,7 @@ import { getFgasAnnualReport, parseReportYear } from "@/lib/fgas-report"
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
     const year = parseReportYear(request.nextUrl.searchParams.get("year"))

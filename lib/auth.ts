@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import jwt, { type JwtPayload } from 'jsonwebtoken'
 import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/db'
 import { isAdminRole } from '@/lib/roles'
 
 export const AUTH_COOKIE_NAME = 'auth-token'
@@ -75,7 +76,7 @@ export function getTokenFromRequest(request: NextRequest): string | null {
   return cookie?.value || null
 }
 
-export function authenticateApiRequest(request: NextRequest): AuthResult {
+export async function authenticateApiRequest(request: NextRequest): Promise<AuthResult> {
   const token = getTokenFromRequest(request)
 
   if (!token) {
@@ -98,7 +99,46 @@ export function authenticateApiRequest(request: NextRequest): AuthResult {
     }
   }
 
-  return { user }
+  if (!user.membershipId) {
+    return { user }
+  }
+
+  const membership = await prisma.companyMembership.findFirst({
+    where: {
+      id: user.membershipId,
+      userId: user.userId,
+      isActive: true,
+      user: {
+        isActive: true,
+      },
+      company: {
+        isActive: true,
+      },
+    },
+    select: {
+      id: true,
+      companyId: true,
+      role: true,
+    },
+  })
+
+  if (!membership) {
+    return {
+      response: NextResponse.json(
+        { error: 'Ogiltig eller inaktiv företagskoppling' },
+        { status: 401 }
+      ),
+    }
+  }
+
+  return {
+    user: {
+      userId: user.userId,
+      membershipId: membership.id,
+      companyId: membership.companyId,
+      role: membership.role,
+    },
+  }
 }
 
 export function isAdmin(user: AuthenticatedUser): boolean {

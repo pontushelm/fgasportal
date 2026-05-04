@@ -9,7 +9,7 @@ const maxPageSize = 100
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
     if (isContractor(auth.user)) return forbiddenResponse()
 
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const [total, entries, users, installations] = await Promise.all([
+    const [total, entries, userMemberships, installations] = await Promise.all([
       prisma.activityLog.count({ where }),
       prisma.activityLog.findMany({
         where,
@@ -88,22 +88,30 @@ export async function GET(request: NextRequest) {
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      prisma.user.findMany({
+      prisma.companyMembership.findMany({
         where: {
           companyId: auth.user.companyId,
-          activityLogs: {
-            some: {
-              companyId: auth.user.companyId,
+          user: {
+            activityLogs: {
+              some: {
+                companyId: auth.user.companyId,
+              },
             },
           },
         },
         select: {
-          id: true,
-          name: true,
-          email: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
         },
         orderBy: {
-          name: "asc",
+          user: {
+            name: "asc",
+          },
         },
       }),
       prisma.installation.findMany({
@@ -126,6 +134,8 @@ export async function GET(request: NextRequest) {
         take: 500,
       }),
     ])
+
+    const users = userMemberships.map((membership) => membership.user)
 
     return NextResponse.json(
       {

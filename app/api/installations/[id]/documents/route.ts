@@ -37,7 +37,7 @@ type DocumentTypeValue = (typeof DOCUMENT_TYPES)[number]
 
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
     const { id } = await context.params
@@ -118,7 +118,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
     if (!process.env.BLOB_READ_WRITE_TOKEN) {

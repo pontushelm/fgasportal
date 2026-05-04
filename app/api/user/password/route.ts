@@ -28,7 +28,7 @@ const updatePasswordSchema = z
 
 export async function PATCH(request: NextRequest) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
     const body = await request.json()

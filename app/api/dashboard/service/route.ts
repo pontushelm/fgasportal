@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db"
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
     if (!isContractor(auth.user)) return forbiddenResponse()
 

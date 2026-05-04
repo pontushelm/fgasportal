@@ -26,7 +26,7 @@ function optionalText(max: number) {
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
     const properties = await prisma.property.findMany({
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
     if (!isAdmin(auth.user)) return forbiddenResponse()
 

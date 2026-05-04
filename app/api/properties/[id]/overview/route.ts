@@ -12,7 +12,7 @@ type RouteContext = {
 
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
     const { companyId, userId } = auth.user

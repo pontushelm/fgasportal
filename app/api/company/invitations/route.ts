@@ -11,7 +11,7 @@ const INVITATION_TTL_DAYS = 7
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
     if (!isAdmin(auth.user)) return forbiddenResponse()
 
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
     if (auth.user.role !== "OWNER") return forbiddenResponse()
 

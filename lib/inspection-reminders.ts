@@ -45,21 +45,28 @@ export async function sendInspectionReminders(
     include: {
       company: {
         include: {
-          users: {
+          memberships: {
             where: {
               isActive: true,
               role: {
                 in: ["OWNER", "ADMIN"],
               },
-              email: {
-                not: "",
+              user: {
+                isActive: true,
+                email: {
+                  not: "",
+                },
+                notifyInspectionReminderEmails: true,
               },
-              notifyInspectionReminderEmails: true,
             },
             select: {
-              id: true,
-              email: true,
-              notifyInspectionReminderEmails: true,
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  notifyInspectionReminderEmails: true,
+                },
+              },
             },
           },
         },
@@ -71,6 +78,15 @@ export async function sendInspectionReminders(
           role: true,
           isActive: true,
           notifyInspectionReminderEmails: true,
+          memberships: {
+            where: {
+              role: "CONTRACTOR",
+              isActive: true,
+            },
+            select: {
+              companyId: true,
+            },
+          },
         },
       },
     },
@@ -172,7 +188,8 @@ export async function sendInspectionReminders(
 function getReminderRecipients(installation: {
   company: {
     sendInspectionRemindersToContractors: boolean
-    users: ReminderRecipient[]
+    memberships: Array<{ user: ReminderRecipient }>
+    id: string
   }
   assignedContractor: {
     id: string
@@ -180,11 +197,12 @@ function getReminderRecipients(installation: {
     role: string
     isActive: boolean
     notifyInspectionReminderEmails: boolean
+    memberships: Array<{ companyId: string }>
   } | null
 }) {
   const recipientsByEmail = new Map<string, ReminderRecipient>()
 
-  for (const admin of installation.company.users) {
+  for (const { user: admin } of installation.company.memberships) {
     if (admin.email) {
       recipientsByEmail.set(admin.email.toLowerCase(), admin)
     }
@@ -196,7 +214,9 @@ function getReminderRecipients(installation: {
     installation.company.sendInspectionRemindersToContractors &&
     contractor?.email &&
     contractor.isActive &&
-    contractor.role === "CONTRACTOR" &&
+    contractor.memberships.some(
+      (membership) => membership.companyId === installation.company.id
+    ) &&
     contractor.notifyInspectionReminderEmails
   ) {
     recipientsByEmail.set(contractor.email.toLowerCase(), {

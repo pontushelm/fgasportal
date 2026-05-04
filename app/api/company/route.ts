@@ -31,7 +31,7 @@ const updateCompanySchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
     const company = await prisma.company.findUnique({
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
     if (!isAdmin(auth.user)) return forbiddenResponse()
 

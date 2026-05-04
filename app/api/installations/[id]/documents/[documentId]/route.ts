@@ -14,7 +14,7 @@ type RouteContext = {
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
-    const auth = authenticateApiRequest(request)
+    const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
