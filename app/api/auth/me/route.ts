@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { authenticateApiRequest } from "@/lib/auth"
 import { prisma } from "@/lib/db"
-import { getActiveMembership } from "@/lib/memberships"
+import {
+  getActiveMembership,
+  getMembershipById,
+  getUserMemberships,
+} from "@/lib/memberships"
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,18 +27,38 @@ export async function GET(request: NextRequest) {
         notifyDocumentEmails: true,
         notifyAnnualReportDeadlineEmails: true,
         notifyLeakEmails: true,
+        company: {
+          select: {
+            name: true,
+          },
+        },
       },
     })
-    const membership = await getActiveMembership(
-      auth.user.userId,
-      auth.user.companyId
-    )
+    const [membership, memberships] = await Promise.all([
+      auth.user.membershipId
+        ? getMembershipById(auth.user.userId, auth.user.membershipId)
+        : getActiveMembership(auth.user.userId, auth.user.companyId),
+      getUserMemberships(auth.user.userId),
+    ])
+    const activeCompanyId =
+      membership?.companyId ?? user?.companyId ?? auth.user.companyId
+    const activeRole = membership?.role ?? user?.role ?? auth.user.role
+    const normalizedMemberships = memberships.map((item) => ({
+      id: item.id,
+      companyId: item.companyId,
+      companyName: item.company.name,
+      role: item.role,
+    }))
 
     return NextResponse.json(
       {
         ...auth.user,
-        companyId: membership?.companyId ?? user?.companyId ?? auth.user.companyId,
-        role: membership?.role ?? user?.role ?? auth.user.role,
+        membershipId: membership?.id ?? auth.user.membershipId,
+        companyId: activeCompanyId,
+        companyName: membership?.company.name ?? user?.company.name ?? null,
+        role: activeRole,
+        memberships: normalizedMemberships,
+        activeMembershipId: membership?.id ?? null,
         email: user?.email ?? null,
         name: user?.name ?? null,
         themePreference: normalizeThemePreference(user?.themePreference),

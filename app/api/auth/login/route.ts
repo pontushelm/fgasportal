@@ -7,6 +7,7 @@ import {
   comparePassword,
   generateToken
 } from '@/lib/auth'
+import { getActiveMembership } from '@/lib/memberships'
 import { loginSchema } from '@/lib/validations'
 
 export async function POST(request: NextRequest) {
@@ -58,8 +59,18 @@ export async function POST(request: NextRequest) {
       )
     }
     
+    const membership = await getActiveMembership(user.id, user.companyId)
+    const activeCompanyId = membership?.companyId ?? user.companyId
+    const activeRole = membership?.role ?? user.role
+    const activeCompanyName = membership?.company.name ?? user.company.name
+
     // Generera JWT token
-    const token = generateToken(user.id, user.companyId, user.role)
+    const token = generateToken(
+      user.id,
+      activeCompanyId,
+      activeRole,
+      membership?.id
+    )
     
     // Skapa response med cookie
     const response = NextResponse.json(
@@ -69,9 +80,9 @@ export async function POST(request: NextRequest) {
           id: user.id,
           email: user.email,
           name: user.name,
-          role: user.role,
-          companyId: user.companyId,
-          companyName: user.company.name
+          role: activeRole,
+          companyId: activeCompanyId,
+          companyName: activeCompanyName
         }
       },
       { status: 200 }

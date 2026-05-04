@@ -10,49 +10,62 @@ export async function GET(request: NextRequest) {
     if (auth.response) return auth.response
     if (isContractor(auth.user)) return forbiddenResponse()
 
-    const contractors = await prisma.user.findMany({
+    const memberships = await prisma.companyMembership.findMany({
       where: {
         companyId: auth.user.companyId,
         role: "CONTRACTOR",
+        isActive: true,
+        user: {
+          isActive: true,
+        },
       },
       include: {
-        assignedInstallations: {
-          where: {
-            companyId: auth.user.companyId,
-            archivedAt: null,
-          },
+        user: {
           include: {
-            events: {
+            assignedInstallations: {
               where: {
-                type: "LEAK",
+                companyId: auth.user.companyId,
+                archivedAt: null,
               },
-              select: {
-                id: true,
+              include: {
+                events: {
+                  where: {
+                    type: "LEAK",
+                  },
+                  select: {
+                    id: true,
+                  },
+                },
+                activityLogs: {
+                  orderBy: {
+                    createdAt: "desc",
+                  },
+                  select: {
+                    createdAt: true,
+                  },
+                  take: 1,
+                },
               },
-            },
-            activityLogs: {
-              orderBy: {
-                createdAt: "desc",
-              },
-              select: {
-                createdAt: true,
-              },
-              take: 1,
             },
           },
         },
       },
       orderBy: [
         {
-          name: "asc",
+          user: {
+            name: "asc",
+          },
         },
         {
-          email: "asc",
+          user: {
+            email: "asc",
+          },
         },
       ],
     })
 
-    const rows = contractors.map((contractor) => {
+    const rows = memberships.map((membership) => {
+      const contractor = membership.user
       let overdueInspections = 0
       let dueSoonInspections = 0
       let highRiskInstallations = 0

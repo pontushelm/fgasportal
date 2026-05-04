@@ -10,6 +10,7 @@ export type UserRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'CONTRACTOR'
 
 export type AuthenticatedUser = {
   userId: string
+  membershipId?: string
   companyId: string
   role: UserRole
 }
@@ -29,13 +30,18 @@ export async function comparePassword(
   return await bcrypt.compare(password, hashedPassword)
 }
 
-export function generateToken(userId: string, companyId: string, role: string): string {
+export function generateToken(
+  userId: string,
+  companyId: string,
+  role: string,
+  membershipId?: string
+): string {
   if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET is not defined')
   }
   
   return jwt.sign(
-    { userId, companyId, role },
+    { userId, membershipId, companyId, role },
     process.env.JWT_SECRET,
     { expiresIn: '7d' }
   )
@@ -55,6 +61,7 @@ export function verifyToken(token: string): AuthenticatedUser | null {
 
     return {
       userId: payload.userId,
+      membershipId: payload.membershipId,
       companyId: payload.companyId,
       role: payload.role,
     }
@@ -115,6 +122,7 @@ function isAuthTokenPayload(
   return (
     typeof payload === 'object' &&
     typeof payload.userId === 'string' &&
+    (payload.membershipId === undefined || typeof payload.membershipId === 'string') &&
     typeof payload.companyId === 'string' &&
     isUserRole(payload.role)
   )

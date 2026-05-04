@@ -10,7 +10,17 @@ import { formatRoleLabel } from "@/lib/roles"
 
 type CurrentUser = {
   userId: string
+  activeMembershipId: string | null
   companyId: string
+  companyName: string | null
+  role: UserRole
+  memberships: UserMembership[]
+}
+
+type UserMembership = {
+  id: string
+  companyId: string
+  companyName: string
   role: UserRole
 }
 
@@ -67,6 +77,7 @@ export function Sidebar() {
   const router = useRouter()
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
+  const [isSwitchingCompany, setIsSwitchingCompany] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -105,6 +116,38 @@ export function Sidebar() {
   const homeHref =
     currentUser?.role === "CONTRACTOR" ? "/dashboard/service" : "/dashboard"
 
+  async function handleCompanyChange(membershipId: string) {
+    if (!membershipId || membershipId === currentUser?.activeMembershipId) return
+
+    setIsSwitchingCompany(true)
+    const response = await fetch("/api/auth/switch-company", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({ membershipId }),
+    })
+
+    if (response.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (response.ok) {
+      const result: { membership?: { role?: UserRole } } = await response.json()
+      const nextHref =
+        result.membership?.role === "CONTRACTOR"
+          ? "/dashboard/service"
+          : "/dashboard"
+      router.refresh()
+      window.location.assign(nextHref)
+      return
+    }
+
+    setIsSwitchingCompany(false)
+  }
+
   return (
     <>
       <div className="sticky top-0 z-40 border-b border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:hidden">
@@ -125,6 +168,11 @@ export function Sidebar() {
             </span>
             <span>FgasPortal</span>
           </Link>
+          <CompanySwitcher
+            currentUser={currentUser}
+            disabled={isSwitchingCompany}
+            onChange={handleCompanyChange}
+          />
           <Button
             type="button"
             variant="secondary"
@@ -170,6 +218,11 @@ export function Sidebar() {
                 <Badge variant="neutral">{formatRoleLabel(currentUser.role)}</Badge>
               )}
             </div>
+            <CompanySwitcher
+              currentUser={currentUser}
+              disabled={isSwitchingCompany}
+              onChange={handleCompanyChange}
+            />
           </div>
 
           <nav className="mt-8 grid gap-1">
@@ -182,6 +235,50 @@ export function Sidebar() {
         </div>
       </aside>
     </>
+  )
+}
+
+function CompanySwitcher({
+  currentUser,
+  disabled,
+  onChange,
+}: {
+  currentUser: CurrentUser | null
+  disabled: boolean
+  onChange: (membershipId: string) => void
+}) {
+  if (!currentUser) {
+    return (
+      <div className="mt-3 h-10 rounded-lg bg-slate-100 dark:bg-slate-800" />
+    )
+  }
+
+  if (currentUser.memberships.length <= 1) {
+    return (
+      <div className="mt-3 rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-800">
+        <div className="truncate text-sm font-semibold text-slate-950 dark:text-slate-100">
+          {currentUser.companyName || "Företag"}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <label className="mt-3 block">
+      <span className="sr-only">Byt företag</span>
+      <select
+        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-950 shadow-sm disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+        value={currentUser.activeMembershipId || ""}
+      >
+        {currentUser.memberships.map((membership) => (
+          <option key={membership.id} value={membership.id}>
+            {membership.companyName} - {formatRoleLabel(membership.role)}
+          </option>
+        ))}
+      </select>
+    </label>
   )
 }
 

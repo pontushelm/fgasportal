@@ -17,21 +17,28 @@ export async function GET(request: NextRequest) {
 
     const { companyId } = auth.user
 
-    const [users, invitations] = await Promise.all([
-      prisma.user.findMany({
+    const [memberships, invitations] = await Promise.all([
+      prisma.companyMembership.findMany({
         where: {
           companyId,
+          isActive: true,
         },
         orderBy: {
           createdAt: "asc",
         },
         select: {
-          id: true,
-          name: true,
-          email: true,
           role: true,
           isActive: true,
           createdAt: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              isActive: true,
+              createdAt: true,
+            },
+          },
         },
       }),
       prisma.invitation.findMany({
@@ -57,6 +64,15 @@ export async function GET(request: NextRequest) {
         },
       }),
     ])
+
+    const users = memberships.map((membership) => ({
+      id: membership.user.id,
+      name: membership.user.name,
+      email: membership.user.email,
+      role: membership.role,
+      isActive: membership.isActive && membership.user.isActive,
+      createdAt: membership.user.createdAt,
+    }))
 
     return NextResponse.json({ users, invitations }, { status: 200 })
   } catch (error: unknown) {

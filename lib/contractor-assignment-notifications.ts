@@ -12,24 +12,32 @@ export async function notifyContractorsAboutNewAssignments(
   if (uniqueContractorIds.length === 0) return
 
   try {
-    const contractors = await prisma.user.findMany({
+    const memberships = await prisma.companyMembership.findMany({
       where: {
-        id: {
+        userId: {
           in: uniqueContractorIds,
         },
         companyId,
         role: "CONTRACTOR",
         isActive: true,
-        notifyAssignmentEmails: true,
-        email: {
-          not: "",
+        user: {
+          isActive: true,
+          notifyAssignmentEmails: true,
+          email: {
+            not: "",
+          },
         },
       },
       select: {
-        id: true,
-        email: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+          },
+        },
       },
     })
+    const contractors = memberships.map((membership) => membership.user)
     const contractorsByEmail = new Map(
       contractors.map((contractor) => [
         contractor.email.toLowerCase(),

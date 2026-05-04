@@ -21,38 +21,49 @@ export async function DELETE(
       )
     }
 
-    const targetUser = await prisma.user.findFirst({
+    const targetMembership = await prisma.companyMembership.findFirst({
       where: {
-        id,
+        userId: id,
         companyId: auth.user.companyId,
       },
       select: {
         id: true,
-        name: true,
-        email: true,
+        userId: true,
         role: true,
         isActive: true,
-        createdAt: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            companyId: true,
+            isActive: true,
+            createdAt: true,
+          },
+        },
       },
     })
 
-    if (!targetUser) {
+    if (!targetMembership) {
       return NextResponse.json(
         { error: "Användaren hittades inte" },
         { status: 404 }
       )
     }
 
-    if (targetUser.role === "OWNER") {
-      const activeOwnerCount = await prisma.user.count({
+    if (targetMembership.role === "OWNER") {
+      const activeOwnerCount = await prisma.companyMembership.count({
         where: {
           companyId: auth.user.companyId,
           role: "OWNER",
           isActive: true,
+          user: {
+            isActive: true,
+          },
         },
       })
 
-      if (targetUser.isActive && activeOwnerCount <= 1) {
+      if (targetMembership.isActive && activeOwnerCount <= 1) {
         return NextResponse.json(
           { error: "Företaget måste ha minst en ägare" },
           { status: 400 }
@@ -60,49 +71,71 @@ export async function DELETE(
       }
     }
 
-    const [updatedUser] = await prisma.$transaction([
-      prisma.user.update({
-        where: {
-          id: targetUser.id,
-        },
-        data: {
-          isActive: false,
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          isActive: true,
-          createdAt: true,
-        },
-      }),
-      prisma.companyMembership.updateMany({
-        where: {
-          userId: targetUser.id,
-          companyId: auth.user.companyId,
-        },
-        data: {
-          isActive: false,
-        },
-      }),
-    ])
+    const shouldSyncLegacyUser =
+      targetMembership.user.companyId === auth.user.companyId
+    const updatedUser = shouldSyncLegacyUser
+      ? await prisma.$transaction(async (tx) => {
+          const user = await tx.user.update({
+            where: {
+              id: targetMembership.userId,
+            },
+            data: {
+              isActive: false,
+            },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+              isActive: true,
+              createdAt: true,
+            },
+          })
+
+          await tx.companyMembership.update({
+            where: {
+              id: targetMembership.id,
+            },
+            data: {
+              isActive: false,
+            },
+          })
+
+          return user
+        })
+      : await prisma.$transaction(async (tx) => {
+          await tx.companyMembership.update({
+            where: {
+              id: targetMembership.id,
+            },
+            data: {
+              isActive: false,
+            },
+          })
+
+          return targetMembership.user
+        })
+    const responseUser = {
+      ...updatedUser,
+      role: targetMembership.role,
+      isActive: false,
+    }
 
     await logActivity({
       companyId: auth.user.companyId,
       userId: auth.user.userId,
       action: "user_removed",
       entityType: "user",
-      entityId: updatedUser.id,
+      entityId: responseUser.id,
       metadata: {
-        targetUserEmail: updatedUser.email,
-        targetUserName: updatedUser.name,
-        previousRole: targetUser.role,
+        targetUserEmail: responseUser.email,
+        targetUserName: responseUser.name,
+        previousRole: targetMembership.role,
         removalType: "deactivated",
       },
     })
 
-    return NextResponse.json(updatedUser, { status: 200 })
+    return NextResponse.json(responseUser, { status: 200 })
   } catch (error) {
     console.error("Remove company user error:", error)
 

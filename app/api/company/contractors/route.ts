@@ -8,21 +8,32 @@ export async function GET(request: NextRequest) {
     if (auth.response) return auth.response
     if (!isAdmin(auth.user)) return forbiddenResponse()
 
-    const contractors = await prisma.user.findMany({
+    const memberships = await prisma.companyMembership.findMany({
       where: {
         companyId: auth.user.companyId,
         role: "CONTRACTOR",
         isActive: true,
+        user: {
+          isActive: true,
+        },
       },
       orderBy: {
-        name: "asc",
+        user: {
+          name: "asc",
+        },
       },
       select: {
-        id: true,
-        name: true,
-        email: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
     })
+
+    const contractors = memberships.map((membership) => membership.user)
 
     return NextResponse.json(contractors, { status: 200 })
   } catch (error: unknown) {

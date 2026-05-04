@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { authenticateApiRequest, forbiddenResponse } from "@/lib/auth"
 import { logActivity } from "@/lib/activity-log"
+import { authenticateApiRequest, forbiddenResponse } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 
 const updateUserRoleSchema = z.object({
@@ -30,43 +30,52 @@ export async function PATCH(
     const validation = updateUserRoleSchema.safeParse(body)
 
     if (!validation.success) {
-      return NextResponse.json(
-        { error: "Ogiltig roll" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "Ogiltig roll" }, { status: 400 })
     }
 
-    const targetUser = await prisma.user.findFirst({
+    const targetMembership = await prisma.companyMembership.findFirst({
       where: {
-        id,
         companyId: auth.user.companyId,
+        userId: id,
       },
       select: {
         id: true,
-        name: true,
-        email: true,
+        userId: true,
         role: true,
         isActive: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            companyId: true,
+            isActive: true,
+            createdAt: true,
+          },
+        },
       },
     })
 
-    if (!targetUser) {
+    if (!targetMembership) {
       return NextResponse.json(
         { error: "Användaren hittades inte" },
         { status: 404 }
       )
     }
 
-    if (targetUser.role === "OWNER") {
-      const activeOwnerCount = await prisma.user.count({
+    if (targetMembership.role === "OWNER") {
+      const activeOwnerCount = await prisma.companyMembership.count({
         where: {
           companyId: auth.user.companyId,
           role: "OWNER",
           isActive: true,
+          user: {
+            isActive: true,
+          },
         },
       })
 
-      if (targetUser.isActive && activeOwnerCount <= 1) {
+      if (targetMembership.isActive && activeOwnerCount <= 1) {
         return NextResponse.json(
           { error: "Företaget måste ha minst en ägare" },
           { status: 400 }
@@ -74,49 +83,69 @@ export async function PATCH(
       }
     }
 
-    const [updatedUser] = await prisma.$transaction([
-      prisma.user.update({
-        where: {
-          id: targetUser.id,
-        },
-        data: {
-          role: validation.data.role,
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          isActive: true,
-          createdAt: true,
-        },
-      }),
-      prisma.companyMembership.updateMany({
-        where: {
-          userId: targetUser.id,
-          companyId: auth.user.companyId,
-        },
-        data: {
-          role: validation.data.role,
-        },
-      }),
-    ])
+    const shouldSyncLegacyUser =
+      targetMembership.user.companyId === auth.user.companyId
+    const updatedUser = shouldSyncLegacyUser
+      ? await prisma.$transaction(async (tx) => {
+          const user = await tx.user.update({
+            where: {
+              id: targetMembership.userId,
+            },
+            data: {
+              role: validation.data.role,
+            },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              isActive: true,
+              createdAt: true,
+            },
+          })
+
+          await tx.companyMembership.update({
+            where: {
+              id: targetMembership.id,
+            },
+            data: {
+              role: validation.data.role,
+            },
+          })
+
+          return user
+        })
+      : await prisma.$transaction(async (tx) => {
+          await tx.companyMembership.update({
+            where: {
+              id: targetMembership.id,
+            },
+            data: {
+              role: validation.data.role,
+            },
+          })
+
+          return targetMembership.user
+        })
+    const responseUser = {
+      ...updatedUser,
+      role: validation.data.role,
+    }
 
     await logActivity({
       companyId: auth.user.companyId,
       userId: auth.user.userId,
       action: "user_role_changed",
       entityType: "user",
-      entityId: updatedUser.id,
+      entityId: responseUser.id,
       metadata: {
-        targetUserEmail: updatedUser.email,
-        targetUserName: updatedUser.name,
-        previousRole: targetUser.role,
-        newRole: updatedUser.role,
+        targetUserEmail: responseUser.email,
+        targetUserName: responseUser.name,
+        previousRole: targetMembership.role,
+        newRole: responseUser.role,
       },
     })
 
-    return NextResponse.json(updatedUser, { status: 200 })
+    return NextResponse.json(responseUser, { status: 200 })
   } catch (error) {
     console.error("Update company user role error:", error)
 

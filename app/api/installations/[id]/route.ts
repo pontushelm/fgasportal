@@ -251,19 +251,22 @@ async function validateAssignedContractor(
 
   if (!contractorId) return null
 
-  const contractor = await prisma.user.findFirst({
+  const contractor = await prisma.companyMembership.findFirst({
     where: {
-      id: contractorId,
+      userId: contractorId,
       companyId,
       role: "CONTRACTOR",
       isActive: true,
+      user: {
+        isActive: true,
+      },
     },
     select: {
-      id: true,
+      userId: true,
     },
   })
 
-  return contractor ? contractor.id : false
+  return contractor ? contractor.userId : false
 }
 
 async function validateProperty(

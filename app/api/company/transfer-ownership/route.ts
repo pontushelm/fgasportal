@@ -39,79 +39,137 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const targetUser = await prisma.user.findFirst({
+    const targetMembership = await prisma.companyMembership.findFirst({
       where: {
-        id: targetUserId,
+        userId: targetUserId,
         companyId: auth.user.companyId,
         isActive: true,
+        user: {
+          isActive: true,
+        },
       },
       select: {
         id: true,
-        name: true,
-        email: true,
-        role: true,
+        userId: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            companyId: true,
+            isActive: true,
+            createdAt: true,
+          },
+        },
       },
     })
 
-    if (!targetUser) {
+    if (!targetMembership) {
       return NextResponse.json(
         { error: "Användaren hittades inte" },
         { status: 404 }
       )
     }
 
-    const [newOwner, previousOwner] = await prisma.$transaction([
-      prisma.user.update({
-        where: {
-          id: targetUser.id,
-        },
-        data: {
-          role: "OWNER",
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          isActive: true,
-          createdAt: true,
-        },
-      }),
-      prisma.user.update({
-        where: {
-          id: auth.user.userId,
-        },
-        data: {
-          role: "ADMIN",
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          isActive: true,
-          createdAt: true,
-        },
-      }),
-      prisma.companyMembership.updateMany({
-        where: {
-          userId: targetUser.id,
-          companyId: auth.user.companyId,
-        },
-        data: {
-          role: "OWNER",
-        },
-      }),
-      prisma.companyMembership.updateMany({
-        where: {
-          userId: auth.user.userId,
-          companyId: auth.user.companyId,
-        },
-        data: {
-          role: "ADMIN",
-        },
-      }),
-    ])
+    const previousMembership = auth.user.membershipId
+      ? await prisma.companyMembership.findFirst({
+          where: {
+            id: auth.user.membershipId,
+            userId: auth.user.userId,
+            companyId: auth.user.companyId,
+          },
+          select: {
+            id: true,
+            userId: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                companyId: true,
+                isActive: true,
+                createdAt: true,
+              },
+            },
+          },
+        })
+      : await prisma.companyMembership.findFirst({
+          where: {
+            userId: auth.user.userId,
+            companyId: auth.user.companyId,
+          },
+          select: {
+            id: true,
+            userId: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                companyId: true,
+                isActive: true,
+                createdAt: true,
+              },
+            },
+          },
+        })
+
+    if (!previousMembership) {
+      return NextResponse.json(
+        { error: "Företagskopplingen hittades inte" },
+        { status: 404 }
+      )
+    }
+
+    const [newOwnerUser, previousOwnerUser] = await prisma.$transaction(
+      async (tx) => {
+        await tx.companyMembership.update({
+          where: {
+            id: targetMembership.id,
+          },
+          data: {
+            role: "OWNER",
+          },
+        })
+        await tx.companyMembership.update({
+          where: {
+            id: previousMembership.id,
+          },
+          data: {
+            role: "ADMIN",
+          },
+        })
+
+        const newOwner =
+          targetMembership.user.companyId === auth.user.companyId
+            ? await tx.user.update({
+                where: {
+                  id: targetMembership.userId,
+                },
+                data: {
+                  role: "OWNER",
+                },
+                select: userResponseSelect,
+              })
+            : targetMembership.user
+        const previousOwner =
+          previousMembership.user.companyId === auth.user.companyId
+            ? await tx.user.update({
+                where: {
+                  id: auth.user.userId,
+                },
+                data: {
+                  role: "ADMIN",
+                },
+                select: userResponseSelect,
+              })
+            : previousMembership.user
+
+        return [newOwner, previousOwner]
+      }
+    )
+    const newOwner = { ...newOwnerUser, role: "OWNER" }
+    const previousOwner = { ...previousOwnerUser, role: "ADMIN" }
 
     await logActivity({
       companyId: auth.user.companyId,
@@ -137,7 +195,12 @@ export async function POST(request: NextRequest) {
 
     response.cookies.set({
       name: AUTH_COOKIE_NAME,
-      value: generateToken(previousOwner.id, auth.user.companyId, previousOwner.role),
+      value: generateToken(
+        previousOwner.id,
+        auth.user.companyId,
+        previousOwner.role,
+        previousMembership.id
+      ),
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -155,3 +218,11 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+const userResponseSelect = {
+  id: true,
+  name: true,
+  email: true,
+  isActive: true,
+  createdAt: true,
+} as const
