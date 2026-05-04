@@ -157,7 +157,10 @@ async function validateAssignedContractor(
 
   const contractor = await prisma.companyMembership.findFirst({
     where: {
-      userId: contractorId,
+      OR: [
+        { userId: contractorId },
+        { id: contractorId },
+      ],
       companyId,
       role: 'CONTRACTOR',
       isActive: true,

@@ -21,26 +21,37 @@ export async function POST(request: NextRequest) {
     const { contractorId, installationIds } = bulkAssignSchema.parse(body)
     const uniqueInstallationIds = Array.from(new Set(installationIds))
 
-    const contractor = await prisma.user.findFirst({
+    const contractorMembership = await prisma.companyMembership.findFirst({
       where: {
-        id: contractorId,
+        OR: [
+          { userId: contractorId },
+          { id: contractorId },
+        ],
         companyId,
         role: "CONTRACTOR",
         isActive: true,
+        user: {
+          isActive: true,
+        },
       },
       select: {
-        id: true,
-        name: true,
-        email: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
     })
 
-    if (!contractor) {
+    if (!contractorMembership) {
       return NextResponse.json(
         { error: "Ogiltig servicepartner" },
         { status: 400 }
       )
     }
+    const contractor = contractorMembership.user
 
     const installations = await prisma.installation.findMany({
       where: {
