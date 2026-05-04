@@ -556,7 +556,7 @@ export default function InstallationsPageClient() {
         backLabel="Tillbaka till dashboard"
         eyebrow="Aggregat"
         title="Registrerade aggregat"
-        subtitle="Sök, filtrera och sortera aggregatlistan. Administratörer kan även göra bulkåtgärder."
+        subtitle="Sök, filtrera och sortera aggregatlistan. Ansvariga kan även göra bulkåtgärder."
       />
 
       <Card className="mt-6 p-4">

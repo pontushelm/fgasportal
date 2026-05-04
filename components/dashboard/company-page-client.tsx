@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Card, PageHeader } from "@/components/ui"
+import { Badge, Button, Card, PageHeader } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
-import { formatRoleLabel, isAdminRole } from "@/lib/roles"
+import {
+  formatRoleDescription,
+  formatRoleLabel,
+  isAdminRole,
+} from "@/lib/roles"
 
 type CompanyUser = {
   id: string
@@ -181,6 +185,9 @@ export default function CompanySettingsPage() {
   const [userManagementError, setUserManagementError] = useState("")
   const [userManagementSuccess, setUserManagementSuccess] = useState("")
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null)
+  const [transferTargetUser, setTransferTargetUser] =
+    useState<CompanyUser | null>(null)
+  const [isTransferringOwnership, setIsTransferringOwnership] = useState(false)
   const [isSavingProperty, setIsSavingProperty] = useState(false)
 
   useEffect(() => {
@@ -558,6 +565,55 @@ export default function CompanySettingsPage() {
     setUpdatingUserId(null)
   }
 
+  async function handleTransferOwnership() {
+    if (!transferTargetUser) return
+
+    setUserManagementError("")
+    setUserManagementSuccess("")
+    setIsTransferringOwnership(true)
+    setUpdatingUserId(transferTargetUser.id)
+
+    const res = await fetch("/api/company/transfer-ownership", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({ targetUserId: transferTargetUser.id }),
+    })
+    const result: {
+      error?: string
+      newOwner?: CompanyUser
+      previousOwner?: CompanyUser
+    } = await res.json()
+
+    if (res.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!res.ok || !result.newOwner || !result.previousOwner) {
+      setUserManagementError(result.error || "Kunde inte överföra ägarskap")
+      setIsTransferringOwnership(false)
+      setUpdatingUserId(null)
+      return
+    }
+
+    setData((current) => ({
+      ...current,
+      users: current.users.map((user) => {
+        if (user.id === result.newOwner?.id) return result.newOwner
+        if (user.id === result.previousOwner?.id) return result.previousOwner
+        return user
+      }),
+    }))
+    setCurrentUser((user) => (user ? { ...user, role: "ADMIN" } : user))
+    setTransferTargetUser(null)
+    setIsTransferringOwnership(false)
+    setUpdatingUserId(null)
+    setUserManagementSuccess("Ägarskapet har överförts")
+  }
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 text-slate-900 sm:px-6 lg:px-8">
       <PageHeader
@@ -872,6 +928,7 @@ export default function CompanySettingsPage() {
                   users={data.users}
                   onRemoveUser={handleRemoveUser}
                   onRoleChange={handleRoleChange}
+                  onTransferOwnership={setTransferTargetUser}
                 />
                 {userManagementError && (
                   <p className="mt-4 font-semibold text-red-700">
@@ -885,15 +942,7 @@ export default function CompanySettingsPage() {
                 )}
               </>
             ) : (
-              <CompanyTable
-                headers={["Namn", "E-post", "Roll", "Status"]}
-                rows={data.users.map((user) => [
-                  user.name,
-                  user.email,
-                  formatRoleLabel(user.role),
-                  user.isActive ? "Aktiv" : "Inaktiv",
-                ])}
-              />
+              <ReadOnlyUsersTable users={data.users} />
             )}
           </Card>
 
@@ -925,6 +974,9 @@ export default function CompanySettingsPage() {
                     <option value="ADMIN">{formatRoleLabel("ADMIN")}</option>
                     <option value="CONTRACTOR">{formatRoleLabel("CONTRACTOR")}</option>
                   </select>
+                  <span className="text-sm font-normal text-slate-600">
+                    {formatRoleDescription(invitationForm.role)}
+                  </span>
                 </label>
 
                 {inviteError && <p className="font-semibold text-red-700">{inviteError}</p>}
@@ -964,6 +1016,43 @@ export default function CompanySettingsPage() {
           </Card>
         </>
       )}
+      {transferTargetUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold text-slate-950">
+              Överför ägarskap
+            </h2>
+            <p className="mt-3 text-sm text-slate-700">
+              Du kommer att förlora din ägarroll och bli Ansvarig. Vill du
+              fortsätta?
+            </p>
+            <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+              Ny ägare:{" "}
+              <span className="font-semibold text-slate-950">
+                {transferTargetUser.name || transferTargetUser.email}
+              </span>
+            </p>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={isTransferringOwnership}
+                onClick={() => setTransferTargetUser(null)}
+              >
+                Avbryt
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                disabled={isTransferringOwnership}
+                onClick={handleTransferOwnership}
+              >
+                {isTransferringOwnership ? "Överför..." : "Fortsätt"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
@@ -988,12 +1077,14 @@ function ManagedUsersTable({
   disabledUserId,
   onRemoveUser,
   onRoleChange,
+  onTransferOwnership,
   users,
 }: {
   currentUserId: string
   disabledUserId: string | null
   onRemoveUser: (user: CompanyUser) => void
   onRoleChange: (user: CompanyUser, role: UserRole) => void
+  onTransferOwnership: (user: CompanyUser) => void
   users: CompanyUser[]
 }) {
   return (
@@ -1032,6 +1123,7 @@ function ManagedUsersTable({
                     <select
                       className={inputClassName}
                       disabled={isUpdating || !user.isActive}
+                      title={formatRoleDescription(user.role)}
                       value={user.role}
                       onChange={(event) =>
                         onRoleChange(user, event.target.value as UserRole)
@@ -1045,7 +1137,10 @@ function ManagedUsersTable({
                     </select>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-slate-950">
+                      <span
+                        className="font-semibold text-slate-950"
+                        title={formatRoleDescription(user.role)}
+                      >
                         {formatRoleLabel(user.role)}
                       </span>
                       <select
@@ -1072,6 +1167,16 @@ function ManagedUsersTable({
                   {user.isActive ? "Aktiv" : "Inaktiv"}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-slate-800">
+                  {!isCurrentUser && user.isActive && (
+                    <button
+                      className="mr-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      type="button"
+                      disabled={isUpdating}
+                      onClick={() => onTransferOwnership(user)}
+                    >
+                      Gör till ägare
+                    </button>
+                  )}
                   <button
                     className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                     type="button"
@@ -1084,6 +1189,44 @@ function ManagedUsersTable({
               </tr>
             )
           })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function ReadOnlyUsersTable({ users }: { users: CompanyUser[] }) {
+  return (
+    <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200">
+      <table className="min-w-full divide-y divide-slate-200 text-sm">
+        <thead className="bg-slate-50">
+          <tr>
+            {["Namn", "E-post", "Roll", "Status"].map((header) => (
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600" key={header}>
+                {header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-200 bg-white">
+          {users.map((user) => (
+            <tr key={user.id}>
+              <td className="whitespace-nowrap px-4 py-3 text-slate-800">
+                {user.name}
+              </td>
+              <td className="whitespace-nowrap px-4 py-3 text-slate-800">
+                {user.email}
+              </td>
+              <td className="whitespace-nowrap px-4 py-3 text-slate-800">
+                <Badge variant="neutral" title={formatRoleDescription(user.role)}>
+                  {formatRoleLabel(user.role)}
+                </Badge>
+              </td>
+              <td className="whitespace-nowrap px-4 py-3 text-slate-800">
+                {user.isActive ? "Aktiv" : "Inaktiv"}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

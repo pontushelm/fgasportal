@@ -12,6 +12,7 @@ import {
   SectionHeader,
 } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
+import { formatRoleLabel } from "@/lib/roles"
 
 type CurrentUser = {
   userId: string
@@ -255,7 +256,9 @@ export default function ActivityPageClient() {
                 {data.pagination.total} loggposter i urvalet.
               </p>
             </div>
-            {currentUser?.role && <Badge variant="neutral">{currentUser.role}</Badge>}
+            {currentUser?.role && (
+              <Badge variant="neutral">{formatRoleLabel(currentUser.role)}</Badge>
+            )}
           </div>
 
           {data.entries.length === 0 ? (
