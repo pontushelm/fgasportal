@@ -14,6 +14,8 @@ export async function GET(request: NextRequest) {
       select: {
         email: true,
         name: true,
+        role: true,
+        companyId: true,
         themePreference: true,
         notifyAssignmentEmails: true,
         notifyInspectionReminderEmails: true,
@@ -26,6 +28,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         ...auth.user,
+        companyId: user?.companyId ?? auth.user.companyId,
+        role: user?.role ?? auth.user.role,
         email: user?.email ?? null,
         name: user?.name ?? null,
         themePreference: normalizeThemePreference(user?.themePreference),

@@ -489,7 +489,9 @@ export default function CompanySettingsPage() {
   }
 
   async function handleRoleChange(user: CompanyUser, role: UserRole) {
+    if (isTransferringOwnership) return
     if (role === "OWNER") return
+    if (user.id === currentUser?.userId) return
 
     setUserManagementError("")
     setUserManagementSuccess("")
@@ -527,6 +529,7 @@ export default function CompanySettingsPage() {
   }
 
   async function handleRemoveUser(user: CompanyUser) {
+    if (isTransferringOwnership) return
     setUserManagementError("")
     setUserManagementSuccess("")
 
@@ -611,7 +614,11 @@ export default function CompanySettingsPage() {
     setTransferTargetUser(null)
     setIsTransferringOwnership(false)
     setUpdatingUserId(null)
-    setUserManagementSuccess("Ägarskapet har överförts")
+    setUserManagementSuccess("Ägarskapet har överförts. Du är nu Ansvarig.")
+    router.refresh()
+    window.setTimeout(() => {
+      window.location.assign("/dashboard/company")
+    }, 900)
   }
 
   return (
@@ -925,6 +932,7 @@ export default function CompanySettingsPage() {
                 <ManagedUsersTable
                   currentUserId={currentUser?.userId || ""}
                   disabledUserId={updatingUserId}
+                  isTransferPending={isTransferringOwnership}
                   users={data.users}
                   onRemoveUser={handleRemoveUser}
                   onRoleChange={handleRoleChange}
@@ -990,7 +998,7 @@ export default function CompanySettingsPage() {
                 <button
                   className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
                   type="submit"
-                  disabled={isSubmittingInvite}
+                  disabled={isSubmittingInvite || isTransferringOwnership}
                 >
                   {isSubmittingInvite ? "Skapar..." : "Skapa inbjudan"}
                 </button>
@@ -1075,6 +1083,7 @@ function ProfileItem({
 function ManagedUsersTable({
   currentUserId,
   disabledUserId,
+  isTransferPending,
   onRemoveUser,
   onRoleChange,
   onTransferOwnership,
@@ -1082,6 +1091,7 @@ function ManagedUsersTable({
 }: {
   currentUserId: string
   disabledUserId: string | null
+  isTransferPending: boolean
   onRemoveUser: (user: CompanyUser) => void
   onRoleChange: (user: CompanyUser, role: UserRole) => void
   onTransferOwnership: (user: CompanyUser) => void
@@ -1103,7 +1113,8 @@ function ManagedUsersTable({
           {users.map((user) => {
             const isCurrentUser = user.id === currentUserId
             const isUpdating = disabledUserId === user.id
-            const canShowRoleSelect = user.role !== "OWNER"
+            const canShowRoleSelect = user.role !== "OWNER" && !isCurrentUser
+            const controlsDisabled = isUpdating || isTransferPending || !user.isActive
 
             return (
               <tr key={user.id}>
@@ -1122,7 +1133,7 @@ function ManagedUsersTable({
                   {canShowRoleSelect ? (
                     <select
                       className={inputClassName}
-                      disabled={isUpdating || !user.isActive}
+                      disabled={controlsDisabled}
                       title={formatRoleDescription(user.role)}
                       value={user.role}
                       onChange={(event) =>
@@ -1135,6 +1146,10 @@ function ManagedUsersTable({
                         {formatRoleLabel("CONTRACTOR")}
                       </option>
                     </select>
+                  ) : isCurrentUser ? (
+                    <Badge variant="neutral" title={formatRoleDescription(user.role)}>
+                      {formatRoleLabel(user.role)}
+                    </Badge>
                   ) : (
                     <div className="flex items-center gap-2">
                       <span
@@ -1145,7 +1160,7 @@ function ManagedUsersTable({
                       </span>
                       <select
                         className={inputClassName}
-                        disabled={isUpdating || !user.isActive}
+                        disabled={controlsDisabled}
                         defaultValue=""
                         onChange={(event) => {
                           const nextRole = event.target.value
@@ -1171,7 +1186,7 @@ function ManagedUsersTable({
                     <button
                       className="mr-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                       type="button"
-                      disabled={isUpdating}
+                      disabled={isUpdating || isTransferPending}
                       onClick={() => onTransferOwnership(user)}
                     >
                       Gör till ägare
@@ -1180,7 +1195,7 @@ function ManagedUsersTable({
                   <button
                     className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                     type="button"
-                    disabled={isCurrentUser || isUpdating || !user.isActive}
+                    disabled={isCurrentUser || isUpdating || isTransferPending || !user.isActive}
                     onClick={() => onRemoveUser(user)}
                   >
                     Ta bort användare

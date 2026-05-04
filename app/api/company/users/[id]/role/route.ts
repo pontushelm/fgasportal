@@ -18,6 +18,14 @@ export async function PATCH(
     if (auth.user.role !== "OWNER") return forbiddenResponse()
 
     const { id } = await params
+
+    if (id === auth.user.userId) {
+      return NextResponse.json(
+        { error: "Du kan inte ändra din egen roll här" },
+        { status: 400 }
+      )
+    }
+
     const body = await request.json()
     const validation = updateUserRoleSchema.safeParse(body)
 

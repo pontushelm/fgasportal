@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { logActivity } from "@/lib/activity-log"
-import { authenticateApiRequest, forbiddenResponse } from "@/lib/auth"
+import {
+  AUTH_COOKIE_MAX_AGE,
+  AUTH_COOKIE_NAME,
+  authenticateApiRequest,
+  forbiddenResponse,
+  generateToken,
+} from "@/lib/auth"
 import { prisma } from "@/lib/db"
 
 const transferOwnershipSchema = z.object({
@@ -103,13 +109,25 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         newOwner,
         previousOwner,
       },
       { status: 200 }
     )
+
+    response.cookies.set({
+      name: AUTH_COOKIE_NAME,
+      value: generateToken(previousOwner.id, auth.user.companyId, previousOwner.role),
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: AUTH_COOKIE_MAX_AGE,
+      path: "/",
+    })
+
+    return response
   } catch (error) {
     console.error("Transfer ownership error:", error)
 
