@@ -97,6 +97,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (validatedData.type === "INSPECTION") {
       const result = await prisma.$transaction(async (tx) => {
+        const createdBy = await tx.user.findUnique({
+          where: {
+            id: userId,
+          },
+          select: {
+            name: true,
+            email: true,
+          },
+        })
         const event = await tx.installationEvent.create({
           data: {
             installationId: installation.id,
@@ -120,6 +129,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
           validatedData.date,
           installation.inspectionIntervalMonths
         )
+        await tx.inspection.create({
+          data: {
+            inspectionDate: validatedData.date,
+            inspectorName:
+              createdBy?.name || createdBy?.email || "Okänd användare",
+            status: "Registrerad",
+            notes: emptyToNull(validatedData.notes),
+            nextDueDate: nextInspection,
+            installationId: installation.id,
+          },
+        })
         const updatedInstallation = await tx.installation.update({
           where: {
             id: installation.id,

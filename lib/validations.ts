@@ -141,6 +141,7 @@ export const editInstallationSchema = z.object({
   ...installationRegisterFieldsSchema,
   refrigerantType: z.string().min(1, "Köldmedietyp krävs"),
   refrigerantAmount: z.string().transform((val) => parseFloat(val)),
+  installationDate: optionalDateField,
   lastInspection: optionalDateField,
   inspectionIntervalMonths: optionalIntegerField,
   notes: z.string().optional(),

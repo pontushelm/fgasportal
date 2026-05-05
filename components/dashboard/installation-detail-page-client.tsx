@@ -117,13 +117,6 @@ type CurrentUser = {
   role: UserRole
 }
 
-type InspectionFormData = {
-  inspectionDate: string
-  inspectorName: string
-  status: string
-  notes: string
-}
-
 type EventFormData = {
   date: string
   type: InstallationEventType
@@ -149,6 +142,7 @@ type InstallationEditFormData = {
   refrigerantType: string
   refrigerantAmount: string
   hasLeakDetectionSystem: boolean
+  installationDate: string
   assignedContractorId: string
   notes: string
 }
@@ -163,13 +157,6 @@ type PropertyOption = {
   id: string
   name: string
   municipality?: string | null
-}
-
-const initialInspectionFormData: InspectionFormData = {
-  inspectionDate: "",
-  inspectorName: "",
-  status: "",
-  notes: "",
 }
 
 const initialEventFormData: EventFormData = {
@@ -197,6 +184,7 @@ const initialEditFormData: InstallationEditFormData = {
   refrigerantType: "",
   refrigerantAmount: "",
   hasLeakDetectionSystem: false,
+  installationDate: "",
   assignedContractorId: "",
   notes: "",
 }
@@ -241,9 +229,15 @@ const ACTIVITY_LABELS: Record<string, string> = {
 }
 
 const RISK_TONE: Record<InstallationRiskLevel, string> = {
-  LOW: "bg-green-100 text-green-700",
-  MEDIUM: "bg-amber-100 text-amber-700",
-  HIGH: "bg-red-100 text-red-700",
+  LOW: "border-green-200 bg-green-50 text-green-800",
+  MEDIUM: "border-amber-200 bg-amber-50 text-amber-800",
+  HIGH: "border-red-200 bg-red-50 text-red-800",
+}
+
+const RISK_LABELS: Record<InstallationRiskLevel, string> = {
+  LOW: "Låg risk",
+  MEDIUM: "Medelrisk",
+  HIGH: "Hög risk",
 }
 
 const COMPLIANCE_LABELS: Record<ComplianceStatus, string> = {
@@ -276,21 +270,15 @@ export default function InstallationDetailPage() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
-  const [inspectionForm, setInspectionForm] = useState<InspectionFormData>(
-    initialInspectionFormData
-  )
   const [eventForm, setEventForm] = useState<EventFormData>(initialEventFormData)
   const [documentForm, setDocumentForm] = useState<DocumentFormData>(
     initialDocumentFormData
   )
   const [documentFile, setDocumentFile] = useState<File | null>(null)
-  const [submitError, setSubmitError] = useState("")
-  const [submitSuccess, setSubmitSuccess] = useState("")
   const [eventError, setEventError] = useState("")
   const [eventSuccess, setEventSuccess] = useState("")
   const [documentError, setDocumentError] = useState("")
   const [documentSuccess, setDocumentSuccess] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmittingEvent, setIsSubmittingEvent] = useState(false)
   const [isUploadingDocument, setIsUploadingDocument] = useState(false)
   const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null)
@@ -404,6 +392,7 @@ export default function InstallationDetailPage() {
         refrigerantType: data.refrigerantType,
         refrigerantAmount: String(data.refrigerantAmount),
         hasLeakDetectionSystem: data.hasLeakDetectionSystem,
+        installationDate: toDateInputValue(data.installationDate),
         assignedContractorId: data.assignedContractorId || "",
         notes: data.notes || "",
       })
@@ -416,15 +405,6 @@ export default function InstallationDetailPage() {
       isMounted = false
     }
   }, [params.id, refreshKey, router])
-
-  function handleInspectionChange(
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) {
-    setInspectionForm({
-      ...inspectionForm,
-      [event.target.name]: event.target.value,
-    })
-  }
 
   function handleEventChange(
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -473,6 +453,9 @@ export default function InstallationDetailPage() {
         behavior: "smooth",
         block: "start",
       })
+      document
+        .querySelector<HTMLSelectElement>("#event-form select[name='type']")
+        ?.focus()
     }, 0)
   }
 
@@ -539,40 +522,6 @@ export default function InstallationDetailPage() {
     }
 
     router.push("/dashboard")
-  }
-
-  async function handleInspectionSubmit(event: React.FormEvent) {
-    event.preventDefault()
-    setSubmitError("")
-    setSubmitSuccess("")
-    setIsSubmitting(true)
-
-    const res = await fetch(`/api/installations/${params.id}/inspections`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify(inspectionForm),
-    })
-
-    const result: { error?: string } = await res.json()
-
-    if (res.status === 401) {
-      router.push("/login")
-      return
-    }
-
-    if (!res.ok) {
-      setSubmitError(result.error || "Kunde inte registrera kontrollen")
-      setIsSubmitting(false)
-      return
-    }
-
-    setInspectionForm(initialInspectionFormData)
-    setSubmitSuccess("Kontrollen har registrerats")
-    setRefreshKey((current) => current + 1)
-    setIsSubmitting(false)
   }
 
   async function handleEventSubmit(event: React.FormEvent) {
@@ -814,7 +763,6 @@ export default function InstallationDetailPage() {
           <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <DetailItem label="Kopplad fastighet" value={formatOptionalText(installation.property?.name)} />
             <DetailItem label="Kommun" value={formatOptionalText(installation.property?.municipality)} />
-            <DetailItem label="Fastighet" value={formatOptionalText(installation.propertyName)} />
             <DetailItem label="Utrustnings-ID" value={formatOptionalText(installation.equipmentId)} />
             <DetailItem label="Serienummer" value={formatOptionalText(installation.serialNumber)} />
             <DetailItem label="Utrustningstyp" value={formatOptionalText(installation.equipmentType)} />
@@ -859,10 +807,17 @@ export default function InstallationDetailPage() {
             </button>
           ) : (
             <form className="mt-4 grid max-w-xl gap-3" onSubmit={handleEditSubmit}>
-              <label className={fieldClassName}>Namn<input name="name" value={editForm.name} onChange={handleEditChange} required /></label>
-              <label className={fieldClassName}>Plats<input name="location" value={editForm.location} onChange={handleEditChange} required /></label>
+              <p className="text-xs text-slate-500">* Obligatoriskt</p>
               <label className={fieldClassName}>
-                Kopplad fastighet
+                <span>Namn <RequiredMark /></span>
+                <input name="name" value={editForm.name} onChange={handleEditChange} required />
+              </label>
+              <label className={fieldClassName}>
+                <span>Plats <RequiredMark /></span>
+                <input name="location" value={editForm.location} onChange={handleEditChange} required />
+              </label>
+              <label className={fieldClassName}>
+                Fastighet
                 <select name="propertyId" value={editForm.propertyId} onChange={handleEditChange}>
                   <option value="">Ingen vald fastighet</option>
                   {properties.map((property) => (
@@ -872,15 +827,33 @@ export default function InstallationDetailPage() {
                   ))}
                 </select>
               </label>
-              <label className={fieldClassName}>Fastighet<input name="propertyName" value={editForm.propertyName} onChange={handleEditChange} /></label>
-              <label className={fieldClassName}>Utrustnings-ID<input name="equipmentId" value={editForm.equipmentId} onChange={handleEditChange} /></label>
-              <label className={fieldClassName}>Serienummer<input name="serialNumber" value={editForm.serialNumber} onChange={handleEditChange} /></label>
-              <label className={fieldClassName}>Utrustningstyp<input name="equipmentType" value={editForm.equipmentType} onChange={handleEditChange} /></label>
-              <label className={fieldClassName}>Operatör<input name="operatorName" value={editForm.operatorName} onChange={handleEditChange} /></label>
-              <label className={fieldClassName}>Köldmedium<input name="refrigerantType" value={editForm.refrigerantType} onChange={handleEditChange} required /></label>
-              <label className={fieldClassName}>Mängd kg<input name="refrigerantAmount" value={editForm.refrigerantAmount} onChange={handleEditChange} required /></label>
+              <label className={fieldClassName}>
+                Utrustnings-ID
+                <input name="equipmentId" value={editForm.equipmentId} onChange={handleEditChange} />
+              </label>
+              <label className={fieldClassName}>
+                Serienummer
+                <input name="serialNumber" value={editForm.serialNumber} onChange={handleEditChange} />
+              </label>
+              <label className={fieldClassName}>
+                Utrustningstyp
+                <input name="equipmentType" value={editForm.equipmentType} onChange={handleEditChange} />
+              </label>
+              <label className={fieldClassName}>
+                Operatör
+                <input name="operatorName" value={editForm.operatorName} onChange={handleEditChange} />
+              </label>
+              <label className={fieldClassName}>
+                <span>Köldmedium <RequiredMark /></span>
+                <input name="refrigerantType" value={editForm.refrigerantType} onChange={handleEditChange} required />
+              </label>
+              <label className={fieldClassName}>
+                <span>Mängd kg <RequiredMark /></span>
+                <input name="refrigerantAmount" value={editForm.refrigerantAmount} onChange={handleEditChange} required />
+              </label>
               <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
                 <input
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600"
                   name="hasLeakDetectionSystem"
                   type="checkbox"
                   checked={editForm.hasLeakDetectionSystem}
@@ -892,6 +865,10 @@ export default function InstallationDetailPage() {
                     Kan påverka lagstadgat kontrollintervall.
                   </span>
                 </span>
+              </label>
+              <label className={fieldClassName}>
+                <span>Installationsdatum <RequiredMark /></span>
+                <input name="installationDate" type="date" value={editForm.installationDate} onChange={handleEditChange} required />
               </label>
               <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
                 <p className="font-semibold text-slate-900">Kontrollplikt</p>
@@ -950,31 +927,6 @@ export default function InstallationDetailPage() {
               {isArchiving ? "Arkiverar..." : "Arkivera installation"}
             </button>
           </div>
-        </section>
-      )}
-
-      {canManage && (
-        <section className="installation-form-surface mt-6 rounded-lg border border-slate-200 bg-white p-5">
-          <h2 className="text-lg font-semibold text-slate-950">Registrera kontroll</h2>
-          <form className="mt-4 grid max-w-xl gap-3" onSubmit={handleInspectionSubmit}>
-            <label className={fieldClassName}>Datum<input name="inspectionDate" type="date" value={inspectionForm.inspectionDate} onChange={handleInspectionChange} required /></label>
-            <label className={fieldClassName}>Kontrollant<input name="inspectorName" value={inspectionForm.inspectorName} onChange={handleInspectionChange} required /></label>
-            <label className={fieldClassName}>
-              Resultat
-              <select name="status" value={inspectionForm.status} onChange={handleInspectionChange} required>
-                <option value="">Välj resultat</option>
-                <option value="Godkänd">Godkänd</option>
-                <option value="Åtgärd krävs">Åtgärd krävs</option>
-                <option value="Ej godkänd">Ej godkänd</option>
-              </select>
-            </label>
-            <label className={fieldClassName}>Noteringar<textarea name="notes" value={inspectionForm.notes} onChange={handleInspectionChange} /></label>
-            {submitError && <p className="text-sm font-semibold text-red-700">{submitError}</p>}
-            {submitSuccess && <p className="text-sm font-semibold text-green-700">{submitSuccess}</p>}
-            <button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Sparar..." : "Spara kontroll"}
-            </button>
-          </form>
         </section>
       )}
 
@@ -1267,10 +1219,14 @@ function QuickActionButton({
 
 function RiskBadge({ level }: { level: InstallationRiskLevel }) {
   return (
-    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${RISK_TONE[level]}`}>
-      Risknivå {level}
+    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${RISK_TONE[level]}`}>
+      {RISK_LABELS[level] ?? "Risk saknas"}
     </span>
   )
+}
+
+function RequiredMark() {
+  return <span aria-hidden="true" className="text-xs text-red-500">*</span>
 }
 
 function ComplianceBadge({ status }: { status: ComplianceStatus }) {
@@ -1436,4 +1392,8 @@ function formatNumber(value: number) {
 
 function getTodayInputValue() {
   return new Date().toISOString().slice(0, 10)
+}
+
+function toDateInputValue(value?: string | null) {
+  return value ? new Date(value).toISOString().slice(0, 10) : ""
 }

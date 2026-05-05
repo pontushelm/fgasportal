@@ -154,6 +154,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         refrigerantType: validatedData.refrigerantType,
         refrigerantAmount: validatedData.refrigerantAmount,
         hasLeakDetectionSystem: validatedData.hasLeakDetectionSystem ?? false,
+        installationDate: validatedData.installationDate ?? installation.installationDate,
         lastInspection: validatedData.lastInspection,
         inspectionIntervalMonths: compliance.inspectionIntervalMonths,
         nextInspection,
