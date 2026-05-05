@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
         data: {
           name: normalData.companyName,
           orgNumber: normalData.orgNumber,
-          email: normalData.companyEmail,
+          email: normalData.userEmail,
           address: normalData.companyAddress || null,
           phone: normalData.companyPhone || null,
           users: {

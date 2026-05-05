@@ -10,7 +10,6 @@ import { formatRoleLabel } from "@/lib/roles"
 type RegisterFormFields = RegisterFormData & {
   companyName?: string
   orgNumber?: string
-  companyEmail?: string
   companyAddress?: string
   companyPhone?: string
 }
@@ -129,9 +128,6 @@ export default function RegisterForm({ inviteToken }: { inviteToken?: string }) 
             <input className={inputClassName} placeholder="Organisationsnummer" {...register("orgNumber")} />
           </Field>
 
-          <Field label="Företags-e-post" error={errors.companyEmail?.message as string}>
-            <input className={inputClassName} placeholder="foretag@example.se" {...register("companyEmail")} />
-          </Field>
         </>
       )}
 

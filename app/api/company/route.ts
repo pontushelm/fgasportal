@@ -18,10 +18,6 @@ const updateCompanySchema = z.object({
   name: z.string().trim().min(2).max(100),
   organizationNumber: optionalText(30),
   contactPerson: optionalText(100),
-  contactEmail: optionalText(150).refine(
-    (value) => !value || z.string().email().safeParse(value).success,
-    "Ogiltig e-post"
-  ),
   contactPhone: optionalText(40),
   address: optionalText(200),
   postalCode: optionalText(20),
@@ -44,7 +40,6 @@ export async function GET(request: NextRequest) {
         orgNumber: true,
         organizationNumber: true,
         contactPerson: true,
-        contactEmail: true,
         contactPhone: true,
         address: true,
         postalCode: true,
@@ -55,7 +50,6 @@ export async function GET(request: NextRequest) {
         vatNumber: true,
         eInvoiceId: true,
         sendInspectionRemindersToContractors: true,
-        email: true,
         phone: true,
       },
     })
@@ -98,7 +92,6 @@ export async function PATCH(request: NextRequest) {
         orgNumber: true,
         organizationNumber: true,
         contactPerson: true,
-        contactEmail: true,
         contactPhone: true,
         address: true,
         postalCode: true,
@@ -109,7 +102,6 @@ export async function PATCH(request: NextRequest) {
         vatNumber: true,
         eInvoiceId: true,
         sendInspectionRemindersToContractors: true,
-        email: true,
         phone: true,
       },
     })

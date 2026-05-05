@@ -42,7 +42,6 @@ type CompanyProfile = {
   orgNumber: string
   organizationNumber?: string | null
   contactPerson?: string | null
-  contactEmail?: string | null
   contactPhone?: string | null
   address?: string | null
   postalCode?: string | null
@@ -53,7 +52,6 @@ type CompanyProfile = {
   vatNumber?: string | null
   eInvoiceId?: string | null
   sendInspectionRemindersToContractors: boolean
-  email: string
   phone?: string | null
 }
 
@@ -61,7 +59,6 @@ type CompanyProfileFormData = {
   name: string
   organizationNumber: string
   contactPerson: string
-  contactEmail: string
   contactPhone: string
   address: string
   postalCode: string
@@ -116,7 +113,6 @@ const initialProfileFormData: CompanyProfileFormData = {
   name: "",
   organizationNumber: "",
   contactPerson: "",
-  contactEmail: "",
   contactPhone: "",
   address: "",
   postalCode: "",
@@ -682,10 +678,6 @@ export default function CompanySettingsPage() {
                   <input className={inputClassName} name="contactPerson" value={profileForm.contactPerson} onChange={handleProfileChange} />
                 </label>
                 <label className={fieldClassName}>
-                  E-post
-                  <input className={inputClassName} name="contactEmail" type="email" value={profileForm.contactEmail} onChange={handleProfileChange} />
-                </label>
-                <label className={fieldClassName}>
                   Telefon
                   <input className={inputClassName} name="contactPhone" value={profileForm.contactPhone} onChange={handleProfileChange} />
                 </label>
@@ -746,7 +738,6 @@ export default function CompanySettingsPage() {
                 <ProfileItem label="Företagsnamn" value={companyProfile.name} />
                 <ProfileItem label="Organisationsnummer" value={companyProfile.organizationNumber || companyProfile.orgNumber} />
                 <ProfileItem label="Kontaktperson" value={companyProfile.contactPerson} />
-                <ProfileItem label="E-post" value={companyProfile.contactEmail || companyProfile.email} />
                 <ProfileItem label="Telefon" value={companyProfile.contactPhone || companyProfile.phone} />
                 <ProfileItem label="Adress" value={companyProfile.address} />
                 <ProfileItem label="Postnummer" value={companyProfile.postalCode} />
@@ -1319,7 +1310,6 @@ function toProfileFormData(company: CompanyProfile): CompanyProfileFormData {
     name: company.name,
     organizationNumber: company.organizationNumber || company.orgNumber || "",
     contactPerson: company.contactPerson || "",
-    contactEmail: company.contactEmail || company.email || "",
     contactPhone: company.contactPhone || company.phone || "",
     address: company.address || "",
     postalCode: company.postalCode || "",

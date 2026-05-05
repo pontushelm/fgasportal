@@ -23,9 +23,6 @@ export const normalRegisterSchema = z.object({
     .max(10)
     .regex(/^\d+$/, "Organisationsnummer får bara innehålla siffror"),
 
-  companyEmail: z.string()
-    .email("Ogiltig emailadress"),
-
   companyAddress: z.string().optional(),
   companyPhone: z.string().optional(),
 
