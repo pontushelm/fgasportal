@@ -23,10 +23,46 @@ export function calculateCO2e(
 }
 
 export function calculateInspectionInterval(co2eTon: number) {
-  if (co2eTon >= 500) return 3
-  if (co2eTon >= 50) return 6
-  if (co2eTon >= 5) return 12
-  return null
+  return calculateInspectionObligation(co2eTon, false).intervalMonths
+}
+
+export function calculateInspectionObligation(
+  co2eTonnes: number | null | undefined,
+  hasLeakDetectionSystem: boolean
+) {
+  if (co2eTonnes == null || !Number.isFinite(co2eTonnes)) {
+    return {
+      isInspectionRequired: false,
+      intervalMonths: null,
+      label: "Kan inte beräknas",
+      explanation: "Ange köldmedium och mängd för att beräkna kontrollplikt.",
+    }
+  }
+
+  if (co2eTonnes < 5) {
+    return {
+      isInspectionRequired: false,
+      intervalMonths: null,
+      label: "Ej kontrollpliktigt",
+      explanation:
+        "Aggregat under 5 ton CO₂e omfattas inte av periodisk läckagekontroll.",
+    }
+  }
+
+  const baseIntervalMonths =
+    co2eTonnes >= 500 ? 3 : co2eTonnes >= 50 ? 6 : 12
+  const intervalMonths = hasLeakDetectionSystem
+    ? baseIntervalMonths * 2
+    : baseIntervalMonths
+
+  return {
+    isInspectionRequired: true,
+    intervalMonths,
+    label: `Kontroll var ${intervalMonths}:e månad`,
+    explanation: hasLeakDetectionSystem
+      ? "Aggregatet är kontrollpliktigt och läckagevarningssystem förlänger det lagstadgade kontrollintervallet."
+      : "Aggregatet är kontrollpliktigt eftersom det innehåller minst 5 ton CO₂e.",
+  }
 }
 
 export function calculateInstallationCompliance(
@@ -41,10 +77,11 @@ export function calculateInstallationCompliance(
     refrigerantAmount
   )
   const baseInspectionIntervalMonths = calculateInspectionInterval(co2eTon)
-  const inspectionIntervalMonths =
-    baseInspectionIntervalMonths && hasLeakDetectionSystem
-      ? baseInspectionIntervalMonths * 2
-      : baseInspectionIntervalMonths
+  const inspectionObligation = calculateInspectionObligation(
+    co2eTon,
+    hasLeakDetectionSystem
+  )
+  const inspectionIntervalMonths = inspectionObligation.intervalMonths
   const dueStatus = classifyInspectionStatus({
     inspectionRequired: Boolean(inspectionIntervalMonths),
     lastInspection,
@@ -57,6 +94,7 @@ export function calculateInstallationCompliance(
     co2eTon,
     baseInspectionIntervalMonths,
     inspectionIntervalMonths,
+    inspectionObligation,
     hasAdjustedInspectionInterval:
       Boolean(baseInspectionIntervalMonths) && hasLeakDetectionSystem,
     status: dueStatus.status,

@@ -1,7 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import type { ComplianceStatus } from "@/lib/fgas-calculations"
+import {
+  calculateCO2e,
+  calculateInspectionObligation,
+  type ComplianceStatus,
+} from "@/lib/fgas-calculations"
 import type { InspectionReminderStatus } from "@/lib/inspection-reminders"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 
@@ -18,7 +22,6 @@ type InstallationFormData = {
   hasLeakDetectionSystem: boolean
   installationDate: string
   lastInspection: string
-  inspectionIntervalMonths: string
   notes: string
 }
 
@@ -68,7 +71,6 @@ const initialFormData: InstallationFormData = {
   hasLeakDetectionSystem: false,
   installationDate: "",
   lastInspection: "",
-  inspectionIntervalMonths: "",
   notes: "",
 }
 
@@ -122,9 +124,14 @@ export default function CreateInstallationForm({
     })
   }
 
+  const inspectionPreview = calculateInspectionPreview(
+    formData.refrigerantType,
+    formData.refrigerantAmount,
+    formData.hasLeakDetectionSystem
+  )
   const previewNextInspection = calculateNextInspectionPreview(
     formData.lastInspection,
-    formData.inspectionIntervalMonths
+    inspectionPreview.intervalMonths
   )
 
   async function handleSubmit(e: React.FormEvent) {
@@ -187,7 +194,12 @@ export default function CreateInstallationForm({
           checked={formData.hasLeakDetectionSystem}
           onChange={handleChange}
         />
-        Läckagevarningssystem
+        <span>
+          Läckagevarningssystem finns
+          <span className="block text-xs font-normal text-slate-500">
+            Kan påverka lagstadgat kontrollintervall.
+          </span>
+        </span>
       </label>
 
       <label className={labelClassName}>
@@ -200,15 +212,18 @@ export default function CreateInstallationForm({
         <input className={inputClassName} name="lastInspection" type="date" value={formData.lastInspection} onChange={handleChange} />
       </label>
 
-      <label className={labelClassName}>
-        Kontrollintervall
-        <select className={inputClassName} name="inspectionIntervalMonths" value={formData.inspectionIntervalMonths} onChange={handleChange}>
-          <option value="">Välj intervall</option>
-          <option value="3">3 månader</option>
-          <option value="6">6 månader</option>
-          <option value="12">12 månader</option>
-        </select>
-      </label>
+      <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
+        <p className="font-semibold text-slate-900">Kontrollplikt</p>
+        <p className="mt-1 text-slate-700">{inspectionPreview.label}</p>
+        <p className="mt-1 text-xs text-slate-500">
+          {inspectionPreview.explanation}
+        </p>
+        {inspectionPreview.co2eTon != null && (
+          <p className="mt-2 text-xs font-medium text-slate-600">
+            Beräknad CO₂e: {formatNumber(inspectionPreview.co2eTon)} ton
+          </p>
+        )}
+      </div>
 
       {previewNextInspection && (
         <p className="text-sm font-medium text-slate-700">
@@ -235,16 +250,44 @@ export default function CreateInstallationForm({
 
 function calculateNextInspectionPreview(
   lastInspection: string,
-  inspectionIntervalMonths: string
+  inspectionIntervalMonths: number | null
 ) {
   if (!lastInspection || !inspectionIntervalMonths) return null
 
   const nextInspection = calculateNextInspectionDate(
     lastInspection,
-    parseInt(inspectionIntervalMonths, 10)
+    inspectionIntervalMonths
   )
 
   return nextInspection
     ? new Intl.DateTimeFormat("sv-SE").format(nextInspection)
     : null
+}
+
+function calculateInspectionPreview(
+  refrigerantType: string,
+  refrigerantAmount: string,
+  hasLeakDetectionSystem: boolean
+) {
+  const amount = parseFloat(refrigerantAmount)
+
+  if (!refrigerantType || !Number.isFinite(amount)) {
+    return {
+      ...calculateInspectionObligation(null, hasLeakDetectionSystem),
+      co2eTon: null,
+    }
+  }
+
+  const { co2eTon } = calculateCO2e(refrigerantType, amount)
+
+  return {
+    ...calculateInspectionObligation(co2eTon, hasLeakDetectionSystem),
+    co2eTon,
+  }
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("sv-SE", {
+    maximumFractionDigits: 2,
+  }).format(value)
 }

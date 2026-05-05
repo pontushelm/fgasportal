@@ -3,6 +3,8 @@
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import {
+  calculateCO2e,
+  calculateInspectionObligation,
   calculateInstallationCompliance,
   type ComplianceStatus,
 } from "@/lib/fgas-calculations"
@@ -750,6 +752,11 @@ export default function InstallationDetailPage() {
     leakageEventsCount: leakageEvents.length,
   })
   const canManage = isAdminRole(currentUser?.role)
+  const editInspectionPreview = calculateInspectionPreview(
+    editForm.refrigerantType,
+    editForm.refrigerantAmount,
+    editForm.hasLeakDetectionSystem
+  )
   const documentsByEventId = documents.reduce<Record<string, number>>((counts, document) => {
     if (!document.event?.id) return counts
     counts[document.event.id] = (counts[document.event.id] ?? 0) + 1
@@ -869,8 +876,25 @@ export default function InstallationDetailPage() {
                   checked={editForm.hasLeakDetectionSystem}
                   onChange={handleEditChange}
                 />
-                Läckagevarningssystem
+                <span>
+                  Läckagevarningssystem finns
+                  <span className="block text-xs font-normal text-slate-500">
+                    Kan påverka lagstadgat kontrollintervall.
+                  </span>
+                </span>
               </label>
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
+                <p className="font-semibold text-slate-900">Kontrollplikt</p>
+                <p className="mt-1 text-slate-700">{editInspectionPreview.label}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {editInspectionPreview.explanation}
+                </p>
+                {editInspectionPreview.co2eTon != null && (
+                  <p className="mt-2 text-xs font-medium text-slate-600">
+                    Beräknad CO₂e: {formatNumber(editInspectionPreview.co2eTon)} ton
+                  </p>
+                )}
+              </div>
               <label className={fieldClassName}>
                 Servicepartner
                 <select name="assignedContractorId" value={editForm.assignedContractorId} onChange={handleEditChange}>
@@ -1356,6 +1380,28 @@ function canDeleteDocument(
 
 function compareEventsByDateDesc(first: InstallationEvent, second: InstallationEvent) {
   return new Date(second.date).getTime() - new Date(first.date).getTime()
+}
+
+function calculateInspectionPreview(
+  refrigerantType: string,
+  refrigerantAmount: string,
+  hasLeakDetectionSystem: boolean
+) {
+  const amount = parseFloat(refrigerantAmount)
+
+  if (!refrigerantType || !Number.isFinite(amount)) {
+    return {
+      ...calculateInspectionObligation(null, hasLeakDetectionSystem),
+      co2eTon: null,
+    }
+  }
+
+  const { co2eTon } = calculateCO2e(refrigerantType, amount)
+
+  return {
+    ...calculateInspectionObligation(co2eTon, hasLeakDetectionSystem),
+    co2eTon,
+  }
 }
 
 function formatInspectionInterval(compliance: {

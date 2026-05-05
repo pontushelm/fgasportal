@@ -23,6 +23,7 @@ type Installation = {
   refrigerantType: string
   refrigerantAmount: number
   co2eTon: number
+  inspectionInterval?: number | null
   riskLevel: InstallationRiskLevel
   riskScore: number
   complianceStatus: ComplianceStatus
@@ -670,6 +671,8 @@ export default function InstallationsPageClient() {
             <option value="overdue">Försenad</option>
             <option value="dueSoon">Inom 30 dagar</option>
             <option value="ok">OK</option>
+            <option value="required">Kontrollpliktiga</option>
+            <option value="notRequired">Ej kontrollpliktiga</option>
           </FilterSelect>
 
           <FilterSelect label="Sortering" value={sortValue} onChange={updateSort}>
@@ -876,6 +879,7 @@ export default function InstallationsPageClient() {
                   <TableCell>{formatOptionalDate(installation.nextInspection)}</TableCell>
                   <TableCell>
                     <StatusBadge status={installation.complianceStatus} />
+                    <ControlObligationBadge intervalMonths={installation.inspectionInterval} />
                   </TableCell>
                 </tr>
               ))}
@@ -1252,6 +1256,18 @@ function StatusBadge({ status }: { status: ComplianceStatus }) {
   return (
     <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${STATUS_TONE[status]}`}>
       {STATUS_LABELS[status]}
+    </span>
+  )
+}
+
+function ControlObligationBadge({
+  intervalMonths,
+}: {
+  intervalMonths?: number | null
+}) {
+  return (
+    <span className="mt-1 inline-flex rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold text-slate-700">
+      {intervalMonths ? `Var ${intervalMonths}:e månad` : "Ej kontrollpliktigt"}
     </span>
   )
 }

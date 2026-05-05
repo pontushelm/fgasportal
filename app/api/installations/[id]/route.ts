@@ -118,16 +118,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       validatedData.lastInspection !== undefined
         ? validatedData.lastInspection
         : installation.lastInspection
-    const inspectionIntervalMonths =
-      validatedData.inspectionIntervalMonths !== undefined
-        ? validatedData.inspectionIntervalMonths
-        : installation.inspectionIntervalMonths
-    const shouldRecalculateNextInspection =
-      validatedData.lastInspection !== undefined ||
-      validatedData.inspectionIntervalMonths !== undefined
-    const nextInspection = shouldRecalculateNextInspection
-      ? calculateNextInspectionDate(lastInspection, inspectionIntervalMonths)
-      : installation.nextInspection
+    const compliance = calculateInstallationCompliance(
+      validatedData.refrigerantType,
+      validatedData.refrigerantAmount,
+      validatedData.hasLeakDetectionSystem ?? false,
+      lastInspection
+    )
+    const nextInspection = calculateNextInspectionDate(
+      lastInspection,
+      compliance.inspectionIntervalMonths
+    )
     const assignedContractorUpdate =
       assignedContractorId === undefined
         ? {}
@@ -155,7 +155,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         refrigerantAmount: validatedData.refrigerantAmount,
         hasLeakDetectionSystem: validatedData.hasLeakDetectionSystem ?? false,
         lastInspection: validatedData.lastInspection,
-        inspectionIntervalMonths: validatedData.inspectionIntervalMonths,
+        inspectionIntervalMonths: compliance.inspectionIntervalMonths,
         nextInspection,
         notes: emptyToNull(validatedData.notes),
       },
@@ -197,7 +197,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     }
 
-    const compliance = calculateInstallationCompliance(
+    const updatedCompliance = calculateInstallationCompliance(
       updatedInstallation.refrigerantType,
       updatedInstallation.refrigerantAmount,
       updatedInstallation.hasLeakDetectionSystem,
@@ -208,14 +208,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json(
       {
         ...updatedInstallation,
-        gwp: compliance.gwp,
-        co2eKg: compliance.co2eKg,
-        co2eTon: compliance.co2eTon,
-        inspectionInterval: compliance.inspectionIntervalMonths,
-        baseInspectionInterval: compliance.baseInspectionIntervalMonths,
-        hasAdjustedInspectionInterval: compliance.hasAdjustedInspectionInterval,
-        complianceStatus: compliance.status,
-        daysUntilDue: compliance.daysUntilDue,
+        gwp: updatedCompliance.gwp,
+        co2eKg: updatedCompliance.co2eKg,
+        co2eTon: updatedCompliance.co2eTon,
+        inspectionInterval: updatedCompliance.inspectionIntervalMonths,
+        baseInspectionInterval: updatedCompliance.baseInspectionIntervalMonths,
+        hasAdjustedInspectionInterval: updatedCompliance.hasAdjustedInspectionInterval,
+        complianceStatus: updatedCompliance.status,
+        daysUntilDue: updatedCompliance.daysUntilDue,
       },
       { status: 200 }
     )

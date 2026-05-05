@@ -7,6 +7,8 @@ import {
   normalizeImportRow,
   type ImportInstallationInput,
 } from "@/lib/installation-import"
+import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
+import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 
 const importRequestSchema = z.object({
   rows: z.array(
@@ -75,6 +77,20 @@ export async function POST(request: NextRequest) {
         continue
       }
 
+      const lastInspection = parsed.lastInspection
+        ? new Date(parsed.lastInspection)
+        : null
+      const compliance = calculateInstallationCompliance(
+        parsed.refrigerantType,
+        parsed.refrigerantAmount,
+        false,
+        lastInspection
+      )
+      const nextInspection = calculateNextInspectionDate(
+        lastInspection,
+        compliance.inspectionIntervalMonths
+      )
+
       await prisma.installation.create({
         data: {
           name: parsed.name,
@@ -83,13 +99,9 @@ export async function POST(request: NextRequest) {
           refrigerantType: parsed.refrigerantType,
           refrigerantAmount: parsed.refrigerantAmount,
           installationDate: new Date(),
-          lastInspection: parsed.lastInspection
-            ? new Date(parsed.lastInspection)
-            : null,
-          inspectionIntervalMonths: parsed.inspectionIntervalMonths,
-          nextInspection: parsed.nextInspection
-            ? new Date(parsed.nextInspection)
-            : null,
+          lastInspection,
+          inspectionIntervalMonths: compliance.inspectionIntervalMonths,
+          nextInspection,
           notes: parsed.notes,
           companyId,
           createdById: userId,

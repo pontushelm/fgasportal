@@ -46,11 +46,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const compliance = calculateInstallationCompliance(
+      validatedData.refrigerantType,
+      validatedData.refrigerantAmount,
+      validatedData.hasLeakDetectionSystem ?? false,
+      validatedData.lastInspection
+    )
     const nextInspection = calculateNextInspectionDate(
       validatedData.lastInspection,
-      validatedData.inspectionIntervalMonths
+      compliance.inspectionIntervalMonths
     )
-    const compliance = calculateInstallationCompliance(
+    const responseCompliance = calculateInstallationCompliance(
       validatedData.refrigerantType,
       validatedData.refrigerantAmount,
       validatedData.hasLeakDetectionSystem ?? false,
@@ -69,6 +75,7 @@ export async function POST(request: NextRequest) {
         operatorName: emptyToNull(validatedData.operatorName),
         assignedContractorId: assignedContractorId ?? null,
         hasLeakDetectionSystem: validatedData.hasLeakDetectionSystem ?? false,
+        inspectionIntervalMonths: compliance.inspectionIntervalMonths,
         nextInspection,
         notes: emptyToNull(validatedData.notes),
         companyId,
@@ -110,14 +117,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ...installation,
-      gwp: compliance.gwp,
-      co2eKg: compliance.co2eKg,
-      co2eTon: compliance.co2eTon,
-      inspectionInterval: compliance.inspectionIntervalMonths,
-      baseInspectionInterval: compliance.baseInspectionIntervalMonths,
-      hasAdjustedInspectionInterval: compliance.hasAdjustedInspectionInterval,
-      complianceStatus: compliance.status,
-      daysUntilDue: compliance.daysUntilDue,
+      gwp: responseCompliance.gwp,
+      co2eKg: responseCompliance.co2eKg,
+      co2eTon: responseCompliance.co2eTon,
+      inspectionInterval: responseCompliance.inspectionIntervalMonths,
+      baseInspectionInterval: responseCompliance.baseInspectionIntervalMonths,
+      hasAdjustedInspectionInterval: responseCompliance.hasAdjustedInspectionInterval,
+      complianceStatus: responseCompliance.status,
+      daysUntilDue: responseCompliance.daysUntilDue,
       inspectionReminderStatus: nextInspection
         ? classifyInspectionReminderStatus(nextInspection, new Date())
         : null,
@@ -313,7 +320,11 @@ export async function GET(request: NextRequest) {
     })
     const filteredInstallations = statusFilter
       ? installationsWithCompliance.filter((installation) =>
-          matchesStatusFilter(installation.complianceStatus, statusFilter)
+          matchesStatusFilter(
+            installation.complianceStatus,
+            installation.inspectionInterval,
+            statusFilter
+          )
         )
       : installationsWithCompliance
     const sortedInstallations =
@@ -346,9 +357,15 @@ function getInstallationOrderBy(
   return { updatedAt: direction }
 }
 
-function matchesStatusFilter(status: string, filter: string) {
+function matchesStatusFilter(
+  status: string,
+  inspectionInterval: number | null,
+  filter: string
+) {
   if (filter === 'overdue') return status === 'OVERDUE'
   if (filter === 'dueSoon') return status === 'DUE_SOON'
   if (filter === 'ok') return status === 'OK'
+  if (filter === 'required') return inspectionInterval !== null
+  if (filter === 'notRequired') return inspectionInterval === null
   return true
 }

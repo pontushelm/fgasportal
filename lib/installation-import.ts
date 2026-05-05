@@ -1,3 +1,7 @@
+import {
+  calculateCO2e,
+  calculateInspectionObligation,
+} from "@/lib/fgas-calculations"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 
 export type ImportInstallationInput = {
@@ -18,8 +22,6 @@ export type ParsedImportRow = ImportInstallationInput & {
 }
 
 const MAX_IMPORT_ROWS = 500
-const VALID_INTERVALS = new Set([3, 6, 12])
-
 const HEADER_ALIASES: Record<keyof Omit<ImportInstallationInput, "row">, string[]> = {
   name: ["name", "namn", "aggregat", "installation", "installation name"],
   location: ["location", "plats", "placering", "anläggning", "anlaggning"],
@@ -69,9 +71,13 @@ export function normalizeImportRow(
   const notes = getOptionalString(rawRow, "notes")
   const refrigerantAmount = parseNumber(getValue(rawRow, "refrigerantAmount"))
   const lastInspection = parseDateValue(getValue(rawRow, "lastInspection"))
-  const inspectionIntervalMonths = parseInterval(
-    getValue(rawRow, "inspectionIntervalMonths")
-  )
+  const inspectionIntervalMonths =
+    refrigerantAmount !== null && !Number.isNaN(refrigerantAmount)
+      ? calculateInspectionObligation(
+          calculateCO2e(refrigerantType, refrigerantAmount).co2eTon,
+          false
+        ).intervalMonths
+      : null
 
   if (!name) errors.push("Missing name")
   if (!location) errors.push("Missing location")
@@ -83,11 +89,6 @@ export function normalizeImportRow(
   const rawLastInspection = getValue(rawRow, "lastInspection")
   if (hasValue(rawLastInspection) && !lastInspection) {
     errors.push("Invalid date")
-  }
-
-  const rawInterval = getValue(rawRow, "inspectionIntervalMonths")
-  if (hasValue(rawInterval) && !inspectionIntervalMonths) {
-    errors.push("Invalid interval")
   }
 
   const nextInspection = calculateNextInspectionDate(
@@ -172,14 +173,6 @@ function parseNumber(value: unknown) {
 
   const parsed = Number(String(value).replace(",", ".").trim())
   return Number.isNaN(parsed) ? null : parsed
-}
-
-function parseInterval(value: unknown) {
-  const parsed = parseNumber(value)
-  if (!parsed) return null
-
-  const interval = Math.trunc(parsed)
-  return VALID_INTERVALS.has(interval) ? interval : null
 }
 
 function parseDateValue(value: unknown) {
