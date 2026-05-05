@@ -867,13 +867,10 @@ export default function InstallationsPageClient() {
                   </th>
                 )}
                 <TableHeader>Aggregat</TableHeader>
-                <TableHeader>Plats</TableHeader>
-                <TableHeader>Fastighet</TableHeader>
-                <TableHeader>Kommun</TableHeader>
+                <TableHeader>Placering</TableHeader>
                 <TableHeader>Köldmedium</TableHeader>
                 <TableHeader>Mängd</TableHeader>
                 <TableHeader>CO₂e</TableHeader>
-                <TableHeader>Servicepartner</TableHeader>
                 <TableHeader>Nästa kontroll</TableHeader>
                 <TableHeader>Kontrollintervall</TableHeader>
                 <TableHeader>Status</TableHeader>
@@ -910,13 +907,17 @@ export default function InstallationsPageClient() {
                       </div>
                     )}
                   </TableCell>
-                  <TableCell>{installation.location}</TableCell>
-                  <TableCell>{installation.property?.name || "-"}</TableCell>
-                  <TableCell>{installation.property?.municipality || "-"}</TableCell>
+                  <TableCell>
+                    <div className="max-w-[220px]">
+                      <p className="truncate font-medium text-slate-900">{installation.location}</p>
+                      <p className="mt-1 truncate text-xs text-slate-500">
+                        {formatPlacementMeta(installation)}
+                      </p>
+                    </div>
+                  </TableCell>
                   <TableCell>{installation.refrigerantType}</TableCell>
                   <TableCell>{formatNumber(installation.refrigerantAmount)} kg</TableCell>
                   <TableCell>{formatNumber(installation.co2eTon)} ton</TableCell>
-                  <TableCell>{installation.assignedContractor?.name || "-"}</TableCell>
                   <TableCell>{formatOptionalDate(installation.nextInspection)}</TableCell>
                   <TableCell>{formatInspectionInterval(installation.inspectionInterval)}</TableCell>
                   <TableCell>
@@ -1287,14 +1288,14 @@ function FilterSelect({
 
 function TableHeader({ children }: { children: React.ReactNode }) {
   return (
-    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+    <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
       {children}
     </th>
   )
 }
 
 function TableCell({ children }: { children: React.ReactNode }) {
-  return <td className="whitespace-nowrap px-4 py-3 text-slate-800">{children}</td>
+  return <td className="whitespace-nowrap px-3 py-3 align-top text-slate-800">{children}</td>
 }
 
 function StatusBadge({
@@ -1331,6 +1332,12 @@ function StatusBadge({
 
 function formatInspectionInterval(intervalMonths?: number | null) {
   return intervalMonths ? `Var ${intervalMonths}:e månad` : "Ej kontrollpliktigt"
+}
+
+function formatPlacementMeta(installation: Installation) {
+  return [installation.property?.name, installation.property?.municipality]
+    .filter(Boolean)
+    .join(" · ") || "-"
 }
 
 function RiskBadge({ level }: { level: InstallationRiskLevel }) {
