@@ -10,60 +10,35 @@ const previewStats = [
 
 const previewTags = ["Årsrapport", "Fastigheter", "Dokument", "Servicepartners"]
 
-const problems = [
-  "Excel-register blir snabbt inaktuella",
-  "Kontrollintervall missas",
-  "Underlag inför årsrapport sprids ut",
-  "Svårt att följa upp servicepartners",
-  "Begränsad överblick över CO₂e och läckage",
-  "Dokument och historik saknas på rätt aggregat",
-]
-
-const features = [
+const valueCards = [
   {
-    title: "Installationsregister",
-    text: "Samla aggregat, köldmedium, fyllnadsmängd, fastighet och servicepartner i ett strukturerat register.",
+    title: "Samlat F-gasregister",
+    text: "Samla aggregat, köldmedium, mängder, fastigheter och servicepartners i ett strukturerat register.",
   },
   {
-    title: "Kontrollintervall och påminnelser",
-    text: "Följ nästa kontroll och minska risken för missade läckagekontroller.",
+    title: "Kontroll på intervall och status",
+    text: "Följ kommande och försenade kontroller, riskstatus och prioriterade åtgärder.",
   },
   {
-    title: "Fastigheter och kommuner",
-    text: "Gruppera aggregat per fastighet och kommun för bättre överblick och rapportering.",
+    title: "Rapporter och dokumentation",
+    text: "Samla historik, dokument och underlag för årsrapportering till kommun.",
   },
   {
-    title: "Contractor-portal",
-    text: "Bjud in servicepartners som kan se tilldelade aggregat och registrera utfört arbete.",
-  },
-  {
-    title: "Dokument och aktivitetslogg",
-    text: "Koppla kontrollrapporter, serviceprotokoll och historik till rätt aggregat.",
-  },
-  {
-    title: "Risk och klimatpåverkan",
-    text: "Se CO₂e, riskklassning, läckagehistorik och prioriterade åtgärder.",
-  },
-  {
-    title: "Årsrapport och export",
-    text: "Samla underlag för svensk F-gas årsrapport och exportera till CSV eller PDF.",
-  },
-  {
-    title: "Excel-import och bulkhantering",
-    text: "Importera många aggregat och uppdatera fastighet eller servicepartner i bulk.",
+    title: "Klimatpåverkan och CO₂e",
+    text: "Få överblick över klimatpåverkan per aggregat, fastighet och köldmedium.",
   },
 ]
 
 const workflowSteps = [
-  "Importera eller skapa aggregat",
+  "Registrera eller importera aggregat",
   "Koppla till fastigheter och servicepartners",
-  "Följ kontrollintervall, risk och läckage",
+  "Följ kontrollintervall, läckage och risk",
   "Samla dokument och historik",
-  "Exportera årsrapport och underlag",
+  "Exportera årsrapport och klimatunderlag",
 ]
 
 const audiences = [
-  "Fastighetsbolag",
+  "Fastighetsägare",
   "Kommuner",
   "Regioner och sjukhus",
   "Industriella verksamheter",
@@ -72,10 +47,10 @@ const audiences = [
 ]
 
 const riskPoints = [
-  "CO₂e per aggregat och köldmedium",
-  "Riskklassning för prioritering",
+  "CO₂e per aggregat",
+  "Riskklassning",
   "Läckagehistorik över tid",
-  "Prioriterade åtgärder i dashboarden",
+  "Försenade kontroller",
   "Fastigheter med hög klimatpåverkan",
 ]
 
@@ -114,22 +89,22 @@ export default function Home() {
             SaaS för F-gasregister och uppföljning
           </p>
           <h1 className="mt-4 max-w-4xl text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
-            F-gasregister, kontroller och rapporter – samlat i ett system
+            Hantera köldmedieaggregat, uppfyll krav och minska klimatpåverkan.
           </h1>
           <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-700">
-            FgasPortal hjälper fastighetsägare, kommuner, regioner och
-            driftorganisationer att hålla ordning på köldmedieaggregat,
-            kontrollintervall, servicepartners, dokument och årsrapporter.
+            FgasPortal samlar register, kontroller, dokumentation,
+            servicepartners och rapportunderlag i ett webbaserat system för
+            verksamheter som omfattas av F-gasförordningen.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a className={primaryLargeLinkClassName} href="mailto:info@fgasportal.se">
               Boka demo
             </a>
-            <Link className={secondaryLargeLinkClassName} href="/login">
-              Logga in
-            </Link>
-            <Link className={ghostLargeLinkClassName} href="/register">
+            <Link className={secondaryLargeLinkClassName} href="/register">
               Skapa konto
+            </Link>
+            <Link className={ghostLargeLinkClassName} href="/login">
+              Logga in
             </Link>
           </div>
         </div>
@@ -138,26 +113,12 @@ export default function Home() {
       </section>
 
       <Section
-        eyebrow="Utmaningar"
-        title="Vanliga utmaningar med F-gasregister"
-        description="Många organisationer har kontroll på tekniken, men saknar ett samlat system för register, uppföljning och rapportunderlag."
-      >
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {problems.map((problem) => (
-            <article className={cardClassName} key={problem}>
-              <h3 className="text-base font-semibold text-slate-950">{problem}</h3>
-            </article>
-          ))}
-        </div>
-      </Section>
-
-      <Section
-        eyebrow="Lösning"
-        title="Ett system för hela F-gasflödet"
-        description="Från import av aggregat till kontrollbevakning, dokumentation, serviceuppdrag och rapportering."
+        eyebrow="Värde"
+        title="Det viktigaste samlat på ett ställe"
+        description="FgasPortal ger organisationen en tydlig grund för registerhållning, uppföljning och rapportering."
       >
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {features.map((feature) => (
+          {valueCards.map((feature) => (
             <article className={cardClassName} key={feature.title}>
               <h3 className="font-semibold text-slate-950">{feature.title}</h3>
               <p className="mt-3 text-sm leading-6 text-slate-600">{feature.text}</p>
@@ -173,12 +134,11 @@ export default function Home() {
               Arbetsflöde
             </p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
-              Från register till uppföljning
+              Så hjälper FgasPortal i vardagen
             </h2>
             <p className="mt-4 text-sm leading-6 text-slate-600">
-              FgasPortal är byggt för löpande drift, inte bara årsvis
-              rapportering. Systemet hjälper er att strukturera data och följa
-              upp det som behöver åtgärdas.
+              Ett kompakt arbetsflöde från registrering till uppföljning,
+              dokumentation och export.
             </p>
           </div>
           <div className="grid gap-3">
@@ -197,10 +157,47 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="border-y border-slate-200 bg-white">
+        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:px-8">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
+              Servicepartners
+            </p>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
+              Samarbeta med servicepartners direkt i systemet
+            </h2>
+            <p className="mt-4 text-sm leading-6 text-slate-600">
+              Bjud in servicepartners så att de kan se tilldelade aggregat,
+              registrera kontroller, läckage, service och ladda upp dokument
+              direkt på rätt installation.
+            </p>
+          </div>
+          <div className="grid gap-3">
+            <ServicePoint>Operatören behåller ägarskapet över registret</ServicePoint>
+            <ServicePoint>Servicepartners ser endast tilldelade installationer</ServicePoint>
+            <ServicePoint>Stöd för organisationer med många fastigheter eller servicepartners</ServicePoint>
+          </div>
+        </div>
+      </section>
+
+      <Section
+        eyebrow="Risk och klimat"
+        title="Prioritera rätt med risk- och klimatöversikt"
+        description="Se vilka aggregat och fastigheter som bör prioriteras baserat på CO₂e, riskklassning, läckagehistorik och kontrollstatus."
+      >
+        <div className="flex flex-wrap gap-3">
+          {riskPoints.map((point) => (
+            <div className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-900" key={point}>
+              {point}
+            </div>
+          ))}
+        </div>
+      </Section>
+
       <Section
         eyebrow="Målgrupper"
-        title="Byggt för organisationer med många aggregat"
-        description="FgasPortal passar verksamheter som behöver bättre struktur, spårbarhet och överblick över flera fastigheter, anläggningar eller serviceflöden."
+        title="Byggt för verksamheter med många aggregat"
+        description="För organisationer som behöver struktur, spårbarhet och överblick över flera fastigheter, anläggningar eller serviceflöden."
       >
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {audiences.map((audience) => (
@@ -211,60 +208,14 @@ export default function Home() {
         </div>
       </Section>
 
-      <section className="border-y border-slate-200 bg-white">
-        <div className="mx-auto grid max-w-7xl gap-6 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:px-8">
-          <article className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
-            <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
-              Operatörer
-            </p>
-            <h2 className="mt-3 text-2xl font-bold text-slate-950">
-              Registret ägs av operatören
-            </h2>
-            <p className="mt-4 text-sm leading-6 text-slate-600">
-              Operatören behåller överblicken över aggregat, fastigheter,
-              kontrollintervall, dokument och årsrapporter. FgasPortal hjälper
-              till att samla informationen och göra uppföljningen tydligare.
-            </p>
-          </article>
-
-          <article className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
-            <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
-              Servicepartners
-            </p>
-            <h2 className="mt-3 text-2xl font-bold text-slate-950">
-              Contractors bjuds in utan kostnad
-            </h2>
-            <p className="mt-4 text-sm leading-6 text-slate-600">
-              Servicepartners kan se tilldelade aggregat, registrera kontroller,
-              service, läckage och påfyllning samt ladda upp dokument direkt på
-              rätt installation.
-            </p>
-          </article>
-        </div>
-      </section>
-
-      <Section
-        eyebrow="Risk och klimat"
-        title="Bättre överblick över risk och klimatpåverkan"
-        description="FgasPortal ger en tydligare bild av vilka aggregat och fastigheter som bör prioriteras i uppföljning och underhåll."
-      >
-        <div className="grid gap-4 md:grid-cols-5">
-          {riskPoints.map((point) => (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900" key={point}>
-              {point}
-            </div>
-          ))}
-        </div>
-      </Section>
-
       <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
         <div className="rounded-2xl border border-slate-200 bg-slate-950 p-8 text-white shadow-sm sm:p-10">
           <h2 className="max-w-3xl text-3xl font-bold tracking-tight">
-            Vill ni få bättre kontroll på era F-gasregister?
+            Vill ni få bättre kontroll över ert F-gasregister?
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300">
-            Boka en demo för att se hur FgasPortal kan hjälpa er att samla
-            register, dokument, serviceuppföljning och rapportunderlag.
+            Boka en demo för att se hur FgasPortal kan samla register,
+            kontroller, dokumentation, serviceuppföljning och rapportunderlag.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <a className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700" href="mailto:info@fgasportal.se">
@@ -366,6 +317,14 @@ function MockAction({
       <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${toneClass}`}>
         Åtgärd
       </span>
+    </div>
+  )
+}
+
+function ServicePoint({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-900">
+      {children}
     </div>
   )
 }
