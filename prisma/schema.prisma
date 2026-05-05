@@ -48,7 +48,6 @@ model Company {
   /// Deprecated: retained for backward compatibility, not edited in company settings.
   supervisoryAuthority String?
   sendInspectionRemindersToContractors Boolean @default(false)
-  email     String   @unique
   phone     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
