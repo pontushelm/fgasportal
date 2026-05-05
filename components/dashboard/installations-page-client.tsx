@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import ImportInstallationsPage from "@/components/dashboard/installations-import-page-client"
 import CreateInstallationForm from "@/components/installations/create-installation-form"
 import { Button, Card, PageHeader } from "@/components/ui"
@@ -106,11 +106,21 @@ const SORT_OPTIONS = [
   { value: "co2e:asc", label: "CO₂e, lägst först" },
 ]
 const SAVED_FILTER_PAGE = "installations"
+const filterControlClassName =
+  "h-10 w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400"
 
 export default function InstallationsPageClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const queryString = searchParams.toString()
+  const searchValue = searchParams.get("q") || ""
+  const archivedValue = searchParams.get("archived") || "active"
+  const refrigerantValue = searchParams.get("refrigerantType") || ""
+  const contractorFilterValue = searchParams.get("contractorId") || ""
+  const propertyFilterValue = searchParams.get("propertyId") || ""
+  const municipalityFilterValue = searchParams.get("municipality") || ""
+  const statusValue = searchParams.get("status") || ""
+  const sortValue = `${searchParams.get("sort") || "updatedAt"}:${searchParams.get("direction") || "desc"}`
   const [installations, setInstallations] = useState<Installation[]>([])
   const [filterSourceInstallations, setFilterSourceInstallations] = useState<Installation[]>([])
   const [contractors, setContractors] = useState<Contractor[]>([])
@@ -140,15 +150,14 @@ export default function InstallationsPageClient() {
   const [isSavingFilter, setIsSavingFilter] = useState(false)
   const [savedFilterError, setSavedFilterError] = useState("")
   const [savedFilterSuccess, setSavedFilterSuccess] = useState("")
-
-  const searchValue = searchParams.get("q") || ""
-  const archivedValue = searchParams.get("archived") || "active"
-  const refrigerantValue = searchParams.get("refrigerantType") || ""
-  const contractorFilterValue = searchParams.get("contractorId") || ""
-  const propertyFilterValue = searchParams.get("propertyId") || ""
-  const municipalityFilterValue = searchParams.get("municipality") || ""
-  const statusValue = searchParams.get("status") || ""
-  const sortValue = `${searchParams.get("sort") || "updatedAt"}:${searchParams.get("direction") || "desc"}`
+  const [searchInputState, setSearchInputState] = useState({
+    sourceValue: searchValue,
+    value: searchValue,
+  })
+  const searchInputValue =
+    searchInputState.sourceValue === searchValue
+      ? searchInputState.value
+      : searchValue
 
   useEffect(() => {
     let isMounted = true
@@ -308,7 +317,7 @@ export default function InstallationsPageClient() {
       statusValue
   )
 
-  function updateQueryParam(name: string, value: string) {
+  const updateQueryParam = useCallback((name: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString())
     setSelectedSavedFilterId("")
     setSavedFilterSuccess("")
@@ -320,7 +329,18 @@ export default function InstallationsPageClient() {
     }
 
     router.replace(`/dashboard/installations${params.toString() ? `?${params.toString()}` : ""}`)
-  }
+  }, [router, searchParams])
+
+  useEffect(() => {
+    const nextSearchValue = searchInputValue.trim()
+    if (nextSearchValue === searchValue) return
+
+    const timeoutId = window.setTimeout(() => {
+      updateQueryParam("q", nextSearchValue)
+    }, 300)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [searchInputValue, searchValue, updateQueryParam])
 
   function updateSort(value: string) {
     const [sort, direction] = value.split(":")
@@ -548,25 +568,33 @@ export default function InstallationsPageClient() {
               variant="secondary"
               onClick={() => setIsImportModalOpen(true)}
             >
-              Import Excel
+              Importera aggregat
             </Button>
           </>
         }
         eyebrow="Aggregat"
         title="Registrerade aggregat"
-        subtitle="Sök, filtrera och sortera aggregatlistan. Ansvariga kan även göra bulkåtgärder."
+        subtitle="Register över organisationens köldmedieaggregat."
       />
+      <p className="mt-3 max-w-3xl text-sm text-slate-600">
+        Har du ett befintligt Excel-register? Importera flera aggregat samtidigt.
+      </p>
 
       <Card className="mt-6 p-4">
-        <div className="grid gap-4 lg:grid-cols-[minmax(220px,1.4fr)_repeat(7,minmax(150px,1fr))]">
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <label className="grid gap-1 text-sm font-medium text-slate-700">
             Sök
             <input
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400"
+              className={filterControlClassName}
               placeholder="Namn, plats eller ID"
               type="search"
-              value={searchValue}
-              onChange={(event) => updateQueryParam("q", event.target.value)}
+              value={searchInputValue}
+              onChange={(event) =>
+                setSearchInputState({
+                  sourceValue: searchValue,
+                  value: event.target.value,
+                })
+              }
             />
           </label>
 
@@ -657,7 +685,7 @@ export default function InstallationsPageClient() {
           <label className="grid gap-1 text-sm font-medium text-slate-700 lg:min-w-72">
             Mina sparade filter
             <select
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900"
+              className={filterControlClassName}
               value={selectedSavedFilterId}
               onChange={(event) => applySavedFilter(event.target.value)}
             >
@@ -676,7 +704,7 @@ export default function InstallationsPageClient() {
                 <label className="grid gap-1 text-sm font-medium text-slate-700">
                   Filternamn
                   <input
-                    className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400"
+                    className={filterControlClassName}
                     placeholder="Ex. Försenade R410A"
                     value={saveFilterName}
                     onChange={(event) => setSaveFilterName(event.target.value)}
@@ -1006,8 +1034,11 @@ export default function InstallationsPageClient() {
                   Import
                 </p>
                 <h2 className="mt-1 text-lg font-semibold text-slate-950">
-                  Import Excel
+                  Importera aggregat
                 </h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Importera flera aggregat från ett befintligt Excel-register.
+                </p>
               </div>
               <button
                 className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
@@ -1195,7 +1226,7 @@ function FilterSelect({
     <label className="grid gap-1 text-sm font-medium text-slate-700">
       {label}
       <select
-        className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900"
+        className={filterControlClassName}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >

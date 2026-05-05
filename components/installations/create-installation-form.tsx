@@ -1,6 +1,5 @@
 "use client"
 
-import Link from "next/link"
 import { useEffect, useState } from "react"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 import type { InspectionReminderStatus } from "@/lib/inspection-reminders"
@@ -12,7 +11,6 @@ type InstallationFormData = {
   propertyId: string
   equipmentId: string
   serialNumber: string
-  propertyName: string
   equipmentType: string
   operatorName: string
   refrigerantType: string
@@ -63,7 +61,6 @@ const initialFormData: InstallationFormData = {
   propertyId: "",
   equipmentId: "",
   serialNumber: "",
-  propertyName: "",
   equipmentType: "",
   operatorName: "",
   refrigerantType: "",
@@ -175,7 +172,6 @@ export default function CreateInstallationForm({
           ))}
         </select>
       </label>
-      <input className={inputClassName} name="propertyName" placeholder="Fastighet" value={formData.propertyName} onChange={handleChange} />
       <input className={inputClassName} name="equipmentId" placeholder="Utrustnings-ID" value={formData.equipmentId} onChange={handleChange} />
       <input className={inputClassName} name="serialNumber" placeholder="Serienummer" value={formData.serialNumber} onChange={handleChange} />
       <input className={inputClassName} name="equipmentType" placeholder="Utrustningstyp" value={formData.equipmentType} onChange={handleChange} />
@@ -194,7 +190,10 @@ export default function CreateInstallationForm({
         Läckagevarningssystem
       </label>
 
-      <input className={inputClassName} name="installationDate" type="date" value={formData.installationDate} onChange={handleChange} required />
+      <label className={labelClassName}>
+        Installationsdatum
+        <input className={inputClassName} name="installationDate" type="date" value={formData.installationDate} onChange={handleChange} required />
+      </label>
 
       <label className={labelClassName}>
         Senaste kontroll
@@ -229,12 +228,6 @@ export default function CreateInstallationForm({
         >
           {isSubmitting ? "Sparar..." : "Spara aggregat"}
         </button>
-        <Link
-          className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 no-underline hover:bg-slate-50"
-          href="/dashboard/installations/import"
-        >
-          Import Excel
-        </Link>
       </div>
     </form>
   )

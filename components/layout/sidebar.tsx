@@ -36,7 +36,7 @@ const primaryNavigation: NavigationItem[] = [
   { href: "/dashboard", label: "Dashboard", roles: ["OWNER", "ADMIN", "MEMBER"] },
   {
     href: "/dashboard/installations",
-    label: "Installationer",
+    label: "Aggregat",
     roles: ["OWNER", "ADMIN", "MEMBER"],
   },
   {

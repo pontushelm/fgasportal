@@ -65,7 +65,7 @@ export default function PropertiesPageClient() {
         actions={
           <>
             <Link className={buttonClassName({ variant: "secondary" })} href="/dashboard/installations">
-              Installationer
+              Aggregat
             </Link>
             <Link className={buttonClassName({ variant: "secondary" })} href="/dashboard/reports">
               Rapporter
