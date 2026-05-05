@@ -621,8 +621,6 @@ export default function CompanySettingsPage() {
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 text-slate-900 sm:px-6 lg:px-8">
       <PageHeader
-        backHref="/dashboard"
-        backLabel="Tillbaka till dashboard"
         eyebrow="Administration"
         title="Företagsinställningar"
         subtitle="Hantera företagsuppgifter, användare och inbjudningar för organisationen."

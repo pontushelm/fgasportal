@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { PasswordInput } from "@/components/ui"
 import { loginSchema, type LoginFormData } from "@/lib/validations"
 
 export default function LoginForm() {
@@ -62,10 +63,9 @@ export default function LoginForm() {
         <label className={labelClassName} htmlFor="password">
           Lösenord
         </label>
-        <input
+        <PasswordInput
           id="password"
           className={inputClassName}
-          type="password"
           placeholder="Lösenord"
           {...register("password")}
         />

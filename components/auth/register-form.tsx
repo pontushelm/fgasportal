@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { PasswordInput } from "@/components/ui"
 import { registerSchema, type RegisterFormData } from "@/lib/validations"
 import { formatRoleLabel } from "@/lib/roles"
 
@@ -147,11 +148,11 @@ export default function RegisterForm({ inviteToken }: { inviteToken?: string }) 
       </Field>
 
       <Field label="Lösenord" error={errors.password?.message as string}>
-        <input className={inputClassName} type="password" placeholder="Lösenord" {...register("password")} />
+        <PasswordInput className={inputClassName} placeholder="Lösenord" {...register("password")} />
       </Field>
 
       <Field label="Bekräfta lösenord" error={errors.confirmPassword?.message as string}>
-        <input className={inputClassName} type="password" placeholder="Bekräfta lösenord" {...register("confirmPassword")} />
+        <PasswordInput className={inputClassName} placeholder="Bekräfta lösenord" {...register("confirmPassword")} />
       </Field>
 
       {submitError && (

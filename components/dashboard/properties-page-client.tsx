@@ -72,8 +72,6 @@ export default function PropertiesPageClient() {
             </Link>
           </>
         }
-        backHref="/dashboard"
-        backLabel="Tillbaka till dashboard"
         eyebrow="Fastigheter"
         title="Fastighetsöversikt"
         subtitle="Se compliance, risk och klimatpåverkan per fastighet."

@@ -5,6 +5,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { PasswordInput } from "@/components/ui"
 import {
   resetPasswordSchema,
   type ResetPasswordFormData,
@@ -55,10 +56,9 @@ export default function ResetPasswordForm({ token }: { token: string }) {
         <label className={labelClassName} htmlFor="password">
           Nytt lösenord
         </label>
-        <input
+        <PasswordInput
           id="password"
           className={inputClassName}
-          type="password"
           autoComplete="new-password"
           placeholder="Nytt lösenord"
           {...register("password")}
@@ -72,10 +72,9 @@ export default function ResetPasswordForm({ token }: { token: string }) {
         <label className={labelClassName} htmlFor="confirmPassword">
           Bekräfta lösenord
         </label>
-        <input
+        <PasswordInput
           id="confirmPassword"
           className={inputClassName}
-          type="password"
           autoComplete="new-password"
           placeholder="Bekräfta lösenord"
           {...register("confirmPassword")}

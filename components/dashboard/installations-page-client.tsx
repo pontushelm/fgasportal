@@ -552,8 +552,6 @@ export default function InstallationsPageClient() {
             </Button>
           </>
         }
-        backHref="/dashboard"
-        backLabel="Tillbaka till dashboard"
         eyebrow="Aggregat"
         title="Registrerade aggregat"
         subtitle="Sök, filtrera och sortera aggregatlistan. Ansvariga kan även göra bulkåtgärder."

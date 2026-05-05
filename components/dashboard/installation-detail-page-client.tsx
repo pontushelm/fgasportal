@@ -1,6 +1,5 @@
 "use client"
 
-import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import {
@@ -716,10 +715,7 @@ export default function InstallationDetailPage() {
   if (isLoading) {
     return (
       <main className="mx-auto max-w-6xl px-4 py-10 text-slate-900">
-        <Link className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline" href="/dashboard">
-          Tillbaka till dashboard
-        </Link>
-        <p className="mt-6 text-slate-600">Laddar...</p>
+        <p className="text-slate-600">Laddar...</p>
       </main>
     )
   }
@@ -727,10 +723,7 @@ export default function InstallationDetailPage() {
   if (error || !installation) {
     return (
       <main className="mx-auto max-w-6xl px-4 py-10 text-slate-900">
-        <Link className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline" href="/dashboard">
-          Tillbaka till dashboard
-        </Link>
-        <h1 className="mt-6 text-3xl font-bold">Installation</h1>
+        <h1 className="text-3xl font-bold">Installation</h1>
         <p className="mt-3 text-slate-600">{error || "Installationen hittades inte"}</p>
       </main>
     )
@@ -765,11 +758,7 @@ export default function InstallationDetailPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 text-slate-900">
-      <Link className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline" href="/dashboard">
-        Tillbaka till dashboard
-      </Link>
-
-      <section className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
+      <section className="rounded-lg border border-slate-200 bg-white p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-950">{installation.name}</h1>

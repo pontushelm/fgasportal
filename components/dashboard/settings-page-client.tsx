@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Badge, Button, Card, PageHeader, SectionHeader } from "@/components/ui"
+import { Badge, Button, Card, PageHeader, PasswordInput, SectionHeader } from "@/components/ui"
 import { ThemeSelect } from "@/components/theme/theme-select"
 import type { UserRole } from "@/lib/auth"
 import { formatRoleLabel } from "@/lib/roles"
@@ -324,11 +324,10 @@ export default function SettingsPageClient() {
             >
               <label className={labelClassName}>
                 Nuvarande lösenord
-                <input
+                <PasswordInput
                   autoComplete="current-password"
                   className={inputClassName}
                   name="currentPassword"
-                  type="password"
                   value={passwordForm.currentPassword}
                   onChange={(event) =>
                     updatePasswordField(event.target.name, event.target.value)
@@ -338,11 +337,10 @@ export default function SettingsPageClient() {
               </label>
               <label className={labelClassName}>
                 Nytt lösenord
-                <input
+                <PasswordInput
                   autoComplete="new-password"
                   className={inputClassName}
                   name="newPassword"
-                  type="password"
                   value={passwordForm.newPassword}
                   onChange={(event) =>
                     updatePasswordField(event.target.name, event.target.value)
@@ -352,11 +350,10 @@ export default function SettingsPageClient() {
               </label>
               <label className={labelClassName}>
                 Bekräfta nytt lösenord
-                <input
+                <PasswordInput
                   autoComplete="new-password"
                   className={inputClassName}
                   name="confirmNewPassword"
-                  type="password"
                   value={passwordForm.confirmNewPassword}
                   onChange={(event) =>
                     updatePasswordField(event.target.name, event.target.value)
