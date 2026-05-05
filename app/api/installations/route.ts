@@ -222,25 +222,43 @@ export async function GET(request: NextRequest) {
     const statusFilter = searchParams.get('status')?.trim()
     const sort = searchParams.get('sort') || 'updatedAt'
     const direction = searchParams.get('direction') === 'asc' ? 'asc' : 'desc'
+    const archivedScope =
+      statusFilter === 'archived' || archived === 'archived'
+        ? 'archived'
+        : statusFilter === 'inactive' || archived === 'all'
+          ? 'all'
+          : 'active'
+    const andFilters: Prisma.InstallationWhereInput[] = []
+
+    if (search) {
+      andFilters.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { location: { contains: search, mode: 'insensitive' } },
+          { equipmentId: { contains: search, mode: 'insensitive' } },
+          { serialNumber: { contains: search, mode: 'insensitive' } },
+          { propertyName: { contains: search, mode: 'insensitive' } },
+        ],
+      })
+    }
+
+    if (statusFilter === 'inactive') {
+      andFilters.push({
+        OR: [
+          { isActive: false },
+          { archivedAt: { not: null } },
+        ],
+      })
+    }
 
     const where: Prisma.InstallationWhereInput = {
       companyId,
-      ...(archived === 'archived'
+      ...(archivedScope === 'archived'
         ? { archivedAt: { not: null } }
-        : archived === 'all'
+        : archivedScope === 'all'
           ? {}
           : { archivedAt: null }),
-      ...(search
-        ? {
-            OR: [
-              { name: { contains: search, mode: 'insensitive' } },
-              { location: { contains: search, mode: 'insensitive' } },
-              { equipmentId: { contains: search, mode: 'insensitive' } },
-              { serialNumber: { contains: search, mode: 'insensitive' } },
-              { propertyName: { contains: search, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
+      ...(andFilters.length > 0 ? { AND: andFilters } : {}),
       ...(refrigerantType ? { refrigerantType } : {}),
       ...(propertyId ? { propertyId } : {}),
       ...(municipality ? { property: { municipality } } : {}),
@@ -333,6 +351,12 @@ export async function GET(request: NextRequest) {
             const multiplier = direction === 'asc' ? 1 : -1
             return (first.co2eTon - second.co2eTon) * multiplier
           })
+        : sort === 'inspectionInterval'
+          ? [...filteredInstallations].sort(compareInspectionIntervals)
+        : sort === 'risk'
+          ? [...filteredInstallations].sort((first, second) =>
+              second.riskScore - first.riskScore
+            )
         : filteredInstallations
 
     return NextResponse.json(sortedInstallations, { status: 200 })
@@ -365,7 +389,25 @@ function matchesStatusFilter(
   if (filter === 'overdue') return status === 'OVERDUE'
   if (filter === 'dueSoon') return status === 'DUE_SOON'
   if (filter === 'ok') return status === 'OK'
+  if (filter === 'missing') return status === 'NOT_INSPECTED'
   if (filter === 'required') return inspectionInterval !== null
   if (filter === 'notRequired') return inspectionInterval === null
+  if (filter === 'archived' || filter === 'inactive') return true
   return true
+}
+
+function compareInspectionIntervals(
+  first: { inspectionInterval: number | null },
+  second: { inspectionInterval: number | null }
+) {
+  return getInspectionIntervalSortValue(first.inspectionInterval) -
+    getInspectionIntervalSortValue(second.inspectionInterval)
+}
+
+function getInspectionIntervalSortValue(interval: number | null) {
+  if (interval === 3) return 1
+  if (interval === 6) return 2
+  if (interval === 12) return 3
+  if (interval === 24) return 4
+  return 5
 }

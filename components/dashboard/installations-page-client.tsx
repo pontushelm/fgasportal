@@ -29,6 +29,7 @@ type Installation = {
   complianceStatus: ComplianceStatus
   nextInspection?: string | null
   updatedAt: string
+  isActive: boolean
   archivedAt?: string | null
   assignedContractor?: Contractor | null
 }
@@ -103,6 +104,8 @@ const SORT_OPTIONS = [
   { value: "updatedAt:asc", label: "Äldst uppdaterad" },
   { value: "nextInspectionDate:asc", label: "Nästa kontroll, tidigast först" },
   { value: "nextInspectionDate:desc", label: "Nästa kontroll, senast först" },
+  { value: "inspectionInterval:asc", label: "Kontrollintervall" },
+  { value: "risk:desc", label: "Högst risk" },
   { value: "co2e:desc", label: "CO₂e, högst först" },
   { value: "co2e:asc", label: "CO₂e, lägst först" },
 ]
@@ -121,6 +124,9 @@ export default function InstallationsPageClient() {
   const propertyFilterValue = searchParams.get("propertyId") || ""
   const municipalityFilterValue = searchParams.get("municipality") || ""
   const statusValue = searchParams.get("status") || ""
+  const statusFilterValue =
+    statusValue ||
+    (archivedValue === "archived" ? "archived" : archivedValue === "all" ? "all" : "")
   const sortValue = `${searchParams.get("sort") || "updatedAt"}:${searchParams.get("direction") || "desc"}`
   const [installations, setInstallations] = useState<Installation[]>([])
   const [filterSourceInstallations, setFilterSourceInstallations] = useState<Installation[]>([])
@@ -310,7 +316,7 @@ export default function InstallationsPageClient() {
   )
   const hasActiveFilters = Boolean(
     searchValue ||
-      archivedValue !== "active" ||
+      statusFilterValue ||
       refrigerantValue ||
       contractorFilterValue ||
       propertyFilterValue ||
@@ -352,6 +358,23 @@ export default function InstallationsPageClient() {
     params.set("sort", sort)
     params.set("direction", direction)
     router.replace(`/dashboard/installations?${params.toString()}`)
+  }
+
+  function updateStatusFilter(value: string) {
+    const params = new URLSearchParams(searchParams.toString())
+    setSelectedSavedFilterId("")
+    setSavedFilterSuccess("")
+
+    params.delete("status")
+    params.delete("archived")
+
+    if (value === "all") {
+      params.set("archived", "all")
+    } else if (value) {
+      params.set("status", value)
+    }
+
+    router.replace(`/dashboard/installations${params.toString() ? `?${params.toString()}` : ""}`)
   }
 
   function clearFilters() {
@@ -600,16 +623,6 @@ export default function InstallationsPageClient() {
           </label>
 
           <FilterSelect
-            label="Status"
-            value={archivedValue}
-            onChange={(value) => updateQueryParam("archived", value === "active" ? "" : value)}
-          >
-            <option value="active">Aktiva</option>
-            <option value="archived">Inaktiva</option>
-            <option value="all">Alla</option>
-          </FilterSelect>
-
-          <FilterSelect
             label="Köldmedium"
             value={refrigerantValue}
             onChange={(value) => updateQueryParam("refrigerantType", value)}
@@ -663,16 +676,16 @@ export default function InstallationsPageClient() {
           </FilterSelect>
 
           <FilterSelect
-            label="Kontrollstatus"
-            value={statusValue}
-            onChange={(value) => updateQueryParam("status", value)}
+            label="Status"
+            value={statusFilterValue}
+            onChange={updateStatusFilter}
           >
             <option value="">Alla</option>
-            <option value="overdue">Försenad</option>
-            <option value="dueSoon">Inom 30 dagar</option>
             <option value="ok">OK</option>
-            <option value="required">Kontrollpliktiga</option>
-            <option value="notRequired">Ej kontrollpliktiga</option>
+            <option value="overdue">Försenad kontroll</option>
+            <option value="missing">Saknar uppgifter</option>
+            <option value="archived">Arkiverade</option>
+            <option value="inactive">Inaktiva</option>
           </FilterSelect>
 
           <FilterSelect label="Sortering" value={sortValue} onChange={updateSort}>
@@ -835,6 +848,7 @@ export default function InstallationsPageClient() {
                 <TableHeader>CO₂e</TableHeader>
                 <TableHeader>Servicepartner</TableHeader>
                 <TableHeader>Nästa kontroll</TableHeader>
+                <TableHeader>Kontrollintervall</TableHeader>
                 <TableHeader>Status</TableHeader>
               </tr>
             </thead>
@@ -877,9 +891,13 @@ export default function InstallationsPageClient() {
                   <TableCell>{formatNumber(installation.co2eTon)} ton</TableCell>
                   <TableCell>{installation.assignedContractor?.name || "-"}</TableCell>
                   <TableCell>{formatOptionalDate(installation.nextInspection)}</TableCell>
+                  <TableCell>{formatInspectionInterval(installation.inspectionInterval)}</TableCell>
                   <TableCell>
-                    <StatusBadge status={installation.complianceStatus} />
-                    <ControlObligationBadge intervalMonths={installation.inspectionInterval} />
+                    <StatusBadge
+                      archivedAt={installation.archivedAt}
+                      isActive={installation.isActive}
+                      status={installation.complianceStatus}
+                    />
                   </TableCell>
                 </tr>
               ))}
@@ -1252,7 +1270,31 @@ function TableCell({ children }: { children: React.ReactNode }) {
   return <td className="whitespace-nowrap px-4 py-3 text-slate-800">{children}</td>
 }
 
-function StatusBadge({ status }: { status: ComplianceStatus }) {
+function StatusBadge({
+  archivedAt,
+  isActive = true,
+  status,
+}: {
+  archivedAt?: string | null
+  isActive?: boolean
+  status: ComplianceStatus
+}) {
+  if (archivedAt) {
+    return (
+      <span className="inline-flex rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-800">
+        Arkiverad
+      </span>
+    )
+  }
+
+  if (!isActive) {
+    return (
+      <span className="inline-flex rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-800">
+        Inaktiv
+      </span>
+    )
+  }
+
   return (
     <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${STATUS_TONE[status]}`}>
       {STATUS_LABELS[status]}
@@ -1260,16 +1302,8 @@ function StatusBadge({ status }: { status: ComplianceStatus }) {
   )
 }
 
-function ControlObligationBadge({
-  intervalMonths,
-}: {
-  intervalMonths?: number | null
-}) {
-  return (
-    <span className="mt-1 inline-flex rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold text-slate-700">
-      {intervalMonths ? `Var ${intervalMonths}:e månad` : "Ej kontrollpliktigt"}
-    </span>
-  )
+function formatInspectionInterval(intervalMonths?: number | null) {
+  return intervalMonths ? `Var ${intervalMonths}:e månad` : "Ej kontrollpliktigt"
 }
 
 function RiskBadge({ level }: { level: InstallationRiskLevel }) {

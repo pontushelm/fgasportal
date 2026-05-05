@@ -166,12 +166,22 @@ export default function CreateInstallationForm({
     >
       <h2 className="text-lg font-semibold text-slate-900">Lägg till aggregat</h2>
 
-      <input className={inputClassName} name="name" placeholder="Namn" value={formData.name} onChange={handleChange} required />
-      <input className={inputClassName} name="location" placeholder="Plats" value={formData.location} onChange={handleChange} required />
+      <p className="text-xs text-slate-500">* Obligatoriskt</p>
+
       <label className={labelClassName}>
-        Fastighet
-        <select className={inputClassName} name="propertyId" value={formData.propertyId} onChange={handleChange}>
-          <option value="">Ingen vald fastighet</option>
+        Namn <RequiredMark />
+        <input className={inputClassName} name="name" placeholder="Namn" value={formData.name} onChange={handleChange} required />
+      </label>
+
+      <label className={labelClassName}>
+        Plats <RequiredMark />
+        <input className={inputClassName} name="location" placeholder="Plats" value={formData.location} onChange={handleChange} required />
+      </label>
+
+      <label className={labelClassName}>
+        Fastighet <RequiredMark />
+        <select className={inputClassName} name="propertyId" value={formData.propertyId} onChange={handleChange} required>
+          <option value="">Välj fastighet</option>
           {properties.map((property) => (
             <option key={property.id} value={property.id}>
               {property.name}{property.municipality ? `, ${property.municipality}` : ""}
@@ -183,8 +193,16 @@ export default function CreateInstallationForm({
       <input className={inputClassName} name="serialNumber" placeholder="Serienummer" value={formData.serialNumber} onChange={handleChange} />
       <input className={inputClassName} name="equipmentType" placeholder="Utrustningstyp" value={formData.equipmentType} onChange={handleChange} />
       <input className={inputClassName} name="operatorName" placeholder="Operatör" value={formData.operatorName} onChange={handleChange} />
-      <input className={inputClassName} name="refrigerantType" placeholder="Köldmedium, t.ex. R410A" value={formData.refrigerantType} onChange={handleChange} required />
-      <input className={inputClassName} name="refrigerantAmount" placeholder="Mängd kg" value={formData.refrigerantAmount} onChange={handleChange} required />
+
+      <label className={labelClassName}>
+        Köldmedium <RequiredMark />
+        <input className={inputClassName} name="refrigerantType" placeholder="Köldmedium, t.ex. R410A" value={formData.refrigerantType} onChange={handleChange} required />
+      </label>
+
+      <label className={labelClassName}>
+        Mängd kg <RequiredMark />
+        <input className={inputClassName} name="refrigerantAmount" placeholder="Mängd kg" value={formData.refrigerantAmount} onChange={handleChange} required />
+      </label>
 
       <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
         <input
@@ -203,7 +221,7 @@ export default function CreateInstallationForm({
       </label>
 
       <label className={labelClassName}>
-        Installationsdatum
+        Installationsdatum <RequiredMark />
         <input className={inputClassName} name="installationDate" type="date" value={formData.installationDate} onChange={handleChange} required />
       </label>
 
@@ -246,6 +264,10 @@ export default function CreateInstallationForm({
       </div>
     </form>
   )
+}
+
+function RequiredMark() {
+  return <span className="text-red-600">*</span>
 }
 
 function calculateNextInspectionPreview(
