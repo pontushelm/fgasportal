@@ -220,6 +220,8 @@ export async function GET(request: NextRequest) {
     const propertyId = searchParams.get('propertyId')?.trim()
     const municipality = searchParams.get('municipality')?.trim()
     const statusFilter = searchParams.get('status')?.trim()
+    const riskFilter = searchParams.get('risk')?.trim()
+    const inspectionIntervalFilter = searchParams.get('inspectionInterval')?.trim()
     const sort = searchParams.get('sort') || 'updatedAt'
     const direction = searchParams.get('direction') === 'asc' ? 'asc' : 'desc'
     const archivedScope =
@@ -345,19 +347,26 @@ export async function GET(request: NextRequest) {
           )
         )
       : installationsWithCompliance
+    const filteredByRisk = riskFilter
+      ? filteredInstallations.filter((installation) =>
+          matchesRiskFilter(installation.riskLevel, installation.riskScore, riskFilter)
+        )
+      : filteredInstallations
+    const filteredByInterval = inspectionIntervalFilter
+      ? filteredByRisk.filter((installation) =>
+          matchesInspectionIntervalFilter(
+            installation.inspectionInterval,
+            inspectionIntervalFilter
+          )
+        )
+      : filteredByRisk
     const sortedInstallations =
       sort === 'co2e'
-        ? [...filteredInstallations].sort((first, second) => {
+        ? [...filteredByInterval].sort((first, second) => {
             const multiplier = direction === 'asc' ? 1 : -1
             return (first.co2eTon - second.co2eTon) * multiplier
           })
-        : sort === 'inspectionInterval'
-          ? [...filteredInstallations].sort(compareInspectionIntervals)
-        : sort === 'risk'
-          ? [...filteredInstallations].sort((first, second) =>
-              second.riskScore - first.riskScore
-            )
-        : filteredInstallations
+        : filteredByInterval
 
     return NextResponse.json(sortedInstallations, { status: 200 })
 
@@ -396,18 +405,21 @@ function matchesStatusFilter(
   return true
 }
 
-function compareInspectionIntervals(
-  first: { inspectionInterval: number | null },
-  second: { inspectionInterval: number | null }
+function matchesRiskFilter(
+  riskLevel: string | null | undefined,
+  riskScore: number | null | undefined,
+  filter: string
 ) {
-  return getInspectionIntervalSortValue(first.inspectionInterval) -
-    getInspectionIntervalSortValue(second.inspectionInterval)
+  if (filter === 'MISSING') return !riskLevel && !riskScore
+  return riskLevel === filter
 }
 
-function getInspectionIntervalSortValue(interval: number | null) {
-  if (interval === 3) return 1
-  if (interval === 6) return 2
-  if (interval === 12) return 3
-  if (interval === 24) return 4
-  return 5
+function matchesInspectionIntervalFilter(
+  inspectionInterval: number | null,
+  filter: string
+) {
+  if (filter === 'none') return inspectionInterval === null
+
+  const parsedFilter = Number(filter)
+  return Number.isFinite(parsedFilter) && inspectionInterval === parsedFilter
 }

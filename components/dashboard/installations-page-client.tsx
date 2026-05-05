@@ -104,8 +104,6 @@ const SORT_OPTIONS = [
   { value: "updatedAt:asc", label: "Äldst uppdaterad" },
   { value: "nextInspectionDate:asc", label: "Nästa kontroll, tidigast först" },
   { value: "nextInspectionDate:desc", label: "Nästa kontroll, senast först" },
-  { value: "inspectionInterval:asc", label: "Kontrollintervall" },
-  { value: "risk:desc", label: "Högst risk" },
   { value: "co2e:desc", label: "CO₂e, högst först" },
   { value: "co2e:asc", label: "CO₂e, lägst först" },
 ]
@@ -124,6 +122,8 @@ export default function InstallationsPageClient() {
   const propertyFilterValue = searchParams.get("propertyId") || ""
   const municipalityFilterValue = searchParams.get("municipality") || ""
   const statusValue = searchParams.get("status") || ""
+  const riskFilterValue = searchParams.get("risk") || ""
+  const inspectionIntervalFilterValue = searchParams.get("inspectionInterval") || ""
   const statusFilterValue =
     statusValue ||
     (archivedValue === "archived" ? "archived" : archivedValue === "all" ? "all" : "")
@@ -321,7 +321,9 @@ export default function InstallationsPageClient() {
       contractorFilterValue ||
       propertyFilterValue ||
       municipalityFilterValue ||
-      statusValue
+      statusValue ||
+      riskFilterValue ||
+      inspectionIntervalFilterValue
   )
 
   const updateQueryParam = useCallback((name: string, value: string) => {
@@ -686,6 +688,31 @@ export default function InstallationsPageClient() {
             <option value="missing">Saknar uppgifter</option>
             <option value="archived">Arkiverade</option>
             <option value="inactive">Inaktiva</option>
+          </FilterSelect>
+
+          <FilterSelect
+            label="Risk"
+            value={riskFilterValue}
+            onChange={(value) => updateQueryParam("risk", value)}
+          >
+            <option value="">Alla</option>
+            <option value="HIGH">Hög</option>
+            <option value="MEDIUM">Medel</option>
+            <option value="LOW">Låg</option>
+            <option value="MISSING">Saknas</option>
+          </FilterSelect>
+
+          <FilterSelect
+            label="Kontrollintervall"
+            value={inspectionIntervalFilterValue}
+            onChange={(value) => updateQueryParam("inspectionInterval", value)}
+          >
+            <option value="">Alla</option>
+            <option value="3">Var 3:e månad</option>
+            <option value="6">Var 6:e månad</option>
+            <option value="12">Var 12:e månad</option>
+            <option value="24">Var 24:e månad</option>
+            <option value="none">Ej kontrollpliktigt</option>
           </FilterSelect>
 
           <FilterSelect label="Sortering" value={sortValue} onChange={updateSort}>
