@@ -13,6 +13,8 @@ type CurrentUser = {
   activeMembershipId: string | null
   companyId: string
   companyName: string | null
+  email: string | null
+  name: string | null
   role: UserRole
   memberships: UserMembership[]
 }
@@ -232,9 +234,33 @@ export function Sidebar() {
               secondaryItems={visibleSecondaryItems}
             />
           </nav>
+
+          <SidebarUserInfo currentUser={currentUser} />
         </div>
       </aside>
     </>
+  )
+}
+
+function SidebarUserInfo({ currentUser }: { currentUser: CurrentUser | null }) {
+  return (
+    <div className="mt-auto border-t border-slate-200 px-2 pt-4 text-sm dark:border-slate-800">
+      {currentUser ? (
+        <>
+          <p className="truncate font-semibold text-slate-900 dark:text-slate-100">
+            {currentUser.name || "Användare"}
+          </p>
+          <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
+            {currentUser.email || ""}
+          </p>
+        </>
+      ) : (
+        <div className="grid gap-2">
+          <div className="h-4 rounded bg-slate-100 dark:bg-slate-800" />
+          <div className="h-3 w-4/5 rounded bg-slate-100 dark:bg-slate-800" />
+        </div>
+      )}
+    </div>
   )
 }
 

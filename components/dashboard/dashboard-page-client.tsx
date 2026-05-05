@@ -3,16 +3,8 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
-import { Badge, buttonClassName, Card, PageHeader } from "@/components/ui"
-import type { UserRole } from "@/lib/auth"
+import { Badge, Card, PageHeader } from "@/components/ui"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
-import { isAdminRole } from "@/lib/roles"
-
-type CurrentUser = {
-  userId: string
-  companyId: string
-  role: UserRole
-}
 
 type DistributionItem = {
   label: string
@@ -87,8 +79,6 @@ const ACTION_PRIORITY_LABELS: Record<ActionItem["priority"], string> = {
   LOW: "Låg",
 }
 
-const secondaryButtonClassName = buttonClassName({ variant: "secondary" })
-
 const ACTION_TYPE_ORDER: Record<ActionItem["type"], number> = {
   OVERDUE_INSPECTION: 1,
   NOT_INSPECTED: 2,
@@ -104,11 +94,70 @@ const PRIORITY_ORDER: Record<ActionItem["priority"], number> = {
   LOW: 3,
 }
 
+const ACTION_PREVIEW_LIMIT = 5
+
+const KPI_CARDS = [
+  {
+    key: "total",
+    label: "Totalt",
+    description: "Aktiva aggregat i företaget",
+    tooltip:
+      "Antal aktiva aggregat som ingår i företagets F-gasregister.",
+    tone: "neutral",
+  },
+  {
+    key: "ok",
+    label: "OK",
+    description: "Har aktuell kontrollstatus",
+    tooltip:
+      "Aggregat där kontrollstatusen är aktuell enligt registrerade intervall.",
+    tone: "emerald",
+  },
+  {
+    key: "overdue",
+    label: "Försenade",
+    description: "Kontroller passerade deadline",
+    tooltip:
+      "Aggregat där nästa kontroll har passerat planerat datum.",
+    tone: "red",
+  },
+  {
+    key: "dueSoon",
+    label: "Inom 30 dagar",
+    description: "Kommande kontroller",
+    tooltip:
+      "Aggregat med kontroll som behöver genomföras inom 30 dagar.",
+    tone: "amber",
+  },
+  {
+    key: "leakage",
+    label: "Läckage",
+    description: "Registrerade läckage i år",
+    tooltip:
+      "Antal registrerade läckagehändelser i det aktuella företaget.",
+    tone: "red",
+  },
+  {
+    key: "co2e",
+    label: "Total CO₂e",
+    description: "Beräknad klimatpåverkan",
+    tooltip:
+      "Beräknad klimatpåverkan baserat på köldmedium och fyllnadsmängd.",
+    tone: "neutral",
+  },
+] satisfies Array<{
+  key: "total" | "ok" | "overdue" | "dueSoon" | "leakage" | "co2e"
+  label: string
+  description: string
+  tooltip: string
+  tone: "neutral" | "emerald" | "red" | "amber" | "sky"
+}>
+
 export default function DashboardPage() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
+  const [showAllActions, setShowAllActions] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -118,21 +167,16 @@ export default function DashboardPage() {
       setIsLoading(true)
       setError("")
 
-      const [response, userResponse] = await Promise.all([
-        fetch("/api/dashboard/compliance", {
-          credentials: "include",
-        }),
-        fetch("/api/auth/me", {
-          credentials: "include",
-        }),
-      ])
+      const response = await fetch("/api/dashboard/compliance", {
+        credentials: "include",
+      })
 
-      if (response.status === 401 || userResponse.status === 401) {
+      if (response.status === 401) {
         router.push("/login")
         return
       }
 
-      if (!response.ok || !userResponse.ok) {
+      if (!response.ok) {
         if (!isMounted) return
         setError("Kunde inte hämta dashboarden")
         setIsLoading(false)
@@ -140,12 +184,10 @@ export default function DashboardPage() {
       }
 
       const data: DashboardData = await response.json()
-      const userData: CurrentUser = await userResponse.json()
 
       if (!isMounted) return
 
       setDashboardData(data)
-      setCurrentUser(userData)
       setIsLoading(false)
     }
 
@@ -156,28 +198,19 @@ export default function DashboardPage() {
     }
   }, [router])
 
-  const canManage = isAdminRole(currentUser?.role)
-  const topActionItems = useMemo(
-    () => [...(dashboardData?.actionItems ?? [])].sort(compareActionItems).slice(0, 5),
+  const sortedActionItems = useMemo(
+    () => [...(dashboardData?.actionItems ?? [])].sort(compareActionItems),
     [dashboardData?.actionItems]
   )
+  const visibleActionItems = showAllActions
+    ? sortedActionItems
+    : sortedActionItems.slice(0, ACTION_PREVIEW_LIMIT)
+  const hasMoreActions = sortedActionItems.length > ACTION_PREVIEW_LIMIT
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
       <section className="mx-auto max-w-7xl">
         <PageHeader
-          actions={
-            <>
-              {canManage && (
-                <Link
-                  className={buttonClassName({ variant: "primary" })}
-                  href="/dashboard/installations"
-                >
-                  + Lägg till aggregat
-                </Link>
-              )}
-            </>
-          }
           eyebrow="Compliance dashboard"
           title="F-gasöversikt"
           subtitle="Se compliance-läget, prioriterade åtgärder och risker för era köldmedieaggregat."
@@ -190,15 +223,17 @@ export default function DashboardPage() {
 
       {dashboardData && (
         <div className="mx-auto max-w-7xl">
-          <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-            <MetricCard label="Totalt" value={dashboardData.metrics.totalInstallations} />
-            <MetricCard label="OK" value={dashboardData.metrics.ok} tone="emerald" />
-            <MetricCard label="Försenade" value={dashboardData.metrics.overdue} tone="red" />
-            <MetricCard label="Inom 30 dagar" value={dashboardData.metrics.dueSoon} tone="amber" />
-            <MetricCard label="Ej kontrollerade" value={dashboardData.metrics.notInspected} tone="sky" />
-            <MetricCard label="Ej kontrollpliktiga" value={dashboardData.metrics.notRequired} />
-            <MetricCard label="Läckage" value={dashboardData.environmental.leakageEvents} tone="red" />
-            <MetricCard label="Total CO₂e" value={`${formatNumber(dashboardData.environmental.totalCo2eTon)} t`} />
+          <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            {KPI_CARDS.map((card) => (
+              <MetricCard
+                description={card.description}
+                key={card.key}
+                label={card.label}
+                tone={card.tone}
+                tooltip={card.tooltip}
+                value={getKpiValue(card.key, dashboardData)}
+              />
+            ))}
           </section>
 
           <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.85fr)]">
@@ -210,24 +245,27 @@ export default function DashboardPage() {
                   </p>
                   <h2 className="mt-1 text-xl font-semibold text-slate-950">Att göra</h2>
                   <p className="mt-1 text-sm text-slate-700">
-                    De fem viktigaste åtgärderna just nu.
+                    Prioriterade statusproblem och uppföljningspunkter.
                   </p>
                 </div>
-                <Link
-                  className={secondaryButtonClassName}
-                  href="/dashboard/installations?status=overdue"
-                >
-                  Visa alla åtgärder
-                </Link>
+                {hasMoreActions && (
+                  <button
+                    className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                    type="button"
+                    onClick={() => setShowAllActions((current) => !current)}
+                  >
+                    {showAllActions ? "Visa färre åtgärder" : "Visa fler åtgärder"}
+                  </button>
+                )}
               </div>
 
-              {topActionItems.length === 0 ? (
+              {visibleActionItems.length === 0 ? (
                 <p className="mt-5 text-sm text-slate-700">
                   Inga prioriterade åtgärder just nu.
                 </p>
               ) : (
                 <div className="mt-5 grid gap-3">
-                  {topActionItems.map((item) => (
+                  {visibleActionItems.map((item) => (
                     <ActionRow item={item} key={item.id} />
                   ))}
                 </div>
@@ -279,14 +317,6 @@ export default function DashboardPage() {
             </div>
           </section>
 
-          <div className="mt-6 flex justify-end">
-            <Link
-              className={secondaryButtonClassName}
-              href="/dashboard/installations"
-            >
-              Visa alla aggregat
-            </Link>
-          </div>
         </div>
       )}
     </main>
@@ -294,11 +324,15 @@ export default function DashboardPage() {
 }
 
 function MetricCard({
+  description,
   label,
+  tooltip,
   value,
   tone = "neutral",
 }: {
+  description: string
   label: string
+  tooltip: string
   value: number | string
   tone?: "neutral" | "emerald" | "red" | "amber" | "sky"
 }) {
@@ -311,9 +345,14 @@ function MetricCard({
   }[tone]
 
   return (
-    <div className={`min-h-24 rounded-xl border border-slate-200 border-l-4 bg-white px-3 py-3 shadow-sm ${toneClass}`}>
+    <div
+      aria-label={`${label}: ${tooltip}`}
+      className={`min-h-28 cursor-help rounded-xl border border-slate-200 border-l-4 bg-white px-3 py-3 shadow-sm ${toneClass}`}
+      title={tooltip}
+    >
       <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
       <div className="mt-2 break-words text-2xl font-bold tracking-tight text-slate-950">{value}</div>
+      <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
     </div>
   )
 }
@@ -497,6 +536,19 @@ function extractInstallationName(description: string) {
     .split(" ska ")[0]
     .split(" saknar ")[0]
     .split(" har ")[0]
+}
+
+function getKpiValue(
+  key: (typeof KPI_CARDS)[number]["key"],
+  dashboardData: DashboardData
+) {
+  if (key === "total") return dashboardData.metrics.totalInstallations
+  if (key === "ok") return dashboardData.metrics.ok
+  if (key === "overdue") return dashboardData.metrics.overdue
+  if (key === "dueSoon") return dashboardData.metrics.dueSoon
+  if (key === "leakage") return dashboardData.environmental.leakageEvents
+
+  return `${formatNumber(dashboardData.environmental.totalCo2eTon)} t`
 }
 
 function formatNumber(value: number) {
