@@ -750,6 +750,7 @@ export default function InstallationDetailPage() {
     gwp: compliance.gwp,
     hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
     leakageEventsCount: leakageEvents.length,
+    isInspectionOverdue: compliance.status === "OVERDUE",
   })
   const canManage = isAdminRole(currentUser?.role)
   const editInspectionPreview = calculateInspectionPreview(
@@ -783,6 +784,15 @@ export default function InstallationDetailPage() {
           <SummaryItem label="CO₂e" value={`${formatNumber(compliance.co2eTon)} ton`} />
           <SummaryItem label="Senaste kontroll" value={formatOptionalDate(installation.lastInspection)} />
           <SummaryItem label="Nästa kontroll" value={formatOptionalDate(installation.nextInspection)} />
+        </div>
+
+        <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm font-semibold text-slate-900">Risk baseras på:</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
+            {risk.reasons.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
         </div>
       </section>
 

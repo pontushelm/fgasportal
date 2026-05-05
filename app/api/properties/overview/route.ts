@@ -177,6 +177,7 @@ function applyInstallationToSummary(
     gwp: compliance.gwp,
     hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
     leakageEventsCount: installation.events.length,
+    isInspectionOverdue: compliance.status === "OVERDUE",
   })
 
   summary.installationsCount += 1

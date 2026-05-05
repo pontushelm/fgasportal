@@ -319,6 +319,7 @@ export async function GET(request: NextRequest) {
         gwp: compliance.gwp,
         hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
         leakageEventsCount: leakEvents.length,
+        isInspectionOverdue: compliance.status === "OVERDUE",
       })
 
       return {
@@ -328,6 +329,7 @@ export async function GET(request: NextRequest) {
         co2eTon: compliance.co2eTon,
         riskLevel: risk.level,
         riskScore: risk.score,
+        riskReasons: risk.reasons,
         inspectionInterval: compliance.inspectionIntervalMonths,
         baseInspectionInterval: compliance.baseInspectionIntervalMonths,
         hasAdjustedInspectionInterval: compliance.hasAdjustedInspectionInterval,

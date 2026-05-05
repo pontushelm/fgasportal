@@ -137,6 +137,7 @@ export async function GET(request: NextRequest) {
         gwp: compliance.gwp,
         hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
         leakageEventsCount,
+        isInspectionOverdue: compliance.status === "OVERDUE",
       })
       incrementRiskSummary(riskSummary, risk.level)
 

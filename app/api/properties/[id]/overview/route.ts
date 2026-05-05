@@ -91,6 +91,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         gwp: compliance.gwp,
         hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
         leakageEventsCount: events.length,
+        isInspectionOverdue: compliance.status === "OVERDUE",
       })
 
       totalCo2eTon += compliance.co2eTon

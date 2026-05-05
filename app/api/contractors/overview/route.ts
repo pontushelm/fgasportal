@@ -93,6 +93,7 @@ export async function GET(request: NextRequest) {
           gwp: compliance.gwp,
           hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
           leakageEventsCount: installationLeakageEventsCount,
+          isInspectionOverdue: compliance.status === "OVERDUE",
         })
 
         if (risk.level === "HIGH") highRiskInstallations += 1
