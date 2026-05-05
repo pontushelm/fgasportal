@@ -35,17 +35,18 @@ export function AuthShell({
             F-gasregister och uppföljning
           </p>
           <h1 className="mt-4 text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl">
-            Få bättre kontroll över köldmedieaggregat.
+            Hantera köldmedieaggregat, uppfyll krav och minska klimatpåverkan.
           </h1>
           <p className="mt-5 text-base leading-7 text-slate-600">
-            Samla register, kontroller, dokument och rapportunderlag i ett
-            webbaserat system byggt för operatörer, driftorganisationer och
-            servicepartners.
+            Samla register, kontroller, dokumentation och översikt i ett
+            system som stödjer rapportering och uppföljning av klimatpåverkan.
           </p>
-          <div className="mt-8 grid gap-3 text-sm text-slate-700">
-            <AuthBenefit>Underlätta uppföljning av kontrollintervall.</AuthBenefit>
-            <AuthBenefit>Samla dokument och historik per aggregat.</AuthBenefit>
-            <AuthBenefit>Få överblick över CO₂e, risk och årsrapporter.</AuthBenefit>
+          <div className="mt-8 grid gap-2 text-sm text-slate-700">
+            <AuthBenefit>Översikt av aggregat, kontroller och riskstatus</AuthBenefit>
+            <AuthBenefit>Digital registerhållning enligt F-gasförordningen</AuthBenefit>
+            <AuthBenefit>Automatiserade rapporter och årsrapportering</AuthBenefit>
+            <AuthBenefit>Uppföljning av CO₂e och klimatpåverkan</AuthBenefit>
+            <AuthBenefit>Samarbete med servicepartners i systemet</AuthBenefit>
           </div>
         </section>
 
@@ -65,9 +66,9 @@ export function AuthShell({
 
 function AuthBenefit({ children }: { children: ReactNode }) {
   return (
-    <div className="flex gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
-      <span>{children}</span>
+    <div className="flex items-start gap-3">
+      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-600" />
+      <span className="leading-6">{children}</span>
     </div>
   )
 }

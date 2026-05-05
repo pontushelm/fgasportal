@@ -124,7 +124,7 @@ export default function RegisterForm({ inviteToken }: { inviteToken?: string }) 
             <input className={inputClassName} placeholder="Företagsnamn" {...register("companyName")} />
           </Field>
 
-          <Field label="Organisationsnummer" error={errors.orgNumber?.message as string}>
+          <Field label="Organisationsnummer (valfritt)" error={errors.orgNumber?.message as string}>
             <input className={inputClassName} placeholder="Organisationsnummer" {...register("orgNumber")} />
           </Field>
 
@@ -140,7 +140,7 @@ export default function RegisterForm({ inviteToken }: { inviteToken?: string }) 
       <Field label="E-post" error={errors.userEmail?.message as string}>
         <input
           className={`${inputClassName} ${isInviteMode ? "bg-slate-100" : ""}`}
-          placeholder="namn@example.se"
+          placeholder="din@epost.se"
           readOnly={isInviteMode}
           {...register("userEmail")}
         />
@@ -170,8 +170,11 @@ export default function RegisterForm({ inviteToken }: { inviteToken?: string }) 
         type="submit"
         disabled={isSubmitting || Boolean(inviteToken && !inviteContext)}
       >
-        {isSubmitting ? "Registrerar..." : isInviteMode ? "Skapa användare" : "Skapa konto"}
+        {isSubmitting ? "Registrerar..." : isInviteMode ? "Skapa användare" : "Skapa organisationskonto"}
       </button>
+      <p className={trustLineClassName}>
+        Utformat för fastighetsägare, kommuner och verksamheter
+      </p>
 
       <div className="grid gap-2 border-t border-slate-200 pt-4 text-sm text-slate-600">
         <p>
@@ -209,8 +212,9 @@ function Field({
 }
 
 const sectionTitleClassName =
-  "border-t border-slate-200 pt-4 text-sm font-semibold uppercase tracking-wide text-slate-500 first:border-t-0 first:pt-0"
+  "border-t border-slate-200 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-400 first:border-t-0 first:pt-0"
 const inputClassName =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
 const submitButtonClassName =
   "mt-2 w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+const trustLineClassName = "-mt-1 text-center text-xs text-slate-500"
