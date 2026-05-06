@@ -125,16 +125,14 @@ const METRIC_HELP = {
 
 const filterLabelClassName = "grid gap-1 text-sm font-semibold text-slate-700"
 const filterSelectClassName =
-  "h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900"
+  "h-9 w-full min-w-0 truncate rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900"
+const yearInputClassName =
+  "h-9 w-24 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900"
 const exportButtonClassName =
   "inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
 
 export default function ReportsPage() {
   const currentYear = new Date().getFullYear()
-  const yearOptions = useMemo(
-    () => Array.from({ length: currentYear - 1999 }, (_, index) => currentYear - index),
-    [currentYear]
-  )
   const [selectedYear, setSelectedYear] = useState(currentYear)
   const [selectedReportType, setSelectedReportType] =
     useState<ReportType>("annual")
@@ -224,8 +222,8 @@ export default function ReportsPage() {
       <PageHeader
         actions={
           <div className="flex flex-col gap-3">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1.4fr)_88px_minmax(150px,1fr)_minmax(170px,1fr)]">
-              <label className={filterLabelClassName}>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(320px,2fr)_96px_minmax(160px,1fr)_minmax(160px,1fr)]">
+              <label className={`${filterLabelClassName} min-w-0`}>
                 Rapporttyp
                 <select
                   className={filterSelectClassName}
@@ -243,19 +241,26 @@ export default function ReportsPage() {
               </label>
               <label className={filterLabelClassName}>
                 År
-                <select
-                  className={`${filterSelectClassName} w-24`}
-                  onChange={(event) => setSelectedYear(Number(event.target.value))}
+                <input
+                  className={yearInputClassName}
+                  max={currentYear + 1}
+                  min={2000}
+                  onChange={(event) => {
+                    if (!event.target.value) return
+                    const year = Number(event.target.value)
+                    if (
+                      Number.isInteger(year) &&
+                      year >= 2000 &&
+                      year <= currentYear + 1
+                    ) {
+                      setSelectedYear(year)
+                    }
+                  }}
+                  type="number"
                   value={selectedYear}
-                >
-                  {yearOptions.map((year) => (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
+                />
               </label>
-              <label className={filterLabelClassName}>
+              <label className={`${filterLabelClassName} min-w-0`}>
                 Kommun
                 <select
                   className={filterSelectClassName}
@@ -273,7 +278,7 @@ export default function ReportsPage() {
                   ))}
                 </select>
               </label>
-              <label className={filterLabelClassName}>
+              <label className={`${filterLabelClassName} min-w-0`}>
                 Fastighet
                 <select
                   className={filterSelectClassName}
