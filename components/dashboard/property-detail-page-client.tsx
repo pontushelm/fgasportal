@@ -121,10 +121,28 @@ export default function PropertyDetailPageClient() {
       {data && !isLoading && (
         <>
           <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <MetricCard label="Antal aggregat" value={data.summary.installationsCount} />
-            <MetricCard label="Total CO₂e" value={`${formatNumber(data.summary.totalCo2eTon)} ton`} />
-            <MetricCard label="Försenade kontroller" value={data.summary.overdueInspections} tone="red" />
-            <MetricCard label="Högriskaggregat" value={data.summary.highRiskInstallations} tone="amber" />
+            <MetricCard
+              description="Antal aktiva aggregat kopplade till fastigheten."
+              label="Antal aggregat"
+              value={data.summary.installationsCount}
+            />
+            <MetricCard
+              description="Samlad klimatpåverkan från köldmedier i fastighetens aggregat."
+              label="Total CO₂e"
+              value={`${formatNumber(data.summary.totalCo2eTon)} ton`}
+            />
+            <MetricCard
+              description="Aggregat där nästa läckagekontroll har passerat."
+              label="Försenade kontroller"
+              value={data.summary.overdueInspections}
+              tone="red"
+            />
+            <MetricCard
+              description="Aggregat med hög risk baserat på CO₂e, försenad kontroll eller läckagehistorik."
+              label="Högriskaggregat"
+              value={data.summary.highRiskInstallations}
+              tone="amber"
+            />
           </section>
 
           <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
@@ -139,7 +157,10 @@ export default function PropertyDetailPageClient() {
             </Card>
 
             <Card className="p-5">
-              <SectionHeader title="Riskfördelning" />
+              <SectionHeader
+                title="Riskfördelning"
+                subtitle="Visar hur fastighetens aggregat fördelas mellan hög, medel och låg risk."
+              />
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
                 <RiskBox label="Hög" value={data.summary.riskDistribution.HIGH} tone="red" />
                 <RiskBox label="Medel" value={data.summary.riskDistribution.MEDIUM} tone="amber" />
@@ -213,10 +234,12 @@ export default function PropertyDetailPageClient() {
 }
 
 function MetricCard({
+  description,
   label,
   tone = "slate",
   value,
 }: {
+  description: string
   label: string
   tone?: "slate" | "red" | "amber"
   value: number | string
@@ -228,11 +251,16 @@ function MetricCard({
   }[tone]
 
   return (
-    <Card className={`border-l-4 p-4 ${toneClass}`}>
+    <Card
+      aria-label={`${label}: ${description}`}
+      className={`cursor-help border-l-4 p-4 ${toneClass}`}
+      title={description}
+    >
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         {label}
       </p>
       <p className="mt-2 text-2xl font-bold text-slate-950">{value}</p>
+      <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
     </Card>
   )
 }

@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { Badge, buttonClassName, Card, EmptyState, PageHeader } from "@/components/ui"
+import { Badge, Card, EmptyState, PageHeader } from "@/components/ui"
 
 type PropertySummary = {
   id: string
@@ -62,16 +62,6 @@ export default function PropertiesPageClient() {
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
       <PageHeader
-        actions={
-          <>
-            <Link className={buttonClassName({ variant: "secondary" })} href="/dashboard/installations">
-              Aggregat
-            </Link>
-            <Link className={buttonClassName({ variant: "secondary" })} href="/dashboard/reports">
-              Rapporter
-            </Link>
-          </>
-        }
         eyebrow="Fastigheter"
         title="Fastighetsöversikt"
         subtitle="Se compliance, risk och klimatpåverkan per fastighet."
