@@ -6,6 +6,12 @@ import { useEffect, useMemo, useState } from "react"
 import { Badge, buttonClassName, Card, EmptyState as UiEmptyState, PageHeader, SectionHeader } from "@/components/ui"
 
 type EventType = "INSPECTION" | "LEAK" | "REFILL" | "SERVICE"
+type ReportType =
+  | "annual"
+  | "climate"
+  | "compliance"
+  | "risk"
+  | "refrigerants"
 
 type ReportData = {
   year: number
@@ -58,13 +64,74 @@ const EVENT_TONE: Record<EventType, string> = {
   SERVICE: "border-neutral-200 bg-neutral-50 text-neutral-700",
 }
 
+const REPORT_TYPE_OPTIONS: Array<{
+  value: ReportType
+  label: string
+  title: string
+  subtitle: string
+  contextTitle: string
+}> = [
+  {
+    value: "annual",
+    label: "Årsrapport enligt F-gasförordningen",
+    title: "F-gas årsrapport",
+    subtitle:
+      "Årssammanställning av aggregat, kontrollhändelser, läckagehändelser, påfyllningar och klimatpåverkan.",
+    contextTitle: "Rapportunderlag",
+  },
+  {
+    value: "climate",
+    label: "Klimatpåverkan",
+    title: "Klimatpåverkan",
+    subtitle:
+      "Översikt över CO₂e, köldmedier, läckage och påfyllningar för valt urval.",
+    contextTitle: "Klimat- och läckageunderlag",
+  },
+  {
+    value: "compliance",
+    label: "Kontrollstatus",
+    title: "Kontrollstatus",
+    subtitle:
+      "Underlag för uppföljning av kontrollplikt, utförda kontroller och status.",
+    contextTitle: "Kontroll- och serviceunderlag",
+  },
+  {
+    value: "risk",
+    label: "Högriskaggregat",
+    title: "Högriskaggregat",
+    subtitle:
+      "Rapportvy för prioritering av aggregat med hög risk och försenade kontroller.",
+    contextTitle: "Prioriteringsunderlag",
+  },
+  {
+    value: "refrigerants",
+    label: "Köldmediesammanställning",
+    title: "Köldmediesammanställning",
+    subtitle:
+      "Summering per köldmedium med mängder, CO₂e, påfyllningar och läckage.",
+    contextTitle: "Köldmedieunderlag",
+  },
+]
+
+const METRIC_HELP = {
+  totalInstallations: "Antal aktiva aggregat som ingår i rapporten.",
+  totalCo2eTon: "Samlad klimatpåverkan från aggregaten i rapporten.",
+  requiringInspection: "Aggregat som omfattas av lagstadgad läckagekontroll.",
+  inspectionsPerformed: "Utförda kontrollhändelser under valt år.",
+  leakageEvents: "Registrerade läckagehändelser under valt år.",
+  refilledAmountKg: "Total påfylld mängd köldmedium under valt år.",
+  serviceEvents: "Registrerade servicehändelser under valt år.",
+} as const
+
 export default function ReportsPage() {
   const currentYear = new Date().getFullYear()
   const yearOptions = useMemo(
-    () => Array.from({ length: 6 }, (_, index) => currentYear - index),
+    () => Array.from({ length: currentYear - 1999 }, (_, index) => currentYear - index),
     [currentYear]
   )
   const [selectedYear, setSelectedYear] = useState(currentYear)
+  const [selectedReportType, setSelectedReportType] =
+    useState<ReportType>("annual")
   const [selectedMunicipality, setSelectedMunicipality] = useState("")
   const [selectedPropertyId, setSelectedPropertyId] = useState("")
   const [properties, setProperties] = useState<PropertyOption[]>([])
@@ -85,6 +152,7 @@ export default function ReportsPage() {
   )
   const reportQuery = useMemo(() => {
     const params = new URLSearchParams({
+      reportType: selectedReportType,
       year: String(selectedYear),
     })
 
@@ -92,7 +160,13 @@ export default function ReportsPage() {
     if (selectedPropertyId) params.set("propertyId", selectedPropertyId)
 
     return params.toString()
-  }, [selectedMunicipality, selectedPropertyId, selectedYear])
+  }, [selectedMunicipality, selectedPropertyId, selectedReportType, selectedYear])
+  const selectedReport = useMemo(
+    () =>
+      REPORT_TYPE_OPTIONS.find((option) => option.value === selectedReportType) ??
+      REPORT_TYPE_OPTIONS[0],
+    [selectedReportType]
+  )
 
   useEffect(() => {
     let isMounted = true
@@ -144,6 +218,22 @@ export default function ReportsPage() {
       <PageHeader
         actions={
           <>
+            <label className="grid gap-1 text-sm font-semibold text-slate-700">
+              Rapporttyp
+              <select
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                onChange={(event) =>
+                  setSelectedReportType(event.target.value as ReportType)
+                }
+                value={selectedReportType}
+              >
+                {REPORT_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="grid gap-1 text-sm font-semibold text-slate-700">
               År
               <select
@@ -201,7 +291,7 @@ export default function ReportsPage() {
               className={buttonClassName({ variant: "primary" })}
               href={`/api/reports/fgas/export?${reportQuery}&format=csv`}
             >
-              Exportera CSV
+              Exportera Excel
             </a>
             <a
               className={buttonClassName({ variant: "secondary" })}
@@ -214,109 +304,63 @@ export default function ReportsPage() {
         backHref="/dashboard"
         backLabel="Till dashboard"
         eyebrow="Rapportering"
-        title="F-gas årsrapport"
-        subtitle="Årssammanställning av aggregat, kontrollhändelser, läckagehändelser, påfyllningar och klimatpåverkan."
+        title={selectedReport.title}
+        subtitle={selectedReport.subtitle}
       />
-      <div className="hidden flex-col gap-4 border-b border-neutral-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <Link className="text-sm font-semibold text-neutral-600 underline-offset-4 hover:underline" href="/dashboard">
-            Till dashboard
-          </Link>
-          <p className="mt-5 text-sm font-semibold uppercase tracking-wide text-neutral-500">
-            Rapportering
-          </p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight">
-            F-gas årsrapport
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm text-neutral-600">
-            Årssammanställning av aggregat, kontrollhändelser,
-            läckagehändelser, påfyllningar och klimatpåverkan.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="grid gap-1 text-sm font-semibold text-neutral-700">
-            År
-            <select
-              className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
-              onChange={(event) => setSelectedYear(Number(event.target.value))}
-              value={selectedYear}
-            >
-              {yearOptions.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-1 text-sm font-semibold text-neutral-700">
-            Kommun
-            <select
-              className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
-              onChange={(event) => {
-                setSelectedMunicipality(event.target.value)
-                setSelectedPropertyId("")
-              }}
-              value={selectedMunicipality}
-            >
-              <option value="">Alla kommuner</option>
-              {municipalityOptions.map((municipality) => (
-                <option key={municipality} value={municipality}>
-                  {municipality}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-1 text-sm font-semibold text-neutral-700">
-            Fastighet
-            <select
-              className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
-              onChange={(event) => setSelectedPropertyId(event.target.value)}
-              value={selectedPropertyId}
-            >
-              <option value="">Alla fastigheter</option>
-              {properties
-                .filter((property) =>
-                  selectedMunicipality
-                    ? property.municipality === selectedMunicipality
-                    : true
-                )
-                .map((property) => (
-                  <option key={property.id} value={property.id}>
-                    {property.name}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <a
-            className={buttonClassName({ variant: "primary" })}
-            href={`/api/reports/fgas/export?${reportQuery}&format=csv`}
-          >
-            Exportera CSV
-          </a>
-          <a
-            className={buttonClassName({ variant: "secondary" })}
-            href={`/api/reports/fgas/export?${reportQuery}&format=pdf`}
-          >
-            Exportera PDF
-          </a>
-        </div>
-      </div>
 
       {isLoading && <p className="mt-8 text-neutral-600">Laddar rapport...</p>}
       {error && <p className="mt-8 text-red-700">{error}</p>}
 
       {reportData && !isLoading && (
         <>
-          <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <MetricCard label="Totalt antal aggregat" value={reportData.metrics.totalInstallations} />
-            <MetricCard label="Total köldmediemängd" value={`${formatNumber(reportData.metrics.totalRefrigerantAmountKg)} kg`} />
-            <MetricCard label="Total CO₂e" value={`${formatNumber(reportData.metrics.totalCo2eTon)} ton`} />
-            <MetricCard label="Kontrollpliktiga aggregat" value={reportData.metrics.requiringInspection} />
-            <MetricCard label="Utförda kontroller under året" value={reportData.metrics.inspectionsPerformed} tone="sky" />
-            <MetricCard label="Läckagehändelser under året" value={reportData.metrics.leakageEvents} tone="red" />
-            <MetricCard label="Påfylld mängd köldmedium" value={`${formatNumber(reportData.metrics.refilledAmountKg)} kg`} tone="amber" />
-            <MetricCard label="Servicehändelser under året" value={reportData.metrics.serviceEvents} />
+          <section className="mt-8 grid gap-4 md:grid-cols-3">
+            <MetricCard
+              description={METRIC_HELP.totalInstallations}
+              label="Totalt antal aggregat"
+              value={reportData.metrics.totalInstallations}
+            />
+            <MetricCard
+              description={METRIC_HELP.totalCo2eTon}
+              label="Total CO₂e"
+              value={`${formatNumber(reportData.metrics.totalCo2eTon)} ton`}
+            />
+            <MetricCard
+              description={METRIC_HELP.requiringInspection}
+              label="Kontrollpliktiga aggregat"
+              value={reportData.metrics.requiringInspection}
+            />
+          </section>
+
+          <section className="mt-8">
+            <SectionHeader
+              title={selectedReport.contextTitle}
+              subtitle="Kompletterande nyckeltal för valt år, kommun och fastighet."
+            />
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <MetricCard
+                description={METRIC_HELP.inspectionsPerformed}
+                label="Utförda kontroller under året"
+                value={reportData.metrics.inspectionsPerformed}
+                tone="sky"
+              />
+              <MetricCard
+                description={METRIC_HELP.leakageEvents}
+                label="Läckagehändelser under året"
+                value={reportData.metrics.leakageEvents}
+                tone="red"
+              />
+              <MetricCard
+                description={METRIC_HELP.refilledAmountKg}
+                label="Påfylld mängd köldmedium"
+                value={`${formatNumber(reportData.metrics.refilledAmountKg)} kg`}
+                tone="amber"
+              />
+              <MetricCard
+                description={METRIC_HELP.serviceEvents}
+                label="Servicehändelser under året"
+                value={reportData.metrics.serviceEvents}
+              />
+            </div>
           </section>
 
           <section className="mt-10">
@@ -412,10 +456,12 @@ export default function ReportsPage() {
 }
 
 function MetricCard({
+  description,
   label,
   value,
   tone = "neutral",
 }: {
+  description: string
   label: string
   value: number | string
   tone?: "neutral" | "sky" | "red" | "amber"
@@ -428,7 +474,11 @@ function MetricCard({
   }[tone]
 
   return (
-    <Card className={`p-4 ${toneClass}`}>
+    <Card
+      aria-label={`${label}: ${description}`}
+      className={`cursor-help p-4 ${toneClass}`}
+      title={description}
+    >
       <div className="text-sm font-medium text-neutral-600">{label}</div>
       <div className="mt-2 text-2xl font-bold text-neutral-950">{value}</div>
     </Card>
