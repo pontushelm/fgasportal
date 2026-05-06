@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
+import { Badge } from "@/components/ui"
+import type { CertificationStatusResult } from "@/lib/certification-status"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 
 type ServiceInstallation = {
@@ -23,6 +25,25 @@ type EventFormData = {
   date: string
   refrigerantAddedKg: string
   notes: string
+}
+
+type CurrentUser = {
+  userId: string
+}
+
+type CertificationData = {
+  isCertifiedCompany: boolean
+  certificationNumber: string | null
+  certificationOrganization: string | null
+  certificationValidUntil: string | null
+  certificationStatus: CertificationStatusResult
+}
+
+type CertificationFormData = {
+  isCertifiedCompany: boolean
+  certificationNumber: string
+  certificationOrganization: string
+  certificationValidUntil: string
 }
 
 const STATUS_LABELS: Record<ComplianceStatus, string> = {
@@ -56,14 +77,28 @@ const initialEventForm: EventFormData = {
   notes: "",
 }
 
+const initialCertificationForm: CertificationFormData = {
+  isCertifiedCompany: false,
+  certificationNumber: "",
+  certificationOrganization: "",
+  certificationValidUntil: "",
+}
+
 export default function ServiceDashboardPage() {
   const router = useRouter()
   const [installations, setInstallations] = useState<ServiceInstallation[]>([])
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
+  const [certification, setCertification] = useState<CertificationData | null>(null)
+  const [certificationForm, setCertificationForm] =
+    useState<CertificationFormData>(initialCertificationForm)
   const [eventForm, setEventForm] = useState<EventFormData>(initialEventForm)
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSavingCertification, setIsSavingCertification] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [certificationError, setCertificationError] = useState("")
+  const [certificationSuccess, setCertificationSuccess] = useState("")
 
   useEffect(() => {
     let isMounted = true
@@ -72,11 +107,16 @@ export default function ServiceDashboardPage() {
       setIsLoading(true)
       setError("")
 
-      const response = await fetch("/api/dashboard/service", {
-        credentials: "include",
-      })
+      const [response, userResponse] = await Promise.all([
+        fetch("/api/dashboard/service", {
+          credentials: "include",
+        }),
+        fetch("/api/auth/me", {
+          credentials: "include",
+        }),
+      ])
 
-      if (response.status === 401) {
+      if (response.status === 401 || userResponse.status === 401) {
         router.push("/login")
         return
       }
@@ -88,7 +128,7 @@ export default function ServiceDashboardPage() {
         return
       }
 
-      if (!response.ok) {
+      if (!response.ok || !userResponse.ok) {
         if (!isMounted) return
         setError("Kunde inte hämta serviceuppdrag.")
         setIsLoading(false)
@@ -96,9 +136,22 @@ export default function ServiceDashboardPage() {
       }
 
       const data: ServiceInstallation[] = await response.json()
+      const userData: CurrentUser = await userResponse.json()
+      const certificationResponse = await fetch(
+        `/api/company/contractors/${userData.userId}/certification`,
+        {
+          credentials: "include",
+        }
+      )
+      const certificationData: CertificationData | null = certificationResponse.ok
+        ? await certificationResponse.json()
+        : null
 
       if (!isMounted) return
       setInstallations(data)
+      setCurrentUser(userData)
+      setCertification(certificationData)
+      setCertificationForm(toCertificationForm(certificationData))
       setIsLoading(false)
     }
 
@@ -134,6 +187,58 @@ export default function ServiceDashboardPage() {
       ...eventForm,
       [event.target.name]: event.target.value,
     })
+  }
+
+  function handleCertificationChange(
+    event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) {
+    const value =
+      event.target instanceof HTMLInputElement && event.target.type === "checkbox"
+        ? event.target.checked
+        : event.target.value
+
+    setCertificationForm((current) => ({
+      ...current,
+      [event.target.name]: value,
+    }))
+  }
+
+  async function handleCertificationSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    if (!currentUser) return
+
+    setCertificationError("")
+    setCertificationSuccess("")
+    setIsSavingCertification(true)
+
+    const response = await fetch(
+      `/api/company/contractors/${currentUser.userId}/certification`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(certificationForm),
+      }
+    )
+    const result: CertificationData & { error?: string } = await response.json()
+
+    if (response.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!response.ok) {
+      setCertificationError(result.error || "Kunde inte spara certifieringen.")
+      setIsSavingCertification(false)
+      return
+    }
+
+    setCertification(result)
+    setCertificationForm(toCertificationForm(result))
+    setCertificationSuccess("Certifieringen har sparats.")
+    setIsSavingCertification(false)
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -200,6 +305,79 @@ export default function ServiceDashboardPage() {
       {isLoading && <p className="mt-8 text-slate-700">Laddar serviceuppdrag...</p>}
       {error && <p className="mt-8 text-sm font-semibold text-red-700">{error}</p>}
       {success && <p className="mt-8 text-sm font-semibold text-green-700">{success}</p>}
+
+      {!isLoading && !error && certification && (
+        <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-950">Företagscertifiering</h2>
+              <p className="mt-1 max-w-2xl text-sm text-slate-700">
+                Företag som utför ingrepp i köldmediekretsen behöver giltig certifiering.
+              </p>
+            </div>
+            <CertificationBadge status={certification.certificationStatus} />
+          </div>
+
+          <form className="mt-5 grid max-w-2xl gap-4 sm:grid-cols-2" onSubmit={handleCertificationSubmit}>
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 sm:col-span-2">
+              <input
+                className="h-4 w-4 rounded border-slate-300 text-blue-600"
+                name="isCertifiedCompany"
+                type="checkbox"
+                checked={certificationForm.isCertifiedCompany}
+                onChange={handleCertificationChange}
+              />
+              Certifierat företag
+            </label>
+
+            <label className={fieldClassName}>
+              Certifieringsnummer
+              <input
+                name="certificationNumber"
+                value={certificationForm.certificationNumber}
+                onChange={handleCertificationChange}
+              />
+            </label>
+
+            <label className={fieldClassName}>
+              Certifieringsorgan
+              <select
+                name="certificationOrganization"
+                value={certificationForm.certificationOrganization}
+                onChange={handleCertificationChange}
+              >
+                <option value="">Välj certifieringsorgan</option>
+                <option value="INCERT">INCERT</option>
+                <option value="DNV">DNV</option>
+                <option value="Kiwa">Kiwa</option>
+                <option value="Other">Annat</option>
+              </select>
+            </label>
+
+            <label className={fieldClassName}>
+              Giltigt till
+              <input
+                name="certificationValidUntil"
+                type="date"
+                value={certificationForm.certificationValidUntil}
+                onChange={handleCertificationChange}
+              />
+            </label>
+
+            <div className="flex flex-col gap-2 sm:justify-end">
+              {certificationError && (
+                <p className="text-sm font-semibold text-red-700">{certificationError}</p>
+              )}
+              {certificationSuccess && (
+                <p className="text-sm font-semibold text-green-700">{certificationSuccess}</p>
+              )}
+              <button type="submit" disabled={isSavingCertification}>
+                {isSavingCertification ? "Sparar..." : "Spara certifiering"}
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
 
       {!isLoading && !error && (
         <section className="mt-8">
@@ -329,6 +507,10 @@ function ActionButton({
   )
 }
 
+function CertificationBadge({ status }: { status: CertificationStatusResult }) {
+  return <Badge variant={status.variant}>{status.label}</Badge>
+}
+
 function StatusBadge({ status }: { status: ComplianceStatus }) {
   return (
     <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_TONE[status]}`}>
@@ -361,6 +543,23 @@ function formatNumber(value: number) {
 
 function getTodayInputValue() {
   return new Date().toISOString().slice(0, 10)
+}
+
+function toCertificationForm(
+  certification: CertificationData | null
+): CertificationFormData {
+  return {
+    isCertifiedCompany: certification?.isCertifiedCompany ?? false,
+    certificationNumber: certification?.certificationNumber || "",
+    certificationOrganization: certification?.certificationOrganization || "",
+    certificationValidUntil: toDateInputValue(
+      certification?.certificationValidUntil ?? null
+    ),
+  }
+}
+
+function toDateInputValue(value: string | null) {
+  return value ? new Date(value).toISOString().slice(0, 10) : ""
 }
 
 const fieldClassName = "grid gap-1 text-sm font-medium text-slate-700"

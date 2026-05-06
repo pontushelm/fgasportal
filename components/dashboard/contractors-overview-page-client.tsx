@@ -15,7 +15,6 @@ import type { CertificationStatusResult } from "@/lib/certification-status"
 
 type ContractorOverview = {
   id: string
-  membershipId: string
   name: string
   email: string
   isActive: boolean
@@ -43,20 +42,6 @@ type ContractorsOverviewResponse = {
   contractors: ContractorOverview[]
 }
 
-type CertificationFormData = {
-  isCertifiedCompany: boolean
-  certificationNumber: string
-  certificationOrganization: string
-  certificationValidUntil: string
-}
-
-const initialCertificationForm: CertificationFormData = {
-  isCertifiedCompany: false,
-  certificationNumber: "",
-  certificationOrganization: "",
-  certificationValidUntil: "",
-}
-
 export default function ContractorsOverviewPageClient() {
   const router = useRouter()
   const [data, setData] = useState<ContractorsOverviewResponse | null>(null)
@@ -68,13 +53,6 @@ export default function ContractorsOverviewPageClient() {
   const [inviteSuccess, setInviteSuccess] = useState("")
   const [inviteLink, setInviteLink] = useState("")
   const [isSubmittingInvite, setIsSubmittingInvite] = useState(false)
-  const [editingCertification, setEditingCertification] =
-    useState<ContractorOverview | null>(null)
-  const [certificationForm, setCertificationForm] =
-    useState<CertificationFormData>(initialCertificationForm)
-  const [certificationError, setCertificationError] = useState("")
-  const [certificationSuccess, setCertificationSuccess] = useState("")
-  const [isSavingCertification, setIsSavingCertification] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -185,69 +163,6 @@ export default function ContractorsOverviewPageClient() {
     await refreshOverview()
   }
 
-  function openCertificationModal(contractor: ContractorOverview) {
-    setEditingCertification(contractor)
-    setCertificationForm({
-      isCertifiedCompany: contractor.isCertifiedCompany,
-      certificationNumber: contractor.certificationNumber || "",
-      certificationOrganization: contractor.certificationOrganization || "",
-      certificationValidUntil: toDateInputValue(contractor.certificationValidUntil),
-    })
-    setCertificationError("")
-    setCertificationSuccess("")
-  }
-
-  function handleCertificationChange(
-    event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) {
-    const value =
-      event.target instanceof HTMLInputElement && event.target.type === "checkbox"
-        ? event.target.checked
-        : event.target.value
-
-    setCertificationForm((current) => ({
-      ...current,
-      [event.target.name]: value,
-    }))
-  }
-
-  async function handleCertificationSubmit(event: React.FormEvent) {
-    event.preventDefault()
-    if (!editingCertification) return
-
-    setCertificationError("")
-    setCertificationSuccess("")
-    setIsSavingCertification(true)
-
-    const response = await fetch(
-      `/api/company/contractors/${editingCertification.id}/certification`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(certificationForm),
-      }
-    )
-    const result: { error?: string } = await response.json()
-
-    if (response.status === 401) {
-      router.push("/login")
-      return
-    }
-
-    if (!response.ok) {
-      setCertificationError(result.error || "Kunde inte spara certifieringen.")
-      setIsSavingCertification(false)
-      return
-    }
-
-    setCertificationSuccess("Certifieringen har sparats.")
-    setIsSavingCertification(false)
-    await refreshOverview()
-  }
-
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 dark:text-slate-100 sm:px-6 lg:px-8">
       <PageHeader
@@ -338,7 +253,6 @@ export default function ContractorsOverviewPageClient() {
                       <TableHeader>Certifiering</TableHeader>
                       <TableHeader>Läckage</TableHeader>
                       <TableHeader>Senaste aktivitet</TableHeader>
-                      <TableHeader>Åtgärd</TableHeader>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-900">
@@ -384,24 +298,10 @@ export default function ContractorsOverviewPageClient() {
                         </TableCell>
                         <TableCell>
                           <CertificationBadge status={contractor.certificationStatus} />
-                          {contractor.certificationValidUntil && (
-                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                              Giltigt till {formatOptionalDate(contractor.certificationValidUntil)}
-                            </p>
-                          )}
                         </TableCell>
                         <TableCell>{contractor.leakageEventsCount}</TableCell>
                         <TableCell>
                           {formatOptionalDateTime(contractor.latestActivityDate)}
-                        </TableCell>
-                        <TableCell>
-                          <button
-                            className={buttonClassName({ variant: "secondary" })}
-                            type="button"
-                            onClick={() => openCertificationModal(contractor)}
-                          >
-                            Redigera certifiering
-                          </button>
                         </TableCell>
                       </tr>
                     ))}
@@ -484,105 +384,6 @@ export default function ContractorsOverviewPageClient() {
         </div>
       )}
 
-      {editingCertification && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-100">
-                  Certifiering för {editingCertification.name || editingCertification.email}
-                </h2>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                  Företag som utför ingrepp i köldmediekretsen behöver giltig certifiering.
-                </p>
-              </div>
-              <button
-                aria-label="Stäng"
-                className="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                type="button"
-                onClick={() => setEditingCertification(null)}
-              >
-                ×
-              </button>
-            </div>
-
-            <form className="mt-5 grid gap-4" onSubmit={handleCertificationSubmit}>
-              <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-                <input
-                  className="h-4 w-4 rounded border-slate-300 text-blue-600"
-                  name="isCertifiedCompany"
-                  type="checkbox"
-                  checked={certificationForm.isCertifiedCompany}
-                  onChange={handleCertificationChange}
-                />
-                Certifierat företag
-              </label>
-
-              <label className={modalFieldClassName}>
-                Certifieringsnummer
-                <input
-                  className={modalInputClassName}
-                  name="certificationNumber"
-                  value={certificationForm.certificationNumber}
-                  onChange={handleCertificationChange}
-                />
-              </label>
-
-              <label className={modalFieldClassName}>
-                Certifieringsorgan
-                <select
-                  className={modalInputClassName}
-                  name="certificationOrganization"
-                  value={certificationForm.certificationOrganization}
-                  onChange={handleCertificationChange}
-                >
-                  <option value="">Välj certifieringsorgan</option>
-                  <option value="INCERT">INCERT</option>
-                  <option value="DNV">DNV</option>
-                  <option value="Kiwa">Kiwa</option>
-                  <option value="Other">Annat</option>
-                </select>
-              </label>
-
-              <label className={modalFieldClassName}>
-                Giltigt till
-                <input
-                  className={modalInputClassName}
-                  name="certificationValidUntil"
-                  type="date"
-                  value={certificationForm.certificationValidUntil}
-                  onChange={handleCertificationChange}
-                />
-              </label>
-
-              {certificationError && (
-                <p className="text-sm font-semibold text-red-700">{certificationError}</p>
-              )}
-              {certificationSuccess && (
-                <p className="text-sm font-semibold text-green-700">{certificationSuccess}</p>
-              )}
-
-              <div className="flex flex-wrap justify-end gap-2">
-                <button
-                  className={buttonClassName({ variant: "secondary" })}
-                  type="button"
-                  onClick={() => setEditingCertification(null)}
-                  disabled={isSavingCertification}
-                >
-                  Stäng
-                </button>
-                <button
-                  className={buttonClassName({ variant: "primary" })}
-                  type="submit"
-                  disabled={isSavingCertification}
-                >
-                  {isSavingCertification ? "Sparar..." : "Spara certifiering"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </main>
   )
 }
@@ -638,7 +439,14 @@ function CountBadge({
 }
 
 function CertificationBadge({ status }: { status: CertificationStatusResult }) {
-  return <Badge variant={status.variant}>{status.label}</Badge>
+  return (
+    <Badge
+      title="Certifieringsuppgifter hanteras av servicepartnern."
+      variant={status.variant}
+    >
+      {status.label}
+    </Badge>
+  )
 }
 
 function TableHeader({ children }: { children: React.ReactNode }) {
@@ -666,23 +474,8 @@ function formatOptionalDateTime(value: string | null) {
   }).format(new Date(value))
 }
 
-function formatOptionalDate(value: string | null) {
-  if (!value) return "-"
-
-  return new Intl.DateTimeFormat("sv-SE").format(new Date(value))
-}
-
 function formatNumber(value: number) {
   return new Intl.NumberFormat("sv-SE", {
     maximumFractionDigits: 0,
   }).format(value)
 }
-
-function toDateInputValue(value: string | null) {
-  return value ? new Date(value).toISOString().slice(0, 10) : ""
-}
-
-const modalFieldClassName =
-  "grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200"
-const modalInputClassName =
-  "rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
