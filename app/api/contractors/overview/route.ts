@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { authenticateApiRequest, forbiddenResponse, isContractor } from "@/lib/auth"
+import { getCertificationStatus } from "@/lib/certification-status"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
 import { calculateInstallationRisk } from "@/lib/risk-classification"
@@ -109,9 +110,18 @@ export async function GET(request: NextRequest) {
 
       return {
         id: contractor.id,
+        membershipId: membership.id,
         name: contractor.name,
         email: contractor.email,
         isActive: contractor.isActive,
+        isCertifiedCompany: membership.isCertifiedCompany,
+        certificationNumber: membership.certificationNumber,
+        certificationOrganization: membership.certificationOrganization,
+        certificationValidUntil: membership.certificationValidUntil,
+        certificationStatus: getCertificationStatus({
+          isCertifiedCompany: membership.isCertifiedCompany,
+          validUntil: membership.certificationValidUntil,
+        }),
         assignedInstallationsCount: contractor.assignedInstallations.length,
         overdueInspections,
         dueSoonInspections,
@@ -130,12 +140,16 @@ export async function GET(request: NextRequest) {
           totals.overdueInspections + contractor.overdueInspections,
         highRiskInstallations:
           totals.highRiskInstallations + contractor.highRiskInstallations,
+        expiredCertifications:
+          totals.expiredCertifications +
+          (contractor.certificationStatus.status === "EXPIRED" ? 1 : 0),
       }),
       {
         totalContractors: 0,
         assignedInstallations: 0,
         overdueInspections: 0,
         highRiskInstallations: 0,
+        expiredCertifications: 0,
       }
     )
 

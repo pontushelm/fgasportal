@@ -120,6 +120,10 @@ model CompanyMembership {
   companyId String
   role      UserRole
   isActive  Boolean  @default(true)
+  isCertifiedCompany Boolean @default(false)
+  certificationNumber String?
+  certificationValidUntil DateTime?
+  certificationOrganization String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
