@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 const AUTH_COOKIE_NAME = "auth-token"
 const protectedPrefixes = ["/dashboard", "/installations"]
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isProtectedRoute = protectedPrefixes.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
