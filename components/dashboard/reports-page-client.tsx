@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
-import { Badge, buttonClassName, Card, EmptyState as UiEmptyState, PageHeader, SectionHeader } from "@/components/ui"
+import { Badge, Card, EmptyState as UiEmptyState, PageHeader, SectionHeader } from "@/components/ui"
 
 type EventType = "INSPECTION" | "LEAK" | "REFILL" | "SERVICE"
 type ReportType =
@@ -123,6 +123,12 @@ const METRIC_HELP = {
   serviceEvents: "Registrerade servicehändelser under valt år.",
 } as const
 
+const filterLabelClassName = "grid gap-1 text-sm font-semibold text-slate-700"
+const filterSelectClassName =
+  "h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900"
+const exportButtonClassName =
+  "inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+
 export default function ReportsPage() {
   const currentYear = new Date().getFullYear()
   const yearOptions = useMemo(
@@ -217,89 +223,93 @@ export default function ReportsPage() {
     <main className="mx-auto max-w-7xl px-4 py-10 text-neutral-950 sm:px-6 lg:px-8">
       <PageHeader
         actions={
-          <>
-            <label className="grid gap-1 text-sm font-semibold text-slate-700">
-              Rapporttyp
-              <select
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-                onChange={(event) =>
-                  setSelectedReportType(event.target.value as ReportType)
-                }
-                value={selectedReportType}
-              >
-                {REPORT_TYPE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm font-semibold text-slate-700">
-              År
-              <select
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-                onChange={(event) => setSelectedYear(Number(event.target.value))}
-                value={selectedYear}
-              >
-                {yearOptions.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm font-semibold text-slate-700">
-              Kommun
-              <select
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-                onChange={(event) => {
-                  setSelectedMunicipality(event.target.value)
-                  setSelectedPropertyId("")
-                }}
-                value={selectedMunicipality}
-              >
-                <option value="">Alla kommuner</option>
-                {municipalityOptions.map((municipality) => (
-                  <option key={municipality} value={municipality}>
-                    {municipality}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm font-semibold text-slate-700">
-              Fastighet
-              <select
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-                onChange={(event) => setSelectedPropertyId(event.target.value)}
-                value={selectedPropertyId}
-              >
-                <option value="">Alla fastigheter</option>
-                {properties
-                  .filter((property) =>
-                    selectedMunicipality
-                      ? property.municipality === selectedMunicipality
-                      : true
-                  )
-                  .map((property) => (
-                    <option key={property.id} value={property.id}>
-                      {property.name}
+          <div className="flex flex-col gap-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1.4fr)_88px_minmax(150px,1fr)_minmax(170px,1fr)]">
+              <label className={filterLabelClassName}>
+                Rapporttyp
+                <select
+                  className={filterSelectClassName}
+                  onChange={(event) =>
+                    setSelectedReportType(event.target.value as ReportType)
+                  }
+                  value={selectedReportType}
+                >
+                  {REPORT_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
                     </option>
                   ))}
-              </select>
-            </label>
-            <a
-              className={buttonClassName({ variant: "primary" })}
-              href={`/api/reports/fgas/export?${reportQuery}&format=csv`}
-            >
-              Exportera Excel
-            </a>
-            <a
-              className={buttonClassName({ variant: "secondary" })}
-              href={`/api/reports/fgas/export?${reportQuery}&format=pdf`}
-            >
-              Exportera PDF
-            </a>
-          </>
+                </select>
+              </label>
+              <label className={filterLabelClassName}>
+                År
+                <select
+                  className={`${filterSelectClassName} w-24`}
+                  onChange={(event) => setSelectedYear(Number(event.target.value))}
+                  value={selectedYear}
+                >
+                  {yearOptions.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={filterLabelClassName}>
+                Kommun
+                <select
+                  className={filterSelectClassName}
+                  onChange={(event) => {
+                    setSelectedMunicipality(event.target.value)
+                    setSelectedPropertyId("")
+                  }}
+                  value={selectedMunicipality}
+                >
+                  <option value="">Alla kommuner</option>
+                  {municipalityOptions.map((municipality) => (
+                    <option key={municipality} value={municipality}>
+                      {municipality}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={filterLabelClassName}>
+                Fastighet
+                <select
+                  className={filterSelectClassName}
+                  onChange={(event) => setSelectedPropertyId(event.target.value)}
+                  value={selectedPropertyId}
+                >
+                  <option value="">Alla fastigheter</option>
+                  {properties
+                    .filter((property) =>
+                      selectedMunicipality
+                        ? property.municipality === selectedMunicipality
+                        : true
+                    )
+                    .map((property) => (
+                      <option key={property.id} value={property.id}>
+                        {property.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            </div>
+            <div className="flex flex-wrap justify-start gap-2 border-t border-slate-200 pt-3 lg:justify-end">
+              <a
+                className={exportButtonClassName}
+                href={`/api/reports/fgas/export?${reportQuery}&format=csv`}
+              >
+                Exportera Excel
+              </a>
+              <a
+                className={exportButtonClassName}
+                href={`/api/reports/fgas/export?${reportQuery}&format=pdf`}
+              >
+                Exportera PDF
+              </a>
+            </div>
+          </div>
         }
         backHref="/dashboard"
         backLabel="Till dashboard"
