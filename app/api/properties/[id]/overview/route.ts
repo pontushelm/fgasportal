@@ -26,6 +26,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         installations: {
           where: {
             archivedAt: null,
+            scrappedAt: null,
             ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
           },
           include: {

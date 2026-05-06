@@ -37,6 +37,7 @@ export async function sendInspectionReminders(
     where: {
       isActive: true,
       archivedAt: null,
+      scrappedAt: null,
       nextInspection: {
         not: null,
         lte: dueSoonLimit,

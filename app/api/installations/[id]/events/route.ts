@@ -24,6 +24,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         id,
         companyId,
         archivedAt: null,
+        scrappedAt: null,
         ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
       },
       select: {
@@ -80,6 +81,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         id,
         companyId,
         archivedAt: null,
+        scrappedAt: null,
         ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
       },
       select: {

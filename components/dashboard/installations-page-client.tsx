@@ -31,6 +31,7 @@ type Installation = {
   updatedAt: string
   isActive: boolean
   archivedAt?: string | null
+  scrappedAt?: string | null
   assignedContractor?: Contractor | null
 }
 
@@ -686,6 +687,7 @@ export default function InstallationsPageClient() {
             <option value="ok">OK</option>
             <option value="overdue">Försenad kontroll</option>
             <option value="missing">Saknar uppgifter</option>
+            <option value="scrapped">Skrotade</option>
             <option value="archived">Arkiverade</option>
             <option value="inactive">Inaktiva</option>
           </FilterSelect>
@@ -924,6 +926,7 @@ export default function InstallationsPageClient() {
                     <StatusBadge
                       archivedAt={installation.archivedAt}
                       isActive={installation.isActive}
+                      scrappedAt={installation.scrappedAt}
                       status={installation.complianceStatus}
                     />
                   </TableCell>
@@ -1194,8 +1197,13 @@ function InstallationQuickView({
               />
             </dl>
             <div className="mt-4 flex flex-wrap gap-2">
-              <RiskBadge level={installation.riskLevel} />
-              <StatusBadge status={installation.complianceStatus} />
+              {!installation.scrappedAt && <RiskBadge level={installation.riskLevel} />}
+              <StatusBadge
+                archivedAt={installation.archivedAt}
+                isActive={installation.isActive}
+                scrappedAt={installation.scrappedAt}
+                status={installation.complianceStatus}
+              />
             </div>
           </section>
 
@@ -1230,31 +1238,41 @@ function InstallationQuickView({
             )}
           </section>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-4">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Snabbåtgärder
-            </h3>
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              <QuickAction href={`/dashboard/installations/${installation.id}#event-form`}>
-                Lägg till kontroll
-              </QuickAction>
-              <QuickAction href={`/dashboard/installations/${installation.id}#event-form`}>
-                Registrera läckage
-              </QuickAction>
-              <QuickAction href={`/dashboard/installations/${installation.id}#event-form`}>
-                Lägg till service
-              </QuickAction>
-              <QuickAction href={`/dashboard/installations/${installation.id}#documents`}>
-                Ladda upp dokument
-              </QuickAction>
-              <Link
-                className="rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-blue-700 sm:col-span-2"
-                href={`/dashboard/installations/${installation.id}`}
-              >
-                Öppna hela aggregatsidan
-              </Link>
-            </div>
-          </section>
+          {!installation.scrappedAt && (
+            <section className="rounded-lg border border-slate-200 bg-white p-4">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                Snabbåtgärder
+              </h3>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                <QuickAction href={`/dashboard/installations/${installation.id}#event-form`}>
+                  Lägg till kontroll
+                </QuickAction>
+                <QuickAction href={`/dashboard/installations/${installation.id}#event-form`}>
+                  Registrera läckage
+                </QuickAction>
+                <QuickAction href={`/dashboard/installations/${installation.id}#event-form`}>
+                  Lägg till service
+                </QuickAction>
+                <QuickAction href={`/dashboard/installations/${installation.id}#documents`}>
+                  Ladda upp dokument
+                </QuickAction>
+                <Link
+                  className="rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-blue-700 sm:col-span-2"
+                  href={`/dashboard/installations/${installation.id}`}
+                >
+                  Öppna hela aggregatsidan
+                </Link>
+              </div>
+            </section>
+          )}
+          {installation.scrappedAt && (
+            <Link
+              className="rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-blue-700"
+              href={`/dashboard/installations/${installation.id}`}
+            >
+              Öppna hela aggregatsidan
+            </Link>
+          )}
         </div>
       </aside>
     </div>
@@ -1301,12 +1319,22 @@ function TableCell({ children }: { children: React.ReactNode }) {
 function StatusBadge({
   archivedAt,
   isActive = true,
+  scrappedAt,
   status,
 }: {
   archivedAt?: string | null
   isActive?: boolean
+  scrappedAt?: string | null
   status: ComplianceStatus
 }) {
+  if (scrappedAt) {
+    return (
+      <span className="inline-flex rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-800">
+        Skrotad
+      </span>
+    )
+  }
+
   if (archivedAt) {
     return (
       <span className="inline-flex rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-800">

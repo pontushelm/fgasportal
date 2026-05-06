@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
         },
         companyId,
         archivedAt: null,
+        scrappedAt: null,
       },
       select: {
         id: true,
@@ -89,6 +90,7 @@ export async function POST(request: NextRequest) {
           },
           companyId,
           archivedAt: null,
+          scrappedAt: null,
         },
         data: {
           assignedContractorId: contractor.id,

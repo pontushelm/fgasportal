@@ -108,8 +108,21 @@ type InstallationDetail = {
   installationDate: string
   lastInspection?: string | null
   nextInspection?: string | null
+  scrappedAt?: string | null
+  scrappedByCompanyMembershipId?: string | null
+  scrapComment?: string | null
+  scrapCertificateUrl?: string | null
+  scrapCertificateFileName?: string | null
+  scrapServicePartnerId?: string | null
+  recoveredRefrigerantKg?: number | null
   assignedContractorId?: string | null
   assignedContractor?: {
+    id: string
+    name: string
+    email: string
+    certificationStatus: CertificationStatusResult
+  } | null
+  scrapServicePartner?: {
     id: string
     name: string
     email: string
@@ -159,6 +172,14 @@ type Contractor = {
   id: string
   name: string
   email: string
+  certificationStatus?: CertificationStatusResult
+}
+
+type ScrapFormData = {
+  scrappedAt: string
+  servicePartnerId: string
+  scrapComment: string
+  recoveredRefrigerantKg: string
 }
 
 type PropertyOption = {
@@ -197,6 +218,13 @@ const initialEditFormData: InstallationEditFormData = {
   notes: "",
 }
 
+const initialScrapFormData: ScrapFormData = {
+  scrappedAt: "",
+  servicePartnerId: "",
+  scrapComment: "",
+  recoveredRefrigerantKg: "",
+}
+
 const EVENT_LABELS: Record<InstallationEventType, string> = {
   INSPECTION: "Kontroll",
   LEAK: "Läckage",
@@ -223,6 +251,7 @@ const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
 const ACTIVITY_LABELS: Record<string, string> = {
   installation_created: "Aggregat skapat",
   installation_updated: "Aggregat uppdaterat",
+  installation_scrapped: "Aggregat skrotat",
   service_partner_assigned: "Servicepartner tilldelad",
   inspection_added: "Kontroll registrerad",
   leak_registered: "Läckage registrerat",
@@ -299,6 +328,11 @@ export default function InstallationDetailPage() {
   const [isSavingEdit, setIsSavingEdit] = useState(false)
   const [archiveError, setArchiveError] = useState("")
   const [isArchiving, setIsArchiving] = useState(false)
+  const [isScrapModalOpen, setIsScrapModalOpen] = useState(false)
+  const [scrapForm, setScrapForm] = useState<ScrapFormData>(initialScrapFormData)
+  const [scrapCertificateFile, setScrapCertificateFile] = useState<File | null>(null)
+  const [scrapError, setScrapError] = useState("")
+  const [isScrapping, setIsScrapping] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
@@ -436,6 +470,19 @@ export default function InstallationDetailPage() {
     setDocumentFile(event.target.files?.[0] ?? null)
   }
 
+  function handleScrapChange(
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) {
+    setScrapForm({
+      ...scrapForm,
+      [event.target.name]: event.target.value,
+    })
+  }
+
+  function handleScrapFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    setScrapCertificateFile(event.target.files?.[0] ?? null)
+  }
+
   function handleEditChange(
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
@@ -530,6 +577,59 @@ export default function InstallationDetailPage() {
     }
 
     router.push("/dashboard")
+  }
+
+  function openScrapModal() {
+    setScrapError("")
+    setScrapForm({
+      ...initialScrapFormData,
+      scrappedAt: getTodayInputValue(),
+      servicePartnerId: installation?.assignedContractorId || "",
+    })
+    setScrapCertificateFile(null)
+    setIsScrapModalOpen(true)
+  }
+
+  async function handleScrapSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    setScrapError("")
+
+    if (!scrapCertificateFile) {
+      setScrapError("Skrotningsintyg krävs")
+      return
+    }
+
+    setIsScrapping(true)
+    const formData = new FormData()
+    formData.append("scrappedAt", scrapForm.scrappedAt)
+    formData.append("servicePartnerId", scrapForm.servicePartnerId)
+    formData.append("scrapComment", scrapForm.scrapComment)
+    formData.append("recoveredRefrigerantKg", scrapForm.recoveredRefrigerantKg)
+    formData.append("certificate", scrapCertificateFile)
+
+    const res = await fetch(`/api/installations/${params.id}/scrap`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    })
+    const result: { error?: string } = await res.json()
+
+    if (res.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!res.ok) {
+      setScrapError(result.error || "Kunde inte skrota aggregatet")
+      setIsScrapping(false)
+      return
+    }
+
+    setIsScrapModalOpen(false)
+    setScrapForm(initialScrapFormData)
+    setScrapCertificateFile(null)
+    setRefreshKey((current) => current + 1)
+    setIsScrapping(false)
   }
 
   async function handleEventSubmit(event: React.FormEvent) {
@@ -710,6 +810,7 @@ export default function InstallationDetailPage() {
     isInspectionOverdue: compliance.status === "OVERDUE",
   })
   const canManage = isAdminRole(currentUser?.role)
+  const isScrapped = Boolean(installation.scrappedAt)
   const editInspectionPreview = calculateInspectionPreview(
     editForm.refrigerantType,
     editForm.refrigerantAmount,
@@ -723,6 +824,12 @@ export default function InstallationDetailPage() {
   const eventCertificationWarning = getCertificationWarning(
     installation.assignedContractor?.certificationStatus ?? null
   )
+  const selectedScrapContractor = contractors.find(
+    (contractor) => contractor.id === scrapForm.servicePartnerId
+  )
+  const scrapCertificationWarning = getCertificationWarning(
+    selectedScrapContractor?.certificationStatus ?? null
+  )
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 text-slate-900">
@@ -733,8 +840,14 @@ export default function InstallationDetailPage() {
             <p className="mt-2 text-slate-600">{installation.location}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <RiskBadge level={risk.level} />
-            <ComplianceBadge status={compliance.status} />
+            {isScrapped ? (
+              <ScrappedBadge />
+            ) : (
+              <>
+                <RiskBadge level={risk.level} />
+                <ComplianceBadge status={compliance.status} />
+              </>
+            )}
           </div>
         </div>
 
@@ -746,17 +859,64 @@ export default function InstallationDetailPage() {
           <SummaryItem label="Nästa kontroll" value={formatOptionalDate(installation.nextInspection)} />
         </div>
 
-        <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+        {isScrapped && (
+          <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+            <p className="text-sm font-semibold text-slate-900">Skrotningsinformation</p>
+            <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+              <DetailItem label="Skrotningsdatum" value={formatOptionalDate(installation.scrappedAt)} />
+              <DetailItem
+                label="Servicepartner"
+                value={
+                  installation.scrapServicePartner?.name ||
+                  selectedScrapContractor?.name ||
+                  "-"
+                }
+              />
+              <DetailItem
+                label="Återvunnen mängd"
+                value={
+                  installation.recoveredRefrigerantKg != null
+                    ? `${formatNumber(installation.recoveredRefrigerantKg)} kg`
+                    : "-"
+                }
+              />
+              <div>
+                <dt className="text-sm font-medium text-slate-600">Skrotningsintyg</dt>
+                <dd className="mt-1 font-semibold text-slate-950">
+                  {installation.scrapCertificateUrl ? (
+                    <a
+                      className="text-blue-700 underline-offset-4 hover:underline"
+                      href={installation.scrapCertificateUrl}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      {installation.scrapCertificateFileName || "Öppna intyg"}
+                    </a>
+                  ) : (
+                    "-"
+                  )}
+                </dd>
+              </div>
+            </dl>
+            {installation.scrapComment && (
+              <p className="mt-3 text-sm text-slate-700">{installation.scrapComment}</p>
+            )}
+          </div>
+        )}
+
+        {!isScrapped && (
+          <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
           <p className="text-sm font-semibold text-slate-900">Risk baseras på:</p>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
             {risk.reasons.map((reason) => (
               <li key={reason}>{reason}</li>
             ))}
           </ul>
-        </div>
+          </div>
+        )}
       </section>
 
-      {canManage && (
+      {canManage && !isScrapped && (
         <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
           <h2 className="text-lg font-semibold text-slate-950">Snabbåtgärder</h2>
           <div className="mt-4 flex flex-wrap gap-2">
@@ -807,7 +967,7 @@ export default function InstallationDetailPage() {
         </div>
       </section>
 
-      {canManage && (
+      {canManage && !isScrapped && (
         <section className="installation-form-surface mt-6 rounded-lg border border-slate-200 bg-white p-5">
           <h2 className="text-lg font-semibold text-slate-950">Redigera installation</h2>
 
@@ -932,19 +1092,28 @@ export default function InstallationDetailPage() {
 
           <div className="mt-6">
             {archiveError && <p className="mb-2 text-sm font-semibold text-red-700">{archiveError}</p>}
-            <button
-              className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
-              type="button"
-              onClick={handleArchiveInstallation}
-              disabled={isArchiving}
-            >
-              {isArchiving ? "Arkiverar..." : "Arkivera installation"}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                className="rounded-md border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-50"
+                type="button"
+                onClick={openScrapModal}
+              >
+                Skrota aggregat
+              </button>
+              <button
+                className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
+                type="button"
+                onClick={handleArchiveInstallation}
+                disabled={isArchiving}
+              >
+                {isArchiving ? "Arkiverar..." : "Arkivera installation"}
+              </button>
+            </div>
           </div>
         </section>
       )}
 
-      {canManage && (
+      {canManage && !isScrapped && (
         <section
           className="installation-form-surface mt-6 rounded-lg border border-slate-200 bg-white p-5"
           id="event-form"
@@ -998,6 +1167,12 @@ export default function InstallationDetailPage() {
 
       <section className="installation-form-surface mt-6 rounded-lg border border-slate-200 bg-white p-5" id="documents">
         <h2 className="text-lg font-semibold text-slate-950">Dokument</h2>
+        {isScrapped && (
+          <p className="mt-2 text-sm text-slate-600">
+            Aggregatet är skrotat. Befintliga dokument visas för historik.
+          </p>
+        )}
+        {!isScrapped && (
         <form className="mt-4 grid max-w-2xl gap-3" onSubmit={handleDocumentSubmit}>
           <label className={fieldClassName}>
             Ladda upp dokument
@@ -1052,6 +1227,7 @@ export default function InstallationDetailPage() {
             {isUploadingDocument ? "Laddar upp..." : "Ladda upp dokument"}
           </button>
         </form>
+        )}
 
         {documents.length === 0 ? (
           <p className="mt-6 text-sm text-slate-600">Inga dokument uppladdade ännu.</p>
@@ -1194,6 +1370,115 @@ export default function InstallationDetailPage() {
           </div>
         )}
       </section>
+
+      {isScrapModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6">
+          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-lg bg-white p-5 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-950">Skrota aggregat</h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Skrotning markerar aggregatet som permanent taget ur drift. Historik och dokument sparas.
+                </p>
+              </div>
+              <button
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                type="button"
+                onClick={() => setIsScrapModalOpen(false)}
+                disabled={isScrapping}
+              >
+                Stäng
+              </button>
+            </div>
+
+            <form className="mt-5 grid gap-3" onSubmit={handleScrapSubmit}>
+              <label className={fieldClassName}>
+                <span>Skrotningsdatum <RequiredMark /></span>
+                <input
+                  name="scrappedAt"
+                  type="date"
+                  value={scrapForm.scrappedAt}
+                  onChange={handleScrapChange}
+                  required
+                />
+              </label>
+
+              <label className={fieldClassName}>
+                <span>Servicepartner <RequiredMark /></span>
+                <select
+                  name="servicePartnerId"
+                  value={scrapForm.servicePartnerId}
+                  onChange={handleScrapChange}
+                  required
+                >
+                  <option value="">Välj servicepartner</option>
+                  {contractors.map((contractor) => (
+                    <option key={contractor.id} value={contractor.id}>
+                      {contractor.name} ({contractor.email})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {selectedScrapContractor?.certificationStatus && (
+                <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700">
+                  <span className="font-medium">Certifiering:</span>
+                  <CertificationBadge status={selectedScrapContractor.certificationStatus} />
+                </div>
+              )}
+
+              {scrapCertificationWarning && (
+                <CertificationWarningBox message={scrapCertificationWarning} />
+              )}
+
+              <label className={fieldClassName}>
+                Återvunnen mängd köldmedium kg
+                <input
+                  name="recoveredRefrigerantKg"
+                  inputMode="decimal"
+                  value={scrapForm.recoveredRefrigerantKg}
+                  onChange={handleScrapChange}
+                />
+              </label>
+
+              <label className={fieldClassName}>
+                Kommentar
+                <textarea
+                  name="scrapComment"
+                  value={scrapForm.scrapComment}
+                  onChange={handleScrapChange}
+                />
+              </label>
+
+              <label className={fieldClassName}>
+                <span>Skrotningsintyg <RequiredMark /></span>
+                <input
+                  accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
+                  type="file"
+                  onChange={handleScrapFileChange}
+                  required
+                />
+              </label>
+
+              {scrapError && <p className="text-sm font-semibold text-red-700">{scrapError}</p>}
+
+              <div className="flex flex-wrap gap-2 pt-2">
+                <button type="submit" disabled={isScrapping}>
+                  {isScrapping ? "Skrotar..." : "Skrota aggregat"}
+                </button>
+                <button
+                  className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                  type="button"
+                  onClick={() => setIsScrapModalOpen(false)}
+                  disabled={isScrapping}
+                >
+                  Avbryt
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
@@ -1260,6 +1545,10 @@ function RiskBadge({ level }: { level: InstallationRiskLevel }) {
 
 function CertificationBadge({ status }: { status: CertificationStatusResult }) {
   return <Badge variant={status.variant}>{status.label}</Badge>
+}
+
+function ScrappedBadge() {
+  return <Badge variant="neutral">Skrotad</Badge>
 }
 
 function CertificationWarningBox({ message }: { message: string }) {

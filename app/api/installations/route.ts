@@ -225,7 +225,9 @@ export async function GET(request: NextRequest) {
     const sort = searchParams.get('sort') || 'updatedAt'
     const direction = searchParams.get('direction') === 'asc' ? 'asc' : 'desc'
     const archivedScope =
-      statusFilter === 'archived' || archived === 'archived'
+      statusFilter === 'scrapped'
+        ? 'scrapped'
+        : statusFilter === 'archived' || archived === 'archived'
         ? 'archived'
         : statusFilter === 'inactive' || archived === 'all'
           ? 'all'
@@ -255,11 +257,13 @@ export async function GET(request: NextRequest) {
 
     const where: Prisma.InstallationWhereInput = {
       companyId,
-      ...(archivedScope === 'archived'
+      ...(archivedScope === 'scrapped'
+        ? { scrappedAt: { not: null } }
+        : archivedScope === 'archived'
         ? { archivedAt: { not: null } }
         : archivedScope === 'all'
           ? {}
-          : { archivedAt: null }),
+          : { archivedAt: null, scrappedAt: null }),
       ...(andFilters.length > 0 ? { AND: andFilters } : {}),
       ...(refrigerantType ? { refrigerantType } : {}),
       ...(propertyId ? { propertyId } : {}),
@@ -345,6 +349,7 @@ export async function GET(request: NextRequest) {
           matchesStatusFilter(
             installation.complianceStatus,
             installation.inspectionInterval,
+            installation.scrappedAt,
             statusFilter
           )
         )
@@ -395,8 +400,10 @@ function getInstallationOrderBy(
 function matchesStatusFilter(
   status: string,
   inspectionInterval: number | null,
+  scrappedAt: Date | string | null | undefined,
   filter: string
 ) {
+  if (filter === 'scrapped') return Boolean(scrappedAt)
   if (filter === 'overdue') return status === 'OVERDUE'
   if (filter === 'dueSoon') return status === 'DUE_SOON'
   if (filter === 'ok') return status === 'OK'

@@ -134,6 +134,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         id,
         companyId: auth.user.companyId,
         archivedAt: null,
+        scrappedAt: null,
       },
       select: {
         id: true,

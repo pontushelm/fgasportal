@@ -1,6 +1,7 @@
 export const ACTIVITY_LABELS: Record<string, string> = {
   installation_created: "Aggregat skapat",
   installation_updated: "Aggregat uppdaterat",
+  installation_scrapped: "Aggregat skrotat",
   service_partner_assigned: "Servicepartner tilldelad",
   property_assigned: "Fastighet tilldelad",
   property_removed: "Fastighet borttagen",

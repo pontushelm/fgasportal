@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
       where: {
         companyId,
         archivedAt: null,
+        scrappedAt: null,
         ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
       },
       include: {

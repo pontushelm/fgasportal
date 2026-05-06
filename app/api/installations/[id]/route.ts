@@ -80,6 +80,26 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const { assignedContractor, ...installationData } = installation
     const contractorMembership = assignedContractor?.memberships[0] ?? null
+    const scrapServicePartner = installationData.scrapServicePartnerId
+      ? await prisma.companyMembership.findFirst({
+          where: {
+            userId: installationData.scrapServicePartnerId,
+            companyId,
+            role: "CONTRACTOR",
+          },
+          select: {
+            isCertifiedCompany: true,
+            certificationValidUntil: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        })
+      : null
 
     return NextResponse.json(
       {
@@ -93,6 +113,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 isCertifiedCompany:
                   contractorMembership?.isCertifiedCompany ?? false,
                 validUntil: contractorMembership?.certificationValidUntil ?? null,
+              }),
+            }
+          : null,
+        scrapServicePartner: scrapServicePartner
+          ? {
+              id: scrapServicePartner.user.id,
+              name: scrapServicePartner.user.name,
+              email: scrapServicePartner.user.email,
+              certificationStatus: getCertificationStatus({
+                isCertifiedCompany: scrapServicePartner.isCertifiedCompany,
+                validUntil: scrapServicePartner.certificationValidUntil,
               }),
             }
           : null,
@@ -144,6 +175,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         id,
         companyId,
         archivedAt: null,
+        scrappedAt: null,
       },
     })
 
@@ -350,6 +382,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
         id,
         companyId,
         archivedAt: null,
+        scrappedAt: null,
       },
     })
 

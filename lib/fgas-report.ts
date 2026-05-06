@@ -73,6 +73,10 @@ export async function getFgasAnnualReport({
     where: {
       companyId,
       archivedAt: null,
+      OR: [
+        { scrappedAt: null },
+        { scrappedAt: { gte: startDate, lt: endDate } },
+      ],
       ...(assignedContractorId ? { assignedContractorId } : {}),
       ...(propertyId ? { propertyId } : {}),
       ...(municipality ? { property: { municipality } } : {}),

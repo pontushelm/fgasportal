@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
+import { getCertificationStatus } from "@/lib/certification-status"
 import { prisma } from "@/lib/db"
 
 export async function GET(request: NextRequest) {
@@ -23,6 +24,9 @@ export async function GET(request: NextRequest) {
         },
       },
       select: {
+        id: true,
+        isCertifiedCompany: true,
+        certificationValidUntil: true,
         user: {
           select: {
             id: true,
@@ -33,7 +37,14 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    const contractors = memberships.map((membership) => membership.user)
+    const contractors = memberships.map((membership) => ({
+      ...membership.user,
+      membershipId: membership.id,
+      certificationStatus: getCertificationStatus({
+        isCertifiedCompany: membership.isCertifiedCompany,
+        validUntil: membership.certificationValidUntil,
+      }),
+    }))
 
     return NextResponse.json(contractors, { status: 200 })
   } catch (error: unknown) {

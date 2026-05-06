@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
       where: {
         companyId,
         archivedAt: null,
+        scrappedAt: null,
       },
       orderBy: {
         createdAt: "desc",

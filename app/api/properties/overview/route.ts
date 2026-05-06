@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
         where: {
           companyId,
           archivedAt: null,
+          scrappedAt: null,
           assignedContractorId: userId,
           propertyId: {
             not: null,
@@ -64,6 +65,7 @@ export async function GET(request: NextRequest) {
         installations: {
           where: {
             archivedAt: null,
+            scrappedAt: null,
           },
           include: {
             events: {

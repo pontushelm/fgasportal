@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
               where: {
                 companyId: auth.user.companyId,
                 archivedAt: null,
+                scrappedAt: null,
               },
               include: {
                 events: {

@@ -173,6 +173,14 @@ model Installation {
   notes             String?
   isActive          Boolean  @default(true)
   archivedAt        DateTime?
+  scrappedAt        DateTime?
+  scrappedByCompanyMembershipId String?
+  scrapComment      String?
+  scrapCertificateUrl String?
+  scrapCertificateFileName String?
+  scrapCertificateBlobPath String?
+  scrapServicePartnerId String?
+  recoveredRefrigerantKg Float?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

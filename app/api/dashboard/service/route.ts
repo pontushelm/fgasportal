@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
         companyId: auth.user.companyId,
         assignedContractorId: auth.user.userId,
         archivedAt: null,
+        scrappedAt: null,
       },
       orderBy: {
         name: "asc",
