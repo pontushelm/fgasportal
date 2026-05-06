@@ -214,7 +214,7 @@ export async function GET(request: NextRequest) {
     const { companyId, userId } = auth.user
     const searchParams = request.nextUrl.searchParams
     const search = searchParams.get('q')?.trim()
-    const archived = searchParams.get('archived') || 'active'
+    const archived = searchParams.get('archived') || 'all'
     const refrigerantType = searchParams.get('refrigerantType')?.trim()
     const contractorId = searchParams.get('contractorId')?.trim()
     const propertyId = searchParams.get('propertyId')?.trim()

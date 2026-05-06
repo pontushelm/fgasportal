@@ -117,7 +117,7 @@ export default function InstallationsPageClient() {
   const searchParams = useSearchParams()
   const queryString = searchParams.toString()
   const searchValue = searchParams.get("q") || ""
-  const archivedValue = searchParams.get("archived") || "active"
+  const archivedValue = searchParams.get("archived") || ""
   const refrigerantValue = searchParams.get("refrigerantType") || ""
   const contractorFilterValue = searchParams.get("contractorId") || ""
   const propertyFilterValue = searchParams.get("propertyId") || ""
@@ -127,7 +127,7 @@ export default function InstallationsPageClient() {
   const inspectionIntervalFilterValue = searchParams.get("inspectionInterval") || ""
   const statusFilterValue =
     statusValue ||
-    (archivedValue === "archived" ? "archived" : archivedValue === "all" ? "all" : "")
+    (archivedValue === "archived" ? "archived" : "")
   const sortValue = `${searchParams.get("sort") || "updatedAt"}:${searchParams.get("direction") || "desc"}`
   const [installations, setInstallations] = useState<Installation[]>([])
   const [filterSourceInstallations, setFilterSourceInstallations] = useState<Installation[]>([])
