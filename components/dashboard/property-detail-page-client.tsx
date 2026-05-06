@@ -159,7 +159,7 @@ export default function PropertyDetailPageClient() {
             <Card className="p-5">
               <SectionHeader
                 title="Riskfördelning"
-                subtitle="Visar hur fastighetens aggregat fördelas mellan hög, medel och låg risk."
+                subtitle="Fördelning mellan hög, medel och låg risk."
               />
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
                 <RiskBox label="Hög" value={data.summary.riskDistribution.HIGH} tone="red" />
@@ -253,14 +253,13 @@ function MetricCard({
   return (
     <Card
       aria-label={`${label}: ${description}`}
-      className={`cursor-help border-l-4 p-4 ${toneClass}`}
+      className={`flex min-h-28 cursor-help flex-col justify-center border-l-4 p-4 ${toneClass}`}
       title={description}
     >
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         {label}
       </p>
       <p className="mt-2 text-2xl font-bold text-slate-950">{value}</p>
-      <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
     </Card>
   )
 }
