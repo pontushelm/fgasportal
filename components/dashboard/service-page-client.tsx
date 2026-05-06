@@ -289,6 +289,10 @@ export default function ServiceDashboardPage() {
     setIsSubmitting(false)
   }
 
+  const eventCertificationWarning = getCertificationWarning(
+    certification?.certificationStatus ?? null
+  )
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
       <div className="border-b border-slate-200 pb-6">
@@ -479,6 +483,9 @@ export default function ServiceDashboardPage() {
                 required={eventForm.type === "LEAK"}
               />
             </label>
+            {eventCertificationWarning && (
+              <CertificationWarningBox message={eventCertificationWarning} />
+            )}
             <button type="submit" disabled={isSubmitting}>
               {isSubmitting ? "Sparar..." : "Spara händelse"}
             </button>
@@ -509,6 +516,18 @@ function ActionButton({
 
 function CertificationBadge({ status }: { status: CertificationStatusResult }) {
   return <Badge variant={status.variant}>{status.label}</Badge>
+}
+
+function CertificationWarningBox({ message }: { message: string }) {
+  return (
+    <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+      <p className="font-semibold">{message}</p>
+      <p className="mt-1 text-amber-800">
+        Kontrollera att arbete på köldmediekrets utförs av giltigt certifierad
+        servicepartner.
+      </p>
+    </div>
+  )
 }
 
 function StatusBadge({ status }: { status: ComplianceStatus }) {
@@ -560,6 +579,20 @@ function toCertificationForm(
 
 function toDateInputValue(value: string | null) {
   return value ? new Date(value).toISOString().slice(0, 10) : ""
+}
+
+function getCertificationWarning(status: CertificationStatusResult | null) {
+  if (!status || status.status === "VALID") return null
+
+  if (status.status === "EXPIRED") {
+    return "Servicepartnerns certifiering har gått ut."
+  }
+
+  if (status.status === "EXPIRING_SOON") {
+    return "Servicepartnerns certifiering löper snart ut."
+  }
+
+  return "Servicepartnern saknar registrerad certifiering."
 }
 
 const fieldClassName = "grid gap-1 text-sm font-medium text-slate-700"

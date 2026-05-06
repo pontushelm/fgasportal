@@ -2,6 +2,8 @@
 
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
+import { Badge } from "@/components/ui"
+import type { CertificationStatusResult } from "@/lib/certification-status"
 import {
   calculateCO2e,
   calculateInspectionObligation,
@@ -107,6 +109,12 @@ type InstallationDetail = {
   lastInspection?: string | null
   nextInspection?: string | null
   assignedContractorId?: string | null
+  assignedContractor?: {
+    id: string
+    name: string
+    email: string
+    certificationStatus: CertificationStatusResult
+  } | null
   notes?: string | null
   inspections: Inspection[]
 }
@@ -712,6 +720,9 @@ export default function InstallationDetailPage() {
     counts[document.event.id] = (counts[document.event.id] ?? 0) + 1
     return counts
   }, {})
+  const eventCertificationWarning = getCertificationWarning(
+    installation.assignedContractor?.certificationStatus ?? null
+  )
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 text-slate-900">
@@ -767,6 +778,9 @@ export default function InstallationDetailPage() {
             <DetailItem label="Serienummer" value={formatOptionalText(installation.serialNumber)} />
             <DetailItem label="Utrustningstyp" value={formatOptionalText(installation.equipmentType)} />
             <DetailItem label="Operatör" value={formatOptionalText(installation.operatorName)} />
+            {installation.assignedContractor && (
+              <ServicepartnerDetailItem contractor={installation.assignedContractor} />
+            )}
             <DetailItem
               label="Läckagevarningssystem"
               value={installation.hasLeakDetectionSystem ? "Ja" : "Nej"}
@@ -970,6 +984,9 @@ export default function InstallationDetailPage() {
                 required={eventForm.type === "LEAK"}
               />
             </label>
+            {eventCertificationWarning && (
+              <CertificationWarningBox message={eventCertificationWarning} />
+            )}
             {eventError && <p className="text-sm font-semibold text-red-700">{eventError}</p>}
             {eventSuccess && <p className="text-sm font-semibold text-green-700">{eventSuccess}</p>}
             <button type="submit" disabled={isSubmittingEvent}>
@@ -1199,6 +1216,22 @@ function DetailItem({ label, value }: { label: string; value: string }) {
   )
 }
 
+function ServicepartnerDetailItem({
+  contractor,
+}: {
+  contractor: NonNullable<InstallationDetail["assignedContractor"]>
+}) {
+  return (
+    <div>
+      <dt className="text-sm font-medium text-slate-600">Servicepartner</dt>
+      <dd className="mt-1 flex flex-wrap items-center gap-2 font-semibold text-slate-950">
+        <span>{contractor.name || contractor.email}</span>
+        <CertificationBadge status={contractor.certificationStatus} />
+      </dd>
+    </div>
+  )
+}
+
 function QuickActionButton({
   label,
   onClick,
@@ -1222,6 +1255,22 @@ function RiskBadge({ level }: { level: InstallationRiskLevel }) {
     <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${RISK_TONE[level]}`}>
       {RISK_LABELS[level] ?? "Risk saknas"}
     </span>
+  )
+}
+
+function CertificationBadge({ status }: { status: CertificationStatusResult }) {
+  return <Badge variant={status.variant}>{status.label}</Badge>
+}
+
+function CertificationWarningBox({ message }: { message: string }) {
+  return (
+    <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+      <p className="font-semibold">{message}</p>
+      <p className="mt-1 text-amber-800">
+        Kontrollera att arbete på köldmediekrets utförs av giltigt certifierad
+        servicepartner.
+      </p>
+    </div>
   )
 }
 
@@ -1396,4 +1445,18 @@ function getTodayInputValue() {
 
 function toDateInputValue(value?: string | null) {
   return value ? new Date(value).toISOString().slice(0, 10) : ""
+}
+
+function getCertificationWarning(status: CertificationStatusResult | null) {
+  if (!status || status.status === "VALID") return null
+
+  if (status.status === "EXPIRED") {
+    return "Servicepartnerns certifiering har gått ut."
+  }
+
+  if (status.status === "EXPIRING_SOON") {
+    return "Servicepartnerns certifiering löper snart ut."
+  }
+
+  return "Servicepartnern saknar registrerad certifiering."
 }

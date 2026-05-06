@@ -6,6 +6,7 @@ import {
   isAdmin,
   isContractor,
 } from "@/lib/auth"
+import { getCertificationStatus } from "@/lib/certification-status"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
@@ -48,6 +49,25 @@ export async function GET(request: NextRequest, context: RouteContext) {
             inspectionDate: "desc",
           },
         },
+        assignedContractor: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            memberships: {
+              where: {
+                companyId,
+                role: "CONTRACTOR",
+                isActive: true,
+              },
+              select: {
+                isCertifiedCompany: true,
+                certificationValidUntil: true,
+              },
+              take: 1,
+            },
+          },
+        },
       },
     })
 
@@ -58,7 +78,27 @@ export async function GET(request: NextRequest, context: RouteContext) {
       )
     }
 
-    return NextResponse.json(installation, { status: 200 })
+    const { assignedContractor, ...installationData } = installation
+    const contractorMembership = assignedContractor?.memberships[0] ?? null
+
+    return NextResponse.json(
+      {
+        ...installationData,
+        assignedContractor: assignedContractor
+          ? {
+              id: assignedContractor.id,
+              name: assignedContractor.name,
+              email: assignedContractor.email,
+              certificationStatus: getCertificationStatus({
+                isCertifiedCompany:
+                  contractorMembership?.isCertifiedCompany ?? false,
+                validUntil: contractorMembership?.certificationValidUntil ?? null,
+              }),
+            }
+          : null,
+      },
+      { status: 200 }
+    )
   } catch (error: unknown) {
     console.error("Get installation detail error:", error)
 
