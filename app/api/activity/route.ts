@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get("userId")?.trim()
     const installationId = searchParams.get("installationId")?.trim()
     const propertyId = searchParams.get("propertyId")?.trim()
+    const search = searchParams.get("q")?.trim().toLowerCase()
     const fromDate = parseDate(searchParams.get("fromDate"), "start")
     const toDate = parseDate(searchParams.get("toDate"), "end")
 
@@ -55,124 +56,78 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const [total, entries, userMemberships, installations] = await Promise.all([
-      prisma.activityLog.count({ where }),
-      prisma.activityLog.findMany({
-        where,
-        include: {
-          installation: {
-            select: {
-              id: true,
-              name: true,
-              location: true,
-              property: {
-                select: {
-                  id: true,
-                  name: true,
-                  municipality: true,
-                },
-              },
-            },
-          },
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      prisma.companyMembership.findMany({
-        where: {
-          companyId: auth.user.companyId,
-          user: {
-            activityLogs: {
-              some: {
-                companyId: auth.user.companyId,
+    const entries = await prisma.activityLog.findMany({
+      where,
+      include: {
+        installation: {
+          select: {
+            id: true,
+            name: true,
+            location: true,
+            property: {
+              select: {
+                id: true,
+                name: true,
+                municipality: true,
               },
             },
           },
         },
-        select: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
           },
         },
-        orderBy: {
-          user: {
-            name: "asc",
-          },
-        },
-      }),
-      prisma.installation.findMany({
-        where: {
-          companyId: auth.user.companyId,
-          activityLogs: {
-            some: {
-              companyId: auth.user.companyId,
-            },
-          },
-        },
-        select: {
-          id: true,
-          name: true,
-          location: true,
-        },
-        orderBy: {
-          name: "asc",
-        },
-        take: 500,
-      }),
-    ])
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    })
+    const mappedEntries = entries.map((entry) => {
+      const metadata = toMetadataObject(entry.metadata)
 
-    const users = userMemberships.map((membership) => membership.user)
+      return {
+        id: entry.id,
+        action: entry.action,
+        label: ACTIVITY_LABELS[entry.action] ?? entry.action,
+        entityType: entry.entityType,
+        entityId: entry.entityId,
+        metadata,
+        description: formatActivityDescription({
+          action: entry.action,
+          entityType: entry.entityType,
+          metadata,
+        }),
+        createdAt: entry.createdAt,
+        installation: entry.installation,
+        property: entry.installation?.property ?? getPropertyFromMetadata(metadata),
+        user: entry.user,
+      }
+    })
+    const filteredEntries = search
+      ? mappedEntries.filter((entry) => matchesActivitySearch(entry, search))
+      : mappedEntries
+    const paginatedEntries = filteredEntries.slice(
+      (page - 1) * pageSize,
+      page * pageSize
+    )
 
     return NextResponse.json(
       {
-        entries: entries.map((entry) => {
-          const metadata = toMetadataObject(entry.metadata)
-
-          return {
-            id: entry.id,
-            action: entry.action,
-            label: ACTIVITY_LABELS[entry.action] ?? entry.action,
-            entityType: entry.entityType,
-            entityId: entry.entityId,
-            metadata,
-            description: formatActivityDescription({
-              action: entry.action,
-              entityType: entry.entityType,
-              metadata,
-            }),
-            createdAt: entry.createdAt,
-            installation: entry.installation,
-            property: entry.installation?.property ?? getPropertyFromMetadata(metadata),
-            user: entry.user,
-          }
-        }),
+        entries: paginatedEntries,
         filters: {
           eventTypes: Object.entries(ACTIVITY_LABELS).map(([value, label]) => ({
             label,
             value,
           })),
-          installations,
-          users,
         },
         pagination: {
           page,
           pageSize,
-          total,
-          totalPages: Math.max(1, Math.ceil(total / pageSize)),
+          total: filteredEntries.length,
+          totalPages: Math.max(1, Math.ceil(filteredEntries.length / pageSize)),
         },
       },
       { status: 200 }
@@ -229,4 +184,67 @@ function getPropertyFromMetadata(metadata: Record<string, unknown> | null) {
     municipality:
       typeof metadata.municipality === "string" ? metadata.municipality : null,
   }
+}
+
+function matchesActivitySearch(
+  entry: {
+    action: string
+    label: string
+    entityType: string
+    description: string
+    metadata?: Record<string, unknown> | null
+    installation?: {
+      name: string
+      location: string
+      property?: {
+        name: string | null
+        municipality?: string | null
+      } | null
+    } | null
+    property?: {
+      name: string | null
+      municipality?: string | null
+    } | null
+    user?: {
+      name: string
+      email: string
+    } | null
+  },
+  search: string
+) {
+  return collectSearchValues([
+    entry.action,
+    entry.label,
+    entry.entityType,
+    entry.description,
+    entry.installation?.name,
+    entry.installation?.location,
+    entry.installation?.property?.name,
+    entry.installation?.property?.municipality,
+    entry.property?.name,
+    entry.property?.municipality,
+    entry.user?.name,
+    entry.user?.email,
+    ...(entry.metadata ? Object.values(entry.metadata) : []),
+  ]).some((value) => value.includes(search))
+}
+
+function collectSearchValues(values: unknown[]): string[] {
+  return values.flatMap((value) => {
+    if (value === null || value === undefined) return []
+
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      return [String(value).toLowerCase()]
+    }
+
+    if (Array.isArray(value)) {
+      return collectSearchValues(value)
+    }
+
+    if (typeof value === "object") {
+      return collectSearchValues(Object.values(value))
+    }
+
+    return []
+  })
 }

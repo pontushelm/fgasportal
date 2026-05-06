@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   Badge,
   Button,
@@ -11,14 +11,6 @@ import {
   PageHeader,
   SectionHeader,
 } from "@/components/ui"
-import type { UserRole } from "@/lib/auth"
-import { formatRoleLabel } from "@/lib/roles"
-
-type CurrentUser = {
-  userId: string
-  companyId: string
-  role: UserRole
-}
 
 type ActivityEntry = {
   id: string
@@ -55,8 +47,6 @@ type ActivityResponse = {
   entries: ActivityEntry[]
   filters: {
     eventTypes: Array<{ label: string; value: string }>
-    installations: Array<{ id: string; name: string; location: string }>
-    users: Array<{ id: string; name: string; email: string }>
   }
   pagination: {
     page: number
@@ -72,17 +62,21 @@ export default function ActivityPageClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const queryString = searchParams.toString()
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [data, setData] = useState<ActivityResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
 
+  const search = searchParams.get("q") || ""
   const eventType = searchParams.get("eventType") || ""
-  const userId = searchParams.get("userId") || ""
-  const installationId = searchParams.get("installationId") || ""
   const fromDate = searchParams.get("fromDate") || ""
   const toDate = searchParams.get("toDate") || ""
   const page = Number.parseInt(searchParams.get("page") || "1", 10)
+  const [searchInputState, setSearchInputState] = useState({
+    sourceValue: search,
+    value: search,
+  })
+  const searchInputValue =
+    searchInputState.sourceValue === search ? searchInputState.value : search
 
   useEffect(() => {
     let isMounted = true
@@ -94,16 +88,11 @@ export default function ActivityPageClient() {
       const params = new URLSearchParams(searchParams.toString())
       params.set("pageSize", pageSize)
 
-      const [activityRes, userRes] = await Promise.all([
-        fetch(`/api/activity?${params.toString()}`, {
-          credentials: "include",
-        }),
-        fetch("/api/auth/me", {
-          credentials: "include",
-        }),
-      ])
+      const activityRes = await fetch(`/api/activity?${params.toString()}`, {
+        credentials: "include",
+      })
 
-      if (activityRes.status === 401 || userRes.status === 401) {
+      if (activityRes.status === 401) {
         router.push("/login")
         return
       }
@@ -113,7 +102,7 @@ export default function ActivityPageClient() {
         return
       }
 
-      if (!activityRes.ok || !userRes.ok) {
+      if (!activityRes.ok) {
         if (!isMounted) return
         setError("Kunde inte hämta aktivitetsloggen")
         setIsLoading(false)
@@ -121,12 +110,10 @@ export default function ActivityPageClient() {
       }
 
       const activityData: ActivityResponse = await activityRes.json()
-      const userData: CurrentUser = await userRes.json()
 
       if (!isMounted) return
 
       setData(activityData)
-      setCurrentUser(userData)
       setIsLoading(false)
     }
 
@@ -138,11 +125,11 @@ export default function ActivityPageClient() {
   }, [queryString, router, searchParams])
 
   const hasActiveFilters = useMemo(
-    () => Boolean(eventType || userId || installationId || fromDate || toDate),
-    [eventType, fromDate, installationId, toDate, userId]
+    () => Boolean(search || eventType || fromDate || toDate),
+    [eventType, fromDate, search, toDate]
   )
 
-  function updateQueryParam(name: string, value: string) {
+  const updateQueryParam = useCallback((name: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString())
     params.delete("page")
 
@@ -153,7 +140,18 @@ export default function ActivityPageClient() {
     }
 
     router.replace(`/dashboard/activity${params.toString() ? `?${params.toString()}` : ""}`)
-  }
+  }, [router, searchParams])
+
+  useEffect(() => {
+    const nextSearchValue = searchInputValue.trim()
+    if (nextSearchValue === search) return
+
+    const timeoutId = window.setTimeout(() => {
+      updateQueryParam("q", nextSearchValue)
+    }, 300)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [search, searchInputValue, updateQueryParam])
 
   function goToPage(nextPage: number) {
     const params = new URLSearchParams(searchParams.toString())
@@ -185,7 +183,18 @@ export default function ActivityPageClient() {
             ) : null
           }
         />
-        <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-[minmax(280px,2fr)_minmax(220px,1.1fr)_160px_160px]">
+          <SearchInput
+            label="Sök"
+            value={searchInputValue}
+            onChange={(value) =>
+              setSearchInputState({
+                sourceValue: search,
+                value,
+              })
+            }
+          />
+
           <FilterSelect
             label="Händelsetyp"
             value={eventType}
@@ -195,32 +204,6 @@ export default function ActivityPageClient() {
             {data?.filters.eventTypes.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
-              </option>
-            ))}
-          </FilterSelect>
-
-          <FilterSelect
-            label="Användare"
-            value={userId}
-            onChange={(value) => updateQueryParam("userId", value)}
-          >
-            <option value="">Alla användare</option>
-            {data?.filters.users.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.name || user.email}
-              </option>
-            ))}
-          </FilterSelect>
-
-          <FilterSelect
-            label="Aggregat"
-            value={installationId}
-            onChange={(value) => updateQueryParam("installationId", value)}
-          >
-            <option value="">Alla aggregat</option>
-            {data?.filters.installations.map((installation) => (
-              <option key={installation.id} value={installation.id}>
-                {installation.name}
               </option>
             ))}
           </FilterSelect>
@@ -256,9 +239,6 @@ export default function ActivityPageClient() {
                 {data.pagination.total} loggposter i urvalet.
               </p>
             </div>
-            {currentUser?.role && (
-              <Badge variant="neutral">{formatRoleLabel(currentUser.role)}</Badge>
-            )}
           </div>
 
           {data.entries.length === 0 ? (
@@ -391,6 +371,29 @@ function MetadataSummary({
   )
 }
 
+function SearchInput({
+  label,
+  onChange,
+  value,
+}: {
+  label: string
+  onChange: (value: string) => void
+  value: string
+}) {
+  return (
+    <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-300">
+      {label}
+      <input
+        className="w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        placeholder="Sök händelse, aggregat, fastighet eller användare"
+        type="search"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  )
+}
+
 function FilterSelect({
   children,
   label,
@@ -406,7 +409,7 @@ function FilterSelect({
     <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-300">
       {label}
       <select
-        className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        className="w-full min-w-0 truncate rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
@@ -429,7 +432,7 @@ function DateInput({
     <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-300">
       {label}
       <input
-        className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        className="w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         type="date"
         value={value}
         onChange={(event) => onChange(event.target.value)}
