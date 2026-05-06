@@ -125,8 +125,8 @@ export default function RegisterForm({ inviteToken }: { inviteToken?: string }) 
             <input className={inputClassName} placeholder="Företagsnamn" {...register("companyName")} />
           </Field>
 
-          <Field label="Organisationsnummer (valfritt)" error={errors.orgNumber?.message as string}>
-            <input className={inputClassName} placeholder="Organisationsnummer" {...register("orgNumber")} />
+          <Field label="Organisationsnummer" error={errors.orgNumber?.message as string}>
+            <input className={inputClassName} placeholder="556703-7485" {...register("orgNumber")} />
           </Field>
 
         </>

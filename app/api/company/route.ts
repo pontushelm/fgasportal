@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { ZodError, z } from "zod"
-import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
+import { authenticateApiRequest, forbiddenResponse } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { normalizeSwedishOrgNumber } from "@/lib/org-number"
 
 const optionalText = (max: number) =>
   z.string()
@@ -16,13 +17,23 @@ const optionalText = (max: number) =>
 
 const updateCompanySchema = z.object({
   name: z.string().trim().min(2).max(100),
-  organizationNumber: optionalText(30),
+  organizationNumber: z.string()
+    .optional()
+    .nullable()
+    .transform((value) => {
+      if (value === undefined) return undefined
+      const trimmedValue = value?.trim()
+      if (!trimmedValue) return null
+      return normalizeSwedishOrgNumber(trimmedValue)
+    })
+    .refine((value) => value === undefined || value === null || /^\d{10}$/.test(value), {
+      message: "Organisationsnummer måste innehålla exakt 10 siffror",
+    }),
   contactPerson: optionalText(100),
   contactPhone: optionalText(40),
   address: optionalText(200),
   postalCode: optionalText(20),
   city: optionalText(100),
-  sendInspectionRemindersToContractors: z.boolean().optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -49,7 +60,6 @@ export async function GET(request: NextRequest) {
         billingAddress: true,
         vatNumber: true,
         eInvoiceId: true,
-        sendInspectionRemindersToContractors: true,
         phone: true,
       },
     })
@@ -76,7 +86,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
-    if (!isAdmin(auth.user)) return forbiddenResponse()
+    if (auth.user.role !== "OWNER") return forbiddenResponse()
 
     const body = await request.json()
     const validatedData = updateCompanySchema.parse(body)
@@ -101,7 +111,6 @@ export async function PATCH(request: NextRequest) {
         billingAddress: true,
         vatNumber: true,
         eInvoiceId: true,
-        sendInspectionRemindersToContractors: true,
         phone: true,
       },
     })

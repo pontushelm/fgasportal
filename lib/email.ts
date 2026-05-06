@@ -19,6 +19,12 @@ type SendPasswordResetEmailInput = {
   resetUrl: string
 }
 
+type SendInvitationEmailInput = {
+  to: string
+  inviteUrl: string
+  companyName: string
+}
+
 let resend: Resend | null = null
 
 export async function sendInspectionReminderEmail({
@@ -127,6 +133,42 @@ export async function sendPasswordResetEmail({
     from,
     to,
     subject: "Återställ ditt lösenord i FgasPortal",
+    text,
+  })
+
+  if (result.error) {
+    throw new Error(result.error.message)
+  }
+
+  return result.data
+}
+
+export async function sendInvitationEmail({
+  to,
+  inviteUrl,
+  companyName,
+}: SendInvitationEmailInput) {
+  const apiKey = requireEnv("RESEND_API_KEY")
+  const from = requireEnv("REMINDER_FROM_EMAIL")
+  const text = [
+    "Hej,",
+    "",
+    `Du har blivit inbjuden till ${companyName} i FgasPortal.`,
+    "",
+    "Skapa ditt konto via länken nedan:",
+    "",
+    inviteUrl,
+    "",
+    "Vänliga hälsningar,",
+    "FgasPortal",
+  ].join("\n")
+
+  resend ??= new Resend(apiKey)
+
+  const result = await resend.emails.send({
+    from,
+    to,
+    subject: `Inbjudan till ${companyName} i FgasPortal`,
     text,
   })
 

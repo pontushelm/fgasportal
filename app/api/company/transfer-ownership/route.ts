@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
       select: {
         id: true,
         userId: true,
+        role: true,
         user: {
           select: {
             id: true,
@@ -68,6 +69,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Användaren hittades inte" },
         { status: 404 }
+      )
+    }
+
+    if (targetMembership.role === "CONTRACTOR") {
+      return NextResponse.json(
+        { error: "Servicepartners kan inte göras till ägare" },
+        { status: 400 }
       )
     }
 

@@ -18,9 +18,10 @@ export async function POST(request: NextRequest) {
     }
 
     const normalData: NormalRegisterData = validatedData
+    const orgNumber = normalData.orgNumber
     const existingCompany = await prisma.company.findUnique({
       where: {
-        orgNumber: normalData.orgNumber,
+        orgNumber,
       },
     })
 
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
       const createdCompany = await tx.company.create({
         data: {
           name: normalData.companyName,
-          orgNumber: normalData.orgNumber,
+          orgNumber,
           address: normalData.companyAddress || null,
           phone: normalData.companyPhone || null,
           users: {

@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { normalizeSwedishOrgNumber } from "@/lib/org-number"
 
 export const passwordSchema = z.string()
   .min(8)
@@ -19,9 +20,10 @@ export const normalRegisterSchema = z.object({
     .max(100),
 
   orgNumber: z.string()
-    .min(10)
-    .max(10)
-    .regex(/^\d+$/, "Organisationsnummer får bara innehålla siffror"),
+    .transform((value) => normalizeSwedishOrgNumber(value))
+    .refine((value) => /^\d{10}$/.test(value), {
+      message: "Organisationsnummer måste innehålla exakt 10 siffror",
+    }),
 
   companyAddress: z.string().optional(),
   companyPhone: z.string().optional(),

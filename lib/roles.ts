@@ -11,11 +11,11 @@ export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   OWNER:
     "Full åtkomst. Kan hantera användare, roller, fakturauppgifter och företagsinställningar.",
   ADMIN:
-    "Kan hantera installationer, fastigheter, dokument och rapporter, men inte användare eller fakturauppgifter.",
+    "Kan hantera aggregat, fastigheter, dokument och rapporter, men inte användare eller fakturauppgifter.",
   MEMBER:
     "Kan arbeta med företagets data men har begränsad åtkomst till inställningar.",
   CONTRACTOR:
-    "Extern roll med åtkomst till tilldelade installationer och serviceuppgifter.",
+    "Extern roll med åtkomst till tilldelade aggregat och serviceuppgifter.",
 }
 
 export function formatRoleLabel(role: UserRole | string) {

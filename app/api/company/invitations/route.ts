@@ -5,6 +5,7 @@ import { ZodError } from "zod"
 import { logActivity } from "@/lib/activity-log"
 import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { sendInvitationEmail } from "@/lib/email"
 import {
   canInviteInternalUsers,
   canInviteServicePartners,
@@ -196,9 +197,37 @@ export async function POST(request: NextRequest) {
       },
     })
     const inviteLink = `${request.nextUrl.origin}/register?invite=${token}`
+    const company = await prisma.company.findUnique({
+      where: {
+        id: companyId,
+      },
+      select: {
+        name: true,
+      },
+    })
+    let emailSent = false
+
+    try {
+      await sendInvitationEmail({
+        to: invitation.email,
+        inviteUrl: inviteLink,
+        companyName: company?.name || "FgasPortal",
+      })
+      emailSent = true
+    } catch (error) {
+      console.error("Invitation email failed", {
+        invitationId: invitation.id,
+        email: invitation.email,
+        error,
+      })
+    }
 
     return NextResponse.json(
       {
+        message: emailSent
+          ? "Inbjudan skapad och e-post har skickats."
+          : "Inbjudan skapad, men e-post kunde inte skickas. Använd inbjudningslänken nedan.",
+        emailSent,
         invitation,
         inviteLink,
       },

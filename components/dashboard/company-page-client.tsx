@@ -51,7 +51,6 @@ type CompanyProfile = {
   billingAddress?: string | null
   vatNumber?: string | null
   eInvoiceId?: string | null
-  sendInspectionRemindersToContractors: boolean
   phone?: string | null
 }
 
@@ -63,7 +62,6 @@ type CompanyProfileFormData = {
   address: string
   postalCode: string
   city: string
-  sendInspectionRemindersToContractors: boolean
 }
 
 type BillingFormData = {
@@ -72,25 +70,6 @@ type BillingFormData = {
   billingAddress: string
   vatNumber: string
   eInvoiceId: string
-}
-
-type Property = {
-  id: string
-  name: string
-  address?: string | null
-  postalCode?: string | null
-  city?: string | null
-  municipality?: string | null
-  propertyDesignation?: string | null
-}
-
-type PropertyFormData = {
-  name: string
-  address: string
-  postalCode: string
-  city: string
-  municipality: string
-  propertyDesignation: string
 }
 
 type CurrentUser = {
@@ -117,7 +96,6 @@ const initialProfileFormData: CompanyProfileFormData = {
   address: "",
   postalCode: "",
   city: "",
-  sendInspectionRemindersToContractors: false,
 }
 
 const initialBillingFormData: BillingFormData = {
@@ -126,15 +104,6 @@ const initialBillingFormData: BillingFormData = {
   billingAddress: "",
   vatNumber: "",
   eInvoiceId: "",
-}
-
-const initialPropertyFormData: PropertyFormData = {
-  name: "",
-  address: "",
-  postalCode: "",
-  city: "",
-  municipality: "",
-  propertyDesignation: "",
 }
 
 const fieldClassName = "grid gap-1 text-sm font-medium text-slate-700"
@@ -147,17 +116,12 @@ export default function CompanySettingsPage() {
     invitations: [],
   })
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null)
-  const [properties, setProperties] = useState<Property[]>([])
-  const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null)
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [profileForm, setProfileForm] = useState<CompanyProfileFormData>(
     initialProfileFormData
   )
   const [billingForm, setBillingForm] = useState<BillingFormData>(
     initialBillingFormData
-  )
-  const [propertyForm, setPropertyForm] = useState<PropertyFormData>(
-    initialPropertyFormData
   )
   const [invitationForm, setInvitationForm] = useState<InvitationFormData>(
     initialInvitationFormData
@@ -175,16 +139,14 @@ export default function CompanySettingsPage() {
   const [billingSuccess, setBillingSuccess] = useState("")
   const [inviteError, setInviteError] = useState("")
   const [inviteSuccess, setInviteSuccess] = useState("")
+  const [inviteWarning, setInviteWarning] = useState("")
   const [inviteLink, setInviteLink] = useState("")
-  const [propertyError, setPropertyError] = useState("")
-  const [propertySuccess, setPropertySuccess] = useState("")
   const [userManagementError, setUserManagementError] = useState("")
   const [userManagementSuccess, setUserManagementSuccess] = useState("")
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null)
   const [transferTargetUser, setTransferTargetUser] =
     useState<CompanyUser | null>(null)
   const [isTransferringOwnership, setIsTransferringOwnership] = useState(false)
-  const [isSavingProperty, setIsSavingProperty] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -210,37 +172,30 @@ export default function CompanySettingsPage() {
 
       if (!isMounted) return
 
-      if (!isAdminRole(accessUser.role)) {
-        router.replace("/dashboard/settings")
-        return
-      }
-
-      const [companyRes, invitationsRes, userRes, propertiesRes] = await Promise.all([
+      const [companyRes, userRes, invitationsRes] = await Promise.all([
         fetch("/api/company", {
-          credentials: "include",
-        }),
-        fetch("/api/company/invitations", {
           credentials: "include",
         }),
         fetch("/api/auth/me", {
           credentials: "include",
         }),
-        fetch("/api/properties", {
-          credentials: "include",
-        }),
+        isAdminRole(accessUser.role)
+          ? fetch("/api/company/invitations", {
+              credentials: "include",
+            })
+          : Promise.resolve(null),
       ])
 
       if (
         companyRes.status === 401 ||
-        invitationsRes.status === 401 ||
         userRes.status === 401 ||
-        propertiesRes.status === 401
+        invitationsRes?.status === 401
       ) {
         router.push("/login")
         return
       }
 
-      if (!companyRes.ok || !userRes.ok || !propertiesRes.ok) {
+      if (!companyRes.ok || !userRes.ok) {
         if (!isMounted) return
         setError("Kunde inte hämta företagsinställningar")
         setIsLoading(false)
@@ -249,23 +204,16 @@ export default function CompanySettingsPage() {
 
       const company: CompanyProfile = await companyRes.json()
       const userData: CurrentUser = await userRes.json()
-      const propertiesData: Property[] = await propertiesRes.json()
       const invitationsData: CompanySettingsData =
-        invitationsRes.ok ? await invitationsRes.json() : { users: [], invitations: [] }
+        invitationsRes?.ok ? await invitationsRes.json() : { users: [], invitations: [] }
 
       if (!isMounted) return
-
-      if (!isAdminRole(userData.role)) {
-        router.replace("/dashboard/settings")
-        return
-      }
 
       setCompanyProfile(company)
       setProfileForm(toProfileFormData(company))
       setBillingForm(toBillingFormData(company))
       setCurrentUser(userData)
       setData(invitationsData)
-      setProperties(propertiesData)
       setIsLoading(false)
     }
 
@@ -277,6 +225,8 @@ export default function CompanySettingsPage() {
   }, [router])
 
   const canAdminister = isAdminRole(currentUser?.role)
+  const canEditProfile = currentUser?.role === "OWNER"
+  const canViewBilling = isAdminRole(currentUser?.role)
   const canEditBilling = currentUser?.role === "OWNER"
   const canManageUsers = currentUser?.role === "OWNER"
 
@@ -304,65 +254,6 @@ export default function CompanySettingsPage() {
       ...invitationForm,
       [event.target.name]: event.target.value,
     })
-  }
-
-  function handlePropertyChange(event: React.ChangeEvent<HTMLInputElement>) {
-    setPropertyForm({
-      ...propertyForm,
-      [event.target.name]: event.target.value,
-    })
-  }
-
-  function startEditProperty(property: Property) {
-    setEditingPropertyId(property.id)
-    setPropertyForm(toPropertyFormData(property))
-    setPropertyError("")
-    setPropertySuccess("")
-  }
-
-  async function handlePropertySubmit(event: React.FormEvent) {
-    event.preventDefault()
-    setPropertyError("")
-    setPropertySuccess("")
-    setIsSavingProperty(true)
-
-    const res = await fetch(
-      editingPropertyId ? `/api/properties/${editingPropertyId}` : "/api/properties",
-      {
-        method: editingPropertyId ? "PATCH" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(propertyForm),
-      }
-    )
-    const result: Property & { error?: string } = await res.json()
-
-    if (res.status === 401) {
-      router.push("/login")
-      return
-    }
-
-    if (!res.ok) {
-      setPropertyError(result.error || "Kunde inte spara fastigheten")
-      setIsSavingProperty(false)
-      return
-    }
-
-    setProperties((current) =>
-      editingPropertyId
-        ? current.map((property) =>
-            property.id === result.id ? result : property
-          )
-        : [...current, result].sort((first, second) =>
-            first.name.localeCompare(second.name, "sv")
-          )
-    )
-    setPropertyForm(initialPropertyFormData)
-    setEditingPropertyId(null)
-    setPropertySuccess("Fastigheten har sparats")
-    setIsSavingProperty(false)
   }
 
   async function handleProfileSubmit(event: React.FormEvent) {
@@ -441,6 +332,7 @@ export default function CompanySettingsPage() {
     event.preventDefault()
     setInviteError("")
     setInviteSuccess("")
+    setInviteWarning("")
     setInviteLink("")
     setIsSubmittingInvite(true)
 
@@ -455,6 +347,7 @@ export default function CompanySettingsPage() {
     const result: {
       error?: string
       message?: string
+      emailSent?: boolean
       inviteLink?: string
       invitation?: PendingInvitation
     } = await res.json()
@@ -470,7 +363,14 @@ export default function CompanySettingsPage() {
       return
     }
 
-    setInviteSuccess(result.message || "Inbjudan har skapats")
+    if (result.emailSent === false) {
+      setInviteWarning(
+        result.message ||
+          "Inbjudan skapad, men e-post kunde inte skickas. Använd inbjudningslänken nedan."
+      )
+    } else {
+      setInviteSuccess(result.message || "Inbjudan skapad och e-post har skickats.")
+    }
     setInviteLink(result.inviteLink || "")
     setInvitationForm(initialInvitationFormData)
     setIsSubmittingInvite(false)
@@ -650,7 +550,7 @@ export default function CompanySettingsPage() {
                   Uppgifter som kan återanvändas i rapporter, exporter och dokumenthuvuden.
                 </p>
               </div>
-              {canAdminister && !isEditingProfile && (
+              {canEditProfile && !isEditingProfile && (
                 <button
                   className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
                   type="button"
@@ -669,7 +569,13 @@ export default function CompanySettingsPage() {
                 </label>
                 <label className={fieldClassName}>
                   Organisationsnummer
-                  <input className={inputClassName} name="organizationNumber" value={profileForm.organizationNumber} onChange={handleProfileChange} />
+                  <input
+                    className={inputClassName}
+                    name="organizationNumber"
+                    placeholder="556703-7485"
+                    value={profileForm.organizationNumber}
+                    onChange={handleProfileChange}
+                  />
                 </label>
                 <label className={fieldClassName}>
                   Kontaktperson
@@ -690,23 +596,6 @@ export default function CompanySettingsPage() {
                 <label className={fieldClassName}>
                   Ort
                   <input className={inputClassName} name="city" value={profileForm.city} onChange={handleProfileChange} />
-                </label>
-                <label className="flex gap-3 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 md:col-span-2">
-                  <input
-                    className="mt-1 h-4 w-4 rounded border-slate-300"
-                    name="sendInspectionRemindersToContractors"
-                    type="checkbox"
-                    checked={profileForm.sendInspectionRemindersToContractors}
-                    onChange={handleProfileChange}
-                  />
-                  <span>
-                    <span className="block font-semibold text-slate-900">
-                      Skicka kontrollpåminnelser till tilldelade servicepartners
-                    </span>
-                    <span className="mt-1 block">
-                      När detta är aktiverat får servicepartnern endast påminnelser för aggregat där de är tilldelade.
-                    </span>
-                  </span>
                 </label>
                 <div className="flex flex-wrap gap-2 md:col-span-2">
                   <button
@@ -740,10 +629,6 @@ export default function CompanySettingsPage() {
                 <ProfileItem label="Adress" value={companyProfile.address} />
                 <ProfileItem label="Postnummer" value={companyProfile.postalCode} />
                 <ProfileItem label="Ort" value={companyProfile.city} />
-                <ProfileItem
-                  label="Påminnelser till servicepartners"
-                  value={companyProfile.sendInspectionRemindersToContractors ? "Aktiverat" : "Avstängt"}
-                />
               </dl>
             )}
 
@@ -752,6 +637,7 @@ export default function CompanySettingsPage() {
             )}
           </Card>
 
+          {canViewBilling && (
           <Card className="mt-8 p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
@@ -830,89 +716,9 @@ export default function CompanySettingsPage() {
               <p className="mt-4 text-sm font-semibold text-green-700">{billingSuccess}</p>
             )}
           </Card>
+          )}
 
-          <Card className="mt-8 p-5">
-            <h2 className="text-xl font-semibold text-slate-950">Fastigheter</h2>
-            <p className="mt-1 text-sm text-slate-700">
-              Strukturerade fastighetsuppgifter används för filtrering och årsrapporter.
-            </p>
-
-            {canAdminister && (
-              <form className="mt-5 grid gap-4 md:grid-cols-2" onSubmit={handlePropertySubmit}>
-                <label className={fieldClassName}>
-                  Fastighetsnamn
-                  <input className={inputClassName} name="name" value={propertyForm.name} onChange={handlePropertyChange} required />
-                </label>
-                <label className={fieldClassName}>
-                  Fastighetsbeteckning
-                  <input className={inputClassName} name="propertyDesignation" value={propertyForm.propertyDesignation} onChange={handlePropertyChange} />
-                </label>
-                <label className={fieldClassName}>
-                  Adress
-                  <input className={inputClassName} name="address" value={propertyForm.address} onChange={handlePropertyChange} />
-                </label>
-                <label className={fieldClassName}>
-                  Postnummer
-                  <input className={inputClassName} name="postalCode" value={propertyForm.postalCode} onChange={handlePropertyChange} />
-                </label>
-                <label className={fieldClassName}>
-                  Ort
-                  <input className={inputClassName} name="city" value={propertyForm.city} onChange={handlePropertyChange} />
-                </label>
-                <label className={fieldClassName}>
-                  Kommun
-                  <input className={inputClassName} name="municipality" value={propertyForm.municipality} onChange={handlePropertyChange} />
-                </label>
-                <div className="flex flex-wrap gap-2 md:col-span-2">
-                  <button
-                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
-                    type="submit"
-                    disabled={isSavingProperty}
-                  >
-                    {isSavingProperty
-                      ? "Sparar..."
-                      : editingPropertyId
-                        ? "Spara fastighet"
-                        : "Lägg till fastighet"}
-                  </button>
-                  {editingPropertyId && (
-                    <button
-                      className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-                      type="button"
-                      disabled={isSavingProperty}
-                      onClick={() => {
-                        setEditingPropertyId(null)
-                        setPropertyForm(initialPropertyFormData)
-                        setPropertyError("")
-                      }}
-                    >
-                      Avbryt
-                    </button>
-                  )}
-                </div>
-                {propertyError && <p className="font-semibold text-red-700 md:col-span-2">{propertyError}</p>}
-                {propertySuccess && <p className="font-semibold text-green-700 md:col-span-2">{propertySuccess}</p>}
-              </form>
-            )}
-
-            {properties.length === 0 ? (
-              <p className="mt-5 text-sm text-slate-700">Inga fastigheter registrerade.</p>
-            ) : (
-              <CompanyTable
-                headers={["Namn", "Kommun", "Adress", "Fastighetsbeteckning", "Åtgärd"]}
-                rows={properties.map((property) => [
-                  property.name,
-                  property.municipality || "-",
-                  [property.address, property.postalCode, property.city].filter(Boolean).join(", ") || "-",
-                  property.propertyDesignation || "-",
-                  canAdminister ? `__edit:${property.id}` : "-",
-                ])}
-                onEditProperty={canAdminister ? startEditProperty : undefined}
-                properties={properties}
-              />
-            )}
-          </Card>
-
+          {canAdminister && (
           <Card className="mt-8 p-5">
             <h2 className="text-xl font-semibold text-slate-950">Användare</h2>
             {data.users.length === 0 ? (
@@ -943,6 +749,7 @@ export default function CompanySettingsPage() {
               <ReadOnlyUsersTable users={data.users} />
             )}
           </Card>
+          )}
 
           {canAdminister && (
             <Card className="mt-8 p-5">
@@ -983,6 +790,7 @@ export default function CompanySettingsPage() {
 
                 {inviteError && <p className="font-semibold text-red-700">{inviteError}</p>}
                 {inviteSuccess && <p className="font-semibold text-green-700">{inviteSuccess}</p>}
+                {inviteWarning && <p className="font-semibold text-amber-700">{inviteWarning}</p>}
                 {inviteLink && (
                   <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-700">
                     Inbjudningslänk: <code className="break-all text-slate-950">{inviteLink}</code>
@@ -1000,6 +808,7 @@ export default function CompanySettingsPage() {
             </Card>
           )}
 
+          {canAdminister && (
           <Card className="mt-8 p-5">
             <h2 className="text-xl font-semibold text-slate-950">Väntande inbjudningar</h2>
             {data.invitations.length === 0 ? (
@@ -1016,6 +825,7 @@ export default function CompanySettingsPage() {
               />
             )}
           </Card>
+          )}
         </>
       )}
       {transferTargetUser && (
@@ -1176,7 +986,7 @@ function ManagedUsersTable({
                   {user.isActive ? "Aktiv" : "Inaktiv"}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-slate-800">
-                  {!isCurrentUser && user.isActive && (
+                  {!isCurrentUser && user.isActive && user.role !== "CONTRACTOR" && (
                     <button
                       className="mr-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                       type="button"
@@ -1244,13 +1054,9 @@ function ReadOnlyUsersTable({ users }: { users: CompanyUser[] }) {
 
 function CompanyTable({
   headers,
-  onEditProperty,
-  properties = [],
   rows,
 }: {
   headers: string[]
-  onEditProperty?: (property: Property) => void
-  properties?: Property[]
   rows: string[][]
 }) {
   return (
@@ -1270,22 +1076,7 @@ function CompanyTable({
             <tr key={row.join("|")}>
               {row.map((cell, index) => (
                 <td className="whitespace-nowrap px-4 py-3 text-slate-800" key={`${cell}-${index}`}>
-                  {cell.startsWith("__edit:") && onEditProperty ? (
-                    <button
-                      className="font-semibold text-slate-700 underline-offset-4 hover:underline"
-                      type="button"
-                      onClick={() => {
-                        const property = properties.find(
-                          (item) => item.id === cell.replace("__edit:", "")
-                        )
-                        if (property) onEditProperty(property)
-                      }}
-                    >
-                      Redigera
-                    </button>
-                  ) : (
-                    cell
-                  )}
+                  {cell}
                 </td>
               ))}
             </tr>
@@ -1294,17 +1085,6 @@ function CompanyTable({
       </table>
     </div>
   )
-}
-
-function toPropertyFormData(property: Property): PropertyFormData {
-  return {
-    name: property.name,
-    address: property.address || "",
-    postalCode: property.postalCode || "",
-    city: property.city || "",
-    municipality: property.municipality || "",
-    propertyDesignation: property.propertyDesignation || "",
-  }
 }
 
 function toProfileFormData(company: CompanyProfile): CompanyProfileFormData {
@@ -1316,8 +1096,6 @@ function toProfileFormData(company: CompanyProfile): CompanyProfileFormData {
     address: company.address || "",
     postalCode: company.postalCode || "",
     city: company.city || "",
-    sendInspectionRemindersToContractors:
-      company.sendInspectionRemindersToContractors,
   }
 }
 
