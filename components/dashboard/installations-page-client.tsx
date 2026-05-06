@@ -127,7 +127,7 @@ export default function InstallationsPageClient() {
   const inspectionIntervalFilterValue = searchParams.get("inspectionInterval") || ""
   const statusFilterValue =
     statusValue ||
-    (archivedValue === "archived" ? "archived" : "")
+    (archivedValue === "archived" ? "archived" : archivedValue === "active" ? "active" : "")
   const sortValue = `${searchParams.get("sort") || "updatedAt"}:${searchParams.get("direction") || "desc"}`
   const [installations, setInstallations] = useState<Installation[]>([])
   const [filterSourceInstallations, setFilterSourceInstallations] = useState<Installation[]>([])
@@ -371,7 +371,9 @@ export default function InstallationsPageClient() {
     params.delete("status")
     params.delete("archived")
 
-    if (value === "all") {
+    if (value === "active") {
+      params.set("archived", "active")
+    } else if (value === "all") {
       params.set("archived", "all")
     } else if (value) {
       params.set("status", value)
@@ -684,12 +686,11 @@ export default function InstallationsPageClient() {
             onChange={updateStatusFilter}
           >
             <option value="">Alla</option>
-            <option value="ok">OK</option>
+            <option value="active">Aktiva</option>
             <option value="overdue">Försenad kontroll</option>
             <option value="missing">Saknar uppgifter</option>
-            <option value="scrapped">Skrotade</option>
             <option value="archived">Arkiverade</option>
-            <option value="inactive">Inaktiva</option>
+            <option value="scrapped">Skrotade</option>
           </FilterSelect>
 
           <FilterSelect

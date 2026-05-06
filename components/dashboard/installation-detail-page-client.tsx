@@ -859,51 +859,6 @@ export default function InstallationDetailPage() {
           <SummaryItem label="Nästa kontroll" value={formatOptionalDate(installation.nextInspection)} />
         </div>
 
-        {isScrapped && (
-          <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
-            <p className="text-sm font-semibold text-slate-900">Skrotningsinformation</p>
-            <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-              <DetailItem label="Skrotningsdatum" value={formatOptionalDate(installation.scrappedAt)} />
-              <DetailItem
-                label="Servicepartner"
-                value={
-                  installation.scrapServicePartner?.name ||
-                  selectedScrapContractor?.name ||
-                  "-"
-                }
-              />
-              <DetailItem
-                label="Återvunnen mängd"
-                value={
-                  installation.recoveredRefrigerantKg != null
-                    ? `${formatNumber(installation.recoveredRefrigerantKg)} kg`
-                    : "-"
-                }
-              />
-              <div>
-                <dt className="text-sm font-medium text-slate-600">Skrotningsintyg</dt>
-                <dd className="mt-1 font-semibold text-slate-950">
-                  {installation.scrapCertificateUrl ? (
-                    <a
-                      className="text-blue-700 underline-offset-4 hover:underline"
-                      href={installation.scrapCertificateUrl}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      {installation.scrapCertificateFileName || "Öppna intyg"}
-                    </a>
-                  ) : (
-                    "-"
-                  )}
-                </dd>
-              </div>
-            </dl>
-            {installation.scrapComment && (
-              <p className="mt-3 text-sm text-slate-700">{installation.scrapComment}</p>
-            )}
-          </div>
-        )}
-
         {!isScrapped && (
           <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
           <p className="text-sm font-semibold text-slate-900">Risk baseras på:</p>
@@ -915,6 +870,60 @@ export default function InstallationDetailPage() {
           </div>
         )}
       </section>
+
+      {isScrapped && (
+        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-950">Skrotning</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Aggregatet är permanent taget ur drift men sparas historiskt.
+              </p>
+            </div>
+            <ScrappedBadge />
+          </div>
+          <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <DetailItem label="Skrotningsdatum" value={formatOptionalDate(installation.scrappedAt)} />
+            <DetailItem
+              label="Servicepartner"
+              value={
+                installation.scrapServicePartner?.name ||
+                selectedScrapContractor?.name ||
+                "-"
+              }
+            />
+            {installation.recoveredRefrigerantKg != null && (
+              <DetailItem
+                label="Återvunnen mängd köldmedium"
+                value={`${formatNumber(installation.recoveredRefrigerantKg)} kg`}
+              />
+            )}
+            <div>
+              <dt className="text-sm font-medium text-slate-600">Skrotningsintyg</dt>
+              <dd className="mt-2">
+                {installation.scrapCertificateUrl ? (
+                  <a
+                    className="inline-flex rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                    href={installation.scrapCertificateUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    {installation.scrapCertificateFileName || "Öppna intyg"}
+                  </a>
+                ) : (
+                  <span className="font-semibold text-slate-950">-</span>
+                )}
+              </dd>
+            </div>
+          </dl>
+          {installation.scrapComment && (
+            <div className="mt-4 rounded-md bg-slate-50 p-4">
+              <h3 className="text-sm font-semibold text-slate-950">Kommentar</h3>
+              <p className="mt-1 text-sm text-slate-700">{installation.scrapComment}</p>
+            </div>
+          )}
+        </section>
+      )}
 
       {canManage && !isScrapped && (
         <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
@@ -1389,6 +1398,16 @@ export default function InstallationDetailPage() {
               >
                 Stäng
               </button>
+            </div>
+
+            <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <p>
+                När ett aggregat skrotas tas det bort från aktiva kontroller och
+                åtgärdslistor, men sparas historiskt.
+              </p>
+              <p className="mt-1 font-semibold">
+                Skrotning kan inte ångras i denna version.
+              </p>
             </div>
 
             <form className="mt-5 grid gap-3" onSubmit={handleScrapSubmit}>
