@@ -5,6 +5,10 @@ import { ZodError } from "zod"
 import { logActivity } from "@/lib/activity-log"
 import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import {
+  canInviteInternalUsers,
+  canInviteServicePartners,
+} from "@/lib/roles"
 import { createInvitationSchema } from "@/lib/validations"
 
 const INVITATION_TTL_DAYS = 7
@@ -45,6 +49,9 @@ export async function GET(request: NextRequest) {
         where: {
           companyId,
           acceptedAt: null,
+          role: {
+            not: "CONTRACTOR",
+          },
         },
         orderBy: {
           createdAt: "desc",
@@ -89,11 +96,19 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
-    if (auth.user.role !== "OWNER") return forbiddenResponse()
 
     const { companyId, userId } = auth.user
     const body = await request.json()
     const validatedData = createInvitationSchema.parse(body)
+    const isServicePartnerInvite = validatedData.role === "CONTRACTOR"
+
+    if (
+      isServicePartnerInvite
+        ? !canInviteServicePartners(auth.user.role)
+        : !canInviteInternalUsers(auth.user.role)
+    ) {
+      return forbiddenResponse()
+    }
     const existingUser = await prisma.user.findUnique({
       where: {
         email: validatedData.email,

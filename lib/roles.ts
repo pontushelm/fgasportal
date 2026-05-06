@@ -29,3 +29,11 @@ export function formatRoleDescription(role: UserRole | string) {
 export function isAdminRole(role: UserRole | string | undefined) {
   return role === "OWNER" || role === "ADMIN"
 }
+
+export function canInviteInternalUsers(role: UserRole | string | undefined) {
+  return role === "OWNER" || role === "ADMIN"
+}
+
+export function canInviteServicePartners(role: UserRole | string | undefined) {
+  return role === "OWNER" || role === "ADMIN" || role === "MEMBER"
+}

@@ -40,6 +40,12 @@ export default function ContractorsOverviewPageClient() {
   const [data, setData] = useState<ContractorsOverviewResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
+  const [isInviteOpen, setIsInviteOpen] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState("")
+  const [inviteError, setInviteError] = useState("")
+  const [inviteSuccess, setInviteSuccess] = useState("")
+  const [inviteLink, setInviteLink] = useState("")
+  const [isSubmittingInvite, setIsSubmittingInvite] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -85,6 +91,71 @@ export default function ContractorsOverviewPageClient() {
     }
   }, [router])
 
+  async function refreshOverview() {
+    const response = await fetch("/api/contractors/overview", {
+      credentials: "include",
+    })
+
+    if (response.ok) {
+      const overview: ContractorsOverviewResponse = await response.json()
+      setData(overview)
+    }
+  }
+
+  function openInviteModal() {
+    setInviteEmail("")
+    setInviteError("")
+    setInviteSuccess("")
+    setInviteLink("")
+    setIsInviteOpen(true)
+  }
+
+  async function handleInviteSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    setInviteError("")
+    setInviteSuccess("")
+    setInviteLink("")
+    setIsSubmittingInvite(true)
+
+    const response = await fetch("/api/company/invitations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        email: inviteEmail,
+        role: "CONTRACTOR",
+      }),
+    })
+    const result: {
+      error?: string
+      inviteLink?: string
+      message?: string
+    } = await response.json()
+
+    if (response.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!response.ok) {
+      setInviteError(result.error || "Kunde inte skicka inbjudan.")
+      setIsSubmittingInvite(false)
+      return
+    }
+
+    setInviteSuccess(
+      result.inviteLink
+        ? "Inbjudan har skickats."
+        : result.message || "Servicepartnern har lagts till."
+    )
+    setInviteLink(result.inviteLink || "")
+    setInviteEmail("")
+    setIsSubmittingInvite(false)
+    await refreshOverview()
+  }
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 dark:text-slate-100 sm:px-6 lg:px-8">
       <PageHeader
@@ -92,12 +163,13 @@ export default function ContractorsOverviewPageClient() {
         title="Servicepartneröversikt"
         subtitle="Följ arbetsbelastning, försenade kontroller och risk per tilldelad servicepartner."
         actions={
-          <Link
+          <button
             className={buttonClassName({ variant: "secondary" })}
-            href="/dashboard/company"
+            type="button"
+            onClick={openInviteModal}
           >
-            Hantera inbjudningar
-          </Link>
+            Bjud in servicepartner
+          </button>
         }
       />
 
@@ -143,14 +215,15 @@ export default function ContractorsOverviewPageClient() {
               <div className="p-5">
                 <EmptyState
                   title="Inga servicepartners har lagts till ännu."
-                  description="Bjud in servicepartners från företagsinställningarna när ni vill tilldela aggregat."
+                  description="Bjud in servicepartners här när ni vill tilldela aggregat."
                   action={
-                    <Link
+                    <button
                       className={buttonClassName({ variant: "primary" })}
-                      href="/dashboard/company"
+                      type="button"
+                      onClick={openInviteModal}
                     >
-                      Öppna företagsinställningar
-                    </Link>
+                      Bjud in servicepartner
+                    </button>
                   }
                 />
               </div>
@@ -222,6 +295,77 @@ export default function ContractorsOverviewPageClient() {
             )}
           </Card>
         </>
+      )}
+
+      {isInviteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-100">
+                  Bjud in servicepartner
+                </h2>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                  Bjud in en extern servicepartner som kan hantera tilldelade aggregat, kontroller och servicehändelser.
+                </p>
+              </div>
+              <button
+                aria-label="Stäng"
+                className="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                type="button"
+                onClick={() => setIsInviteOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <form className="mt-5 grid gap-4" onSubmit={handleInviteSubmit}>
+              <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+                E-post
+                <input
+                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(event) => setInviteEmail(event.target.value)}
+                  required
+                />
+              </label>
+
+              {inviteError && (
+                <p className="text-sm font-semibold text-red-700">{inviteError}</p>
+              )}
+              {inviteSuccess && (
+                <p className="text-sm font-semibold text-green-700">{inviteSuccess}</p>
+              )}
+              {inviteLink && (
+                <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-700 dark:bg-slate-950 dark:text-slate-300">
+                  Inbjudningslänk:{" "}
+                  <code className="break-all text-slate-950 dark:text-slate-100">
+                    {inviteLink}
+                  </code>
+                </p>
+              )}
+
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  className={buttonClassName({ variant: "secondary" })}
+                  type="button"
+                  onClick={() => setIsInviteOpen(false)}
+                  disabled={isSubmittingInvite}
+                >
+                  Stäng
+                </button>
+                <button
+                  className={buttonClassName({ variant: "primary" })}
+                  type="submit"
+                  disabled={isSubmittingInvite}
+                >
+                  {isSubmittingInvite ? "Skickar..." : "Skicka inbjudan"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </main>
   )

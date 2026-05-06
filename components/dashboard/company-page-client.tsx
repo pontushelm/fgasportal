@@ -946,7 +946,12 @@ export default function CompanySettingsPage() {
 
           {canAdminister && (
             <Card className="mt-8 p-5">
-              <h2 className="text-xl font-semibold text-slate-950">Bjud in användare</h2>
+              <h2 className="text-xl font-semibold text-slate-950">
+                Bjud in användare till organisationen
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Används för interna användare. Servicepartners bjuds in från servicepartnersidan.
+              </p>
               <form className="mt-5 grid max-w-md gap-4" onSubmit={handleInviteSubmit}>
                 <label className={fieldClassName}>
                   E-post
@@ -970,7 +975,6 @@ export default function CompanySettingsPage() {
                   >
                     <option value="MEMBER">{formatRoleLabel("MEMBER")}</option>
                     <option value="ADMIN">{formatRoleLabel("ADMIN")}</option>
-                    <option value="CONTRACTOR">{formatRoleLabel("CONTRACTOR")}</option>
                   </select>
                   <span className="text-sm font-normal text-slate-600">
                     {formatRoleDescription(invitationForm.role)}
