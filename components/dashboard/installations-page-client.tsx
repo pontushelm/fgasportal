@@ -1247,17 +1247,14 @@ function InstallationQuickView({
           {!installation.scrappedAt && (
             <section className="rounded-lg border border-slate-200 bg-white p-4">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                Snabbåtgärder
+                Åtgärder
               </h3>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                <QuickAction href={`/dashboard/installations/${installation.id}#event-form`}>
-                  Lägg till kontroll
+                <QuickAction href={`/dashboard/installations/${installation.id}`}>
+                  Ny händelse
                 </QuickAction>
-                <QuickAction href={`/dashboard/installations/${installation.id}#event-form`}>
-                  Registrera läckage
-                </QuickAction>
-                <QuickAction href={`/dashboard/installations/${installation.id}#event-form`}>
-                  Lägg till service
+                <QuickAction href={`/dashboard/installations/${installation.id}`}>
+                  Redigera aggregat
                 </QuickAction>
                 <QuickAction href={`/dashboard/installations/${installation.id}#documents`}>
                   Ladda upp dokument

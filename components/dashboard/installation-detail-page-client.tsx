@@ -333,7 +333,9 @@ export default function InstallationDetailPage() {
   const [documentError, setDocumentError] = useState("")
   const [documentSuccess, setDocumentSuccess] = useState("")
   const [isSubmittingEvent, setIsSubmittingEvent] = useState(false)
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false)
   const [isUploadingDocument, setIsUploadingDocument] = useState(false)
+  const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false)
   const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<InstallationEditFormData>(
     initialEditFormData
@@ -513,21 +515,41 @@ export default function InstallationDetailPage() {
     })
   }
 
-  function handleQuickEvent(type: InstallationEventType) {
+  function openEventModal(type: InstallationEventType = "SERVICE") {
+    setEventError("")
+    setEventSuccess("")
     setEventForm((current) => ({
       ...current,
       type,
       date: current.date || getTodayInputValue(),
     }))
-    window.setTimeout(() => {
-      document.getElementById("event-form")?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      })
-      document
-        .querySelector<HTMLSelectElement>("#event-form select[name='type']")
-        ?.focus()
-    }, 0)
+    setIsEventModalOpen(true)
+  }
+
+  function closeEventModal() {
+    if (isSubmittingEvent) return
+    setIsEventModalOpen(false)
+    setEventError("")
+  }
+
+  function openDocumentModal() {
+    setDocumentError("")
+    setDocumentSuccess("")
+    setDocumentFile(null)
+    setDocumentForm(initialDocumentFormData)
+    setIsDocumentModalOpen(true)
+  }
+
+  function closeDocumentModal() {
+    if (isUploadingDocument) return
+    setIsDocumentModalOpen(false)
+    setDocumentError("")
+  }
+
+  function openEditModal() {
+    setEditError("")
+    setEditSuccess("")
+    setIsEditing(true)
   }
 
   async function handleEditSubmit(event: React.FormEvent) {
@@ -711,6 +733,7 @@ export default function InstallationDetailPage() {
 
     setEventForm(initialEventFormData)
     setEventSuccess("Händelsen har lagts till")
+    setIsEventModalOpen(false)
     setRefreshKey((current) => current + 1)
     setIsSubmittingEvent(false)
   }
@@ -755,6 +778,7 @@ export default function InstallationDetailPage() {
     setDocumentForm(initialDocumentFormData)
     setDocumentFile(null)
     setDocumentSuccess("Dokumentet har laddats upp")
+    setIsDocumentModalOpen(false)
     setRefreshKey((current) => current + 1)
     setIsUploadingDocument(false)
   }
@@ -867,6 +891,30 @@ export default function InstallationDetailPage() {
           </div>
         </div>
 
+        {canManage && !isScrapped && (
+          <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-200 pt-4">
+            <ActionButton label="Redigera aggregat" onClick={openEditModal} />
+            <ActionButton label="Ny händelse" onClick={() => openEventModal()} primary />
+            <ActionButton label="Ladda upp dokument" onClick={openDocumentModal} />
+            <ActionButton label="Skrota aggregat" onClick={openScrapModal} tone="warning" />
+            <ActionButton
+              disabled={isArchiving}
+              label={isArchiving ? "Arkiverar..." : "Arkivera aggregat"}
+              onClick={handleArchiveInstallation}
+              tone="danger"
+            />
+          </div>
+        )}
+
+        {(editSuccess || eventSuccess || documentSuccess || archiveError) && (
+          <div className="mt-4 grid gap-2 text-sm font-semibold">
+            {editSuccess && <p className="text-green-700">{editSuccess}</p>}
+            {eventSuccess && <p className="text-green-700">{eventSuccess}</p>}
+            {documentSuccess && <p className="text-green-700">{documentSuccess}</p>}
+            {archiveError && <p className="text-red-700">{archiveError}</p>}
+          </div>
+        )}
+
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <SummaryItem label="Köldmedium" value={installation.refrigerantType} />
           <SummaryItem label="Fyllnadsmängd" value={`${formatNumber(installation.refrigerantAmount)} kg`} />
@@ -941,18 +989,6 @@ export default function InstallationDetailPage() {
         </section>
       )}
 
-      {canManage && !isScrapped && (
-        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
-          <h2 className="text-lg font-semibold text-slate-950">Snabbåtgärder</h2>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <QuickActionButton label="+ Lägg till kontroll" onClick={() => handleQuickEvent("INSPECTION")} />
-            <QuickActionButton label="+ Registrera läckage" onClick={() => handleQuickEvent("LEAK")} />
-            <QuickActionButton label="+ Registrera påfyllning" onClick={() => handleQuickEvent("REFILL")} />
-            <QuickActionButton label="+ Lägg till service" onClick={() => handleQuickEvent("SERVICE")} />
-          </div>
-        </section>
-      )}
-
       <section className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_0.6fr]">
         <div className="rounded-lg border border-slate-200 bg-white p-5">
           <h2 className="text-lg font-semibold text-slate-950">Aggregatdetaljer</h2>
@@ -992,270 +1028,25 @@ export default function InstallationDetailPage() {
         </div>
       </section>
 
-      {canManage && !isScrapped && (
-        <section className="installation-form-surface mt-6 rounded-lg border border-slate-200 bg-white p-5">
-          <h2 className="text-lg font-semibold text-slate-950">Redigera aggregat</h2>
-
-          {!isEditing ? (
-            <button
-              className="mt-4 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-              type="button"
-              onClick={() => setIsEditing(true)}
-            >
-              Redigera
-            </button>
-          ) : (
-            <form className="mt-4 grid max-w-xl gap-3" onSubmit={handleEditSubmit}>
-              <p className="text-xs text-slate-500">* Obligatoriskt</p>
-              <label className={fieldClassName}>
-                <span>Namn <RequiredMark /></span>
-                <input name="name" value={editForm.name} onChange={handleEditChange} required />
-              </label>
-              <label className={fieldClassName}>
-                <span>Plats <RequiredMark /></span>
-                <input name="location" value={editForm.location} onChange={handleEditChange} required />
-              </label>
-              <label className={fieldClassName}>
-                Fastighet
-                <select name="propertyId" value={editForm.propertyId} onChange={handleEditChange}>
-                  <option value="">Ingen vald fastighet</option>
-                  {properties.map((property) => (
-                    <option key={property.id} value={property.id}>
-                      {property.name}{property.municipality ? `, ${property.municipality}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className={fieldClassName}>
-                Utrustnings-ID
-                <input name="equipmentId" value={editForm.equipmentId} onChange={handleEditChange} />
-              </label>
-              <label className={fieldClassName}>
-                Serienummer
-                <input name="serialNumber" value={editForm.serialNumber} onChange={handleEditChange} />
-              </label>
-              <label className={fieldClassName}>
-                Utrustningstyp
-                <input name="equipmentType" value={editForm.equipmentType} onChange={handleEditChange} />
-              </label>
-              <label className={fieldClassName}>
-                Operatör
-                <input name="operatorName" value={editForm.operatorName} onChange={handleEditChange} />
-              </label>
-              <label className={fieldClassName}>
-                <span>Köldmedium <RequiredMark /></span>
-                <input name="refrigerantType" value={editForm.refrigerantType} onChange={handleEditChange} required />
-              </label>
-              <label className={fieldClassName}>
-                <span>Mängd kg <RequiredMark /></span>
-                <input name="refrigerantAmount" value={editForm.refrigerantAmount} onChange={handleEditChange} required />
-              </label>
-              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                <input
-                  className="h-4 w-4 rounded border-slate-300 text-blue-600"
-                  name="hasLeakDetectionSystem"
-                  type="checkbox"
-                  checked={editForm.hasLeakDetectionSystem}
-                  onChange={handleEditChange}
-                />
-                <span>
-                  Läckagevarningssystem finns
-                  <span className="block text-xs font-normal text-slate-500">
-                    Kan påverka lagstadgat kontrollintervall.
-                  </span>
-                </span>
-              </label>
-              <label className={fieldClassName}>
-                <span>Driftsättningsdatum <RequiredMark /></span>
-                <input name="installationDate" type="date" value={editForm.installationDate} onChange={handleEditChange} required />
-              </label>
-              <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
-                <p className="font-semibold text-slate-900">Kontrollplikt</p>
-                <p className="mt-1 text-slate-700">{editInspectionPreview.label}</p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {editInspectionPreview.explanation}
-                </p>
-                {editInspectionPreview.co2eTon != null && (
-                  <p className="mt-2 text-xs font-medium text-slate-600">
-                    Beräknad CO₂e: {formatNumber(editInspectionPreview.co2eTon)} ton
-                  </p>
-                )}
-              </div>
-              <label className={fieldClassName}>
-                Servicepartner
-                <select name="assignedContractorId" value={editForm.assignedContractorId} onChange={handleEditChange}>
-                  <option value="">Ingen tilldelad</option>
-                  {contractors.map((contractor) => (
-                    <option key={contractor.id} value={contractor.id}>
-                      {contractor.name} ({contractor.email})
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className={fieldClassName}>Anteckningar<textarea name="notes" value={editForm.notes} onChange={handleEditChange} /></label>
-              {editError && <p className="text-sm font-semibold text-red-700">{editError}</p>}
-              {editSuccess && <p className="text-sm font-semibold text-green-700">{editSuccess}</p>}
-              <div className="flex gap-2">
-                <button type="submit" disabled={isSavingEdit}>
-                  {isSavingEdit ? "Sparar..." : "Spara ändringar"}
-                </button>
-                <button
-                  className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-                  type="button"
-                  onClick={() => setIsEditing(false)}
-                  disabled={isSavingEdit}
-                >
-                  Avbryt
-                </button>
-              </div>
-            </form>
-          )}
-
-          {!isEditing && editSuccess && (
-            <p className="mt-3 text-sm font-semibold text-green-700">{editSuccess}</p>
-          )}
-
-          <div className="mt-6">
-            {archiveError && <p className="mb-2 text-sm font-semibold text-red-700">{archiveError}</p>}
-            <div className="flex flex-wrap gap-2">
-              <button
-                className="rounded-md border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-50"
-                type="button"
-                onClick={openScrapModal}
-              >
-                Skrota aggregat
-              </button>
-              <button
-                className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
-                type="button"
-                onClick={handleArchiveInstallation}
-                disabled={isArchiving}
-              >
-                {isArchiving ? "Arkiverar..." : "Arkivera aggregat"}
-              </button>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {canManage && !isScrapped && (
-        <section
-          className="installation-form-surface mt-6 rounded-lg border border-slate-200 bg-white p-5"
-          id="event-form"
-        >
-          <h2 className="text-lg font-semibold text-slate-950">Lägg till händelse</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Kontrollhändelser uppdaterar automatiskt senaste och nästa kontroll.
-          </p>
-          <form className="mt-4 grid max-w-xl gap-3" onSubmit={handleEventSubmit}>
-            <label className={fieldClassName}>Datum<input name="date" type="date" value={eventForm.date} onChange={handleEventChange} required /></label>
-            <label className={fieldClassName}>
-              Typ
-              <select name="type" value={eventForm.type} onChange={handleEventChange} required>
-                <option value="INSPECTION">Kontroll</option>
-                <option value="LEAK">Läckage</option>
-                <option value="REFILL">Påfyllning</option>
-                <option value="SERVICE">Service</option>
-                <option value="REPAIR">Reparation</option>
-                <option value="RECOVERY">Tömning / Återvinning</option>
-                <option value="REFRIGERANT_CHANGE">Byte av köldmedium</option>
-              </select>
-            </label>
-            {eventForm.type === "REFILL" && (
-              <label className={fieldClassName}>
-                Påfylld mängd kg
-                <input
-                  name="refrigerantAddedKg"
-                  value={eventForm.refrigerantAddedKg}
-                  onChange={handleEventChange}
-                  inputMode="decimal"
-                />
-              </label>
-            )}
-            <label className={fieldClassName}>
-              Anteckningar
-              <textarea
-                name="notes"
-                value={eventForm.notes}
-                onChange={handleEventChange}
-                required={eventForm.type === "LEAK"}
-              />
-            </label>
-            {eventCertificationWarning && (
-              <CertificationWarningBox message={eventCertificationWarning} />
-            )}
-            {eventError && <p className="text-sm font-semibold text-red-700">{eventError}</p>}
-            {eventSuccess && <p className="text-sm font-semibold text-green-700">{eventSuccess}</p>}
-            <button type="submit" disabled={isSubmittingEvent}>
-              {isSubmittingEvent ? "Sparar..." : "Lägg till händelse"}
-            </button>
-          </form>
-        </section>
-      )}
-
       <section className="installation-form-surface mt-6 rounded-lg border border-slate-200 bg-white p-5" id="documents">
-        <h2 className="text-lg font-semibold text-slate-950">Dokument</h2>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-950">Dokument</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              {documents.length} uppladdade dokument
+            </p>
+          </div>
+          {canManage && !isScrapped && (
+            <ActionButton label="Ladda upp dokument" onClick={openDocumentModal} />
+          )}
+        </div>
         {isScrapped && (
           <p className="mt-2 text-sm text-slate-600">
             Aggregatet är skrotat. Befintliga dokument visas för historik.
           </p>
         )}
-        {!isScrapped && (
-        <form className="mt-4 grid max-w-2xl gap-3" onSubmit={handleDocumentSubmit}>
-          <label className={fieldClassName}>
-            Ladda upp dokument
-            <input
-              accept=".pdf,.png,.jpg,.jpeg,.webp,.csv,.xlsx,application/pdf,image/png,image/jpeg,image/webp,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              onChange={handleDocumentFileChange}
-              type="file"
-            />
-          </label>
-          <label className={fieldClassName}>
-            Dokumenttyp
-            <select
-              name="documentType"
-              value={documentForm.documentType}
-              onChange={handleDocumentChange}
-            >
-              {Object.entries(DOCUMENT_TYPE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={fieldClassName}>
-            Beskrivning
-            <textarea
-              name="description"
-              value={documentForm.description}
-              onChange={handleDocumentChange}
-            />
-          </label>
-          {events.length > 0 && (
-            <label className={fieldClassName}>
-              Koppla till händelse
-              <select
-                name="eventId"
-                value={documentForm.eventId}
-                onChange={handleDocumentChange}
-              >
-                <option value="">Ingen kopplad händelse</option>
-                {events.map((event) => (
-                  <option key={event.id} value={event.id}>
-                    {formatDate(event.date)} - {EVENT_LABELS[event.type]}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          {documentError && <p className="text-sm font-semibold text-red-700">{documentError}</p>}
-          {documentSuccess && <p className="text-sm font-semibold text-green-700">{documentSuccess}</p>}
-          <button type="submit" disabled={isUploadingDocument}>
-            {isUploadingDocument ? "Laddar upp..." : "Ladda upp dokument"}
-          </button>
-        </form>
-        )}
+        {documentError && <p className="mt-3 text-sm font-semibold text-red-700">{documentError}</p>}
+        {documentSuccess && <p className="mt-3 text-sm font-semibold text-green-700">{documentSuccess}</p>}
 
         {documents.length === 0 ? (
           <p className="mt-6 text-sm text-slate-600">Inga dokument uppladdade ännu.</p>
@@ -1398,6 +1189,256 @@ export default function InstallationDetailPage() {
           </div>
         )}
       </section>
+
+      {isEditing && canManage && !isScrapped && (
+        <ModalFrame
+          title="Redigera aggregat"
+          onClose={() => setIsEditing(false)}
+          closeDisabled={isSavingEdit}
+        >
+          <form className="grid gap-3" onSubmit={handleEditSubmit}>
+            <p className="text-xs text-slate-500">* Obligatoriskt</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className={fieldClassName}>
+                <span>Namn <RequiredMark /></span>
+                <input name="name" value={editForm.name} onChange={handleEditChange} required />
+              </label>
+              <label className={fieldClassName}>
+                <span>Plats <RequiredMark /></span>
+                <input name="location" value={editForm.location} onChange={handleEditChange} required />
+              </label>
+              <label className={fieldClassName}>
+                Fastighet
+                <select name="propertyId" value={editForm.propertyId} onChange={handleEditChange}>
+                  <option value="">Ingen vald fastighet</option>
+                  {properties.map((property) => (
+                    <option key={property.id} value={property.id}>
+                      {property.name}{property.municipality ? `, ${property.municipality}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={fieldClassName}>
+                Utrustnings-ID
+                <input name="equipmentId" value={editForm.equipmentId} onChange={handleEditChange} />
+              </label>
+              <label className={fieldClassName}>
+                Serienummer
+                <input name="serialNumber" value={editForm.serialNumber} onChange={handleEditChange} />
+              </label>
+              <label className={fieldClassName}>
+                Utrustningstyp
+                <input name="equipmentType" value={editForm.equipmentType} onChange={handleEditChange} />
+              </label>
+              <label className={fieldClassName}>
+                Operatör
+                <input name="operatorName" value={editForm.operatorName} onChange={handleEditChange} />
+              </label>
+              <label className={fieldClassName}>
+                <span>Köldmedium <RequiredMark /></span>
+                <input name="refrigerantType" value={editForm.refrigerantType} onChange={handleEditChange} required />
+              </label>
+              <label className={fieldClassName}>
+                <span>Mängd kg <RequiredMark /></span>
+                <input name="refrigerantAmount" value={editForm.refrigerantAmount} onChange={handleEditChange} required />
+              </label>
+              <label className={fieldClassName}>
+                <span>Driftsättningsdatum <RequiredMark /></span>
+                <input name="installationDate" type="date" value={editForm.installationDate} onChange={handleEditChange} required />
+              </label>
+              <label className={fieldClassName}>
+                Servicepartner
+                <select name="assignedContractorId" value={editForm.assignedContractorId} onChange={handleEditChange}>
+                  <option value="">Ingen tilldelad</option>
+                  {contractors.map((contractor) => (
+                    <option key={contractor.id} value={contractor.id}>
+                      {contractor.name} ({contractor.email})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input
+                className="h-4 w-4 rounded border-slate-300 text-blue-600"
+                name="hasLeakDetectionSystem"
+                type="checkbox"
+                checked={editForm.hasLeakDetectionSystem}
+                onChange={handleEditChange}
+              />
+              <span>
+                Läckagevarningssystem finns
+                <span className="block text-xs font-normal text-slate-500">
+                  Kan påverka lagstadgat kontrollintervall.
+                </span>
+              </span>
+            </label>
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
+              <p className="font-semibold text-slate-900">Kontrollplikt</p>
+              <p className="mt-1 text-slate-700">{editInspectionPreview.label}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {editInspectionPreview.explanation}
+              </p>
+              {editInspectionPreview.co2eTon != null && (
+                <p className="mt-2 text-xs font-medium text-slate-600">
+                  Beräknad CO₂e: {formatNumber(editInspectionPreview.co2eTon)} ton
+                </p>
+              )}
+            </div>
+            <label className={fieldClassName}>
+              Anteckningar
+              <textarea name="notes" value={editForm.notes} onChange={handleEditChange} />
+            </label>
+            {editError && <p className="text-sm font-semibold text-red-700">{editError}</p>}
+            <div className="flex flex-wrap gap-2 pt-2">
+              <button type="submit" disabled={isSavingEdit}>
+                {isSavingEdit ? "Sparar..." : "Spara ändringar"}
+              </button>
+              <button
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                type="button"
+                onClick={() => setIsEditing(false)}
+                disabled={isSavingEdit}
+              >
+                Avbryt
+              </button>
+            </div>
+          </form>
+        </ModalFrame>
+      )}
+
+      {isEventModalOpen && canManage && !isScrapped && (
+        <ModalFrame
+          title="Ny händelse"
+          description="Kontrollhändelser uppdaterar automatiskt senaste och nästa kontroll."
+          onClose={closeEventModal}
+          closeDisabled={isSubmittingEvent}
+        >
+          <form className="grid gap-3" onSubmit={handleEventSubmit}>
+            <label className={fieldClassName}>
+              Datum
+              <input name="date" type="date" value={eventForm.date} onChange={handleEventChange} required />
+            </label>
+            <label className={fieldClassName}>
+              Typ
+              <select name="type" value={eventForm.type} onChange={handleEventChange} required>
+                <option value="INSPECTION">Kontroll</option>
+                <option value="LEAK">Läckage</option>
+                <option value="REFILL">Påfyllning</option>
+                <option value="SERVICE">Service</option>
+                <option value="REPAIR">Reparation</option>
+                <option value="RECOVERY">Tömning / Återvinning</option>
+                <option value="REFRIGERANT_CHANGE">Byte av köldmedium</option>
+              </select>
+            </label>
+            {eventForm.type === "REFILL" && (
+              <label className={fieldClassName}>
+                Påfylld mängd kg
+                <input
+                  name="refrigerantAddedKg"
+                  value={eventForm.refrigerantAddedKg}
+                  onChange={handleEventChange}
+                  inputMode="decimal"
+                />
+              </label>
+            )}
+            <label className={fieldClassName}>
+              Anteckningar
+              <textarea
+                name="notes"
+                value={eventForm.notes}
+                onChange={handleEventChange}
+                required={eventForm.type === "LEAK"}
+              />
+            </label>
+            {eventCertificationWarning && (
+              <CertificationWarningBox message={eventCertificationWarning} />
+            )}
+            {eventError && <p className="text-sm font-semibold text-red-700">{eventError}</p>}
+            <div className="flex flex-wrap gap-2 pt-2">
+              <button type="submit" disabled={isSubmittingEvent}>
+                {isSubmittingEvent ? "Sparar..." : "Lägg till händelse"}
+              </button>
+              <button
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                type="button"
+                onClick={closeEventModal}
+                disabled={isSubmittingEvent}
+              >
+                Avbryt
+              </button>
+            </div>
+          </form>
+        </ModalFrame>
+      )}
+
+      {isDocumentModalOpen && canManage && !isScrapped && (
+        <ModalFrame title="Ladda upp dokument" onClose={closeDocumentModal} closeDisabled={isUploadingDocument}>
+          <form className="grid gap-3" onSubmit={handleDocumentSubmit}>
+            <label className={fieldClassName}>
+              Fil
+              <input
+                accept=".pdf,.png,.jpg,.jpeg,.webp,.csv,.xlsx,application/pdf,image/png,image/jpeg,image/webp,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                onChange={handleDocumentFileChange}
+                type="file"
+              />
+            </label>
+            <label className={fieldClassName}>
+              Dokumenttyp
+              <select
+                name="documentType"
+                value={documentForm.documentType}
+                onChange={handleDocumentChange}
+              >
+                {Object.entries(DOCUMENT_TYPE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={fieldClassName}>
+              Beskrivning
+              <textarea
+                name="description"
+                value={documentForm.description}
+                onChange={handleDocumentChange}
+              />
+            </label>
+            {events.length > 0 && (
+              <label className={fieldClassName}>
+                Koppla till händelse
+                <select
+                  name="eventId"
+                  value={documentForm.eventId}
+                  onChange={handleDocumentChange}
+                >
+                  <option value="">Ingen kopplad händelse</option>
+                  {events.map((event) => (
+                    <option key={event.id} value={event.id}>
+                      {formatDate(event.date)} - {EVENT_LABELS[event.type]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {documentError && <p className="text-sm font-semibold text-red-700">{documentError}</p>}
+            <div className="flex flex-wrap gap-2 pt-2">
+              <button type="submit" disabled={isUploadingDocument}>
+                {isUploadingDocument ? "Laddar upp..." : "Ladda upp dokument"}
+              </button>
+              <button
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                type="button"
+                onClick={closeDocumentModal}
+                disabled={isUploadingDocument}
+              >
+                Avbryt
+              </button>
+            </div>
+          </form>
+        </ModalFrame>
+      )}
 
       {isScrapModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6">
@@ -1555,21 +1596,72 @@ function ServicepartnerDetailItem({
   )
 }
 
-function QuickActionButton({
+function ActionButton({
+  disabled = false,
   label,
   onClick,
+  primary = false,
+  tone = "neutral",
 }: {
+  disabled?: boolean
   label: string
   onClick: () => void
+  primary?: boolean
+  tone?: "neutral" | "warning" | "danger"
 }) {
+  const toneClass = primary
+    ? "border-blue-600 bg-blue-600 text-white hover:bg-blue-700"
+    : tone === "warning"
+      ? "border-amber-300 bg-white text-amber-800 hover:bg-amber-50"
+      : tone === "danger"
+        ? "border-red-300 bg-white text-red-700 hover:bg-red-50"
+        : "border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
+
   return (
     <button
-      className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+      className={`rounded-md border px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60 ${toneClass}`}
       type="button"
       onClick={onClick}
+      disabled={disabled}
     >
       {label}
     </button>
+  )
+}
+
+function ModalFrame({
+  children,
+  closeDisabled = false,
+  description,
+  onClose,
+  title,
+}: {
+  children: React.ReactNode
+  closeDisabled?: boolean
+  description?: string
+  onClose: () => void
+  title: string
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-5 shadow-xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
+            {description && <p className="mt-1 text-sm text-slate-600">{description}</p>}
+          </div>
+          <button
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            type="button"
+            onClick={onClose}
+            disabled={closeDisabled}
+          >
+            Stäng
+          </button>
+        </div>
+        <div className="mt-5">{children}</div>
+      </div>
+    </div>
   )
 }
 
