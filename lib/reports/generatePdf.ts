@@ -24,6 +24,7 @@ export async function generatePdfFromHtml(
 
   logger("Resolved Chromium launch configuration", {
     executablePath: launchConfig.executablePath,
+    hasServerlessEnvironment: launchConfig.hasServerlessEnvironment,
     isServerless: launchConfig.isServerless,
     platform: process.platform,
   })
@@ -83,11 +84,13 @@ export async function generatePdfFromHtml(
 }
 
 async function resolveChromiumLaunchConfig() {
-  const isServerless = Boolean(
+  const hasServerlessEnvironment = Boolean(
     process.env.VERCEL ||
       process.env.AWS_LAMBDA_FUNCTION_NAME ||
       process.env.AWS_EXECUTION_ENV
   )
+  const isLocalWindows = process.platform === "win32"
+  const isServerless = hasServerlessEnvironment && !isLocalWindows
 
   if (process.env.PUPPETEER_EXECUTABLE_PATH) {
     const headless: ChromiumHeadlessMode = isServerless ? "shell" : true
@@ -97,6 +100,7 @@ async function resolveChromiumLaunchConfig() {
         ? puppeteer.defaultArgs({ args: chromium.args, headless })
         : puppeteer.defaultArgs(),
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+      hasServerlessEnvironment,
       headless,
       isServerless,
     }
@@ -108,12 +112,13 @@ async function resolveChromiumLaunchConfig() {
     return {
       args: puppeteer.defaultArgs({ args: chromium.args, headless }),
       executablePath: await chromium.executablePath(),
+      hasServerlessEnvironment,
       headless,
       isServerless,
     }
   }
 
-  if (process.platform === "win32") {
+  if (isLocalWindows) {
     const { existsSync } = await import("node:fs")
     const localPath = LOCAL_CHROME_PATHS.find((path) => existsSync(path))
 
@@ -121,6 +126,7 @@ async function resolveChromiumLaunchConfig() {
       return {
         args: puppeteer.defaultArgs(),
         executablePath: localPath,
+        hasServerlessEnvironment,
         headless: true,
         isServerless,
       }
@@ -130,6 +136,7 @@ async function resolveChromiumLaunchConfig() {
   return {
     args: puppeteer.defaultArgs(),
     executablePath: await chromium.executablePath(),
+    hasServerlessEnvironment,
     headless: true,
     isServerless,
   }

@@ -87,6 +87,7 @@ export async function GET(request: NextRequest) {
       headers: {
         "Content-Disposition": `attachment; filename="${filename}"`,
         "Content-Type": "application/pdf",
+        "X-Annual-Fgas-Pdf-Request-Id": requestId,
       },
     })
   } catch (error) {
@@ -96,7 +97,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       { error: "Ett oväntat fel uppstod när årsrapporten skulle skapas" },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          "X-Annual-Fgas-Pdf-Request-Id": requestId,
+        },
+      }
     )
   }
 }
