@@ -192,8 +192,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
         normalizeRefrigerantCode(validatedData.newRefrigerantType) ??
         validatedData.newRefrigerantType
       const previousRefrigerantType = installation.refrigerantType
+      const recoveredRefrigerantKg = validatedData.recoveredRefrigerantKg
+      const addedRefrigerantKg = validatedData.refrigerantAddedKg
       const changeNote = [
         `Byte av köldmedium från ${previousRefrigerantType} till ${nextRefrigerantType}.`,
+        recoveredRefrigerantKg !== null
+          ? `Omhändertagen mängd: ${recoveredRefrigerantKg} kg.`
+          : null,
+        addedRefrigerantKg !== null
+          ? `Påfylld mängd nytt köldmedium: ${addedRefrigerantKg} kg.`
+          : null,
         emptyToNull(validatedData.notes),
       ].filter(Boolean).join(" ")
       const nextCompliance = calculateInstallationCompliance(
@@ -214,7 +222,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             installationId: installation.id,
             date: validatedData.date,
             type: validatedData.type,
-            refrigerantAddedKg: null,
+            refrigerantAddedKg: addedRefrigerantKg,
             notes: changeNote,
             createdById: userId,
           },
@@ -264,6 +272,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
           date: result.event.date.toISOString(),
           previousRefrigerantType,
           newRefrigerantType: nextRefrigerantType,
+          recoveredRefrigerantKg,
+          refrigerantAddedKg: addedRefrigerantKg,
         },
       })
 

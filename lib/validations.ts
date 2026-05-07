@@ -191,6 +191,9 @@ export const createInstallationEventSchema = z.object({
   newRefrigerantType: z.string()
     .optional()
     .transform((val) => val?.trim() ?? ""),
+  recoveredRefrigerantKg: z.string()
+    .optional()
+    .transform((val) => (val ? parseFloat(val) : null)),
   notes: z.string().optional(),
 }).refine((data) => data.type !== "LEAK" || Boolean(data.notes?.trim()), {
   message: "Anteckningar krävs för läckagehändelser",
@@ -201,6 +204,9 @@ export const createInstallationEventSchema = z.object({
 }).refine((data) => data.refrigerantAddedKg === null || data.refrigerantAddedKg >= 0, {
   message: "Påfylld mängd måste vara 0 eller högre",
   path: ["refrigerantAddedKg"],
+}).refine((data) => data.recoveredRefrigerantKg === null || data.recoveredRefrigerantKg >= 0, {
+  message: "Omhändertagen mängd måste vara 0 eller högre",
+  path: ["recoveredRefrigerantKg"],
 })
 
 export type CreateInstallationEventData = z.infer<typeof createInstallationEventSchema>

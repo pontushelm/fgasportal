@@ -152,6 +152,7 @@ type EventFormData = {
   type: EventFormType
   refrigerantAddedKg: string
   newRefrigerantType: string
+  recoveredRefrigerantKg: string
   notes: string
 }
 
@@ -203,6 +204,7 @@ const initialEventFormData: EventFormData = {
   type: "SERVICE",
   refrigerantAddedKg: "",
   newRefrigerantType: "",
+  recoveredRefrigerantKg: "",
   notes: "",
 }
 
@@ -358,6 +360,7 @@ export default function InstallationDetailPage() {
   const [editSuccess, setEditSuccess] = useState("")
   const [isEditing, setIsEditing] = useState(false)
   const [isSavingEdit, setIsSavingEdit] = useState(false)
+  const [showRefrigerantEditHelp, setShowRefrigerantEditHelp] = useState(false)
   const [archiveError, setArchiveError] = useState("")
   const [isArchiving, setIsArchiving] = useState(false)
   const [scrapForm, setScrapForm] = useState<ScrapFormData>(initialScrapFormData)
@@ -493,6 +496,8 @@ export default function InstallationDetailPage() {
         refrigerantAddedKg: nextType === "REFILL" ? current.refrigerantAddedKg : "",
         newRefrigerantType:
           nextType === "REFRIGERANT_CHANGE" ? current.newRefrigerantType : "",
+        recoveredRefrigerantKg:
+          nextType === "REFRIGERANT_CHANGE" ? current.recoveredRefrigerantKg : "",
       }))
       if (nextType === "SCRAP") {
         setScrapError("")
@@ -564,6 +569,8 @@ export default function InstallationDetailPage() {
       date: current.date || getTodayInputValue(),
       newRefrigerantType:
         type === "REFRIGERANT_CHANGE" ? current.newRefrigerantType : "",
+      recoveredRefrigerantKg:
+        type === "REFRIGERANT_CHANGE" ? current.recoveredRefrigerantKg : "",
     }))
     if (type === "SCRAP") {
       setScrapForm({
@@ -768,10 +775,16 @@ export default function InstallationDetailPage() {
         date: eventForm.date,
         type: eventForm.type,
         refrigerantAddedKg:
-          eventForm.type === "REFILL" ? eventForm.refrigerantAddedKg : "",
+          eventForm.type === "REFILL" || eventForm.type === "REFRIGERANT_CHANGE"
+            ? eventForm.refrigerantAddedKg
+            : "",
         newRefrigerantType:
           eventForm.type === "REFRIGERANT_CHANGE"
             ? eventForm.newRefrigerantType
+            : "",
+        recoveredRefrigerantKg:
+          eventForm.type === "REFRIGERANT_CHANGE"
+            ? eventForm.recoveredRefrigerantKg
             : "",
         notes: eventForm.notes,
       }),
@@ -1318,11 +1331,31 @@ export default function InstallationDetailPage() {
               </label>
               <label className={fieldClassName}>
                 Köldmedium
-                <input className={formControlClassName} name="refrigerantType" value={editForm.refrigerantType} readOnly />
-                <span className="text-xs font-normal text-amber-700">
-                  Ändring av köldmedium påverkar CO₂e, kontrollplikt och historik.
-                  Registrera normalt ändringen via händelsen “Byte av köldmedium”.
-                </span>
+                <div className="flex gap-2">
+                  <input
+                    className={`${formControlClassName} flex-1`}
+                    name="refrigerantType"
+                    value={editForm.refrigerantType}
+                    readOnly
+                    onClick={() => setShowRefrigerantEditHelp(true)}
+                    onFocus={() => setShowRefrigerantEditHelp(true)}
+                  />
+                  <button
+                    className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    type="button"
+                    aria-label="Information om köldmedium"
+                    onClick={() => setShowRefrigerantEditHelp((current) => !current)}
+                  >
+                    i
+                  </button>
+                </div>
+                {showRefrigerantEditHelp && (
+                  <span className="text-xs font-normal text-amber-700">
+                    Ändring av köldmedium påverkar CO₂e, kontrollplikt och
+                    historik. Registrera normalt ändringen via händelsen “Byte
+                    av köldmedium”.
+                  </span>
+                )}
               </label>
               <label className={fieldClassName}>
                 <span>Mängd kg <RequiredMark /></span>
@@ -1448,9 +1481,17 @@ export default function InstallationDetailPage() {
                   kontrollintervall, riskklassning och rapportering.
                 </p>
                 <p className="text-xs text-amber-900">
-                  Åtgärden bör utföras av behörig/certifierad personal och sparas
-                  i aggregatets historik.
+                  Åtgärden bör utföras av behörig/certifierad personal.
+                  Ändringen kommer sparas i aggregatets historik.
                 </p>
+                <label className={fieldClassName}>
+                  Tidigare köldmedium
+                  <input
+                    className={formControlClassName}
+                    value={installation.refrigerantType}
+                    readOnly
+                  />
+                </label>
                 <label className={fieldClassName}>
                   <span>Nytt köldmedium <RequiredMark /></span>
                   <input
@@ -1460,6 +1501,26 @@ export default function InstallationDetailPage() {
                     value={eventForm.newRefrigerantType}
                     onChange={handleEventChange}
                     required
+                  />
+                </label>
+                <label className={fieldClassName}>
+                  Omhändertagen mängd (kg)
+                  <input
+                    className={formControlClassName}
+                    name="recoveredRefrigerantKg"
+                    value={eventForm.recoveredRefrigerantKg}
+                    onChange={handleEventChange}
+                    inputMode="decimal"
+                  />
+                </label>
+                <label className={fieldClassName}>
+                  Påfylld mängd nytt köldmedium (kg)
+                  <input
+                    className={formControlClassName}
+                    name="refrigerantAddedKg"
+                    value={eventForm.refrigerantAddedKg}
+                    onChange={handleEventChange}
+                    inputMode="decimal"
                   />
                 </label>
               </div>
