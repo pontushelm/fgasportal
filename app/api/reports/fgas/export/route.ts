@@ -156,7 +156,7 @@ function createReportCsv(report: FgasReportData) {
       item.refrigerantType,
       String(item.installationCount),
       formatNumber(item.totalAmountKg),
-      formatNumber(item.totalCo2eTon),
+      formatNullableCo2e(item.totalCo2eTon),
       formatNumber(item.refilledAmountKg),
       String(item.leakageEvents),
     ]),
@@ -224,7 +224,7 @@ function createReportPdf(report: FgasReportData, companyName: string | null) {
         item.refrigerantType,
         String(item.installationCount),
         formatNumber(item.totalAmountKg),
-        formatNumber(item.totalCo2eTon),
+        formatNullableCo2e(item.totalCo2eTon),
         formatNumber(item.refilledAmountKg),
         String(item.leakageEvents),
       ]),
@@ -387,4 +387,8 @@ function formatNumber(value: number) {
     maximumFractionDigits: 2,
     useGrouping: false,
   }).format(value)
+}
+
+function formatNullableCo2e(value: number | null) {
+  return value === null ? "Okänt GWP-värde" : formatNumber(value)
 }

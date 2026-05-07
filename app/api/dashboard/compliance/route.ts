@@ -151,7 +151,7 @@ export async function GET(request: NextRequest) {
         refrigerantAmount: 0,
       }
       refrigerant.count += 1
-      refrigerant.co2eTon += compliance.co2eTon
+      refrigerant.co2eTon += compliance.co2eTon ?? 0
       refrigerant.refrigerantAmount += installation.refrigerantAmount
       refrigerantMap.set(refrigerantType, refrigerant)
 
@@ -228,7 +228,7 @@ export async function GET(request: NextRequest) {
     ).slice(0, 10)
 
     const totalCo2eTon = installationRows.reduce(
-      (sum, installation) => sum + installation.co2eTon,
+      (sum, installation) => sum + (installation.co2eTon ?? 0),
       0
     )
     const totalRefrigerantAmount = installationRows.reduce(

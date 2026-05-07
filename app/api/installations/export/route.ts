@@ -69,8 +69,8 @@ export async function GET(request: NextRequest) {
         installation.refrigerantType,
         installation.refrigerantAmount,
         installation.hasLeakDetectionSystem ? "Yes" : "No",
-        compliance.gwp,
-        compliance.co2eTon.toFixed(2),
+        compliance.gwp ?? "Okänt GWP-värde",
+        compliance.co2eTon === null ? "Okänt GWP-värde" : compliance.co2eTon.toFixed(2),
         compliance.inspectionIntervalMonths ?? "",
         formatCsvDate(installation.lastInspection),
         formatCsvDate(installation.nextInspection),
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-function formatCsvCell(value: string | number) {
+function formatCsvCell(value: string | number | null) {
   const cell = String(value)
   return `"${cell.replace(/"/g, '""')}"`
 }

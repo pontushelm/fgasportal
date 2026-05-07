@@ -36,7 +36,7 @@ type ReportData = {
     refrigerantType: string
     installationCount: number
     totalAmountKg: number
-    totalCo2eTon: number
+    totalCo2eTon: number | null
     refilledAmountKg: number
     leakageEvents: number
   }>
@@ -431,7 +431,7 @@ export default function ReportsPage() {
                         <TableCell>{item.refrigerantType}</TableCell>
                         <TableCell>{item.installationCount}</TableCell>
                         <TableCell>{formatNumber(item.totalAmountKg)}</TableCell>
-                        <TableCell>{formatNumber(item.totalCo2eTon)}</TableCell>
+                        <TableCell>{formatCo2eTon(item.totalCo2eTon)}</TableCell>
                         <TableCell>{formatNumber(item.refilledAmountKg)}</TableCell>
                         <TableCell>{item.leakageEvents}</TableCell>
                       </tr>
@@ -560,4 +560,8 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("sv-SE", {
     maximumFractionDigits: 2,
   }).format(value)
+}
+
+function formatCo2eTon(value: number | null) {
+  return value === null ? "Okänt GWP-värde" : formatNumber(value)
 }

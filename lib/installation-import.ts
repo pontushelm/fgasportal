@@ -3,7 +3,7 @@ import {
   calculateInspectionObligation,
 } from "@/lib/fgas-calculations"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
-import { REFRIGERANT_GWP } from "@/lib/refrigerants"
+import { normalizeRefrigerantCode } from "@/lib/refrigerants"
 
 export type ImportInstallationInput = {
   row: number
@@ -221,7 +221,7 @@ export function normalizeImportRow(
   const propertyName = getOptionalString(rawRow, "propertyName")
   const municipality = getOptionalString(rawRow, "municipality")
   const rawRefrigerantType = getString(rawRow, "refrigerantType")
-  const refrigerantType = normalizeRefrigerantType(rawRefrigerantType)
+  const refrigerantType = normalizeRefrigerantCode(rawRefrigerantType)
   const serialNumber = getOptionalString(rawRow, "serialNumber")
   const equipmentType = getOptionalString(rawRow, "equipmentType")
   const operatorName = getOptionalString(rawRow, "operatorName")
@@ -241,7 +241,7 @@ export function normalizeImportRow(
   if (!rawRefrigerantType) {
     errors.push("Saknar köldmedium")
   } else if (!refrigerantType) {
-    errors.push("Ogiltigt köldmedium")
+    warnings.push("Okänt GWP-värde - CO₂e och kontrollplikt kan kompletteras senare")
   }
 
   if (refrigerantAmount === null || Number.isNaN(refrigerantAmount) || refrigerantAmount <= 0) {
@@ -386,17 +386,6 @@ function getString(row: Record<string, unknown>, key: ImportFieldKey) {
 function getOptionalString(row: Record<string, unknown>, key: ImportFieldKey) {
   const value = getString(row, key)
   return value ? value : null
-}
-
-function normalizeRefrigerantType(value: string) {
-  if (!value) return null
-  const normalizedValue = value.replace(/\s+/g, "").toLowerCase()
-
-  return (
-    Object.keys(REFRIGERANT_GWP).find(
-      (refrigerant) => refrigerant.toLowerCase() === normalizedValue
-    ) ?? null
-  )
 }
 
 function parseNumber(value: unknown) {

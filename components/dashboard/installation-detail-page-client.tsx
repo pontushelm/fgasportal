@@ -968,7 +968,14 @@ export default function InstallationDetailPage() {
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <SummaryItem label="Köldmedium" value={installation.refrigerantType} />
           <SummaryItem label="Fyllnadsmängd" value={`${formatNumber(installation.refrigerantAmount)} kg`} />
-          <SummaryItem label="CO₂e" value={`${formatNumber(compliance.co2eTon)} ton`} />
+          <SummaryItem
+            label="CO₂e"
+            value={
+              compliance.co2eTon === null
+                ? "Okänt GWP-värde"
+                : `${formatNumber(compliance.co2eTon)} ton`
+            }
+          />
           <SummaryItem label="Senaste kontroll" value={formatOptionalDate(installation.lastInspection)} />
           <SummaryItem label="Nästa kontroll" value={formatOptionalDate(installation.nextInspection)} />
         </div>
@@ -1056,7 +1063,10 @@ export default function InstallationDetailPage() {
               label="Läckagevarningssystem"
               value={installation.hasLeakDetectionSystem ? "Ja" : "Nej"}
             />
-            <DetailItem label="GWP" value={String(compliance.gwp)} />
+            <DetailItem
+              label="GWP"
+              value={compliance.gwp === null ? "Okänt GWP-värde" : String(compliance.gwp)}
+            />
             <DetailItem label="Kontrollintervall" value={formatInspectionInterval(compliance)} />
             <DetailItem label="Driftsättningsdatum" value={formatDate(installation.installationDate)} />
           </dl>
@@ -1849,14 +1859,16 @@ function calculateInspectionPreview(
     return {
       ...calculateInspectionObligation(null, hasLeakDetectionSystem),
       co2eTon: null,
+      gwpWarning: null,
     }
   }
 
-  const { co2eTon } = calculateCO2e(refrigerantType, amount)
+  const { co2eTon, warning } = calculateCO2e(refrigerantType, amount)
 
   return {
     ...calculateInspectionObligation(co2eTon, hasLeakDetectionSystem),
     co2eTon,
+    gwpWarning: warning,
   }
 }
 

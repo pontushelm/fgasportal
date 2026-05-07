@@ -95,7 +95,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         isInspectionOverdue: compliance.status === "OVERDUE",
       })
 
-      totalCo2eTon += compliance.co2eTon
+      totalCo2eTon += compliance.co2eTon ?? 0
       if (compliance.status === "OVERDUE") overdueInspections += 1
       riskDistribution[risk.level] += 1
 

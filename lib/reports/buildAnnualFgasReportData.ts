@@ -297,7 +297,7 @@ export async function buildAnnualFgasReportData({
         (sum, row) => sum + row.refrigerantAmountKg,
         0
       ),
-      totalCo2eKg: equipment.reduce((sum, row) => sum + row.co2eKg, 0),
+      totalCo2eKg: equipment.reduce((sum, row) => sum + (row.co2eKg ?? 0), 0),
       leakageCount: reportInstallations.reduce(
         (sum, installation) =>
           sum + installation.events.filter((event) => event.type === "LEAK").length,

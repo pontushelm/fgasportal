@@ -3,7 +3,7 @@ export type InstallationRiskLevel = "LOW" | "MEDIUM" | "HIGH"
 type InstallationRiskInput = {
   refrigerantType: string
   refrigerantAmount: number
-  gwp: number
+  gwp: number | null
   hasLeakDetectionSystem: boolean
   leakageEventsCount: number
   isInspectionOverdue?: boolean
@@ -28,11 +28,13 @@ export function calculateInstallationRisk({
   leakageEventsCount,
   isInspectionOverdue = false,
 }: InstallationRiskInput): InstallationRiskResult {
-  const co2eTon = (refrigerantAmount * gwp) / 1000
+  const co2eTon = gwp === null ? null : (refrigerantAmount * gwp) / 1000
   const reasons: string[] = []
 
   let climateLevel: InstallationRiskLevel = "LOW"
-  if (co2eTon >= 50) {
+  if (co2eTon === null) {
+    reasons.push("Okänt GWP-värde - CO₂e-baserad risk kan inte beräknas")
+  } else if (co2eTon >= 50) {
     climateLevel = "HIGH"
     reasons.push("Hög klimatpåverkan (≥50 ton CO₂e)")
   } else if (co2eTon >= 5) {

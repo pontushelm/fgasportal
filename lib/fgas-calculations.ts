@@ -1,4 +1,4 @@
-import { REFRIGERANT_GWP } from "./refrigerants"
+import { getRefrigerant, normalizeRefrigerantCode } from "./refrigerants"
 import {
   classifyInspectionStatus,
   type InspectionStatus,
@@ -10,19 +10,23 @@ export function calculateCO2e(
   refrigerantType: string,
   refrigerantAmount: number
 ) {
-  const gwp = REFRIGERANT_GWP[refrigerantType] || 0
+  const refrigerant = getRefrigerant(refrigerantType)
+  const gwp = refrigerant?.gwp ?? null
 
-  const co2eKg = refrigerantAmount * gwp
-  const co2eTon = co2eKg / 1000
+  const co2eKg = gwp === null ? null : refrigerantAmount * gwp
+  const co2eTon = co2eKg === null ? null : co2eKg / 1000
 
   return {
     gwp,
     co2eKg,
     co2eTon,
+    refrigerantCode: refrigerant?.code ?? normalizeRefrigerantCode(refrigerantType),
+    isKnownRefrigerant: Boolean(refrigerant),
+    warning: refrigerant ? null : "Okänt GWP-värde",
   }
 }
 
-export function calculateInspectionInterval(co2eTon: number) {
+export function calculateInspectionInterval(co2eTon: number | null) {
   return calculateInspectionObligation(co2eTon, false).intervalMonths
 }
 
@@ -72,13 +76,13 @@ export function calculateInstallationCompliance(
   lastInspection?: Date | string | null,
   nextInspection?: Date | string | null
 ) {
-  const { gwp, co2eKg, co2eTon } = calculateCO2e(
+  const co2e = calculateCO2e(
     refrigerantType,
     refrigerantAmount
   )
-  const baseInspectionIntervalMonths = calculateInspectionInterval(co2eTon)
+  const baseInspectionIntervalMonths = calculateInspectionInterval(co2e.co2eTon)
   const inspectionObligation = calculateInspectionObligation(
-    co2eTon,
+    co2e.co2eTon,
     hasLeakDetectionSystem
   )
   const inspectionIntervalMonths = inspectionObligation.intervalMonths
@@ -89,9 +93,12 @@ export function calculateInstallationCompliance(
   })
 
   return {
-    gwp,
-    co2eKg,
-    co2eTon,
+    gwp: co2e.gwp,
+    co2eKg: co2e.co2eKg,
+    co2eTon: co2e.co2eTon,
+    refrigerantCode: co2e.refrigerantCode,
+    isKnownRefrigerant: co2e.isKnownRefrigerant,
+    gwpWarning: co2e.warning,
     baseInspectionIntervalMonths,
     inspectionIntervalMonths,
     inspectionObligation,

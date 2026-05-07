@@ -312,7 +312,7 @@ export function RefrigerantHandlingLog({
           row.equipmentId || row.name,
           row.refrigerantType,
           formatNumber(row.refrigerantAmountKg),
-          formatNumber(row.co2eKg),
+          row.co2eKg === null ? "Okänt GWP-värde" : formatNumber(row.co2eKg),
           row.leakDetectionSystem ? "Ja" : "Nej",
           formatOptionalNumber(addedByEquipment.get(key)),
           ...(showRegeneratedReused

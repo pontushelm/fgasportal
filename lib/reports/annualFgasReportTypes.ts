@@ -71,7 +71,7 @@ export type AnnualFgasEquipmentRow = {
   equipmentType: string | null
   refrigerantType: string
   refrigerantAmountKg: number
-  co2eKg: number
+  co2eKg: number | null
   controlRequired: boolean
   inspectionIntervalMonths: number | null
   leakDetectionSystem: boolean

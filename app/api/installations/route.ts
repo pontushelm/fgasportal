@@ -10,6 +10,7 @@ import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 import { logActivity } from "@/lib/activity-log"
 import { notifyContractorsAboutNewAssignments } from "@/lib/contractor-assignment-notifications"
 import { calculateInstallationRisk } from "@/lib/risk-classification"
+import { normalizeRefrigerantCode } from "@/lib/refrigerants"
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,8 +47,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const refrigerantType =
+      normalizeRefrigerantCode(validatedData.refrigerantType) ??
+      validatedData.refrigerantType.trim()
     const compliance = calculateInstallationCompliance(
-      validatedData.refrigerantType,
+      refrigerantType,
       validatedData.refrigerantAmount,
       validatedData.hasLeakDetectionSystem ?? false,
       validatedData.lastInspection
@@ -57,7 +61,7 @@ export async function POST(request: NextRequest) {
       compliance.inspectionIntervalMonths
     )
     const responseCompliance = calculateInstallationCompliance(
-      validatedData.refrigerantType,
+      refrigerantType,
       validatedData.refrigerantAmount,
       validatedData.hasLeakDetectionSystem ?? false,
       validatedData.lastInspection,
@@ -67,6 +71,7 @@ export async function POST(request: NextRequest) {
     const installation = await prisma.installation.create({
       data: {
         ...installationData,
+        refrigerantType,
         equipmentId: emptyToNull(validatedData.equipmentId),
         serialNumber: emptyToNull(validatedData.serialNumber),
         propertyName: emptyToNull(validatedData.propertyName),
@@ -215,7 +220,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const search = searchParams.get('q')?.trim()
     const archived = searchParams.get('archived') || 'all'
-    const refrigerantType = searchParams.get('refrigerantType')?.trim()
+    const refrigerantType = normalizeRefrigerantCode(searchParams.get('refrigerantType')) ?? searchParams.get('refrigerantType')?.trim()
     const contractorId = searchParams.get('contractorId')?.trim()
     const propertyId = searchParams.get('propertyId')?.trim()
     const municipality = searchParams.get('municipality')?.trim()
@@ -371,7 +376,7 @@ export async function GET(request: NextRequest) {
       sort === 'co2e'
         ? [...filteredByInterval].sort((first, second) => {
             const multiplier = direction === 'asc' ? 1 : -1
-            return (first.co2eTon - second.co2eTon) * multiplier
+            return ((first.co2eTon ?? -1) - (second.co2eTon ?? -1)) * multiplier
           })
         : filteredByInterval
 

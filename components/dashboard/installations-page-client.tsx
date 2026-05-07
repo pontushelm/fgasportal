@@ -22,7 +22,7 @@ type Installation = {
   serialNumber?: string | null
   refrigerantType: string
   refrigerantAmount: number
-  co2eTon: number
+  co2eTon: number | null
   inspectionInterval?: number | null
   riskLevel: InstallationRiskLevel
   riskScore: number
@@ -927,7 +927,7 @@ export default function InstallationsPageClient() {
                   </TableCell>
                   <TableCell>{installation.refrigerantType}</TableCell>
                   <TableCell>{formatNumber(installation.refrigerantAmount)} kg</TableCell>
-                  <TableCell>{formatNumber(installation.co2eTon)} ton</TableCell>
+                  <TableCell>{formatCo2eTon(installation.co2eTon)}</TableCell>
                   <TableCell>{formatOptionalDate(installation.nextInspection)}</TableCell>
                   <TableCell>{formatInspectionInterval(installation.inspectionInterval)}</TableCell>
                   <TableCell>
@@ -1196,7 +1196,7 @@ function InstallationQuickView({
               />
               <QuickViewItem
                 label="CO₂e"
-                value={`${formatNumber(installation.co2eTon)} ton`}
+                value={formatCo2eTon(installation.co2eTon)}
               />
               <QuickViewItem
                 label="Riskpoäng"
@@ -1454,4 +1454,8 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("sv-SE", {
     maximumFractionDigits: 2,
   }).format(value)
+}
+
+function formatCo2eTon(value: number | null) {
+  return value === null ? "Okänt GWP-värde" : `${formatNumber(value)} ton`
 }

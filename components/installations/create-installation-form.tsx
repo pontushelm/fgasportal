@@ -47,8 +47,8 @@ type CreatedInstallation = {
   lastInspection?: string | null
   inspectionIntervalMonths?: number | null
   nextInspection?: string | null
-  gwp: number
-  co2eTon: number
+  gwp: number | null
+  co2eTon: number | null
   baseInspectionInterval: number | null
   inspectionInterval: number | null
   hasAdjustedInspectionInterval: boolean
@@ -243,6 +243,12 @@ export default function CreateInstallationForm({
         )}
       </div>
 
+      {inspectionPreview.gwpWarning && (
+        <p className="text-sm font-semibold text-amber-700">
+          {inspectionPreview.gwpWarning}
+        </p>
+      )}
+
       {previewNextInspection && (
         <p className="text-sm font-medium text-slate-700">
           Nästa kontroll: {previewNextInspection}
@@ -297,14 +303,16 @@ function calculateInspectionPreview(
     return {
       ...calculateInspectionObligation(null, hasLeakDetectionSystem),
       co2eTon: null,
+      gwpWarning: null,
     }
   }
 
-  const { co2eTon } = calculateCO2e(refrigerantType, amount)
+  const { co2eTon, warning } = calculateCO2e(refrigerantType, amount)
 
   return {
     ...calculateInspectionObligation(co2eTon, hasLeakDetectionSystem),
     co2eTon,
+    gwpWarning: warning,
   }
 }
 

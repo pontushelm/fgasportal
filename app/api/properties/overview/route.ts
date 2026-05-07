@@ -183,7 +183,7 @@ function applyInstallationToSummary(
   })
 
   summary.installationsCount += 1
-  summary.totalCo2eTon += compliance.co2eTon
+  summary.totalCo2eTon += compliance.co2eTon ?? 0
   if (compliance.status === "OVERDUE") summary.overdueInspections += 1
   if (risk.level === "HIGH") summary.highRiskInstallations += 1
 }

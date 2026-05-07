@@ -83,8 +83,11 @@ export async function GET(request: NextRequest) {
         equipmentType: installation.equipmentType ?? "-",
         refrigerant: installation.refrigerantType,
         amountKg: installation.refrigerantAmount.toString(),
-        gwp: compliance.gwp.toString(),
-        co2eTon: compliance.co2eTon.toFixed(2),
+        gwp: compliance.gwp === null ? "Okänt" : compliance.gwp.toString(),
+        co2eTon:
+          compliance.co2eTon === null
+            ? "Okänt GWP"
+            : compliance.co2eTon.toFixed(2),
         interval: compliance.inspectionIntervalMonths
           ? `${compliance.inspectionIntervalMonths} months`
           : "-",
