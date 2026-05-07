@@ -9,9 +9,17 @@ import { generatePdfFromHtml } from "@/lib/reports/generatePdf"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
+export const maxDuration = 60
 
 export async function GET(request: NextRequest) {
+  const requestId = crypto.randomUUID()
+  const startedAt = Date.now()
+
   try {
+    logAnnualReportRoute(requestId, "Request received", {
+      searchParams: sanitizeSearchParams(request.nextUrl.searchParams),
+    })
+
     const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
@@ -22,16 +30,38 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Ogiltigt årtal" }, { status: 400 })
     }
 
+    logAnnualReportRoute(requestId, "Building report data", {
+      companyId: auth.user.companyId,
+      isContractor: isContractor(auth.user),
+      municipality: municipality || null,
+      year,
+    })
+
     const report = await buildAnnualFgasReportData({
       companyId: auth.user.companyId,
       assignedContractorId: isContractor(auth.user) ? auth.user.userId : undefined,
       municipality: municipality || undefined,
       year,
     })
+    logAnnualReportRoute(requestId, "Report data built", {
+      certificateCount: report.certificateRegister.length,
+      equipmentCount: report.equipment.length,
+      leakageControlCount: report.leakageControls.length,
+      refrigerantHandlingRows: report.refrigerantHandlingLog.length,
+      scrappedEquipmentCount: report.scrappedEquipment.length,
+    })
+
     const html = `<!doctype html>${renderToString(
       createElement(AnnualReportTemplate, { report })
     )}`
-    const pdf = await generatePdfFromHtml(html)
+    logAnnualReportRoute(requestId, "React report template rendered", {
+      htmlLength: html.length,
+    })
+
+    const pdf = await generatePdfFromHtml(html, {
+      logger: (message, metadata) =>
+        logAnnualReportRoute(requestId, message, metadata),
+    })
     const filename = `fgas-arsrapport-kontrollpliktiga-aggregat-${year}.pdf`
 
     await logActivity({
@@ -47,6 +77,10 @@ export async function GET(request: NextRequest) {
         format: "pdf",
       },
     })
+    logAnnualReportRoute(requestId, "PDF response ready", {
+      byteLength: pdf.length,
+      durationMs: Date.now() - startedAt,
+    })
 
     return new NextResponse(pdf, {
       status: 200,
@@ -56,7 +90,9 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error("Generate annual F-gas PDF error:", error)
+    logAnnualReportRouteError(requestId, error, {
+      durationMs: Date.now() - startedAt,
+    })
 
     return NextResponse.json(
       { error: "Ett oväntat fel uppstod när årsrapporten skulle skapas" },
@@ -74,4 +110,48 @@ function parseReportYear(value: string | null) {
   }
 
   return year
+}
+
+function logAnnualReportRoute(
+  requestId: string,
+  message: string,
+  metadata: Record<string, unknown> = {}
+) {
+  console.info("[annual-fgas-pdf]", {
+    message,
+    requestId,
+    ...metadata,
+  })
+}
+
+function logAnnualReportRouteError(
+  requestId: string,
+  error: unknown,
+  metadata: Record<string, unknown> = {}
+) {
+  console.error("[annual-fgas-pdf]", {
+    message: "Annual F-gas PDF generation failed",
+    requestId,
+    error: serializeError(error),
+    ...metadata,
+  })
+}
+
+function serializeError(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+    }
+  }
+
+  return error
+}
+
+function sanitizeSearchParams(searchParams: URLSearchParams) {
+  return {
+    municipality: searchParams.get("municipality"),
+    year: searchParams.get("year"),
+  }
 }

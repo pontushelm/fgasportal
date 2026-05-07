@@ -1,5 +1,7 @@
 import chromium from "@sparticuz/chromium"
-import puppeteer from "puppeteer-core"
+import puppeteer, { type Browser } from "puppeteer-core"
+
+type ChromiumHeadlessMode = true | "shell"
 
 const LOCAL_CHROME_PATHS = [
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
@@ -8,31 +10,45 @@ const LOCAL_CHROME_PATHS = [
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
 ]
 
-export async function generatePdfFromHtml(html: string) {
-  const executablePath = await resolveChromiumExecutablePath()
-  const browser = await puppeteer.launch({
-    args: [
-      ...chromium.args,
-      "--disable-dev-shm-usage",
-      "--font-render-hinting=medium",
-      "--no-sandbox",
-    ],
+export type PdfGenerationLogger = (message: string, metadata?: Record<string, unknown>) => void
+
+export async function generatePdfFromHtml(
+  html: string,
+  options: {
+    logger?: PdfGenerationLogger
+  } = {}
+) {
+  const logger = options.logger ?? (() => undefined)
+  const launchConfig = await resolveChromiumLaunchConfig()
+  let browser: Browser | null = null
+
+  logger("Resolved Chromium launch configuration", {
+    executablePath: launchConfig.executablePath,
+    isServerless: launchConfig.isServerless,
+    platform: process.platform,
+  })
+
+  try {
+    browser = await puppeteer.launch({
+      args: launchConfig.args,
     defaultViewport: {
       width: 1240,
       height: 1754,
       deviceScaleFactor: 1,
     },
-    executablePath,
-    headless: true,
-  })
+      executablePath: launchConfig.executablePath,
+      headless: launchConfig.headless,
+    })
 
-  try {
+    logger("Chromium browser launched")
+
     const page = await browser.newPage()
 
     await page.setContent(html, {
       waitUntil: ["domcontentloaded", "networkidle0"],
     })
     await page.emulateMediaType("print")
+    logger("Annual F-gas report HTML rendered in Chromium")
 
     const pdf = await page.pdf({
       displayHeaderFooter: true,
@@ -53,28 +69,68 @@ export async function generatePdfFromHtml(html: string) {
       preferCSSPageSize: true,
       printBackground: true,
     })
+    logger("Annual F-gas report PDF buffer created", {
+      byteLength: pdf.length,
+    })
 
     return Buffer.from(pdf)
   } finally {
-    await browser.close()
+    if (browser) {
+      await browser.close()
+      logger("Chromium browser closed")
+    }
   }
 }
 
-async function resolveChromiumExecutablePath() {
+async function resolveChromiumLaunchConfig() {
+  const isServerless = Boolean(
+    process.env.VERCEL ||
+      process.env.AWS_LAMBDA_FUNCTION_NAME ||
+      process.env.AWS_EXECUTION_ENV
+  )
+
   if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-    return process.env.PUPPETEER_EXECUTABLE_PATH
+    const headless: ChromiumHeadlessMode = isServerless ? "shell" : true
+
+    return {
+      args: isServerless
+        ? puppeteer.defaultArgs({ args: chromium.args, headless })
+        : puppeteer.defaultArgs(),
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+      headless,
+      isServerless,
+    }
   }
 
-  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
-    return await chromium.executablePath()
+  if (isServerless) {
+    const headless: ChromiumHeadlessMode = "shell"
+
+    return {
+      args: puppeteer.defaultArgs({ args: chromium.args, headless }),
+      executablePath: await chromium.executablePath(),
+      headless,
+      isServerless,
+    }
   }
 
   if (process.platform === "win32") {
     const { existsSync } = await import("node:fs")
     const localPath = LOCAL_CHROME_PATHS.find((path) => existsSync(path))
 
-    if (localPath) return localPath
+    if (localPath) {
+      return {
+        args: puppeteer.defaultArgs(),
+        executablePath: localPath,
+        headless: true,
+        isServerless,
+      }
+    }
   }
 
-  return await chromium.executablePath()
+  return {
+    args: puppeteer.defaultArgs(),
+    executablePath: await chromium.executablePath(),
+    headless: true,
+    isServerless,
+  }
 }
