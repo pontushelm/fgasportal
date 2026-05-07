@@ -35,6 +35,8 @@ export default function ImportInstallationsPage({
   const [isParsing, setIsParsing] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
   const validRows = rows.filter((row) => row.errors.length === 0)
+  const warningRows = validRows.filter((row) => row.warnings.length > 0)
+  const invalidRows = rows.filter((row) => row.errors.length > 0)
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -120,14 +122,16 @@ export default function ImportInstallationsPage({
         </h1>
         <p className="mt-2 text-sm text-slate-700">
           Ladda upp en .xlsx- eller .csv-fil, förhandsgranska raderna och
-          importera bara de rader som är giltiga.
+          importera de rader som har nödvändiga uppgifter. Rader med varningar
+          kan importeras och kompletteras senare.
         </p>
       </div>
 
       <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
         <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
-          Stödda kolumner är till exempel namn, plats, köldmedium, mängd,
-          senaste kontroll och kontrollintervall.
+          Stödda kolumner är till exempel namn, plats, fastighet, köldmedium,
+          mängd, senaste kontroll och kontrollintervall. Namn, köldmedium och
+          fyllnadsmängd krävs.
         </div>
         <div className="mt-4 grid gap-3">
           <input
@@ -162,18 +166,45 @@ export default function ImportInstallationsPage({
       {rows.length > 0 && (
         <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-slate-700">
-              {validRows.length} av {rows.length} rader är giltiga.
-            </p>
+            <div className="text-sm text-slate-700">
+              <p>
+                {validRows.length} av {rows.length} rader kan importeras.
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {warningRows.length} med varningar, {invalidRows.length} med
+                blockerande fel.
+              </p>
+            </div>
             <button
               className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
               type="button"
               onClick={handleImport}
               disabled={validRows.length === 0 || isImporting}
             >
-              {isImporting ? "Importerar..." : `Importera ${validRows.length} giltiga rader`}
+              {isImporting ? "Importerar..." : `Importera ${validRows.length} rader`}
             </button>
           </div>
+
+          {(warningRows.length > 0 || invalidRows.length > 0) && (
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {warningRows.length > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  <h2 className="font-semibold">Varningar</h2>
+                  <p className="mt-1">
+                    Dessa rader kan importeras men bör kompletteras senare.
+                  </p>
+                </div>
+              )}
+              {invalidRows.length > 0 && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                  <h2 className="font-semibold">Blockerande fel</h2>
+                  <p className="mt-1">
+                    Dessa rader importeras inte förrän felen är åtgärdade.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="mt-4 max-h-[50vh] overflow-auto rounded-lg border border-slate-200">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -182,12 +213,13 @@ export default function ImportInstallationsPage({
                   <th className={tableHeaderClassName}>Rad</th>
                   <th className={tableHeaderClassName}>Namn</th>
                   <th className={tableHeaderClassName}>Plats</th>
+                  <th className={tableHeaderClassName}>Fastighet</th>
                   <th className={tableHeaderClassName}>Köldmedium</th>
                   <th className={tableHeaderClassName}>Mängd</th>
                   <th className={tableHeaderClassName}>Senaste kontroll</th>
                   <th className={tableHeaderClassName}>Intervall</th>
                   <th className={tableHeaderClassName}>Nästa kontroll</th>
-                  <th className={tableHeaderClassName}>Status / fel</th>
+                  <th className={tableHeaderClassName}>Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
@@ -196,6 +228,7 @@ export default function ImportInstallationsPage({
                     <td className={tableCellClassName}>{row.row}</td>
                     <td className={tableCellClassName}>{row.name || "-"}</td>
                     <td className={tableCellClassName}>{row.location || "-"}</td>
+                    <td className={tableCellClassName}>{row.propertyName || "-"}</td>
                     <td className={tableCellClassName}>{row.refrigerantType || "-"}</td>
                     <td className={tableCellClassName}>{row.refrigerantAmount ?? "-"}</td>
                     <td className={tableCellClassName}>{row.lastInspection || "-"}</td>
@@ -207,10 +240,18 @@ export default function ImportInstallationsPage({
                     <td className={tableCellClassName}>{row.nextInspection || "-"}</td>
                     <td
                       className={`${tableCellClassName} font-semibold ${
-                        row.errors.length > 0 ? "text-red-700" : "text-emerald-700"
+                        row.errors.length > 0
+                          ? "text-red-700"
+                          : row.warnings.length > 0
+                            ? "text-amber-700"
+                            : "text-emerald-700"
                       }`}
                     >
-                      {row.errors.length > 0 ? row.errors.join(", ") : "Giltig"}
+                      {row.errors.length > 0
+                        ? row.errors.join(", ")
+                        : row.warnings.length > 0
+                          ? row.warnings.join(", ")
+                          : "Giltig"}
                     </td>
                   </tr>
                 ))}

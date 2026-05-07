@@ -16,6 +16,7 @@ const importRequestSchema = z.object({
       row: z.number(),
       name: z.string(),
       location: z.string(),
+      propertyName: z.string().nullable().optional(),
       refrigerantType: z.string(),
       refrigerantAmount: z.number().nullable(),
       lastInspection: z.string().nullable(),
@@ -95,6 +96,7 @@ export async function POST(request: NextRequest) {
         data: {
           name: parsed.name,
           location: parsed.location,
+          propertyName: parsed.propertyName,
           serialNumber: parsed.serialNumber,
           refrigerantType: parsed.refrigerantType,
           refrigerantAmount: parsed.refrigerantAmount,

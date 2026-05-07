@@ -8,6 +8,7 @@ export type ImportInstallationInput = {
   row: number
   name: string
   location: string
+  propertyName: string | null
   refrigerantType: string
   refrigerantAmount: number | null
   lastInspection: string | null
@@ -19,12 +20,14 @@ export type ImportInstallationInput = {
 export type ParsedImportRow = ImportInstallationInput & {
   nextInspection: string | null
   errors: string[]
+  warnings: string[]
 }
 
 const MAX_IMPORT_ROWS = 500
 const HEADER_ALIASES: Record<keyof Omit<ImportInstallationInput, "row">, string[]> = {
   name: ["name", "namn", "aggregat", "installation", "installation name"],
   location: ["location", "plats", "placering", "anläggning", "anlaggning"],
+  propertyName: ["property", "fastighet", "fastighetsnamn", "property name"],
   refrigerantType: ["refrigerant", "köldmedium", "koldmedium", "medium"],
   refrigerantAmount: [
     "charge",
@@ -64,8 +67,10 @@ export function normalizeImportRow(
   rowNumber: number
 ): ParsedImportRow {
   const errors: string[] = []
+  const warnings: string[] = []
   const name = getString(rawRow, "name")
   const location = getString(rawRow, "location")
+  const propertyName = getOptionalString(rawRow, "propertyName")
   const refrigerantType = getString(rawRow, "refrigerantType")
   const serialNumber = getOptionalString(rawRow, "serialNumber")
   const notes = getOptionalString(rawRow, "notes")
@@ -79,16 +84,18 @@ export function normalizeImportRow(
         ).intervalMonths
       : null
 
-  if (!name) errors.push("Missing name")
-  if (!location) errors.push("Missing location")
-  if (!refrigerantType) errors.push("Missing refrigerant")
+  if (!name) errors.push("Saknar namn")
+  if (!refrigerantType) errors.push("Saknar köldmedium")
   if (refrigerantAmount === null || Number.isNaN(refrigerantAmount) || refrigerantAmount <= 0) {
-    errors.push("Invalid charge")
+    errors.push("Ogiltig fyllnadsmängd")
   }
+
+  if (!location) warnings.push("Saknar placering – kan kompletteras senare")
+  if (!propertyName) warnings.push("Saknar fastighet – kan kopplas senare")
 
   const rawLastInspection = getValue(rawRow, "lastInspection")
   if (hasValue(rawLastInspection) && !lastInspection) {
-    errors.push("Invalid date")
+    errors.push("Ogiltigt datum")
   }
 
   const nextInspection = calculateNextInspectionDate(
@@ -100,6 +107,7 @@ export function normalizeImportRow(
     row: rowNumber,
     name,
     location,
+    propertyName,
     refrigerantType,
     refrigerantAmount,
     lastInspection,
@@ -108,6 +116,7 @@ export function normalizeImportRow(
     notes,
     nextInspection: nextInspection ? formatDate(nextInspection) : null,
     errors,
+    warnings,
   }
 }
 
