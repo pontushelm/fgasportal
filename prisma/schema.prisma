@@ -11,6 +11,9 @@ enum InstallationEventType {
   LEAK
   REFILL
   SERVICE
+  REPAIR
+  RECOVERY
+  REFRIGERANT_CHANGE
 }
 
 enum DocumentType {

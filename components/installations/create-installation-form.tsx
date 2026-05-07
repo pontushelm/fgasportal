@@ -149,7 +149,7 @@ export default function CreateInstallationForm({
     const result = await res.json()
 
     if (!res.ok) {
-      setError(result.error || "Kunde inte skapa installation")
+      setError(result.error || "Kunde inte skapa aggregat")
       setIsSubmitting(false)
       return
     }
@@ -221,7 +221,7 @@ export default function CreateInstallationForm({
       </label>
 
       <label className={labelClassName}>
-        <span>Installationsdatum <RequiredMark /></span>
+        <span>Driftsättningsdatum <RequiredMark /></span>
         <input className={inputClassName} name="installationDate" type="date" value={formData.installationDate} onChange={handleChange} required />
       </label>
 

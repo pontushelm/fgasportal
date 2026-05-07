@@ -73,7 +73,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     if (!installation) {
       return NextResponse.json(
-        { error: "Installationen hittades inte" },
+        { error: "Aggregatet hittades inte" },
         { status: 404 }
       )
     }
@@ -181,7 +181,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (!installation) {
       return NextResponse.json(
-        { error: "Installationen hittades inte" },
+        { error: "Aggregatet hittades inte" },
         { status: 404 }
       )
     }
@@ -388,7 +388,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
     if (!installation) {
       return NextResponse.json(
-        { error: "Installationen hittades inte" },
+        { error: "Aggregatet hittades inte" },
         { status: 404 }
       )
     }

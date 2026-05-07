@@ -17,7 +17,14 @@ type ServiceInstallation = {
   daysUntilDue: number | null
 }
 
-type EventType = "INSPECTION" | "LEAK" | "REFILL" | "SERVICE"
+type EventType =
+  | "INSPECTION"
+  | "LEAK"
+  | "REFILL"
+  | "SERVICE"
+  | "REPAIR"
+  | "RECOVERY"
+  | "REFRIGERANT_CHANGE"
 
 type EventFormData = {
   installationId: string
@@ -67,6 +74,9 @@ const EVENT_LABELS: Record<EventType, string> = {
   LEAK: "Läckage",
   REFILL: "Påfyllning",
   SERVICE: "Service",
+  REPAIR: "Reparation",
+  RECOVERY: "Tömning / Återvinning",
+  REFRIGERANT_CHANGE: "Byte av köldmedium",
 }
 
 const initialEventForm: EventFormData = {
@@ -457,6 +467,9 @@ export default function ServiceDashboardPage() {
                 <option value="LEAK">Läckage</option>
                 <option value="REFILL">Påfyllning</option>
                 <option value="SERVICE">Service</option>
+                <option value="REPAIR">Reparation</option>
+                <option value="RECOVERY">Tömning / Återvinning</option>
+                <option value="REFRIGERANT_CHANGE">Byte av köldmedium</option>
               </select>
             </label>
             <label className={fieldClassName}>

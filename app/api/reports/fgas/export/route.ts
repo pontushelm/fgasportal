@@ -15,6 +15,9 @@ const EVENT_LABELS: Record<FgasReportEventType, string> = {
   LEAK: "Läckage",
   REFILL: "Påfyllning",
   SERVICE: "Service",
+  REPAIR: "Reparation",
+  RECOVERY: "Tömning / Återvinning",
+  REFRIGERANT_CHANGE: "Byte av köldmedium",
 }
 
 export async function GET(request: NextRequest) {

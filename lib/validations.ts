@@ -160,7 +160,15 @@ export type CreateInvitationData = z.infer<typeof createInvitationSchema>
 
 export const createInstallationEventSchema = z.object({
   date: z.string().min(1, "Datum krävs").transform((val) => new Date(val)),
-  type: z.enum(["INSPECTION", "LEAK", "REFILL", "SERVICE"]),
+  type: z.enum([
+    "INSPECTION",
+    "LEAK",
+    "REFILL",
+    "SERVICE",
+    "REPAIR",
+    "RECOVERY",
+    "REFRIGERANT_CHANGE",
+  ]),
   refrigerantAddedKg: z.string()
     .optional()
     .transform((val) => (val ? parseFloat(val) : null)),

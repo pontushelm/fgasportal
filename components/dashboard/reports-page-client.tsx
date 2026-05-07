@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import { Badge, Card, EmptyState as UiEmptyState, PageHeader, SectionHeader } from "@/components/ui"
 
-type EventType = "INSPECTION" | "LEAK" | "REFILL" | "SERVICE"
+type EventType =
+  | "INSPECTION"
+  | "LEAK"
+  | "REFILL"
+  | "SERVICE"
+  | "REPAIR"
+  | "RECOVERY"
+  | "REFRIGERANT_CHANGE"
 type ReportType =
   | "annual"
   | "climate"
@@ -55,6 +62,9 @@ const EVENT_LABELS: Record<EventType, string> = {
   LEAK: "Läckage",
   REFILL: "Påfyllning",
   SERVICE: "Service",
+  REPAIR: "Reparation",
+  RECOVERY: "Tömning / Återvinning",
+  REFRIGERANT_CHANGE: "Byte av köldmedium",
 }
 
 const EVENT_TONE: Record<EventType, string> = {
@@ -62,6 +72,9 @@ const EVENT_TONE: Record<EventType, string> = {
   LEAK: "border-red-200 bg-red-50 text-red-800",
   REFILL: "border-amber-200 bg-amber-50 text-amber-800",
   SERVICE: "border-neutral-200 bg-neutral-50 text-neutral-700",
+  REPAIR: "border-violet-200 bg-violet-50 text-violet-800",
+  RECOVERY: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  REFRIGERANT_CHANGE: "border-cyan-200 bg-cyan-50 text-cyan-800",
 }
 
 const REPORT_TYPE_OPTIONS: Array<{

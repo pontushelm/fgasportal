@@ -27,7 +27,14 @@ type Inspection = {
   nextDueDate?: string | null
 }
 
-type InstallationEventType = "INSPECTION" | "LEAK" | "REFILL" | "SERVICE"
+type InstallationEventType =
+  | "INSPECTION"
+  | "LEAK"
+  | "REFILL"
+  | "SERVICE"
+  | "REPAIR"
+  | "RECOVERY"
+  | "REFRIGERANT_CHANGE"
 
 type InstallationEvent = {
   id: string
@@ -230,6 +237,9 @@ const EVENT_LABELS: Record<InstallationEventType, string> = {
   LEAK: "Läckage",
   REFILL: "Påfyllning",
   SERVICE: "Service",
+  REPAIR: "Reparation",
+  RECOVERY: "Tömning / Återvinning",
+  REFRIGERANT_CHANGE: "Byte av köldmedium",
 }
 
 const EVENT_TONE: Record<InstallationEventType, string> = {
@@ -237,6 +247,9 @@ const EVENT_TONE: Record<InstallationEventType, string> = {
   LEAK: "border-red-200 bg-red-50 text-red-800",
   REFILL: "border-amber-200 bg-amber-50 text-amber-800",
   SERVICE: "border-slate-200 bg-slate-50 text-slate-700",
+  REPAIR: "border-violet-200 bg-violet-50 text-violet-800",
+  RECOVERY: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  REFRIGERANT_CHANGE: "border-cyan-200 bg-cyan-50 text-cyan-800",
 }
 
 const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
@@ -257,6 +270,9 @@ const ACTIVITY_LABELS: Record<string, string> = {
   leak_registered: "Läckage registrerat",
   refill_registered: "Påfyllning registrerad",
   service_added: "Service registrerad",
+  repair_registered: "Reparation registrerad",
+  recovery_registered: "Tömning/återvinning registrerad",
+  refrigerant_change_registered: "Byte av köldmedium registrerat",
   document_uploaded: "Dokument uppladdat",
   document_deleted: "Dokument borttaget",
   report_exported: "Rapport exporterad",
@@ -381,7 +397,7 @@ export default function InstallationDetailPage() {
 
       if (installationRes.status === 404) {
         if (!isMounted) return
-        setError("Installationen hittades inte")
+        setError("Aggregatet hittades inte")
         setIsLoading(false)
         return
       }
@@ -395,7 +411,7 @@ export default function InstallationDetailPage() {
         !propertiesRes.ok
       ) {
         if (!isMounted) return
-        setError("Kunde inte hämta installationen")
+        setError("Kunde inte hämta aggregatet")
         setIsLoading(false)
         return
       }
@@ -537,12 +553,12 @@ export default function InstallationDetailPage() {
     }
 
     if (!res.ok) {
-      setEditError(result.error || "Kunde inte uppdatera installationen")
+      setEditError(result.error || "Kunde inte uppdatera aggregatet")
       setIsSavingEdit(false)
       return
     }
 
-    setEditSuccess("Installationen har uppdaterats")
+    setEditSuccess("Aggregatet har uppdaterats")
     setIsEditing(false)
     setRefreshKey((current) => current + 1)
     setIsSavingEdit(false)
@@ -552,7 +568,7 @@ export default function InstallationDetailPage() {
     setArchiveError("")
 
     const confirmed = window.confirm(
-      "Är du säker på att du vill arkivera installationen?"
+      "Är du säker på att du vill arkivera aggregatet?"
     )
 
     if (!confirmed) return
@@ -571,7 +587,7 @@ export default function InstallationDetailPage() {
 
     if (!res.ok) {
       const result: { error?: string } = await res.json()
-      setArchiveError(result.error || "Kunde inte arkivera installationen")
+      setArchiveError(result.error || "Kunde inte arkivera aggregatet")
       setIsArchiving(false)
       return
     }
@@ -782,8 +798,8 @@ export default function InstallationDetailPage() {
   if (error || !installation) {
     return (
       <main className="mx-auto max-w-6xl px-4 py-10 text-slate-900">
-        <h1 className="text-3xl font-bold">Installation</h1>
-        <p className="mt-3 text-slate-600">{error || "Installationen hittades inte"}</p>
+        <h1 className="text-3xl font-bold">Aggregat</h1>
+        <p className="mt-3 text-slate-600">{error || "Aggregatet hittades inte"}</p>
       </main>
     )
   }
@@ -939,7 +955,7 @@ export default function InstallationDetailPage() {
 
       <section className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_0.6fr]">
         <div className="rounded-lg border border-slate-200 bg-white p-5">
-          <h2 className="text-lg font-semibold text-slate-950">Installationsdetaljer</h2>
+          <h2 className="text-lg font-semibold text-slate-950">Aggregatdetaljer</h2>
           <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <DetailItem label="Kopplad fastighet" value={formatOptionalText(installation.property?.name)} />
             <DetailItem label="Kommun" value={formatOptionalText(installation.property?.municipality)} />
@@ -956,7 +972,7 @@ export default function InstallationDetailPage() {
             />
             <DetailItem label="GWP" value={String(compliance.gwp)} />
             <DetailItem label="Kontrollintervall" value={formatInspectionInterval(compliance)} />
-            <DetailItem label="Installationsdatum" value={formatDate(installation.installationDate)} />
+            <DetailItem label="Driftsättningsdatum" value={formatDate(installation.installationDate)} />
           </dl>
           {installation.notes && (
             <div className="mt-5 rounded-md bg-slate-50 p-4">
@@ -978,7 +994,7 @@ export default function InstallationDetailPage() {
 
       {canManage && !isScrapped && (
         <section className="installation-form-surface mt-6 rounded-lg border border-slate-200 bg-white p-5">
-          <h2 className="text-lg font-semibold text-slate-950">Redigera installation</h2>
+          <h2 className="text-lg font-semibold text-slate-950">Redigera aggregat</h2>
 
           {!isEditing ? (
             <button
@@ -1050,7 +1066,7 @@ export default function InstallationDetailPage() {
                 </span>
               </label>
               <label className={fieldClassName}>
-                <span>Installationsdatum <RequiredMark /></span>
+                <span>Driftsättningsdatum <RequiredMark /></span>
                 <input name="installationDate" type="date" value={editForm.installationDate} onChange={handleEditChange} required />
               </label>
               <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
@@ -1115,7 +1131,7 @@ export default function InstallationDetailPage() {
                 onClick={handleArchiveInstallation}
                 disabled={isArchiving}
               >
-                {isArchiving ? "Arkiverar..." : "Arkivera installation"}
+                {isArchiving ? "Arkiverar..." : "Arkivera aggregat"}
               </button>
             </div>
           </div>
@@ -1140,6 +1156,9 @@ export default function InstallationDetailPage() {
                 <option value="LEAK">Läckage</option>
                 <option value="REFILL">Påfyllning</option>
                 <option value="SERVICE">Service</option>
+                <option value="REPAIR">Reparation</option>
+                <option value="RECOVERY">Tömning / Återvinning</option>
+                <option value="REFRIGERANT_CHANGE">Byte av köldmedium</option>
               </select>
             </label>
             {eventForm.type === "REFILL" && (

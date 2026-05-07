@@ -54,7 +54,14 @@ type PropertyOption = {
   city?: string | null
 }
 
-type InstallationEventType = "INSPECTION" | "LEAK" | "REFILL" | "SERVICE"
+type InstallationEventType =
+  | "INSPECTION"
+  | "LEAK"
+  | "REFILL"
+  | "SERVICE"
+  | "REPAIR"
+  | "RECOVERY"
+  | "REFRIGERANT_CHANGE"
 
 type InstallationEvent = {
   id: string
@@ -506,7 +513,7 @@ export default function InstallationsPageClient() {
     setSuccess("")
 
     const confirmed = window.confirm(
-      `Markera ${selectedIds.length} aggregat som inaktiva?`
+      `Arkivera ${selectedIds.length} valda aggregat?`
     )
 
     if (!confirmed) return
@@ -531,12 +538,12 @@ export default function InstallationsPageClient() {
     }
 
     if (!res.ok) {
-      setError(result.error || "Kunde inte markera aggregat som inaktiva")
+      setError(result.error || "Kunde inte arkivera aggregat")
       setIsSubmitting(false)
       return
     }
 
-    setSuccess(`${result.archived ?? selectedIds.length} aggregat markerade som inaktiva`)
+    setSuccess(`${result.archived ?? selectedIds.length} aggregat arkiverade`)
     setIsSubmitting(false)
     setRefreshKey((current) => current + 1)
   }
@@ -848,7 +855,7 @@ export default function InstallationsPageClient() {
               disabled={isSubmitting}
               onClick={() => void handleArchiveSelected()}
             >
-              Markera som inaktivt
+              Arkivera aggregat
             </button>
           </div>
         </div>
@@ -926,7 +933,6 @@ export default function InstallationsPageClient() {
                   <TableCell>
                     <StatusBadge
                       archivedAt={installation.archivedAt}
-                      isActive={installation.isActive}
                       scrappedAt={installation.scrappedAt}
                       status={installation.complianceStatus}
                     />
@@ -1172,7 +1178,7 @@ function InstallationQuickView({
         <div className="grid gap-5 p-5">
           <section className="rounded-lg border border-slate-200 bg-white p-4">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Installation
+              Aggregat
             </h3>
             <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
               <QuickViewItem label="Köldmedium" value={installation.refrigerantType} />
@@ -1201,7 +1207,6 @@ function InstallationQuickView({
               {!installation.scrappedAt && <RiskBadge level={installation.riskLevel} />}
               <StatusBadge
                 archivedAt={installation.archivedAt}
-                isActive={installation.isActive}
                 scrappedAt={installation.scrappedAt}
                 status={installation.complianceStatus}
               />
@@ -1319,12 +1324,10 @@ function TableCell({ children }: { children: React.ReactNode }) {
 
 function StatusBadge({
   archivedAt,
-  isActive = true,
   scrappedAt,
   status,
 }: {
   archivedAt?: string | null
-  isActive?: boolean
   scrappedAt?: string | null
   status: ComplianceStatus
 }) {
@@ -1340,14 +1343,6 @@ function StatusBadge({
     return (
       <span className="inline-flex rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-800">
         Arkiverad
-      </span>
-    )
-  }
-
-  if (!isActive) {
-    return (
-      <span className="inline-flex rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-800">
-        Inaktiv
       </span>
     )
   }

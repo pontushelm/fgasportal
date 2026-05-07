@@ -219,7 +219,7 @@ export default function ContractorsOverviewPageClient() {
             <div className="border-b border-slate-200 p-5 dark:border-slate-800">
               <SectionHeader
                 title="Servicepartners"
-                subtitle="Klicka på en servicepartner för att se filtrerade installationer."
+                subtitle="Klicka på en servicepartner för att se filtrerade aggregat."
               />
             </div>
 

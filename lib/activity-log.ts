@@ -42,6 +42,9 @@ export function getEventActivityAction(type: string) {
   if (type === "LEAK") return "leak_registered"
   if (type === "REFILL") return "refill_registered"
   if (type === "SERVICE") return "service_added"
+  if (type === "REPAIR") return "repair_registered"
+  if (type === "RECOVERY") return "recovery_registered"
+  if (type === "REFRIGERANT_CHANGE") return "refrigerant_change_registered"
 
   return "event_added"
 }

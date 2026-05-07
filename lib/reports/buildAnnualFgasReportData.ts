@@ -14,6 +14,9 @@ const EVENT_LABELS = {
   LEAK: "Läckage/reparation",
   REFILL: "Påfyllning",
   SERVICE: "Service",
+  REPAIR: "Reparation",
+  RECOVERY: "Tömning / Återvinning",
+  REFRIGERANT_CHANGE: "Byte av köldmedium",
 } as const
 
 export async function buildAnnualFgasReportData({
@@ -138,9 +141,7 @@ export async function buildAnnualFgasReportData({
       ? "scrapped"
       : installation.archivedAt
         ? "archived"
-        : installation.isActive
-          ? "active"
-          : "inactive"
+        : "active"
 
     return {
       id: installation.id,

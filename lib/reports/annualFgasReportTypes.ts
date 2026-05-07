@@ -78,7 +78,7 @@ export type AnnualFgasEquipmentRow = {
   installedAt: Date | null
   lastInspectionAt: Date | null
   nextInspectionAt: Date | null
-  status: "active" | "inactive" | "archived" | "scrapped"
+  status: "active" | "archived" | "scrapped"
 }
 
 export type AnnualFgasLeakageControlRow = {

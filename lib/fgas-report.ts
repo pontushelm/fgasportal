@@ -1,7 +1,14 @@
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
 
-export type FgasReportEventType = "INSPECTION" | "LEAK" | "REFILL" | "SERVICE"
+export type FgasReportEventType =
+  | "INSPECTION"
+  | "LEAK"
+  | "REFILL"
+  | "SERVICE"
+  | "REPAIR"
+  | "RECOVERY"
+  | "REFRIGERANT_CHANGE"
 
 export type FgasReportData = {
   year: number

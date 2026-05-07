@@ -33,7 +33,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (!installation) {
       return NextResponse.json(
-        { error: "Installationen hittades inte" },
+        { error: "Aggregatet hittades inte" },
         { status: 404 }
       )
     }

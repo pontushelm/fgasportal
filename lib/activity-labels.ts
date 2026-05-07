@@ -14,6 +14,9 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   leak_registered: "Läckage registrerat",
   refill_registered: "Påfyllning registrerad",
   service_added: "Service registrerad",
+  repair_registered: "Reparation registrerad",
+  recovery_registered: "Tömning/återvinning registrerad",
+  refrigerant_change_registered: "Byte av köldmedium registrerat",
   document_uploaded: "Dokument uppladdat",
   document_deleted: "Dokument borttaget",
   report_exported: "Rapport exporterad",
@@ -75,6 +78,9 @@ function formatInstallationEventType(eventType: string) {
   if (eventType === "LEAK") return "Läckage"
   if (eventType === "REFILL") return "Påfyllning"
   if (eventType === "SERVICE") return "Service"
+  if (eventType === "REPAIR") return "Reparation"
+  if (eventType === "RECOVERY") return "Tömning/återvinning"
+  if (eventType === "REFRIGERANT_CHANGE") return "Byte av köldmedium"
 
   return eventType
 }

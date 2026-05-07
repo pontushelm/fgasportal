@@ -425,7 +425,6 @@ function statusLabel(status: AnnualFgasEquipmentRow["status"]) {
   return {
     active: "Aktivt",
     archived: "Arkiverat",
-    inactive: "Inaktivt",
     scrapped: "Skrotat",
   }[status]
 }
