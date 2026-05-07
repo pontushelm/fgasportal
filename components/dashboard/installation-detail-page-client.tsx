@@ -1329,8 +1329,15 @@ export default function InstallationDetailPage() {
                 Operatör
                 <input className={formControlClassName} name="operatorName" value={editForm.operatorName} onChange={handleEditChange} />
               </label>
-              <label className={fieldClassName}>
-                Köldmedium
+              <label
+                className={fieldClassName}
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                    setShowRefrigerantEditHelp(false)
+                  }
+                }}
+              >
+                <span>Köldmedium <RequiredMark /></span>
                 <div className="flex gap-2">
                   <input
                     className={`${formControlClassName} flex-1`}
