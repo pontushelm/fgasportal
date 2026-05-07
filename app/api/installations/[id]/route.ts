@@ -393,12 +393,36 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       )
     }
 
+    let archiveComment: string | null = null
+    try {
+      const body = (await request.json()) as { archiveComment?: unknown }
+      archiveComment =
+        typeof body.archiveComment === "string"
+          ? body.archiveComment.trim() || null
+          : null
+    } catch {
+      archiveComment = null
+    }
+
     const archivedInstallation = await prisma.installation.update({
       where: {
         id: installation.id,
       },
       data: {
         archivedAt: new Date(),
+      },
+    })
+
+    await logActivity({
+      companyId,
+      installationId: installation.id,
+      userId: auth.user.userId,
+      action: "installation_archived",
+      entityType: "installation",
+      entityId: installation.id,
+      metadata: {
+        name: installation.name,
+        archiveComment,
       },
     })
 

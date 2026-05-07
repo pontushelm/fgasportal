@@ -35,6 +35,8 @@ type InstallationEventType =
   | "REPAIR"
   | "RECOVERY"
   | "REFRIGERANT_CHANGE"
+type LifecycleEventType = "ARCHIVE" | "SCRAP"
+type EventFormType = InstallationEventType | LifecycleEventType
 
 type InstallationEvent = {
   id: string
@@ -147,7 +149,7 @@ type CurrentUser = {
 
 type EventFormData = {
   date: string
-  type: InstallationEventType
+  type: EventFormType
   refrigerantAddedKg: string
   notes: string
 }
@@ -240,6 +242,12 @@ const EVENT_LABELS: Record<InstallationEventType, string> = {
   REPAIR: "Reparation",
   RECOVERY: "Tömning / Återvinning",
   REFRIGERANT_CHANGE: "Byte av köldmedium",
+}
+
+const EVENT_FORM_LABELS: Record<EventFormType, string> = {
+  ...EVENT_LABELS,
+  ARCHIVE: "Arkivering",
+  SCRAP: "Skrotning",
 }
 
 const EVENT_TONE: Record<InstallationEventType, string> = {
@@ -346,11 +354,11 @@ export default function InstallationDetailPage() {
   const [isSavingEdit, setIsSavingEdit] = useState(false)
   const [archiveError, setArchiveError] = useState("")
   const [isArchiving, setIsArchiving] = useState(false)
-  const [isScrapModalOpen, setIsScrapModalOpen] = useState(false)
   const [scrapForm, setScrapForm] = useState<ScrapFormData>(initialScrapFormData)
   const [scrapCertificateFile, setScrapCertificateFile] = useState<File | null>(null)
   const [scrapError, setScrapError] = useState("")
   const [isScrapping, setIsScrapping] = useState(false)
+  const [lifecycleConfirmed, setLifecycleConfirmed] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
@@ -469,6 +477,27 @@ export default function InstallationDetailPage() {
   function handleEventChange(
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
+    if (event.target.name === "type") {
+      const nextType = event.target.value as EventFormType
+      setLifecycleConfirmed(false)
+      setEventForm((current) => ({
+        ...current,
+        type: nextType,
+        date: current.date || getTodayInputValue(),
+        refrigerantAddedKg: nextType === "REFILL" ? current.refrigerantAddedKg : "",
+      }))
+      if (nextType === "SCRAP") {
+        setScrapError("")
+        setScrapForm((current) => ({
+          ...current,
+          servicePartnerId:
+            current.servicePartnerId || installation?.assignedContractorId || "",
+        }))
+        setScrapCertificateFile(null)
+      }
+      return
+    }
+
     setEventForm({
       ...eventForm,
       [event.target.name]: event.target.value,
@@ -515,21 +544,34 @@ export default function InstallationDetailPage() {
     })
   }
 
-  function openEventModal(type: InstallationEventType = "SERVICE") {
+  function openEventModal(type: EventFormType = "SERVICE") {
     setEventError("")
     setEventSuccess("")
+    setArchiveError("")
+    setScrapError("")
+    setLifecycleConfirmed(false)
     setEventForm((current) => ({
       ...current,
       type,
       date: current.date || getTodayInputValue(),
     }))
+    if (type === "SCRAP") {
+      setScrapForm({
+        ...initialScrapFormData,
+        servicePartnerId: installation?.assignedContractorId || "",
+      })
+      setScrapCertificateFile(null)
+    }
     setIsEventModalOpen(true)
   }
 
   function closeEventModal() {
-    if (isSubmittingEvent) return
+    if (isSubmittingEvent || isArchiving || isScrapping) return
     setIsEventModalOpen(false)
     setEventError("")
+    setArchiveError("")
+    setScrapError("")
+    setLifecycleConfirmed(false)
   }
 
   function openDocumentModal() {
@@ -588,18 +630,24 @@ export default function InstallationDetailPage() {
 
   async function handleArchiveInstallation() {
     setArchiveError("")
+    setEventError("")
 
-    const confirmed = window.confirm(
-      "Är du säker på att du vill arkivera aggregatet?"
-    )
-
-    if (!confirmed) return
+    if (!lifecycleConfirmed) {
+      setArchiveError("Bekräfta arkiveringen innan du fortsätter")
+      return
+    }
 
     setIsArchiving(true)
 
     const res = await fetch(`/api/installations/${params.id}`, {
       method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
       credentials: "include",
+      body: JSON.stringify({
+        archiveComment: eventForm.notes,
+      }),
     })
 
     if (res.status === 401) {
@@ -614,23 +662,19 @@ export default function InstallationDetailPage() {
       return
     }
 
+    setEventSuccess("Aggregatet har arkiverats")
+    setIsEventModalOpen(false)
     router.push("/dashboard")
   }
 
-  function openScrapModal() {
+  async function submitScrapEvent() {
     setScrapError("")
-    setScrapForm({
-      ...initialScrapFormData,
-      scrappedAt: getTodayInputValue(),
-      servicePartnerId: installation?.assignedContractorId || "",
-    })
-    setScrapCertificateFile(null)
-    setIsScrapModalOpen(true)
-  }
+    setEventError("")
 
-  async function handleScrapSubmit(event: React.FormEvent) {
-    event.preventDefault()
-    setScrapError("")
+    if (!lifecycleConfirmed) {
+      setScrapError("Bekräfta skrotningen innan du fortsätter")
+      return
+    }
 
     if (!scrapCertificateFile) {
       setScrapError("Skrotningsintyg krävs")
@@ -639,9 +683,9 @@ export default function InstallationDetailPage() {
 
     setIsScrapping(true)
     const formData = new FormData()
-    formData.append("scrappedAt", scrapForm.scrappedAt)
+    formData.append("scrappedAt", eventForm.date)
     formData.append("servicePartnerId", scrapForm.servicePartnerId)
-    formData.append("scrapComment", scrapForm.scrapComment)
+    formData.append("scrapComment", eventForm.notes)
     formData.append("recoveredRefrigerantKg", scrapForm.recoveredRefrigerantKg)
     formData.append("certificate", scrapCertificateFile)
 
@@ -663,7 +707,9 @@ export default function InstallationDetailPage() {
       return
     }
 
-    setIsScrapModalOpen(false)
+    setEventSuccess("Aggregatet har skrotats")
+    setIsEventModalOpen(false)
+    setEventForm(initialEventFormData)
     setScrapForm(initialScrapFormData)
     setScrapCertificateFile(null)
     setRefreshKey((current) => current + 1)
@@ -674,6 +720,18 @@ export default function InstallationDetailPage() {
     event.preventDefault()
     setEventError("")
     setEventSuccess("")
+    setArchiveError("")
+    setScrapError("")
+
+    if (eventForm.type === "ARCHIVE") {
+      await handleArchiveInstallation()
+      return
+    }
+
+    if (eventForm.type === "SCRAP") {
+      await submitScrapEvent()
+      return
+    }
 
     if (eventForm.type === "LEAK" && !eventForm.notes.trim()) {
       setEventError("Anteckningar krävs för läckagehändelser")
@@ -893,16 +951,8 @@ export default function InstallationDetailPage() {
 
         {canManage && !isScrapped && (
           <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-200 pt-4">
-            <ActionButton label="Redigera aggregat" onClick={openEditModal} />
             <ActionButton label="Ny händelse" onClick={() => openEventModal()} primary />
-            <ActionButton label="Ladda upp dokument" onClick={openDocumentModal} />
-            <ActionButton label="Skrota aggregat" onClick={openScrapModal} tone="warning" />
-            <ActionButton
-              disabled={isArchiving}
-              label={isArchiving ? "Arkiverar..." : "Arkivera aggregat"}
-              onClick={handleArchiveInstallation}
-              tone="danger"
-            />
+            <ActionButton label="Redigera aggregat" onClick={openEditModal} />
           </div>
         )}
 
@@ -1309,10 +1359,16 @@ export default function InstallationDetailPage() {
 
       {isEventModalOpen && canManage && !isScrapped && (
         <ModalFrame
-          title="Ny händelse"
-          description="Kontrollhändelser uppdaterar automatiskt senaste och nästa kontroll."
+          title={`Ny händelse: ${EVENT_FORM_LABELS[eventForm.type]}`}
+          description={
+            eventForm.type === "ARCHIVE"
+              ? "Arkivering tar bort aggregatet från aktiva vyer men sparar historiken."
+              : eventForm.type === "SCRAP"
+                ? "Skrotning markerar aggregatet som permanent taget ur drift."
+                : "Kontrollhändelser uppdaterar automatiskt senaste och nästa kontroll."
+          }
           onClose={closeEventModal}
-          closeDisabled={isSubmittingEvent}
+          closeDisabled={isSubmittingEvent || isArchiving || isScrapping}
         >
           <form className="grid gap-3" onSubmit={handleEventSubmit}>
             <label className={fieldClassName}>
@@ -1329,6 +1385,8 @@ export default function InstallationDetailPage() {
                 <option value="REPAIR">Reparation</option>
                 <option value="RECOVERY">Tömning / Återvinning</option>
                 <option value="REFRIGERANT_CHANGE">Byte av köldmedium</option>
+                <option value="ARCHIVE">Arkivering</option>
+                <option value="SCRAP">Skrotning</option>
               </select>
             </label>
             {eventForm.type === "REFILL" && (
@@ -1343,7 +1401,9 @@ export default function InstallationDetailPage() {
               </label>
             )}
             <label className={fieldClassName}>
-              Anteckningar
+              {eventForm.type === "ARCHIVE" || eventForm.type === "SCRAP"
+                ? "Anteckning"
+                : "Anteckningar"}
               <textarea
                 name="notes"
                 value={eventForm.notes}
@@ -1351,19 +1411,99 @@ export default function InstallationDetailPage() {
                 required={eventForm.type === "LEAK"}
               />
             </label>
-            {eventCertificationWarning && (
+            {eventForm.type === "SCRAP" && (
+              <>
+                <label className={fieldClassName}>
+                  <span>Servicepartner <RequiredMark /></span>
+                  <select
+                    name="servicePartnerId"
+                    value={scrapForm.servicePartnerId}
+                    onChange={handleScrapChange}
+                    required
+                  >
+                    <option value="">Välj servicepartner</option>
+                    {contractors.map((contractor) => (
+                      <option key={contractor.id} value={contractor.id}>
+                        {contractor.name} ({contractor.email})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {selectedScrapContractor?.certificationStatus && (
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700">
+                    <span className="font-medium">Certifiering:</span>
+                    <CertificationBadge status={selectedScrapContractor.certificationStatus} />
+                  </div>
+                )}
+                {scrapCertificationWarning && (
+                  <CertificationWarningBox message={scrapCertificationWarning} />
+                )}
+                <label className={fieldClassName}>
+                  Återvunnen mängd köldmedium kg
+                  <input
+                    name="recoveredRefrigerantKg"
+                    inputMode="decimal"
+                    value={scrapForm.recoveredRefrigerantKg}
+                    onChange={handleScrapChange}
+                  />
+                </label>
+                <label className={fieldClassName}>
+                  <span>Skrotningsintyg <RequiredMark /></span>
+                  <input
+                    accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
+                    type="file"
+                    onChange={handleScrapFileChange}
+                    required
+                  />
+                </label>
+              </>
+            )}
+            {(eventForm.type === "ARCHIVE" || eventForm.type === "SCRAP") && (
+              <label className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+                <input
+                  className="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-700"
+                  type="checkbox"
+                  checked={lifecycleConfirmed}
+                  onChange={(event) => setLifecycleConfirmed(event.target.checked)}
+                  required
+                />
+                <span>
+                  Jag bekräftar att aggregatet ska{" "}
+                  {eventForm.type === "ARCHIVE" ? "arkiveras" : "skrotas"} och att
+                  åtgärden sparas i historiken.
+                </span>
+              </label>
+            )}
+            {eventCertificationWarning &&
+              eventForm.type !== "ARCHIVE" &&
+              eventForm.type !== "SCRAP" && (
               <CertificationWarningBox message={eventCertificationWarning} />
             )}
             {eventError && <p className="text-sm font-semibold text-red-700">{eventError}</p>}
+            {archiveError && <p className="text-sm font-semibold text-red-700">{archiveError}</p>}
+            {scrapError && <p className="text-sm font-semibold text-red-700">{scrapError}</p>}
             <div className="flex flex-wrap gap-2 pt-2">
-              <button type="submit" disabled={isSubmittingEvent}>
-                {isSubmittingEvent ? "Sparar..." : "Lägg till händelse"}
+              <button
+                type="submit"
+                disabled={isSubmittingEvent || isArchiving || isScrapping}
+              >
+                {eventForm.type === "ARCHIVE"
+                  ? isArchiving
+                    ? "Arkiverar..."
+                    : "Arkivera aggregat"
+                  : eventForm.type === "SCRAP"
+                    ? isScrapping
+                      ? "Skrotar..."
+                      : "Skrota aggregat"
+                    : isSubmittingEvent
+                      ? "Sparar..."
+                      : "Lägg till händelse"}
               </button>
               <button
                 className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
                 type="button"
                 onClick={closeEventModal}
-                disabled={isSubmittingEvent}
+                disabled={isSubmittingEvent || isArchiving || isScrapping}
               >
                 Avbryt
               </button>
@@ -1440,124 +1580,6 @@ export default function InstallationDetailPage() {
         </ModalFrame>
       )}
 
-      {isScrapModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6">
-          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-lg bg-white p-5 shadow-xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-950">Skrota aggregat</h2>
-                <p className="mt-1 text-sm text-slate-600">
-                  Skrotning markerar aggregatet som permanent taget ur drift. Historik och dokument sparas.
-                </p>
-              </div>
-              <button
-                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                type="button"
-                onClick={() => setIsScrapModalOpen(false)}
-                disabled={isScrapping}
-              >
-                Stäng
-              </button>
-            </div>
-
-            <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-              <p>
-                När ett aggregat skrotas tas det bort från aktiva kontroller och
-                åtgärdslistor, men sparas historiskt.
-              </p>
-              <p className="mt-1 font-semibold">
-                Skrotning kan inte ångras i denna version.
-              </p>
-            </div>
-
-            <form className="mt-5 grid gap-3" onSubmit={handleScrapSubmit}>
-              <label className={fieldClassName}>
-                <span>Skrotningsdatum <RequiredMark /></span>
-                <input
-                  name="scrappedAt"
-                  type="date"
-                  value={scrapForm.scrappedAt}
-                  onChange={handleScrapChange}
-                  required
-                />
-              </label>
-
-              <label className={fieldClassName}>
-                <span>Servicepartner <RequiredMark /></span>
-                <select
-                  name="servicePartnerId"
-                  value={scrapForm.servicePartnerId}
-                  onChange={handleScrapChange}
-                  required
-                >
-                  <option value="">Välj servicepartner</option>
-                  {contractors.map((contractor) => (
-                    <option key={contractor.id} value={contractor.id}>
-                      {contractor.name} ({contractor.email})
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              {selectedScrapContractor?.certificationStatus && (
-                <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700">
-                  <span className="font-medium">Certifiering:</span>
-                  <CertificationBadge status={selectedScrapContractor.certificationStatus} />
-                </div>
-              )}
-
-              {scrapCertificationWarning && (
-                <CertificationWarningBox message={scrapCertificationWarning} />
-              )}
-
-              <label className={fieldClassName}>
-                Återvunnen mängd köldmedium kg
-                <input
-                  name="recoveredRefrigerantKg"
-                  inputMode="decimal"
-                  value={scrapForm.recoveredRefrigerantKg}
-                  onChange={handleScrapChange}
-                />
-              </label>
-
-              <label className={fieldClassName}>
-                Kommentar
-                <textarea
-                  name="scrapComment"
-                  value={scrapForm.scrapComment}
-                  onChange={handleScrapChange}
-                />
-              </label>
-
-              <label className={fieldClassName}>
-                <span>Skrotningsintyg <RequiredMark /></span>
-                <input
-                  accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
-                  type="file"
-                  onChange={handleScrapFileChange}
-                  required
-                />
-              </label>
-
-              {scrapError && <p className="text-sm font-semibold text-red-700">{scrapError}</p>}
-
-              <div className="flex flex-wrap gap-2 pt-2">
-                <button type="submit" disabled={isScrapping}>
-                  {isScrapping ? "Skrotar..." : "Skrota aggregat"}
-                </button>
-                <button
-                  className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-                  type="button"
-                  onClick={() => setIsScrapModalOpen(false)}
-                  disabled={isScrapping}
-                >
-                  Avbryt
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </main>
   )
 }
