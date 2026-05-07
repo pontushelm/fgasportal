@@ -165,6 +165,19 @@ export default function ReportsPage() {
 
     return params.toString()
   }, [selectedMunicipality, selectedPropertyId, selectedReportType, selectedYear])
+  const pdfExportHref = useMemo(() => {
+    if (selectedReportType !== "annual") {
+      return `/api/reports/fgas/export?${reportQuery}&format=pdf`
+    }
+
+    const params = new URLSearchParams({
+      year: String(selectedYear),
+    })
+
+    if (selectedMunicipality) params.set("municipality", selectedMunicipality)
+
+    return `/api/reports/annual-fgas?${params.toString()}`
+  }, [reportQuery, selectedMunicipality, selectedReportType, selectedYear])
   const selectedReport = useMemo(
     () =>
       REPORT_TYPE_OPTIONS.find((option) => option.value === selectedReportType) ??
@@ -309,7 +322,7 @@ export default function ReportsPage() {
               </a>
               <a
                 className={exportButtonClassName}
-                href={`/api/reports/fgas/export?${reportQuery}&format=pdf`}
+                href={pdfExportHref}
               >
                 Exportera PDF
               </a>
