@@ -1,6 +1,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import type { ReactNode } from "react"
+import { LegalLinks } from "@/components/legal-links"
 
 export function AuthShell({
   children,
@@ -58,6 +59,7 @@ export function AuthShell({
             <p className="mt-2 text-sm text-slate-600">{subtitle}</p>
             <div className="mt-6">{children}</div>
           </div>
+          <LegalLinks className="mx-auto mt-5 max-w-md justify-center text-xs" />
         </section>
       </div>
     </main>

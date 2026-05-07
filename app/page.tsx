@@ -1,5 +1,6 @@
 import Link from "next/link"
 import Image from "next/image"
+import { LegalLinks } from "@/components/legal-links"
 
 const previewStats = [
   { label: "Totalt aggregat", value: "248", tone: "border-l-blue-500" },
@@ -232,12 +233,15 @@ export default function Home() {
       </section>
 
       <footer className="border-t border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-8 text-sm text-slate-600 sm:px-6 lg:px-8">
-          <p className="font-semibold text-slate-950">FgasPortal</p>
-          <p>
-            FgasPortal ersätter inte operatörens ansvar, men hjälper till att
-            strukturera information, uppföljning och rapportunderlag.
-          </p>
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 text-sm text-slate-600 sm:px-6 lg:px-8">
+          <div>
+            <p className="font-semibold text-slate-950">FgasPortal</p>
+            <p className="mt-2 max-w-3xl">
+              FgasPortal ersätter inte operatörens ansvar, men hjälper till att
+              strukturera information, uppföljning och rapportunderlag.
+            </p>
+          </div>
+          <LegalLinks />
         </div>
       </footer>
     </main>
