@@ -1,13 +1,19 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import * as XLSX from "xlsx"
 import {
+  IMPORT_FIELD_DEFINITIONS,
+  REQUIRED_IMPORT_FIELDS,
+  getImportFieldLabel,
   getMaxImportRows,
+  getSuggestedImportField,
   isEmptyImportRow,
-  mapImportRowHeaders,
+  mapImportRowsWithMapping,
   parseImportRows,
+  type ColumnMapping,
+  type ImportFieldKey,
   type ParsedImportRow,
 } from "@/lib/installation-import"
 
@@ -23,12 +29,73 @@ type ImportInstallationsPageProps = {
   onImported?: () => void
 }
 
+const TEMPLATE_COLUMNS = [
+  "Namn",
+  "Utrustnings-ID",
+  "Plats",
+  "Fastighet",
+  "Kommun",
+  "Köldmedium",
+  "Fyllnadsmängd",
+  "Läckagevarningssystem",
+  "Senaste kontroll",
+  "Nästa kontroll",
+  "Kontrollintervall",
+  "Servicepartner",
+  "Driftsättningsdatum",
+  "Serienummer",
+  "Utrustningstyp",
+  "Operatör",
+]
+
+const TEMPLATE_ROWS = [
+  {
+    Namn: "Kylaggregat 1",
+    "Utrustnings-ID": "AGG-001",
+    Plats: "Tak plan 3",
+    Fastighet: "Stadshuset",
+    Kommun: "Stockholm",
+    Köldmedium: "R410A",
+    Fyllnadsmängd: 12.5,
+    Läckagevarningssystem: "Nej",
+    "Senaste kontroll": "2026-01-15",
+    "Nästa kontroll": "2027-01-15",
+    Kontrollintervall: 12,
+    Servicepartner: "Exempel Kyl AB",
+    Driftsättningsdatum: "2021-05-01",
+    Serienummer: "SN-12345",
+    Utrustningstyp: "Kylaggregat",
+    Operatör: "Fastighetsavdelningen",
+  },
+  {
+    Namn: "Frysrum",
+    "Utrustnings-ID": "AGG-002",
+    Plats: "Källare",
+    Fastighet: "Servicehuset",
+    Kommun: "Stockholm",
+    Köldmedium: "R404A",
+    Fyllnadsmängd: 8,
+    Läckagevarningssystem: "Ja",
+    "Senaste kontroll": "2026-02-20",
+    "Nästa kontroll": "",
+    Kontrollintervall: "",
+    Servicepartner: "",
+    Driftsättningsdatum: "2020-09-10",
+    Serienummer: "SN-67890",
+    Utrustningstyp: "Frys",
+    Operatör: "Måltidsservice",
+  },
+]
+
 export default function ImportInstallationsPage({
   embedded = false,
   onClose,
   onImported,
 }: ImportInstallationsPageProps = {}) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [rawRows, setRawRows] = useState<Record<string, unknown>[]>([])
+  const [detectedColumns, setDetectedColumns] = useState<string[]>([])
+  const [columnMapping, setColumnMapping] = useState<ColumnMapping>({})
   const [rows, setRows] = useState<ParsedImportRow[]>([])
   const [error, setError] = useState("")
   const [summary, setSummary] = useState<ImportSummary | null>(null)
@@ -37,10 +104,25 @@ export default function ImportInstallationsPage({
   const validRows = rows.filter((row) => row.errors.length === 0)
   const warningRows = validRows.filter((row) => row.warnings.length > 0)
   const invalidRows = rows.filter((row) => row.errors.length > 0)
+  const mappedFields = useMemo(
+    () => Object.values(columnMapping).filter(Boolean) as ImportFieldKey[],
+    [columnMapping]
+  )
+  const missingRequiredFields = REQUIRED_IMPORT_FIELDS.filter(
+    (field) => !mappedFields.includes(field)
+  )
+  const duplicatedFields = mappedFields.filter(
+    (field, index) => mappedFields.indexOf(field) !== index
+  )
+  const hasBlockingMappingIssue =
+    missingRequiredFields.length > 0 || duplicatedFields.length > 0
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     setSelectedFile(file ?? null)
+    setRawRows([])
+    setDetectedColumns([])
+    setColumnMapping({})
     setRows([])
     setError("")
     setSummary(null)
@@ -60,22 +142,46 @@ export default function ImportInstallationsPage({
         cellDates: true,
       })
       const worksheet = workbook.Sheets[workbook.SheetNames[0]]
-      const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
+      const parsedRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
         defval: "",
       })
-      const mappedRows = rawRows
-        .map(mapImportRowHeaders)
-        .filter((row) => !isEmptyImportRow(row))
-        .slice(0, getMaxImportRows())
+      const columns = getDetectedColumns(parsedRows)
+      const suggestedMapping = createSuggestedMapping(columns)
 
-      setRows(parseImportRows(mappedRows))
+      setRawRows(parsedRows)
+      setDetectedColumns(columns)
+      setColumnMapping(suggestedMapping)
+      setRows(buildPreviewRows(parsedRows, suggestedMapping))
     } catch (err) {
       console.error("Parse import file error:", err)
+      setRawRows([])
+      setDetectedColumns([])
+      setColumnMapping({})
       setRows([])
       setError("Kunde inte läsa filen. Kontrollera att den är en giltig .xlsx eller .csv.")
     } finally {
       setIsParsing(false)
     }
+  }
+
+  function handleMappingChange(column: string, field: ImportFieldKey | "") {
+    const nextMapping = {
+      ...columnMapping,
+      [column]: field,
+    }
+
+    setColumnMapping(nextMapping)
+    setRows(buildPreviewRows(rawRows, nextMapping))
+  }
+
+  function handleDownloadTemplate() {
+    const workbook = XLSX.utils.book_new()
+    const worksheet = XLSX.utils.json_to_sheet(TEMPLATE_ROWS, {
+      header: TEMPLATE_COLUMNS,
+    })
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Aggregat")
+    XLSX.writeFile(workbook, "fgasportal-importmall-aggregat.xlsx")
   }
 
   async function handleImport() {
@@ -121,17 +227,32 @@ export default function ImportInstallationsPage({
           Importera aggregat
         </h1>
         <p className="mt-2 text-sm text-slate-700">
-          Ladda upp en .xlsx- eller .csv-fil, förhandsgranska raderna och
-          importera de rader som har nödvändiga uppgifter. Rader med varningar
-          kan importeras och kompletteras senare.
+          Ladda upp en .xlsx- eller .csv-fil, mappa kolumnerna och importera de
+          rader som har nödvändiga uppgifter. Rader med varningar kan importeras
+          och kompletteras senare.
         </p>
       </div>
 
       <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
-        <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
-          Stödda kolumner är till exempel namn, plats, fastighet, köldmedium,
-          mängd, senaste kontroll och kontrollintervall. Namn, köldmedium och
-          fyllnadsmängd krävs.
+        <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
+          <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+            <p>
+              Obligatoriska fält är Namn, Köldmedium och Fyllnadsmängd. Extra
+              kolumner kan lämnas omappade och saknad placering eller fastighet
+              blir bara en varning.
+            </p>
+            <p className="mt-2 text-xs text-slate-600">
+              Har du ett äldre eller komplext register? FgasPortal kan hjälpa
+              till med import och datarensning vid onboarding.
+            </p>
+          </div>
+          <button
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            type="button"
+            onClick={handleDownloadTemplate}
+          >
+            Ladda ner importmall
+          </button>
         </div>
         <div className="mt-4 grid gap-3">
           <input
@@ -163,6 +284,94 @@ export default function ImportInstallationsPage({
         {error && <p className="mt-3 text-sm font-semibold text-red-700">{error}</p>}
       </section>
 
+      {detectedColumns.length > 0 && (
+        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-slate-950">
+                Kolumnmappning
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                FgasPortal föreslår matchningar baserat på kolumnnamn. Ändra vid
+                behov eller lämna kolumner omappade.
+              </p>
+            </div>
+            <div className="text-sm text-slate-600">
+              {detectedColumns.length} kolumner hittades
+            </div>
+          </div>
+
+          <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className={tableHeaderClassName}>Filkolumn</th>
+                  <th className={tableHeaderClassName}>FgasPortal-fält</th>
+                  <th className={tableHeaderClassName}>Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 bg-white">
+                {detectedColumns.map((column) => {
+                  const mappedField = columnMapping[column]
+
+                  return (
+                    <tr key={column}>
+                      <td className={tableCellClassName}>{column}</td>
+                      <td className={tableCellClassName}>
+                        <select
+                          className="w-full min-w-56 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900"
+                          value={mappedField ?? ""}
+                          onChange={(event) =>
+                            handleMappingChange(
+                              column,
+                              event.target.value as ImportFieldKey | ""
+                            )
+                          }
+                        >
+                          <option value="">Importera inte</option>
+                          {IMPORT_FIELD_DEFINITIONS.map((field) => (
+                            <option key={field.key} value={field.key}>
+                              {field.label}
+                              {field.required ? " (krävs)" : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className={tableCellClassName}>
+                        {mappedField ? (
+                          <span className="font-medium text-emerald-700">
+                            Mappad till {getImportFieldLabel(mappedField)}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500">Omappad</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {hasBlockingMappingIssue && (
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              {missingRequiredFields.length > 0 && (
+                <p>
+                  Saknar obligatorisk mappning:{" "}
+                  {missingRequiredFields.map(getImportFieldLabel).join(", ")}.
+                </p>
+              )}
+              {duplicatedFields.length > 0 && (
+                <p className="mt-1">
+                  Samma FgasPortal-fält är valt flera gånger:{" "}
+                  {[...new Set(duplicatedFields)].map(getImportFieldLabel).join(", ")}.
+                </p>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
       {rows.length > 0 && (
         <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -179,7 +388,9 @@ export default function ImportInstallationsPage({
               className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
               type="button"
               onClick={handleImport}
-              disabled={validRows.length === 0 || isImporting}
+              disabled={
+                validRows.length === 0 || isImporting || hasBlockingMappingIssue
+              }
             >
               {isImporting ? "Importerar..." : `Importera ${validRows.length} rader`}
             </button>
@@ -212,6 +423,7 @@ export default function ImportInstallationsPage({
                 <tr>
                   <th className={tableHeaderClassName}>Rad</th>
                   <th className={tableHeaderClassName}>Namn</th>
+                  <th className={tableHeaderClassName}>Utrustnings-ID</th>
                   <th className={tableHeaderClassName}>Plats</th>
                   <th className={tableHeaderClassName}>Fastighet</th>
                   <th className={tableHeaderClassName}>Köldmedium</th>
@@ -227,6 +439,7 @@ export default function ImportInstallationsPage({
                   <tr key={row.row}>
                     <td className={tableCellClassName}>{row.row}</td>
                     <td className={tableCellClassName}>{row.name || "-"}</td>
+                    <td className={tableCellClassName}>{row.equipmentId || "-"}</td>
                     <td className={tableCellClassName}>{row.location || "-"}</td>
                     <td className={tableCellClassName}>{row.propertyName || "-"}</td>
                     <td className={tableCellClassName}>{row.refrigerantType || "-"}</td>
@@ -287,6 +500,24 @@ export default function ImportInstallationsPage({
       {content}
     </main>
   )
+}
+
+function createSuggestedMapping(columns: string[]): ColumnMapping {
+  return Object.fromEntries(
+    columns.map((column) => [column, getSuggestedImportField(column) ?? ""])
+  )
+}
+
+function buildPreviewRows(rows: Record<string, unknown>[], mapping: ColumnMapping) {
+  const mappedRows = mapImportRowsWithMapping(rows, mapping)
+    .filter((row) => !isEmptyImportRow(row))
+    .slice(0, getMaxImportRows())
+
+  return parseImportRows(mappedRows)
+}
+
+function getDetectedColumns(rows: Record<string, unknown>[]) {
+  return Array.from(new Set(rows.flatMap((row) => Object.keys(row))))
 }
 
 const tableHeaderClassName =

@@ -15,13 +15,22 @@ const importRequestSchema = z.object({
     z.object({
       row: z.number(),
       name: z.string(),
+      equipmentId: z.string().nullable().optional(),
       location: z.string(),
       propertyName: z.string().nullable().optional(),
+      municipality: z.string().nullable().optional(),
       refrigerantType: z.string(),
       refrigerantAmount: z.number().nullable(),
       lastInspection: z.string().nullable(),
+      nextInspection: z.string().nullable().optional(),
       inspectionIntervalMonths: z.number().nullable(),
+      hasLeakDetectionSystem: z.boolean().optional(),
+      servicePartner: z.string().nullable().optional(),
+      status: z.string().nullable().optional(),
+      installationDate: z.string().nullable().optional(),
       serialNumber: z.string().nullable(),
+      equipmentType: z.string().nullable().optional(),
+      operatorName: z.string().nullable().optional(),
       notes: z.string().nullable(),
     })
   ).max(getMaxImportRows()),
@@ -84,25 +93,33 @@ export async function POST(request: NextRequest) {
       const compliance = calculateInstallationCompliance(
         parsed.refrigerantType,
         parsed.refrigerantAmount,
-        false,
+        parsed.hasLeakDetectionSystem,
         lastInspection
       )
-      const nextInspection = calculateNextInspectionDate(
-        lastInspection,
-        compliance.inspectionIntervalMonths
-      )
+      const inspectionIntervalMonths =
+        parsed.inspectionIntervalMonths ?? compliance.inspectionIntervalMonths
+      const nextInspection = parsed.nextInspection
+        ? new Date(parsed.nextInspection)
+        : calculateNextInspectionDate(lastInspection, inspectionIntervalMonths)
+      const installationDate = parsed.installationDate
+        ? new Date(parsed.installationDate)
+        : new Date()
 
       await prisma.installation.create({
         data: {
           name: parsed.name,
           location: parsed.location,
+          equipmentId: parsed.equipmentId,
           propertyName: parsed.propertyName,
           serialNumber: parsed.serialNumber,
+          equipmentType: parsed.equipmentType,
+          operatorName: parsed.operatorName,
           refrigerantType: parsed.refrigerantType,
           refrigerantAmount: parsed.refrigerantAmount,
-          installationDate: new Date(),
+          hasLeakDetectionSystem: parsed.hasLeakDetectionSystem,
+          installationDate,
           lastInspection,
-          inspectionIntervalMonths: compliance.inspectionIntervalMonths,
+          inspectionIntervalMonths,
           nextInspection,
           notes: parsed.notes,
           companyId,
