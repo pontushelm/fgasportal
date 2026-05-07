@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server"
 import { ZodError } from "zod"
 import { authenticateApiRequest, isContractor } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 import { createInstallationEventSchema } from "@/lib/validations"
 import { getEventActivityAction, logActivity } from "@/lib/activity-log"
+import { normalizeRefrigerantCode } from "@/lib/refrigerants"
 
 type RouteContext = {
   params: Promise<{
@@ -86,6 +88,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
       select: {
         id: true,
         inspectionIntervalMonths: true,
+        refrigerantType: true,
+        refrigerantAmount: true,
+        hasLeakDetectionSystem: true,
+        lastInspection: true,
+        nextInspection: true,
       },
     })
 
@@ -174,6 +181,89 @@ export async function POST(request: NextRequest, context: RouteContext) {
         metadata: {
           eventType: result.event.type,
           date: result.event.date.toISOString(),
+        },
+      })
+
+      return NextResponse.json(result, { status: 201 })
+    }
+
+    if (validatedData.type === "REFRIGERANT_CHANGE") {
+      const nextRefrigerantType =
+        normalizeRefrigerantCode(validatedData.newRefrigerantType) ??
+        validatedData.newRefrigerantType
+      const previousRefrigerantType = installation.refrigerantType
+      const changeNote = [
+        `Byte av köldmedium från ${previousRefrigerantType} till ${nextRefrigerantType}.`,
+        emptyToNull(validatedData.notes),
+      ].filter(Boolean).join(" ")
+      const nextCompliance = calculateInstallationCompliance(
+        nextRefrigerantType,
+        installation.refrigerantAmount,
+        installation.hasLeakDetectionSystem,
+        installation.lastInspection,
+        installation.nextInspection
+      )
+      const nextInspection = calculateNextInspectionDate(
+        installation.lastInspection,
+        nextCompliance.inspectionIntervalMonths
+      )
+
+      const result = await prisma.$transaction(async (tx) => {
+        const event = await tx.installationEvent.create({
+          data: {
+            installationId: installation.id,
+            date: validatedData.date,
+            type: validatedData.type,
+            refrigerantAddedKg: null,
+            notes: changeNote,
+            createdById: userId,
+          },
+          include: {
+            createdBy: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+          },
+        })
+
+        const updatedInstallation = await tx.installation.update({
+          where: {
+            id: installation.id,
+          },
+          data: {
+            refrigerantType: nextRefrigerantType,
+            inspectionIntervalMonths: nextCompliance.inspectionIntervalMonths,
+            nextInspection,
+          },
+          select: {
+            lastInspection: true,
+            nextInspection: true,
+          },
+        })
+
+        return {
+          event,
+          inspectionSchedule: {
+            lastInspection: updatedInstallation.lastInspection,
+            nextInspection: updatedInstallation.nextInspection,
+          },
+        }
+      })
+
+      await logActivity({
+        companyId,
+        installationId: installation.id,
+        userId,
+        action: getEventActivityAction(result.event.type),
+        entityType: "event",
+        entityId: result.event.id,
+        metadata: {
+          eventType: result.event.type,
+          date: result.event.date.toISOString(),
+          previousRefrigerantType,
+          newRefrigerantType: nextRefrigerantType,
         },
       })
 

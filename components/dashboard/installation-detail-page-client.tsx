@@ -151,6 +151,7 @@ type EventFormData = {
   date: string
   type: EventFormType
   refrigerantAddedKg: string
+  newRefrigerantType: string
   notes: string
 }
 
@@ -201,6 +202,7 @@ const initialEventFormData: EventFormData = {
   date: "",
   type: "SERVICE",
   refrigerantAddedKg: "",
+  newRefrigerantType: "",
   notes: "",
 }
 
@@ -318,6 +320,10 @@ const COMPLIANCE_TONE: Record<ComplianceStatus, string> = {
 }
 
 const fieldClassName = "grid gap-1 text-sm font-medium text-slate-700"
+const formControlClassName =
+  "rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-slate-950 shadow-sm outline-none placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-600"
+const minInstallationDate = "1950-01-01"
+const maxInstallationDate = `${new Date().getFullYear() + 1}-12-31`
 
 export default function InstallationDetailPage() {
   const params = useParams<{ id: string }>()
@@ -485,6 +491,8 @@ export default function InstallationDetailPage() {
         type: nextType,
         date: current.date || getTodayInputValue(),
         refrigerantAddedKg: nextType === "REFILL" ? current.refrigerantAddedKg : "",
+        newRefrigerantType:
+          nextType === "REFRIGERANT_CHANGE" ? current.newRefrigerantType : "",
       }))
       if (nextType === "SCRAP") {
         setScrapError("")
@@ -554,6 +562,8 @@ export default function InstallationDetailPage() {
       ...current,
       type,
       date: current.date || getTodayInputValue(),
+      newRefrigerantType:
+        type === "REFRIGERANT_CHANGE" ? current.newRefrigerantType : "",
     }))
     if (type === "SCRAP") {
       setScrapForm({
@@ -738,6 +748,14 @@ export default function InstallationDetailPage() {
       return
     }
 
+    if (
+      eventForm.type === "REFRIGERANT_CHANGE" &&
+      !eventForm.newRefrigerantType.trim()
+    ) {
+      setEventError("Ange nytt köldmedium")
+      return
+    }
+
     setIsSubmittingEvent(true)
 
     const res = await fetch(`/api/installations/${params.id}/events`, {
@@ -751,6 +769,10 @@ export default function InstallationDetailPage() {
         type: eventForm.type,
         refrigerantAddedKg:
           eventForm.type === "REFILL" ? eventForm.refrigerantAddedKg : "",
+        newRefrigerantType:
+          eventForm.type === "REFRIGERANT_CHANGE"
+            ? eventForm.newRefrigerantType
+            : "",
         notes: eventForm.notes,
       }),
     })
@@ -1261,15 +1283,15 @@ export default function InstallationDetailPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <label className={fieldClassName}>
                 <span>Namn <RequiredMark /></span>
-                <input name="name" value={editForm.name} onChange={handleEditChange} required />
+                <input className={formControlClassName} name="name" value={editForm.name} onChange={handleEditChange} required />
               </label>
               <label className={fieldClassName}>
-                <span>Plats <RequiredMark /></span>
-                <input name="location" value={editForm.location} onChange={handleEditChange} required />
+                Plats
+                <input className={formControlClassName} name="location" value={editForm.location} onChange={handleEditChange} placeholder="Plats eller placering" />
               </label>
               <label className={fieldClassName}>
                 Fastighet
-                <select name="propertyId" value={editForm.propertyId} onChange={handleEditChange}>
+                <select className={formControlClassName} name="propertyId" value={editForm.propertyId} onChange={handleEditChange}>
                   <option value="">Ingen vald fastighet</option>
                   {properties.map((property) => (
                     <option key={property.id} value={property.id}>
@@ -1280,35 +1302,39 @@ export default function InstallationDetailPage() {
               </label>
               <label className={fieldClassName}>
                 Utrustnings-ID
-                <input name="equipmentId" value={editForm.equipmentId} onChange={handleEditChange} />
+                <input className={formControlClassName} name="equipmentId" value={editForm.equipmentId} onChange={handleEditChange} />
               </label>
               <label className={fieldClassName}>
                 Serienummer
-                <input name="serialNumber" value={editForm.serialNumber} onChange={handleEditChange} />
+                <input className={formControlClassName} name="serialNumber" value={editForm.serialNumber} onChange={handleEditChange} />
               </label>
               <label className={fieldClassName}>
                 Utrustningstyp
-                <input name="equipmentType" value={editForm.equipmentType} onChange={handleEditChange} />
+                <input className={formControlClassName} name="equipmentType" value={editForm.equipmentType} onChange={handleEditChange} />
               </label>
               <label className={fieldClassName}>
                 Operatör
-                <input name="operatorName" value={editForm.operatorName} onChange={handleEditChange} />
+                <input className={formControlClassName} name="operatorName" value={editForm.operatorName} onChange={handleEditChange} />
               </label>
               <label className={fieldClassName}>
-                <span>Köldmedium <RequiredMark /></span>
-                <input name="refrigerantType" value={editForm.refrigerantType} onChange={handleEditChange} required />
+                Köldmedium
+                <input className={formControlClassName} name="refrigerantType" value={editForm.refrigerantType} readOnly />
+                <span className="text-xs font-normal text-amber-700">
+                  Ändring av köldmedium påverkar CO₂e, kontrollplikt och historik.
+                  Registrera normalt ändringen via händelsen “Byte av köldmedium”.
+                </span>
               </label>
               <label className={fieldClassName}>
                 <span>Mängd kg <RequiredMark /></span>
-                <input name="refrigerantAmount" value={editForm.refrigerantAmount} onChange={handleEditChange} required />
+                <input className={formControlClassName} name="refrigerantAmount" value={editForm.refrigerantAmount} onChange={handleEditChange} required />
               </label>
               <label className={fieldClassName}>
                 <span>Driftsättningsdatum <RequiredMark /></span>
-                <input name="installationDate" type="date" value={editForm.installationDate} onChange={handleEditChange} required />
+                <input className={formControlClassName} name="installationDate" type="date" min={minInstallationDate} max={maxInstallationDate} value={editForm.installationDate} onChange={handleEditChange} required />
               </label>
               <label className={fieldClassName}>
                 Servicepartner
-                <select name="assignedContractorId" value={editForm.assignedContractorId} onChange={handleEditChange}>
+                <select className={formControlClassName} name="assignedContractorId" value={editForm.assignedContractorId} onChange={handleEditChange}>
                   <option value="">Ingen tilldelad</option>
                   {contractors.map((contractor) => (
                     <option key={contractor.id} value={contractor.id}>
@@ -1347,11 +1373,15 @@ export default function InstallationDetailPage() {
             </div>
             <label className={fieldClassName}>
               Anteckningar
-              <textarea name="notes" value={editForm.notes} onChange={handleEditChange} />
+              <textarea className={formControlClassName} name="notes" value={editForm.notes} onChange={handleEditChange} />
             </label>
             {editError && <p className="text-sm font-semibold text-red-700">{editError}</p>}
             <div className="flex flex-wrap gap-2 pt-2">
-              <button type="submit" disabled={isSavingEdit}>
+              <button
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                type="submit"
+                disabled={isSavingEdit}
+              >
                 {isSavingEdit ? "Sparar..." : "Spara ändringar"}
               </button>
               <button
@@ -1383,11 +1413,11 @@ export default function InstallationDetailPage() {
           <form className="grid gap-3" onSubmit={handleEventSubmit}>
             <label className={fieldClassName}>
               Datum
-              <input name="date" type="date" value={eventForm.date} onChange={handleEventChange} required />
+              <input className={formControlClassName} name="date" type="date" value={eventForm.date} onChange={handleEventChange} required />
             </label>
             <label className={fieldClassName}>
               Typ
-              <select name="type" value={eventForm.type} onChange={handleEventChange} required>
+              <select className={formControlClassName} name="type" value={eventForm.type} onChange={handleEventChange} required>
                 <option value="INSPECTION">Kontroll</option>
                 <option value="LEAK">Läckage</option>
                 <option value="REFILL">Påfyllning</option>
@@ -1403,6 +1433,7 @@ export default function InstallationDetailPage() {
               <label className={fieldClassName}>
                 Påfylld mängd kg
                 <input
+                  className={formControlClassName}
                   name="refrigerantAddedKg"
                   value={eventForm.refrigerantAddedKg}
                   onChange={handleEventChange}
@@ -1410,11 +1441,35 @@ export default function InstallationDetailPage() {
                 />
               </label>
             )}
+            {eventForm.type === "REFRIGERANT_CHANGE" && (
+              <div className="grid gap-3 rounded-md border border-amber-200 bg-amber-50 p-3">
+                <p className="text-sm font-semibold text-amber-950">
+                  Byte av köldmedium påverkar CO₂e, kontrollplikt,
+                  kontrollintervall, riskklassning och rapportering.
+                </p>
+                <p className="text-xs text-amber-900">
+                  Åtgärden bör utföras av behörig/certifierad personal och sparas
+                  i aggregatets historik.
+                </p>
+                <label className={fieldClassName}>
+                  <span>Nytt köldmedium <RequiredMark /></span>
+                  <input
+                    className={formControlClassName}
+                    name="newRefrigerantType"
+                    placeholder="t.ex. R449A"
+                    value={eventForm.newRefrigerantType}
+                    onChange={handleEventChange}
+                    required
+                  />
+                </label>
+              </div>
+            )}
             <label className={fieldClassName}>
               {eventForm.type === "ARCHIVE" || eventForm.type === "SCRAP"
                 ? "Anteckning"
                 : "Anteckningar"}
               <textarea
+                className={formControlClassName}
                 name="notes"
                 value={eventForm.notes}
                 onChange={handleEventChange}
@@ -1426,6 +1481,7 @@ export default function InstallationDetailPage() {
                 <label className={fieldClassName}>
                   <span>Servicepartner <RequiredMark /></span>
                   <select
+                    className={formControlClassName}
                     name="servicePartnerId"
                     value={scrapForm.servicePartnerId}
                     onChange={handleScrapChange}
@@ -1451,6 +1507,7 @@ export default function InstallationDetailPage() {
                 <label className={fieldClassName}>
                   Återvunnen mängd köldmedium kg
                   <input
+                    className={formControlClassName}
                     name="recoveredRefrigerantKg"
                     inputMode="decimal"
                     value={scrapForm.recoveredRefrigerantKg}
@@ -1459,7 +1516,8 @@ export default function InstallationDetailPage() {
                 </label>
                 <label className={fieldClassName}>
                   <span>Skrotningsintyg <RequiredMark /></span>
-                  <input
+                <input
+                    className={formControlClassName}
                     accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
                     type="file"
                     onChange={handleScrapFileChange}
@@ -1494,6 +1552,7 @@ export default function InstallationDetailPage() {
             {scrapError && <p className="text-sm font-semibold text-red-700">{scrapError}</p>}
             <div className="flex flex-wrap gap-2 pt-2">
               <button
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
                 type="submit"
                 disabled={isSubmittingEvent || isArchiving || isScrapping}
               >

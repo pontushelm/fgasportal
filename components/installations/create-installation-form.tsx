@@ -75,9 +75,11 @@ const initialFormData: InstallationFormData = {
 }
 
 const inputClassName =
-  "rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400"
+  "rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-slate-950 shadow-sm outline-none placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
 
 const labelClassName = "grid gap-1 text-sm font-medium text-slate-700"
+const minInstallationDate = "1950-01-01"
+const maxInstallationDate = `${new Date().getFullYear() + 1}-12-31`
 
 export default function CreateInstallationForm({
   onInstallationCreated,
@@ -174,8 +176,8 @@ export default function CreateInstallationForm({
       </label>
 
       <label className={labelClassName}>
-        <span>Plats <RequiredMark /></span>
-        <input className={inputClassName} name="location" placeholder="Plats" value={formData.location} onChange={handleChange} required />
+        Plats
+        <input className={inputClassName} name="location" placeholder="Plats eller placering" value={formData.location} onChange={handleChange} />
       </label>
 
       <label className={labelClassName}>
@@ -222,7 +224,7 @@ export default function CreateInstallationForm({
 
       <label className={labelClassName}>
         <span>Driftsättningsdatum <RequiredMark /></span>
-        <input className={inputClassName} name="installationDate" type="date" value={formData.installationDate} onChange={handleChange} required />
+        <input className={inputClassName} name="installationDate" type="date" min={minInstallationDate} max={maxInstallationDate} value={formData.installationDate} onChange={handleChange} required />
       </label>
 
       <label className={labelClassName}>

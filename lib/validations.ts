@@ -101,6 +101,22 @@ const optionalIntegerField = z.string()
     if (val === undefined) return undefined
     return val ? parseInt(val, 10) : null
   })
+const optionalTextField = z.string()
+  .optional()
+  .transform((val) => val?.trim() ?? "")
+
+const installationDateSchema = z.string()
+  .transform((val) => new Date(val))
+  .refine((date) => date >= new Date("1950-01-01"), {
+    message: "Driftsättningsdatum är för långt bakåt i tiden",
+  })
+  .refine((date) => {
+    const maxDate = new Date()
+    maxDate.setFullYear(maxDate.getFullYear() + 1)
+    return date <= maxDate
+  }, {
+    message: "Driftsättningsdatum ligger för långt fram i tiden",
+  })
 
 const installationRegisterFieldsSchema = {
   equipmentId: optionalRegisterField,
@@ -115,11 +131,11 @@ const installationRegisterFieldsSchema = {
 
 export const createInstallationSchema = z.object({
   name: z.string().min(1, "Namn krävs"),
-  location: z.string().min(1, "Plats krävs"),
+  location: optionalTextField,
   ...installationRegisterFieldsSchema,
   refrigerantType: z.string().min(1, "Köldmedietyp krävs"),
   refrigerantAmount: z.string().transform((val) => parseFloat(val)),
-  installationDate: z.string().transform((val) => new Date(val)),
+  installationDate: installationDateSchema,
   lastInspection: optionalDateField,
   inspectionIntervalMonths: optionalIntegerField,
   notes: z.string().optional(),
@@ -139,7 +155,7 @@ export type CreateInspectionData = z.infer<typeof createInspectionSchema>
 
 export const editInstallationSchema = z.object({
   name: z.string().min(1, "Namn krävs"),
-  location: z.string().min(1, "Plats krävs"),
+  location: optionalTextField,
   ...installationRegisterFieldsSchema,
   refrigerantType: z.string().min(1, "Köldmedietyp krävs"),
   refrigerantAmount: z.string().transform((val) => parseFloat(val)),
@@ -172,10 +188,16 @@ export const createInstallationEventSchema = z.object({
   refrigerantAddedKg: z.string()
     .optional()
     .transform((val) => (val ? parseFloat(val) : null)),
+  newRefrigerantType: z.string()
+    .optional()
+    .transform((val) => val?.trim() ?? ""),
   notes: z.string().optional(),
 }).refine((data) => data.type !== "LEAK" || Boolean(data.notes?.trim()), {
   message: "Anteckningar krävs för läckagehändelser",
   path: ["notes"],
+}).refine((data) => data.type !== "REFRIGERANT_CHANGE" || Boolean(data.newRefrigerantType), {
+  message: "Nytt köldmedium krävs vid byte av köldmedium",
+  path: ["newRefrigerantType"],
 }).refine((data) => data.refrigerantAddedKg === null || data.refrigerantAddedKg >= 0, {
   message: "Påfylld mängd måste vara 0 eller högre",
   path: ["refrigerantAddedKg"],
