@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { Badge, Card, PageHeader } from "@/components/ui"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 
@@ -22,13 +22,19 @@ type ActionItem = {
     | "HIGH_RISK"
     | "NO_SERVICE_PARTNER"
     | "RECENT_LEAKAGE"
+  severity: "HIGH" | "MEDIUM" | "LOW"
   title: string
   description: string
   priority: "HIGH" | "MEDIUM" | "LOW"
-  installationId?: string
+  installationId: string
+  installationName: string
+  propertyName: string | null
   href: string
   dueDate?: string | null
   createdAt?: string | null
+  createdFrom: "inspection" | "risk" | "service_contact" | "leakage"
+  source: "inspection" | "risk" | "service_contact" | "leakage"
+  sortPriority: number
 }
 
 type DashboardData = {
@@ -42,10 +48,13 @@ type DashboardData = {
   }
   environmental: {
     totalCo2eTon: number
+    co2eIsComplete: boolean
+    unknownCo2eInstallations: number
     totalRefrigerantAmount: number
     requiringInspection: number
     leakageInstallationCount: number
     leakageEvents: number
+    leakageYear: number
   }
   riskSummary: {
     high: number
@@ -77,21 +86,6 @@ const ACTION_PRIORITY_LABELS: Record<ActionItem["priority"], string> = {
   HIGH: "Hög",
   MEDIUM: "Medel",
   LOW: "Låg",
-}
-
-const ACTION_TYPE_ORDER: Record<ActionItem["type"], number> = {
-  OVERDUE_INSPECTION: 1,
-  NOT_INSPECTED: 2,
-  RECENT_LEAKAGE: 3,
-  HIGH_RISK: 4,
-  NO_SERVICE_PARTNER: 5,
-  DUE_SOON_INSPECTION: 6,
-}
-
-const PRIORITY_ORDER: Record<ActionItem["priority"], number> = {
-  HIGH: 1,
-  MEDIUM: 2,
-  LOW: 3,
 }
 
 const ACTION_PREVIEW_LIMIT = 5
@@ -198,10 +192,7 @@ export default function DashboardPage() {
     }
   }, [router])
 
-  const sortedActionItems = useMemo(
-    () => [...(dashboardData?.actionItems ?? [])].sort(compareActionItems),
-    [dashboardData?.actionItems]
-  )
+  const sortedActionItems = dashboardData?.actionItems ?? []
   const visibleActionItems = showAllActions
     ? sortedActionItems
     : sortedActionItems.slice(0, ACTION_PREVIEW_LIMIT)
@@ -235,6 +226,13 @@ export default function DashboardPage() {
               />
             ))}
           </section>
+          {!dashboardData.environmental.co2eIsComplete && (
+            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              {"Total CO\u2082e \u00e4r ofullst\u00e4ndig eftersom "}
+              {dashboardData.environmental.unknownCo2eInstallations}
+              {" aggregat saknar k\u00e4nt GWP-v\u00e4rde."}
+            </p>
+          )}
 
           <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.85fr)]">
             <Card className="p-5 sm:p-6">
@@ -381,20 +379,19 @@ function MiniMetric({
 }
 
 function ActionRow({ item }: { item: ActionItem }) {
-  const installationName = extractInstallationName(item.description)
-
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <PriorityBadge priority={item.priority} />
+          <PriorityBadge priority={item.severity} />
           <h3 className="font-semibold text-slate-950">{item.title}</h3>
         </div>
-        {installationName && (
-          <p className="mt-1 text-sm font-semibold text-slate-900">
-            {installationName}
-          </p>
-        )}
+        <p className="mt-1 text-sm font-semibold text-slate-900">
+          {item.installationName}
+          {item.propertyName ? (
+            <span className="font-normal text-slate-600"> - {item.propertyName}</span>
+          ) : null}
+        </p>
         <p className="mt-1 text-sm text-slate-700">{item.description}</p>
       </div>
       <Link
@@ -512,32 +509,6 @@ function PriorityBadge({ priority }: { priority: ActionItem["priority"] }) {
   )
 }
 
-function compareActionItems(first: ActionItem, second: ActionItem) {
-  const typeDiff = ACTION_TYPE_ORDER[first.type] - ACTION_TYPE_ORDER[second.type]
-  if (typeDiff !== 0) return typeDiff
-
-  const priorityDiff =
-    PRIORITY_ORDER[first.priority] - PRIORITY_ORDER[second.priority]
-  if (priorityDiff !== 0) return priorityDiff
-
-  return compareOptionalDates(first.dueDate ?? first.createdAt, second.dueDate ?? second.createdAt)
-}
-
-function compareOptionalDates(firstDate?: string | null, secondDate?: string | null) {
-  if (!firstDate && !secondDate) return 0
-  if (!firstDate) return 1
-  if (!secondDate) return -1
-
-  return new Date(firstDate).getTime() - new Date(secondDate).getTime()
-}
-
-function extractInstallationName(description: string) {
-  return description.split(" skulle ")[0]
-    .split(" ska ")[0]
-    .split(" saknar ")[0]
-    .split(" har ")[0]
-}
-
 function getKpiValue(
   key: (typeof KPI_CARDS)[number]["key"],
   dashboardData: DashboardData
@@ -548,7 +519,8 @@ function getKpiValue(
   if (key === "dueSoon") return dashboardData.metrics.dueSoon
   if (key === "leakage") return dashboardData.environmental.leakageEvents
 
-  return `${formatNumber(dashboardData.environmental.totalCo2eTon)} t`
+  const prefix = dashboardData.environmental.co2eIsComplete ? "" : "Minst "
+  return `${prefix}${formatNumber(dashboardData.environmental.totalCo2eTon)} t`
 }
 
 function formatNumber(value: number) {
