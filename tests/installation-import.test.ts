@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import {
   getSuggestedImportField,
+  getDuplicateMappedFields,
+  isImportFieldSelectedByAnotherColumn,
   mapImportRowsWithMapping,
   normalizeImportRow,
   parseImportRows,
@@ -101,5 +103,28 @@ describe("installation import parsing", () => {
     expect(parsed[0].refrigerantType).toBe("R404A")
     expect(parsed[0].refrigerantAmount).toBe(10)
     expect(parsed[0].errors).toEqual([])
+  })
+
+  it("detects duplicate mapped target fields", () => {
+    const mapping: ColumnMapping = {
+      Namn: "name",
+      Aggregat: "name",
+      Gas: "refrigerantType",
+      Extra: "",
+    }
+
+    expect(getDuplicateMappedFields(mapping)).toEqual(["name"])
+    expect(isImportFieldSelectedByAnotherColumn(mapping, "name", "Namn")).toBe(
+      true
+    )
+    expect(
+      isImportFieldSelectedByAnotherColumn(mapping, "refrigerantType", "Gas")
+    ).toBe(false)
+  })
+
+  it("does not expose GWP or CO2e as import target fields", () => {
+    expect(getSuggestedImportField("GWP")).toBeNull()
+    expect(getSuggestedImportField("CO2e")).toBeNull()
+    expect(getSuggestedImportField("CO₂e")).toBeNull()
   })
 })

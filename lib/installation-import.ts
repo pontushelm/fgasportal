@@ -371,6 +371,26 @@ export function mapImportRowsWithMapping(
   })
 }
 
+export function getDuplicateMappedFields(mapping: ColumnMapping) {
+  const mappedFields = Object.values(mapping).filter(Boolean) as ImportFieldKey[]
+
+  return Array.from(
+    new Set(
+      mappedFields.filter((field, index) => mappedFields.indexOf(field) !== index)
+    )
+  )
+}
+
+export function isImportFieldSelectedByAnotherColumn(
+  mapping: ColumnMapping,
+  field: ImportFieldKey,
+  currentColumn: string
+) {
+  return Object.entries(mapping).some(
+    ([column, mappedField]) => column !== currentColumn && mappedField === field
+  )
+}
+
 export function getMaxImportRows() {
   return MAX_IMPORT_ROWS
 }

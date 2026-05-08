@@ -6,9 +6,11 @@ import * as XLSX from "xlsx"
 import {
   IMPORT_FIELD_DEFINITIONS,
   REQUIRED_IMPORT_FIELDS,
+  getDuplicateMappedFields,
   getImportFieldLabel,
   getMaxImportRows,
   getSuggestedImportField,
+  isImportFieldSelectedByAnotherColumn,
   isEmptyImportRow,
   mapImportRowsWithMapping,
   parseImportRows,
@@ -27,6 +29,11 @@ type ImportInstallationsPageProps = {
   embedded?: boolean
   onClose?: () => void
   onImported?: () => void
+}
+
+type WorksheetPreview = {
+  name: string
+  rows: Record<string, unknown>[]
 }
 
 const TEMPLATE_COLUMNS = [
@@ -93,6 +100,8 @@ export default function ImportInstallationsPage({
   onImported,
 }: ImportInstallationsPageProps = {}) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [worksheets, setWorksheets] = useState<WorksheetPreview[]>([])
+  const [selectedWorksheetName, setSelectedWorksheetName] = useState("")
   const [rawRows, setRawRows] = useState<Record<string, unknown>[]>([])
   const [detectedColumns, setDetectedColumns] = useState<string[]>([])
   const [columnMapping, setColumnMapping] = useState<ColumnMapping>({})
@@ -111,8 +120,9 @@ export default function ImportInstallationsPage({
   const missingRequiredFields = REQUIRED_IMPORT_FIELDS.filter(
     (field) => !mappedFields.includes(field)
   )
-  const duplicatedFields = mappedFields.filter(
-    (field, index) => mappedFields.indexOf(field) !== index
+  const duplicatedFields = useMemo(
+    () => getDuplicateMappedFields(columnMapping),
+    [columnMapping]
   )
   const hasBlockingMappingIssue =
     missingRequiredFields.length > 0 || duplicatedFields.length > 0
@@ -120,6 +130,8 @@ export default function ImportInstallationsPage({
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     setSelectedFile(file ?? null)
+    setWorksheets([])
+    setSelectedWorksheetName("")
     setRawRows([])
     setDetectedColumns([])
     setColumnMapping({})
@@ -141,19 +153,19 @@ export default function ImportInstallationsPage({
         type: "array",
         cellDates: true,
       })
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]]
-      const parsedRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
-        defval: "",
-      })
-      const columns = getDetectedColumns(parsedRows)
-      const suggestedMapping = createSuggestedMapping(columns)
+      const parsedWorksheets = workbook.SheetNames.map((name) => ({
+        name,
+        rows: readWorksheetRows(workbook.Sheets[name]),
+      }))
+      const firstWorksheet = parsedWorksheets[0]
 
-      setRawRows(parsedRows)
-      setDetectedColumns(columns)
-      setColumnMapping(suggestedMapping)
-      setRows(buildPreviewRows(parsedRows, suggestedMapping))
+      setWorksheets(parsedWorksheets)
+      setSelectedWorksheetName(firstWorksheet?.name ?? "")
+      applyWorksheetPreview(firstWorksheet?.rows ?? [])
     } catch (err) {
       console.error("Parse import file error:", err)
+      setWorksheets([])
+      setSelectedWorksheetName("")
       setRawRows([])
       setDetectedColumns([])
       setColumnMapping({})
@@ -162,6 +174,23 @@ export default function ImportInstallationsPage({
     } finally {
       setIsParsing(false)
     }
+  }
+
+  function handleWorksheetChange(event: React.ChangeEvent<HTMLSelectElement>) {
+    const worksheetName = event.target.value
+    const worksheet = worksheets.find((item) => item.name === worksheetName)
+
+    setSelectedWorksheetName(worksheetName)
+    applyWorksheetPreview(worksheet?.rows ?? [])
+  }
+
+  function applyWorksheetPreview(worksheetRows: Record<string, unknown>[]) {
+    const preview = applyWorksheetPreviewRows(worksheetRows)
+
+    setRawRows(worksheetRows)
+    setDetectedColumns(preview.columns)
+    setColumnMapping(preview.suggestedMapping)
+    setRows(preview.parsedRows)
   }
 
   function handleMappingChange(column: string, field: ImportFieldKey | "") {
@@ -242,6 +271,11 @@ export default function ImportInstallationsPage({
               blir bara en varning.
             </p>
             <p className="mt-2 text-xs text-slate-600">
+              GWP och CO₂e beräknas automatiskt från köldmedium och
+              fyllnadsmängd. Importera normalt inte separata GWP- eller
+              CO₂e-kolumner.
+            </p>
+            <p className="mt-2 text-xs text-slate-600">
               Har du ett äldre eller komplext register? FgasPortal kan hjälpa
               till med import och datarensning vid onboarding.
             </p>
@@ -281,6 +315,26 @@ export default function ImportInstallationsPage({
             )}
           </div>
         </div>
+        {worksheets.length > 0 && (
+          <div className="mt-4 grid gap-2 text-sm font-medium text-slate-700">
+            Arbetsblad
+            <select
+              className="w-full max-w-md rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+              value={selectedWorksheetName}
+              onChange={handleWorksheetChange}
+            >
+              {worksheets.map((worksheet) => (
+                <option key={worksheet.name} value={worksheet.name}>
+                  {worksheet.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs font-normal text-slate-500">
+              När du byter arbetsblad byggs kolumner, föreslagna mappningar och
+              förhandsgranskning om från det valda bladet.
+            </p>
+          </div>
+        )}
         {error && <p className="mt-3 text-sm font-semibold text-red-700">{error}</p>}
       </section>
 
@@ -330,9 +384,24 @@ export default function ImportInstallationsPage({
                         >
                           <option value="">Importera inte</option>
                           {IMPORT_FIELD_DEFINITIONS.map((field) => (
-                            <option key={field.key} value={field.key}>
+                            <option
+                              key={field.key}
+                              value={field.key}
+                              disabled={isImportFieldSelectedByAnotherColumn(
+                                columnMapping,
+                                field.key,
+                                column
+                              )}
+                            >
                               {field.label}
                               {field.required ? " (krävs)" : ""}
+                              {isImportFieldSelectedByAnotherColumn(
+                                columnMapping,
+                                field.key,
+                                column
+                              )
+                                ? " - redan vald"
+                                : ""}
                             </option>
                           ))}
                         </select>
@@ -365,6 +434,8 @@ export default function ImportInstallationsPage({
                 <p className="mt-1">
                   Samma FgasPortal-fält är valt flera gånger:{" "}
                   {[...new Set(duplicatedFields)].map(getImportFieldLabel).join(", ")}.
+                  Välj ett unikt fält per kolumn eller lämna extra kolumner
+                  omappade.
                 </p>
               )}
             </div>
@@ -412,6 +483,13 @@ export default function ImportInstallationsPage({
                   <p className="mt-1">
                     Dessa rader importeras inte förrän felen är åtgärdade.
                   </p>
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-xs">
+                    {invalidRows.slice(0, 5).map((row) => (
+                      <li key={`invalid-${row.row}`}>
+                        Rad {row.row}: {row.errors.join(", ")}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </div>
@@ -508,6 +586,17 @@ function createSuggestedMapping(columns: string[]): ColumnMapping {
   )
 }
 
+function applyWorksheetPreviewRows(rows: Record<string, unknown>[]) {
+  const columns = getDetectedColumns(rows)
+  const suggestedMapping = createSuggestedMapping(columns)
+
+  return {
+    columns,
+    suggestedMapping,
+    parsedRows: buildPreviewRows(rows, suggestedMapping),
+  }
+}
+
 function buildPreviewRows(rows: Record<string, unknown>[], mapping: ColumnMapping) {
   const mappedRows = mapImportRowsWithMapping(rows, mapping)
     .filter((row) => !isEmptyImportRow(row))
@@ -518,6 +607,14 @@ function buildPreviewRows(rows: Record<string, unknown>[], mapping: ColumnMappin
 
 function getDetectedColumns(rows: Record<string, unknown>[]) {
   return Array.from(new Set(rows.flatMap((row) => Object.keys(row))))
+}
+
+function readWorksheetRows(worksheet: XLSX.WorkSheet | undefined) {
+  if (!worksheet) return []
+
+  return XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
+    defval: "",
+  })
 }
 
 const tableHeaderClassName =
