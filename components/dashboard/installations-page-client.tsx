@@ -45,6 +45,13 @@ type Contractor = {
   id: string
   name: string
   email: string
+  servicePartnerCompany?: ServicePartnerCompanySummary | null
+}
+
+type ServicePartnerCompanySummary = {
+  id: string
+  name: string
+  organizationNumber?: string | null
 }
 
 type PropertyOption = {
@@ -654,11 +661,11 @@ export default function InstallationsPageClient() {
           >
             <option value="">Alla</option>
             <option value="unassigned">Ingen servicekontakt</option>
-            {contractors.map((contractor) => (
-              <option key={contractor.id} value={contractor.id}>
-                {contractor.name}
-              </option>
-            ))}
+                {contractors.map((contractor) => (
+                  <option key={contractor.id} value={contractor.id}>
+                    {formatContractorOption(contractor)}
+                  </option>
+                ))}
           </FilterSelect>
 
           <FilterSelect
@@ -980,7 +987,7 @@ export default function InstallationsPageClient() {
                 <option value="">Välj servicekontakt</option>
                 {contractors.map((contractor) => (
                   <option key={contractor.id} value={contractor.id}>
-                    {contractor.name} ({contractor.email})
+                    {formatContractorOption(contractor)} ({contractor.email})
                   </option>
                 ))}
               </select>
@@ -1224,7 +1231,7 @@ function InstallationQuickView({
               />
               <QuickViewItem
                 label="Servicekontakt"
-                value={installation.assignedContractor?.name || "-"}
+                value={formatAssignedContractor(installation.assignedContractor)}
               />
             </dl>
           </section>
@@ -1444,6 +1451,20 @@ function deriveContractors(installations: Installation[]) {
   return Array.from(contractors.values()).sort((first, second) =>
     first.name.localeCompare(second.name, "sv")
   )
+}
+
+function formatContractorOption(contractor: Contractor) {
+  return contractor.servicePartnerCompany?.name
+    ? `${contractor.name} - ${contractor.servicePartnerCompany.name}`
+    : contractor.name
+}
+
+function formatAssignedContractor(contractor?: Contractor | null) {
+  if (!contractor) return "-"
+
+  return contractor.servicePartnerCompany?.name
+    ? `${contractor.servicePartnerCompany.name} (${contractor.name})`
+    : contractor.name
 }
 
 function formatOptionalDate(value?: string | null) {

@@ -21,6 +21,16 @@ export async function GET(request: NextRequest) {
         },
       },
       include: {
+        servicePartnerCompany: {
+          select: {
+            id: true,
+            name: true,
+            organizationNumber: true,
+            contactEmail: true,
+            phone: true,
+            notes: true,
+          },
+        },
         user: {
           include: {
             assignedInstallations: {
@@ -123,6 +133,7 @@ export async function GET(request: NextRequest) {
           isCertifiedCompany: membership.isCertifiedCompany,
           validUntil: membership.certificationValidUntil,
         }),
+        servicePartnerCompany: membership.servicePartnerCompany,
         assignedInstallationsCount: contractor.assignedInstallations.length,
         overdueInspections,
         dueSoonInspections,
@@ -130,6 +141,12 @@ export async function GET(request: NextRequest) {
         leakageEventsCount,
         latestActivityDate,
       }
+    }).sort((first, second) => {
+      const firstCompany = first.servicePartnerCompany?.name ?? ""
+      const secondCompany = second.servicePartnerCompany?.name ?? ""
+      const companyComparison = firstCompany.localeCompare(secondCompany, "sv")
+      if (companyComparison !== 0) return companyComparison
+      return first.name.localeCompare(second.name, "sv")
     })
 
     const summary = rows.reduce(
@@ -154,9 +171,29 @@ export async function GET(request: NextRequest) {
       }
     )
 
+    const servicePartnerCompanies = await prisma.servicePartnerCompany.findMany({
+      where: {
+        companyId: auth.user.companyId,
+      },
+      orderBy: {
+        name: "asc",
+      },
+      select: {
+        id: true,
+        name: true,
+        organizationNumber: true,
+        contactEmail: true,
+        phone: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    })
+
     return NextResponse.json(
       {
         summary,
+        servicePartnerCompanies,
         contractors: rows,
       },
       { status: 200 }

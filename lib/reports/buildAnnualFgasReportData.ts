@@ -81,6 +81,11 @@ export async function buildAnnualFgasReportData({
               certificationNumber: true,
               certificationOrganization: true,
               certificationValidUntil: true,
+              servicePartnerCompany: {
+                select: {
+                  name: true,
+                },
+              },
             },
           },
         },
@@ -126,6 +131,11 @@ export async function buildAnnualFgasReportData({
           },
           select: {
             userId: true,
+            servicePartnerCompany: {
+              select: {
+                name: true,
+              },
+            },
             user: {
               select: {
                 name: true,
@@ -139,7 +149,7 @@ export async function buildAnnualFgasReportData({
   const scrapServicePartnerByUserId = new Map(
     scrapServicePartnerMemberships.map((membership) => [
       membership.userId,
-      membership.user,
+      membership,
     ])
   )
 
@@ -255,6 +265,8 @@ export async function buildAnnualFgasReportData({
             ? scrapServicePartnerByUserId.get(installation.scrapServicePartnerId)
             : null
         ) ??
+        installation.assignedContractor?.memberships[0]?.servicePartnerCompany
+          ?.name ??
         installation.assignedContractor?.name ??
         installation.assignedContractor?.company?.name ??
         null,
@@ -328,7 +340,10 @@ export async function buildAnnualFgasReportData({
     },
     responsibleContractor: {
       name: primaryContractor?.name ?? null,
-      company: primaryContractor?.company?.name ?? null,
+      company:
+        primaryContractorCertification?.servicePartnerCompany?.name ??
+        primaryContractor?.company?.name ??
+        null,
       email: primaryContractor?.email ?? null,
       phone: primaryContractor?.company?.phone ?? null,
       certificateNumber: primaryContractorCertification?.certificationNumber ?? null,
@@ -370,18 +385,26 @@ export async function buildAnnualFgasReportData({
 }
 
 function formatServicePartnerName(
-  user:
+  membership:
     | {
-        name: string
-        email: string
-        company: { name: string } | null
+        servicePartnerCompany: { name: string } | null
+        user: {
+          name: string
+          email: string
+          company: { name: string } | null
+        }
       }
     | null
     | undefined
 ) {
-  if (!user) return null
+  if (!membership) return null
 
-  return user.company?.name ?? user.name ?? user.email
+  return (
+    membership.servicePartnerCompany?.name ??
+    membership.user.company?.name ??
+    membership.user.name ??
+    membership.user.email
+  )
 }
 
 function buildCertificateRegister(
@@ -394,6 +417,7 @@ function buildCertificateRegister(
         certificationNumber: string | null
         certificationOrganization: string | null
         certificationValidUntil: Date | null
+        servicePartnerCompany: { name: string } | null
       }>
     } | null
   }>
@@ -408,7 +432,10 @@ function buildCertificateRegister(
     entries.set(contractor.id, {
       name: contractor.name,
       role: "Ansvarig tekniker/servicepartner",
-      company: contractor.company?.name ?? null,
+      company:
+        certification?.servicePartnerCompany?.name ??
+        contractor.company?.name ??
+        null,
       certificateNumber: certification?.certificationNumber ?? null,
       certificateOrganization: certification?.certificationOrganization ?? null,
       validUntil: certification?.certificationValidUntil ?? null,

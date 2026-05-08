@@ -27,6 +27,13 @@ export async function GET(request: NextRequest) {
         id: true,
         isCertifiedCompany: true,
         certificationValidUntil: true,
+        servicePartnerCompany: {
+          select: {
+            id: true,
+            name: true,
+            organizationNumber: true,
+          },
+        },
         user: {
           select: {
             id: true,
@@ -40,6 +47,7 @@ export async function GET(request: NextRequest) {
     const contractors = memberships.map((membership) => ({
       ...membership.user,
       membershipId: membership.id,
+      servicePartnerCompany: membership.servicePartnerCompany,
       certificationStatus: getCertificationStatus({
         isCertifiedCompany: membership.isCertifiedCompany,
         validUntil: membership.certificationValidUntil,

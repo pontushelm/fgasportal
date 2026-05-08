@@ -63,6 +63,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
               select: {
                 isCertifiedCompany: true,
                 certificationValidUntil: true,
+                servicePartnerCompany: {
+                  select: {
+                    id: true,
+                    name: true,
+                    organizationNumber: true,
+                  },
+                },
               },
               take: 1,
             },
@@ -90,6 +97,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
           select: {
             isCertifiedCompany: true,
             certificationValidUntil: true,
+            servicePartnerCompany: {
+              select: {
+                id: true,
+                name: true,
+                organizationNumber: true,
+              },
+            },
             user: {
               select: {
                 id: true,
@@ -114,6 +128,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
                   contractorMembership?.isCertifiedCompany ?? false,
                 validUntil: contractorMembership?.certificationValidUntil ?? null,
               }),
+              servicePartnerCompany:
+                contractorMembership?.servicePartnerCompany ?? null,
             }
           : null,
         scrapServicePartner: scrapServicePartner
@@ -125,6 +141,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 isCertifiedCompany: scrapServicePartner.isCertifiedCompany,
                 validUntil: scrapServicePartner.certificationValidUntil,
               }),
+              servicePartnerCompany: scrapServicePartner.servicePartnerCompany,
             }
           : null,
       },

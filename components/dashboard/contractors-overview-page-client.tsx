@@ -15,6 +15,7 @@ import type { CertificationStatusResult } from "@/lib/certification-status"
 
 type ContractorOverview = {
   id: string
+  membershipId: string
   name: string
   email: string
   isActive: boolean
@@ -29,6 +30,26 @@ type ContractorOverview = {
   highRiskInstallations: number
   leakageEventsCount: number
   latestActivityDate: string | null
+  servicePartnerCompany: ServicePartnerCompany | null
+}
+
+type ServicePartnerCompany = {
+  id: string
+  name: string
+  organizationNumber: string | null
+  contactEmail: string | null
+  phone: string | null
+  notes: string | null
+  createdAt?: string
+  updatedAt?: string
+}
+
+type ServicePartnerCompanyForm = {
+  name: string
+  organizationNumber: string
+  contactEmail: string
+  phone: string
+  notes: string
 }
 
 type ContractorsOverviewResponse = {
@@ -39,8 +60,20 @@ type ContractorsOverviewResponse = {
     highRiskInstallations: number
     expiredCertifications: number
   }
+  servicePartnerCompanies: ServicePartnerCompany[]
   contractors: ContractorOverview[]
 }
+
+const emptyCompanyForm: ServicePartnerCompanyForm = {
+  name: "",
+  organizationNumber: "",
+  contactEmail: "",
+  phone: "",
+  notes: "",
+}
+
+const inputClassName =
+  "rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
 
 export default function ContractorsOverviewPageClient() {
   const router = useRouter()
@@ -53,6 +86,14 @@ export default function ContractorsOverviewPageClient() {
   const [inviteSuccess, setInviteSuccess] = useState("")
   const [inviteLink, setInviteLink] = useState("")
   const [isSubmittingInvite, setIsSubmittingInvite] = useState(false)
+  const [companyForm, setCompanyForm] = useState<ServicePartnerCompanyForm>(
+    emptyCompanyForm
+  )
+  const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null)
+  const [companyError, setCompanyError] = useState("")
+  const [companySuccess, setCompanySuccess] = useState("")
+  const [isSavingCompany, setIsSavingCompany] = useState(false)
+  const [linkingContractorId, setLinkingContractorId] = useState("")
 
   useEffect(() => {
     let isMounted = true
@@ -163,6 +204,116 @@ export default function ContractorsOverviewPageClient() {
     await refreshOverview()
   }
 
+  function updateCompanyForm(
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) {
+    const { name, value } = event.target
+    setCompanyForm((current) => ({
+      ...current,
+      [name]: value,
+    }))
+  }
+
+  function startEditingCompany(company: ServicePartnerCompany) {
+    setEditingCompanyId(company.id)
+    setCompanyError("")
+    setCompanySuccess("")
+    setCompanyForm({
+      name: company.name,
+      organizationNumber: company.organizationNumber ?? "",
+      contactEmail: company.contactEmail ?? "",
+      phone: company.phone ?? "",
+      notes: company.notes ?? "",
+    })
+  }
+
+  function resetCompanyForm() {
+    setEditingCompanyId(null)
+    setCompanyForm(emptyCompanyForm)
+    setCompanyError("")
+  }
+
+  async function handleCompanySubmit(event: React.FormEvent) {
+    event.preventDefault()
+    setCompanyError("")
+    setCompanySuccess("")
+    setIsSavingCompany(true)
+
+    const response = await fetch(
+      editingCompanyId
+        ? `/api/service-partner-companies/${editingCompanyId}`
+        : "/api/service-partner-companies",
+      {
+        method: editingCompanyId ? "PATCH" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(companyForm),
+      }
+    )
+    const result: { error?: string } = await response.json()
+
+    if (response.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!response.ok) {
+      setCompanyError(result.error || "Kunde inte spara serviceföretaget.")
+      setIsSavingCompany(false)
+      return
+    }
+
+    setCompanySuccess(
+      editingCompanyId
+        ? "Serviceföretaget har uppdaterats."
+        : "Serviceföretaget har lagts till."
+    )
+    setIsSavingCompany(false)
+    resetCompanyForm()
+    await refreshOverview()
+  }
+
+  async function handleCompanyLink(
+    contractor: ContractorOverview,
+    servicePartnerCompanyId: string
+  ) {
+    setCompanyError("")
+    setCompanySuccess("")
+    setLinkingContractorId(contractor.id)
+
+    const response = await fetch(
+      `/api/company/contractors/${contractor.id}/service-partner-company`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          servicePartnerCompanyId: servicePartnerCompanyId || null,
+        }),
+      }
+    )
+    const result: { error?: string } = await response.json()
+
+    if (response.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!response.ok) {
+      setCompanyError(result.error || "Kunde inte koppla servicekontakten.")
+      setLinkingContractorId("")
+      return
+    }
+
+    setCompanySuccess("Servicekontakten har uppdaterats.")
+    setLinkingContractorId("")
+    await refreshOverview()
+  }
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 dark:text-slate-100 sm:px-6 lg:px-8">
       <PageHeader
@@ -220,6 +371,139 @@ export default function ContractorsOverviewPageClient() {
             />
           </section>
 
+          <Card className="mt-6 p-5">
+            <div className="grid gap-5 lg:grid-cols-[1fr_1.1fr]">
+              <div>
+                <SectionHeader
+                  title="Serviceföretag"
+                  subtitle="Skapa enkla företagsgrupper och koppla inbjudna servicekontakter till dem."
+                />
+                {data.servicePartnerCompanies.length === 0 ? (
+                  <p className="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
+                    Inga serviceföretag har lagts till ännu. Servicekontakter
+                    fungerar fortsatt utan företagskoppling.
+                  </p>
+                ) : (
+                  <div className="mt-4 grid gap-2">
+                    {data.servicePartnerCompanies.map((company) => (
+                      <div
+                        className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950 sm:flex-row sm:items-center sm:justify-between"
+                        key={company.id}
+                      >
+                        <div>
+                          <p className="font-semibold text-slate-950 dark:text-slate-100">
+                            {company.name}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            {[
+                              company.organizationNumber,
+                              company.contactEmail,
+                              company.phone,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ") || "Inga kontaktuppgifter angivna"}
+                          </p>
+                        </div>
+                        <button
+                          className={buttonClassName({ variant: "secondary" })}
+                          type="button"
+                          onClick={() => startEditingCompany(company)}
+                        >
+                          Redigera
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <form className="grid gap-3" onSubmit={handleCompanySubmit}>
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  {editingCompanyId ? "Redigera serviceföretag" : "Nytt serviceföretag"}
+                </h3>
+                <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+                  Företag
+                  <input
+                    className={inputClassName}
+                    name="name"
+                    value={companyForm.name}
+                    onChange={updateCompanyForm}
+                    required
+                  />
+                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+                    Organisationsnummer
+                    <input
+                      className={inputClassName}
+                      name="organizationNumber"
+                      value={companyForm.organizationNumber}
+                      onChange={updateCompanyForm}
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+                    Telefon
+                    <input
+                      className={inputClassName}
+                      name="phone"
+                      value={companyForm.phone}
+                      onChange={updateCompanyForm}
+                    />
+                  </label>
+                </div>
+                <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+                  Kontakt e-post
+                  <input
+                    className={inputClassName}
+                    name="contactEmail"
+                    type="email"
+                    value={companyForm.contactEmail}
+                    onChange={updateCompanyForm}
+                  />
+                </label>
+                <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+                  Anteckningar
+                  <textarea
+                    className={inputClassName}
+                    name="notes"
+                    rows={3}
+                    value={companyForm.notes}
+                    onChange={updateCompanyForm}
+                  />
+                </label>
+                {companyError && (
+                  <p className="text-sm font-semibold text-red-700">{companyError}</p>
+                )}
+                {companySuccess && (
+                  <p className="text-sm font-semibold text-green-700">{companySuccess}</p>
+                )}
+                <div className="flex flex-wrap justify-end gap-2">
+                  {editingCompanyId && (
+                    <button
+                      className={buttonClassName({ variant: "secondary" })}
+                      type="button"
+                      onClick={resetCompanyForm}
+                      disabled={isSavingCompany}
+                    >
+                      Avbryt
+                    </button>
+                  )}
+                  <button
+                    className={buttonClassName({ variant: "primary" })}
+                    type="submit"
+                    disabled={isSavingCompany}
+                  >
+                    {isSavingCompany
+                      ? "Sparar..."
+                      : editingCompanyId
+                        ? "Spara ändringar"
+                        : "Lägg till serviceföretag"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </Card>
+
           <Card className="mt-6 overflow-hidden">
             <div className="border-b border-slate-200 p-5 dark:border-slate-800">
               <SectionHeader
@@ -250,6 +534,7 @@ export default function ContractorsOverviewPageClient() {
                   <thead className="bg-slate-50 dark:bg-slate-950">
                     <tr>
                       <TableHeader>Kontakt/tekniker</TableHeader>
+                      <TableHeader>Serviceföretag</TableHeader>
                       <TableHeader>Status</TableHeader>
                       <TableHeader>Tilldelade aggregat</TableHeader>
                       <TableHeader>Försenade kontroller</TableHeader>
@@ -278,6 +563,23 @@ export default function ContractorsOverviewPageClient() {
                               {contractor.email}
                             </p>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          <select
+                            className="w-52 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                            value={contractor.servicePartnerCompany?.id ?? ""}
+                            onChange={(event) =>
+                              void handleCompanyLink(contractor, event.target.value)
+                            }
+                            disabled={linkingContractorId === contractor.id}
+                          >
+                            <option value="">Ingen företagskoppling</option>
+                            {data.servicePartnerCompanies.map((company) => (
+                              <option key={company.id} value={company.id}>
+                                {company.name}
+                              </option>
+                            ))}
+                          </select>
                         </TableCell>
                         <TableCell>
                           <StatusBadge isActive={contractor.isActive} />

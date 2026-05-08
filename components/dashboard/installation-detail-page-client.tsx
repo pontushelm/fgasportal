@@ -134,12 +134,14 @@ type InstallationDetail = {
     name: string
     email: string
     certificationStatus: CertificationStatusResult
+    servicePartnerCompany?: ServicePartnerCompanySummary | null
   } | null
   scrapServicePartner?: {
     id: string
     name: string
     email: string
     certificationStatus: CertificationStatusResult
+    servicePartnerCompany?: ServicePartnerCompanySummary | null
   } | null
   notes?: string | null
   inspections: Inspection[]
@@ -188,6 +190,13 @@ type Contractor = {
   name: string
   email: string
   certificationStatus?: CertificationStatusResult
+  servicePartnerCompany?: ServicePartnerCompanySummary | null
+}
+
+type ServicePartnerCompanySummary = {
+  id: string
+  name: string
+  organizationNumber?: string | null
 }
 
 type ScrapFormData = {
@@ -1053,7 +1062,7 @@ export default function InstallationDetailPage() {
             <DetailItem
               label="Servicekontakt"
               value={
-                installation.scrapServicePartner?.name ||
+                formatAssignedContractor(installation.scrapServicePartner) ||
                 selectedScrapContractor?.name ||
                 "-"
               }
@@ -1388,7 +1397,7 @@ export default function InstallationDetailPage() {
                   <option value="">Ingen tilldelad</option>
                   {contractors.map((contractor) => (
                     <option key={contractor.id} value={contractor.id}>
-                      {contractor.name} ({contractor.email})
+                      {formatContractorOption(contractor)} ({contractor.email})
                     </option>
                   ))}
                 </select>
@@ -1570,11 +1579,11 @@ export default function InstallationDetailPage() {
                     required
                   >
                     <option value="">Välj servicekontakt</option>
-                    {contractors.map((contractor) => (
-                      <option key={contractor.id} value={contractor.id}>
-                        {contractor.name} ({contractor.email})
-                      </option>
-                    ))}
+                  {contractors.map((contractor) => (
+                    <option key={contractor.id} value={contractor.id}>
+                      {formatContractorOption(contractor)} ({contractor.email})
+                    </option>
+                  ))}
                   </select>
                 </label>
                 {selectedScrapContractor?.certificationStatus && (
@@ -1762,11 +1771,32 @@ function ServicepartnerDetailItem({
     <div>
       <dt className="text-sm font-medium text-slate-600">Servicekontakt</dt>
       <dd className="mt-1 flex flex-wrap items-center gap-2 font-semibold text-slate-950">
-        <span>{contractor.name || contractor.email}</span>
+        <span>{formatAssignedContractor(contractor)}</span>
         <CertificationBadge status={contractor.certificationStatus} />
       </dd>
     </div>
   )
+}
+
+function formatContractorOption(contractor: Contractor) {
+  return contractor.servicePartnerCompany?.name
+    ? `${contractor.name} - ${contractor.servicePartnerCompany.name}`
+    : contractor.name
+}
+
+function formatAssignedContractor(
+  contractor?: {
+    name: string
+    email: string
+    servicePartnerCompany?: ServicePartnerCompanySummary | null
+  } | null
+) {
+  if (!contractor) return null
+
+  const contactName = contractor.name || contractor.email
+  return contractor.servicePartnerCompany?.name
+    ? `${contractor.servicePartnerCompany.name} (${contactName})`
+    : contactName
 }
 
 function ActionButton({

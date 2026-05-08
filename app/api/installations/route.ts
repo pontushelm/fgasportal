@@ -291,6 +291,23 @@ export async function GET(request: NextRequest) {
             id: true,
             name: true,
             email: true,
+            memberships: {
+              where: {
+                companyId,
+                role: "CONTRACTOR",
+                isActive: true,
+              },
+              select: {
+                servicePartnerCompany: {
+                  select: {
+                    id: true,
+                    name: true,
+                    organizationNumber: true,
+                  },
+                },
+              },
+              take: 1,
+            },
           },
         },
         property: {
@@ -314,7 +331,7 @@ export async function GET(request: NextRequest) {
     })
 
     const installationsWithCompliance = installations.map((installation) => {
-      const { events: leakEvents, ...installationData } = installation
+      const { assignedContractor, events: leakEvents, ...installationData } = installation
       const compliance = calculateInstallationCompliance(
         installation.refrigerantType,
         installation.refrigerantAmount,
@@ -333,6 +350,15 @@ export async function GET(request: NextRequest) {
 
       return {
         ...installationData,
+        assignedContractor: assignedContractor
+          ? {
+              id: assignedContractor.id,
+              name: assignedContractor.name,
+              email: assignedContractor.email,
+              servicePartnerCompany:
+                assignedContractor.memberships[0]?.servicePartnerCompany ?? null,
+            }
+          : null,
         gwp: compliance.gwp,
         co2eKg: compliance.co2eKg,
         co2eTon: compliance.co2eTon,

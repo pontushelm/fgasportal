@@ -65,6 +65,7 @@ model Company {
   installationDocuments InstallationDocument[]
   activityLogs ActivityLog[]
   savedFilters SavedFilter[]
+  servicePartnerCompanies ServicePartnerCompany[]
 
   @@map("companies")
 }
@@ -127,16 +128,38 @@ model CompanyMembership {
   certificationNumber String?
   certificationValidUntil DateTime?
   certificationOrganization String?
+  servicePartnerCompanyId String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  servicePartnerCompany ServicePartnerCompany? @relation(fields: [servicePartnerCompanyId], references: [id], onDelete: SetNull)
 
   @@unique([userId, companyId])
   @@index([companyId])
   @@index([userId])
+  @@index([servicePartnerCompanyId])
   @@map("company_memberships")
+}
+
+model ServicePartnerCompany {
+  id                 String   @id @default(cuid())
+  companyId          String
+  name               String
+  organizationNumber String?
+  contactEmail       String?
+  phone              String?
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  company     Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  memberships CompanyMembership[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@map("service_partner_companies")
 }
 
 model Invitation {
