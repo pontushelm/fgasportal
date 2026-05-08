@@ -6,6 +6,7 @@ import type {
   AnnualFgasReportData,
   AnnualFgasReportFilter,
 } from "@/lib/reports/annualFgasReportTypes"
+import { summarizeAnnualFgasCo2e } from "@/lib/reports/annualFgasReportSummary"
 
 const UNKNOWN_REFRIGERANT = "Okänt köldmedium"
 
@@ -23,6 +24,7 @@ export async function buildAnnualFgasReportData({
   assignedContractorId,
   companyId,
   municipality,
+  propertyId,
   year,
 }: AnnualFgasReportFilter): Promise<AnnualFgasReportData> {
   const startDate = new Date(Date.UTC(year, 0, 1))
@@ -56,6 +58,7 @@ export async function buildAnnualFgasReportData({
         { scrappedAt: { gte: startDate } },
       ],
       ...(assignedContractorId ? { assignedContractorId } : {}),
+      ...(propertyId ? { propertyId } : {}),
       ...(trimmedMunicipality
         ? { property: { municipality: trimmedMunicipality } }
         : {}),
@@ -107,6 +110,39 @@ export async function buildAnnualFgasReportData({
     ],
   })
 
+  const scrapServicePartnerIds = Array.from(
+    new Set(
+      installations
+        .map((installation) => installation.scrapServicePartnerId)
+        .filter((id): id is string => Boolean(id))
+    )
+  )
+  const scrapServicePartnerMemberships =
+    scrapServicePartnerIds.length > 0
+      ? await prisma.companyMembership.findMany({
+          where: {
+            companyId,
+            userId: { in: scrapServicePartnerIds },
+          },
+          select: {
+            userId: true,
+            user: {
+              select: {
+                name: true,
+                email: true,
+                company: { select: { name: true } },
+              },
+            },
+          },
+        })
+      : []
+  const scrapServicePartnerByUserId = new Map(
+    scrapServicePartnerMemberships.map((membership) => [
+      membership.userId,
+      membership.user,
+    ])
+  )
+
   const reportInstallations = installations.filter((installation) => {
     const compliance = calculateInstallationCompliance(
       installation.refrigerantType,
@@ -116,12 +152,15 @@ export async function buildAnnualFgasReportData({
       installation.nextInspection
     )
     const isControlRequired = Boolean(compliance.inspectionIntervalMonths)
+    const hasUnknownCo2e = compliance.co2eKg === null
     const wasScrappedDuringYear =
       installation.scrappedAt != null &&
       installation.scrappedAt >= startDate &&
       installation.scrappedAt < endDate
 
-    if (installation.isActive && !installation.archivedAt) return true
+    if (installation.isActive && !installation.archivedAt) {
+      return isControlRequired || hasUnknownCo2e
+    }
 
     return isControlRequired || wasScrappedDuringYear
   })
@@ -210,8 +249,12 @@ export async function buildAnnualFgasReportData({
         installation.refrigerantType?.trim() || UNKNOWN_REFRIGERANT,
       refrigerantAmountKg: installation.refrigerantAmount,
       recoveredKg: installation.recoveredRefrigerantKg,
-      // scrapServicePartnerId points to a contractor user; include richer partner data if that relation is added.
       servicePartnerName:
+        formatServicePartnerName(
+          installation.scrapServicePartnerId
+            ? scrapServicePartnerByUserId.get(installation.scrapServicePartnerId)
+            : null
+        ) ??
         installation.assignedContractor?.name ??
         installation.assignedContractor?.company?.name ??
         null,
@@ -238,6 +281,7 @@ export async function buildAnnualFgasReportData({
     (sum, row) => sum + (row.recoveredKg ?? 0),
     0
   )
+  const co2eSummary = summarizeAnnualFgasCo2e(equipment)
   const leakageNotes = [
     ...reportInstallations.flatMap((installation) =>
       installation.events
@@ -293,11 +337,13 @@ export async function buildAnnualFgasReportData({
     summary: {
       equipmentCount: equipment.length,
       controlRequiredCount: equipment.filter((row) => row.controlRequired).length,
+      unknownCo2eEquipmentCount: co2eSummary.unknownCo2eEquipmentCount,
       totalRefrigerantKg: equipment.reduce(
         (sum, row) => sum + row.refrigerantAmountKg,
         0
       ),
-      totalCo2eKg: equipment.reduce((sum, row) => sum + (row.co2eKg ?? 0), 0),
+      totalCo2eKg: co2eSummary.totalCo2eKg,
+      knownCo2eKg: co2eSummary.knownCo2eKg,
       leakageCount: reportInstallations.reduce(
         (sum, installation) =>
           sum + installation.events.filter((event) => event.type === "LEAK").length,
@@ -321,6 +367,21 @@ export async function buildAnnualFgasReportData({
     scrappedEquipment,
     notes: leakageNotes,
   }
+}
+
+function formatServicePartnerName(
+  user:
+    | {
+        name: string
+        email: string
+        company: { name: string } | null
+      }
+    | null
+    | undefined
+) {
+  if (!user) return null
+
+  return user.company?.name ?? user.name ?? user.email
 }
 
 function buildCertificateRegister(

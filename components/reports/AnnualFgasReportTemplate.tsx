@@ -61,8 +61,9 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
               rows={[
                 ["Antal aggregat i rapporten", formatInteger(report.summary.equipmentCount)],
                 ["Antal kontrollpliktiga aggregat", formatInteger(report.summary.controlRequiredCount)],
+                ["Aggregat med okänt GWP-värde", formatInteger(report.summary.unknownCo2eEquipmentCount)],
                 ["Total köldmediemängd", `${formatNumber(report.summary.totalRefrigerantKg)} kg`],
-                ["Total CO₂e", `${formatNumber(report.summary.totalCo2eKg)} kg`],
+                ["Total CO₂e", formatCo2eSummary(report)],
                 ["Antal läckage", formatInteger(report.summary.leakageCount)],
                 ["Påfylld köldmediemängd", `${formatNumber(report.summary.addedRefrigerantKg)} kg`],
                 ["Återvunnen köldmediemängd", `${formatNumber(report.summary.recoveredRefrigerantKg)} kg`],
@@ -79,6 +80,14 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
               ]}
             />
           </div>
+
+          {report.summary.totalCo2eKg === null && (
+            <p className="warning-box">
+              Total CO₂e kan inte beräknas fullständigt eftersom ett eller flera
+              aggregat saknar känt GWP-värde. Känd delsumma:{" "}
+              {formatNumber(report.summary.knownCo2eKg)} kg CO₂e.
+            </p>
+          )}
 
           <ReportSection title="Köldmediehantering - sammanställning av aggregat">
             <RefrigerantHandlingLog
@@ -150,7 +159,9 @@ export function ReportHeader({ report }: { report: AnnualFgasReportData }) {
       <div>
         <h1>Årsrapport för kontrollpliktiga aggregat</h1>
         <p>
-          Årsrapport enligt F-gasförordningen för fluorerade växthusgaser
+          Omfattar kontrollpliktiga aggregat, skrotade aggregat under rapportåret
+          och aggregat där kontrollplikt inte kan fastställas på grund av okänt
+          GWP-värde.
         </p>
         <p>Rapportår: {report.reportYear}</p>
       </div>
@@ -416,6 +427,16 @@ function formatNumber(value: number) {
   }).format(value)
 }
 
+function formatCo2eSummary(report: AnnualFgasReportData) {
+  if (report.summary.totalCo2eKg !== null) {
+    return `${formatNumber(report.summary.totalCo2eKg)} kg`
+  }
+
+  return `Kan inte beräknas fullständigt (känd delsumma ${formatNumber(
+    report.summary.knownCo2eKg
+  )} kg)`
+}
+
 function formatOptionalNumber(value: number | null | undefined) {
   if (!value) return "-"
   return formatNumber(value)
@@ -620,6 +641,13 @@ const annualReportPrintStyles = `
   .muted {
     color: #4b5563;
     margin: 0;
+  }
+
+  .warning-box {
+    border: 1px solid #d97706;
+    color: #78350f;
+    margin: 10px 0 0;
+    padding: 7px 9px;
   }
 
   .lined-box {

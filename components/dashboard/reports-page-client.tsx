@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import { Badge, Card, EmptyState as UiEmptyState, PageHeader, SectionHeader } from "@/components/ui"
+import { getInstallationEventAmountLabel } from "@/lib/installation-events"
 
 type EventType =
   | "INSPECTION"
@@ -25,7 +26,9 @@ type ReportData = {
   metrics: {
     totalInstallations: number
     totalRefrigerantAmountKg: number
-    totalCo2eTon: number
+    totalCo2eTon: number | null
+    knownCo2eTon: number
+    unknownCo2eInstallations: number
     requiringInspection: number
     inspectionsPerformed: number
     leakageEvents: number
@@ -188,9 +191,10 @@ export default function ReportsPage() {
     })
 
     if (selectedMunicipality) params.set("municipality", selectedMunicipality)
+    if (selectedPropertyId) params.set("propertyId", selectedPropertyId)
 
     return `/api/reports/annual-fgas?${params.toString()}`
-  }, [reportQuery, selectedMunicipality, selectedReportType, selectedYear])
+  }, [reportQuery, selectedMunicipality, selectedPropertyId, selectedReportType, selectedYear])
   const selectedReport = useMemo(
     () =>
       REPORT_TYPE_OPTIONS.find((option) => option.value === selectedReportType) ??
@@ -363,7 +367,7 @@ export default function ReportsPage() {
             <MetricCard
               description={METRIC_HELP.totalCo2eTon}
               label="Total CO₂e"
-              value={`${formatNumber(reportData.metrics.totalCo2eTon)} ton`}
+              value={formatTotalCo2eTon(reportData.metrics)}
             />
             <MetricCard
               description={METRIC_HELP.requiringInspection}
@@ -458,7 +462,7 @@ export default function ReportsPage() {
                       <TableHeader>Datum</TableHeader>
                       <TableHeader>Aggregat</TableHeader>
                       <TableHeader>Typ</TableHeader>
-                      <TableHeader>Påfylld mängd, kg</TableHeader>
+                      <TableHeader>Mängd</TableHeader>
                       <TableHeader>Anteckningar</TableHeader>
                     </tr>
                   </thead>
@@ -480,7 +484,7 @@ export default function ReportsPage() {
                         <TableCell>
                           {event.refrigerantAddedKg === null
                             ? "-"
-                            : formatNumber(event.refrigerantAddedKg)}
+                            : `${getEventAmountLabel(event.type)}: ${formatNumber(event.refrigerantAddedKg)} kg`}
                         </TableCell>
                         <TableCell>{event.notes || "-"}</TableCell>
                       </tr>
@@ -564,4 +568,16 @@ function formatNumber(value: number) {
 
 function formatCo2eTon(value: number | null) {
   return value === null ? "Okänt GWP-värde" : formatNumber(value)
+}
+
+function formatTotalCo2eTon(metrics: ReportData["metrics"]) {
+  if (metrics.totalCo2eTon !== null) {
+    return `${formatNumber(metrics.totalCo2eTon)} ton`
+  }
+
+  return `Ej fullständig (${formatNumber(metrics.knownCo2eTon)} ton känd)`
+}
+
+function getEventAmountLabel(type: EventType) {
+  return getInstallationEventAmountLabel(type) ?? "Mängd"
 }

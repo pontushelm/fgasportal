@@ -19,7 +19,9 @@ export type FgasReportData = {
   metrics: {
     totalInstallations: number
     totalRefrigerantAmountKg: number
-    totalCo2eTon: number
+    totalCo2eTon: number | null
+    knownCo2eTon: number
+    unknownCo2eInstallations: number
     requiringInspection: number
     inspectionsPerformed: number
     leakageEvents: number
@@ -119,7 +121,8 @@ export async function getFgasAnnualReport({
 
   const refrigerantMap = new Map<string, RefrigerantSummary>()
   let totalRefrigerantAmountKg = 0
-  let totalCo2eTon = 0
+  let knownCo2eTon = 0
+  let unknownCo2eInstallations = 0
   let requiringInspection = 0
   let inspectionEvents = 0
   let inspectionRecords = 0
@@ -154,7 +157,11 @@ export async function getFgasAnnualReport({
     refrigerantMap.set(refrigerantType, summary)
 
     totalRefrigerantAmountKg += installation.refrigerantAmount
-    totalCo2eTon += compliance.co2eTon ?? 0
+    if (compliance.co2eTon === null) {
+      unknownCo2eInstallations += 1
+    } else {
+      knownCo2eTon += compliance.co2eTon
+    }
     if (compliance.inspectionIntervalMonths) requiringInspection += 1
     inspectionRecords += installation.inspections.length
 
@@ -194,7 +201,9 @@ export async function getFgasAnnualReport({
     metrics: {
       totalInstallations: installations.length,
       totalRefrigerantAmountKg,
-      totalCo2eTon,
+      totalCo2eTon: unknownCo2eInstallations > 0 ? null : knownCo2eTon,
+      knownCo2eTon,
+      unknownCo2eInstallations,
       requiringInspection,
       inspectionsPerformed: inspectionEvents + inspectionRecords,
       leakageEvents,

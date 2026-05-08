@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
 
     const year = parseReportYear(request.nextUrl.searchParams.get("year"))
     const municipality = request.nextUrl.searchParams.get("municipality")?.trim()
+    const propertyId = request.nextUrl.searchParams.get("propertyId")?.trim()
 
     if (!year) {
       return NextResponse.json({ error: "Ogiltigt årtal" }, { status: 400 })
@@ -34,6 +35,7 @@ export async function GET(request: NextRequest) {
       companyId: auth.user.companyId,
       isContractor: isContractor(auth.user),
       municipality: municipality || null,
+      propertyId: propertyId || null,
       year,
     })
 
@@ -41,6 +43,7 @@ export async function GET(request: NextRequest) {
       companyId: auth.user.companyId,
       assignedContractorId: isContractor(auth.user) ? auth.user.userId : undefined,
       municipality: municipality || undefined,
+      propertyId: propertyId || undefined,
       year,
     })
     logAnnualReportRoute(requestId, "Report data built", {
@@ -74,6 +77,7 @@ export async function GET(request: NextRequest) {
         reportType: "annual_fgas_control_required_equipment",
         year,
         municipality: municipality || null,
+        propertyId: propertyId || null,
         format: "pdf",
       },
     })
@@ -158,6 +162,7 @@ function serializeError(error: unknown) {
 function sanitizeSearchParams(searchParams: URLSearchParams) {
   return {
     municipality: searchParams.get("municipality"),
+    propertyId: searchParams.get("propertyId"),
     year: searchParams.get("year"),
   }
 }

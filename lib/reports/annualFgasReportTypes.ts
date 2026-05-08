@@ -2,6 +2,7 @@ export type AnnualFgasReportFilter = {
   companyId: string
   year: number
   municipality?: string
+  propertyId?: string
   assignedContractorId?: string
 }
 
@@ -38,8 +39,10 @@ export type AnnualFgasReportData = {
   summary: {
     equipmentCount: number
     controlRequiredCount: number
+    unknownCo2eEquipmentCount: number
     totalRefrigerantKg: number
-    totalCo2eKg: number
+    totalCo2eKg: number | null
+    knownCo2eKg: number
     leakageCount: number
     addedRefrigerantKg: number
     recoveredRefrigerantKg: number

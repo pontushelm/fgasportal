@@ -9,6 +9,7 @@ import {
   type FgasReportEventType,
 } from "@/lib/fgas-report"
 import { logActivity } from "@/lib/activity-log"
+import { getInstallationEventAmountLabel } from "@/lib/installation-events"
 
 const EVENT_LABELS: Record<FgasReportEventType, string> = {
   INSPECTION: "Kontroll",
@@ -133,7 +134,7 @@ function createReportCsv(report: FgasReportData) {
       "Total köldmediemängd kg",
       formatNumber(report.metrics.totalRefrigerantAmountKg),
     ],
-    ["Total CO₂e ton", formatNumber(report.metrics.totalCo2eTon)],
+    ["Total CO₂e ton", formatTotalCo2eTon(report)],
     [
       "Kontrollpliktiga aggregat",
       String(report.metrics.requiringInspection),
@@ -162,7 +163,7 @@ function createReportCsv(report: FgasReportData) {
     ]),
     [],
     ["Händelser under året"],
-    ["Datum", "Aggregat", "Typ", "Köldmedium", "Mängd kg", "Anteckningar"],
+    ["Datum", "Aggregat", "Typ", "Köldmedium", "Mängd", "Anteckningar"],
     ...report.events.map((event) => [
       formatDate(event.date),
       event.installationName,
@@ -170,7 +171,7 @@ function createReportCsv(report: FgasReportData) {
       event.refrigerantType,
       event.refrigerantAddedKg === null
         ? ""
-        : formatNumber(event.refrigerantAddedKg),
+        : `${getEventAmountLabel(event.type)}: ${formatNumber(event.refrigerantAddedKg)} kg`,
       event.notes ?? "",
     ]),
   ]
@@ -205,7 +206,7 @@ function createReportPdf(report: FgasReportData, companyName: string | null) {
         "Total köldmediemängd kg",
         formatNumber(report.metrics.totalRefrigerantAmountKg),
       ],
-      ["Total CO2e ton", formatNumber(report.metrics.totalCo2eTon)],
+      ["Total CO2e ton", formatTotalCo2eTon(report)],
       [
         "Kontrollpliktiga aggregat",
         String(report.metrics.requiringInspection),
@@ -234,7 +235,7 @@ function createReportPdf(report: FgasReportData, companyName: string | null) {
     drawSectionTitle(doc, "Händelser under året")
     drawTable(
       doc,
-      ["Datum", "Aggregat", "Typ", "Köldmedium", "Mängd kg", "Anteckningar"],
+      ["Datum", "Aggregat", "Typ", "Köldmedium", "Mängd", "Anteckningar"],
       report.events.map((event) => [
         formatDate(event.date),
         event.installationName,
@@ -242,7 +243,7 @@ function createReportPdf(report: FgasReportData, companyName: string | null) {
         event.refrigerantType,
         event.refrigerantAddedKg === null
           ? "-"
-          : formatNumber(event.refrigerantAddedKg),
+          : `${getEventAmountLabel(event.type)}: ${formatNumber(event.refrigerantAddedKg)} kg`,
         event.notes ?? "-",
       ]),
       [58, 92, 62, 74, 58, 116]
@@ -391,4 +392,18 @@ function formatNumber(value: number) {
 
 function formatNullableCo2e(value: number | null) {
   return value === null ? "Okänt GWP-värde" : formatNumber(value)
+}
+
+function formatTotalCo2eTon(report: FgasReportData) {
+  if (report.metrics.totalCo2eTon !== null) {
+    return formatNumber(report.metrics.totalCo2eTon)
+  }
+
+  return `Kan inte beräknas fullständigt; känd delsumma ${formatNumber(
+    report.metrics.knownCo2eTon
+  )}`
+}
+
+function getEventAmountLabel(type: FgasReportEventType) {
+  return getInstallationEventAmountLabel(type) ?? "Mängd"
 }
