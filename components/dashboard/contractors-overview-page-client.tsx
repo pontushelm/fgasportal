@@ -72,14 +72,14 @@ export default function ContractorsOverviewPageClient() {
 
       if (response.status === 403) {
         if (!isMounted) return
-        setError("Du har inte behörighet att se servicepartneröversikten.")
+        setError("Du har inte behörighet att se servicekontaktöversikten.")
         setIsLoading(false)
         return
       }
 
       if (!response.ok) {
         if (!isMounted) return
-        setError("Kunde inte hämta servicepartners.")
+        setError("Kunde inte hämta servicekontakter.")
         setIsLoading(false)
         return
       }
@@ -155,7 +155,7 @@ export default function ContractorsOverviewPageClient() {
     setInviteSuccess(
       result.inviteLink
         ? "Inbjudan har skickats."
-        : result.message || "Servicepartnern har lagts till."
+        : result.message || "Servicekontakten har lagts till."
     )
     setInviteLink(result.inviteLink || "")
     setInviteEmail("")
@@ -166,23 +166,28 @@ export default function ContractorsOverviewPageClient() {
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 dark:text-slate-100 sm:px-6 lg:px-8">
       <PageHeader
-        eyebrow="Servicepartners"
-        title="Servicepartneröversikt"
-        subtitle="Följ arbetsbelastning, försenade kontroller och risk per tilldelad servicepartner."
+        eyebrow="Servicekontakter"
+        title="Inbjudna servicekontakter"
+        subtitle="Följ tilldelade aggregat, försenade kontroller och risk per inbjuden kontakt/tekniker."
         actions={
           <button
             className={buttonClassName({ variant: "secondary" })}
             type="button"
             onClick={openInviteModal}
           >
-            Bjud in servicepartner
+            Bjud in servicekontakt
           </button>
         }
       />
 
+      <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-100">
+        I dagsläget kopplas aggregat till en inbjuden servicekontakt. Stöd för
+        full servicepartnerorganisation med flera tekniker kan byggas ut senare.
+      </div>
+
       {isLoading && (
         <p className="mt-8 text-sm text-slate-700 dark:text-slate-300">
-          Laddar servicepartners...
+          Laddar servicekontakter...
         </p>
       )}
       {error && <p className="mt-8 text-sm font-semibold text-red-700">{error}</p>}
@@ -191,7 +196,7 @@ export default function ContractorsOverviewPageClient() {
         <>
           <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <MetricCard
-              label="Totalt antal servicepartners"
+              label="Inbjudna servicekontakter"
               value={data.summary.totalContractors}
             />
             <MetricCard
@@ -218,23 +223,23 @@ export default function ContractorsOverviewPageClient() {
           <Card className="mt-6 overflow-hidden">
             <div className="border-b border-slate-200 p-5 dark:border-slate-800">
               <SectionHeader
-                title="Servicepartners"
-                subtitle="Klicka på en servicepartner för att se filtrerade aggregat."
+                title="Servicekontakter"
+                subtitle="Klicka på en kontakt/tekniker för att se filtrerade aggregat."
               />
             </div>
 
             {data.contractors.length === 0 ? (
               <div className="p-5">
                 <EmptyState
-                  title="Inga servicepartners har lagts till ännu."
-                  description="Bjud in servicepartners här när ni vill tilldela aggregat."
+                  title="Inga servicekontakter har lagts till ännu."
+                  description="Bjud in en servicekontakt när ni vill tilldela aggregat till en extern kontakt/tekniker."
                   action={
                     <button
                       className={buttonClassName({ variant: "primary" })}
                       type="button"
                       onClick={openInviteModal}
                     >
-                      Bjud in servicepartner
+                      Bjud in servicekontakt
                     </button>
                   }
                 />
@@ -244,7 +249,7 @@ export default function ContractorsOverviewPageClient() {
                 <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
                   <thead className="bg-slate-50 dark:bg-slate-950">
                     <tr>
-                      <TableHeader>Servicepartner</TableHeader>
+                      <TableHeader>Kontakt/tekniker</TableHeader>
                       <TableHeader>Status</TableHeader>
                       <TableHeader>Tilldelade aggregat</TableHeader>
                       <TableHeader>Försenade kontroller</TableHeader>
@@ -319,10 +324,10 @@ export default function ContractorsOverviewPageClient() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-100">
-                  Bjud in servicepartner
+                  Bjud in servicekontakt
                 </h2>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                  Bjud in en extern servicepartner som kan hantera tilldelade aggregat, kontroller och servicehändelser.
+                  Bjud in en extern kontakt/tekniker som kan hantera tilldelade aggregat, kontroller och servicehändelser.
                 </p>
               </div>
               <button
@@ -441,7 +446,7 @@ function CountBadge({
 function CertificationBadge({ status }: { status: CertificationStatusResult }) {
   return (
     <Badge
-      title="Certifieringsuppgifter hanteras av servicepartnern."
+      title="Certifieringsuppgifter hanteras av servicekontakten."
       variant={status.variant}
     >
       {status.label}

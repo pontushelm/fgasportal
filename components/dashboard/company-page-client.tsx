@@ -757,7 +757,7 @@ export default function CompanySettingsPage() {
                 Bjud in användare till organisationen
               </h2>
               <p className="mt-1 text-sm text-slate-600">
-                Används för interna användare. Servicepartners bjuds in från servicepartnersidan.
+                Används för interna användare. Servicekontakter bjuds in från servicekontaktsidan.
               </p>
               <form className="mt-5 grid max-w-md gap-4" onSubmit={handleInviteSubmit}>
                 <label className={fieldClassName}>

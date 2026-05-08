@@ -130,7 +130,7 @@ export default function ServiceDashboardPage() {
 
       if (response.status === 403) {
         if (!isMounted) return
-        setError("Serviceuppdrag är endast tillgängligt för servicepartner.")
+        setError("Serviceuppdrag är endast tillgängligt för servicekontakter.")
         setIsLoading(false)
         return
       }
@@ -546,7 +546,7 @@ function CertificationWarningBox({ message }: { message: string }) {
       <p className="font-semibold">{message}</p>
       <p className="mt-1 text-amber-800">
         Kontrollera att arbete på köldmediekrets utförs av giltigt certifierad
-        servicepartner.
+        servicekontakt.
       </p>
     </div>
   )
@@ -607,14 +607,14 @@ function getCertificationWarning(status: CertificationStatusResult | null) {
   if (!status || status.status === "VALID") return null
 
   if (status.status === "EXPIRED") {
-    return "Servicepartnerns certifiering har gått ut."
+    return "Servicekontaktens certifiering har gått ut."
   }
 
   if (status.status === "EXPIRING_SOON") {
-    return "Servicepartnerns certifiering löper snart ut."
+    return "Servicekontaktens certifiering löper snart ut."
   }
 
-  return "Servicepartnern saknar registrerad certifiering."
+  return "Servicekontakten saknar registrerad certifiering."
 }
 
 const fieldClassName = "grid gap-1 text-sm font-medium text-slate-700"

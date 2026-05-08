@@ -471,7 +471,7 @@ export default function InstallationsPageClient() {
     setSuccess("")
 
     if (!contractorId) {
-      setError("Välj servicepartner")
+      setError("Välj servicekontakt")
       return
     }
 
@@ -496,7 +496,7 @@ export default function InstallationsPageClient() {
     }
 
     if (!res.ok) {
-      setError(result.error || "Kunde inte tilldela servicepartner")
+      setError(result.error || "Kunde inte tilldela servicekontakt")
       setIsSubmitting(false)
       return
     }
@@ -648,12 +648,12 @@ export default function InstallationsPageClient() {
           </FilterSelect>
 
           <FilterSelect
-            label="Servicepartner"
+            label="Servicekontakt"
             value={contractorFilterValue}
             onChange={(value) => updateQueryParam("contractorId", value)}
           >
             <option value="">Alla</option>
-            <option value="unassigned">Ingen servicepartner</option>
+            <option value="unassigned">Ingen servicekontakt</option>
             {contractors.map((contractor) => (
               <option key={contractor.id} value={contractor.id}>
                 {contractor.name}
@@ -839,7 +839,7 @@ export default function InstallationsPageClient() {
               disabled={isSubmitting}
               onClick={() => setIsAssignModalOpen(true)}
             >
-              Tilldela servicepartner
+              Tilldela servicekontakt
             </button>
             <button
               className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:text-slate-400"
@@ -965,19 +965,19 @@ export default function InstallationsPageClient() {
       {isAssignModalOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 px-4">
           <form className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-xl" onSubmit={handleAssignContractor}>
-            <h2 className="text-lg font-semibold text-slate-950">Tilldela servicepartner</h2>
+            <h2 className="text-lg font-semibold text-slate-950">Tilldela servicekontakt</h2>
             <p className="mt-1 text-sm text-slate-700">
-              Välj servicepartner för {selectedIds.length} valda aggregat.
+              Välj inbjuden servicekontakt för {selectedIds.length} valda aggregat.
             </p>
             <label className="mt-4 grid gap-1 text-sm font-medium text-slate-700">
-              Servicepartner
+              Servicekontakt
               <select
                 className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900"
                 value={contractorId}
                 onChange={(event) => setContractorId(event.target.value)}
                 required
               >
-                <option value="">Välj servicepartner</option>
+                <option value="">Välj servicekontakt</option>
                 {contractors.map((contractor) => (
                   <option key={contractor.id} value={contractor.id}>
                     {contractor.name} ({contractor.email})
@@ -1223,7 +1223,7 @@ function InstallationQuickView({
                 value={formatOptionalDate(installation.nextInspection)}
               />
               <QuickViewItem
-                label="Servicepartner"
+                label="Servicekontakt"
                 value={installation.assignedContractor?.name || "-"}
               />
             </dl>

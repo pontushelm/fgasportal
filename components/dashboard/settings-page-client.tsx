@@ -39,7 +39,7 @@ const notificationLabels: Record<keyof NotificationPreferences, string> = {
 
 const notificationDescriptions: Record<keyof NotificationPreferences, string> = {
   notifyAssignmentEmails:
-    "E-post när du som servicepartner får nya tilldelade aggregat.",
+    "E-post när du som servicekontakt får nya tilldelade aggregat.",
   notifyInspectionReminderEmails:
     "E-post om kontroller som är försenade eller behöver göras inom 30 dagar.",
   notifyDocumentEmails:

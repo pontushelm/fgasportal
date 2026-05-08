@@ -281,7 +281,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
   installation_created: "Aggregat skapat",
   installation_updated: "Aggregat uppdaterat",
   installation_scrapped: "Aggregat skrotat",
-  service_partner_assigned: "Servicepartner tilldelad",
+  service_partner_assigned: "Servicekontakt tilldelad",
   inspection_added: "Kontroll registrerad",
   leak_registered: "Läckage registrerat",
   refill_registered: "Påfyllning registrerad",
@@ -1051,7 +1051,7 @@ export default function InstallationDetailPage() {
           <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <DetailItem label="Skrotningsdatum" value={formatOptionalDate(installation.scrappedAt)} />
             <DetailItem
-              label="Servicepartner"
+              label="Servicekontakt"
               value={
                 installation.scrapServicePartner?.name ||
                 selectedScrapContractor?.name ||
@@ -1383,7 +1383,7 @@ export default function InstallationDetailPage() {
                 <input className={formControlClassName} name="installationDate" type="date" min={minInstallationDate} max={maxInstallationDate} value={editForm.installationDate} onChange={handleEditChange} required />
               </label>
               <label className={fieldClassName}>
-                Servicepartner
+                Servicekontakt
                 <select className={formControlClassName} name="assignedContractorId" value={editForm.assignedContractorId} onChange={handleEditChange}>
                   <option value="">Ingen tilldelad</option>
                   {contractors.map((contractor) => (
@@ -1561,7 +1561,7 @@ export default function InstallationDetailPage() {
             {eventForm.type === "SCRAP" && (
               <>
                 <label className={fieldClassName}>
-                  <span>Servicepartner <RequiredMark /></span>
+                  <span>Servicekontakt/tekniker <RequiredMark /></span>
                   <select
                     className={formControlClassName}
                     name="servicePartnerId"
@@ -1569,7 +1569,7 @@ export default function InstallationDetailPage() {
                     onChange={handleScrapChange}
                     required
                   >
-                    <option value="">Välj servicepartner</option>
+                    <option value="">Välj servicekontakt</option>
                     {contractors.map((contractor) => (
                       <option key={contractor.id} value={contractor.id}>
                         {contractor.name} ({contractor.email})
@@ -1760,7 +1760,7 @@ function ServicepartnerDetailItem({
 }) {
   return (
     <div>
-      <dt className="text-sm font-medium text-slate-600">Servicepartner</dt>
+      <dt className="text-sm font-medium text-slate-600">Servicekontakt</dt>
       <dd className="mt-1 flex flex-wrap items-center gap-2 font-semibold text-slate-950">
         <span>{contractor.name || contractor.email}</span>
         <CertificationBadge status={contractor.certificationStatus} />
@@ -1860,7 +1860,7 @@ function CertificationWarningBox({ message }: { message: string }) {
       <p className="font-semibold">{message}</p>
       <p className="mt-1 text-amber-800">
         Kontrollera att arbete på köldmediekrets utförs av giltigt certifierad
-        servicepartner.
+        servicekontakt.
       </p>
     </div>
   )
@@ -2050,12 +2050,12 @@ function getCertificationWarning(status: CertificationStatusResult | null) {
   if (!status || status.status === "VALID") return null
 
   if (status.status === "EXPIRED") {
-    return "Servicepartnerns certifiering har gått ut."
+    return "Servicekontaktens certifiering har gått ut."
   }
 
   if (status.status === "EXPIRING_SOON") {
-    return "Servicepartnerns certifiering löper snart ut."
+    return "Servicekontaktens certifiering löper snart ut."
   }
 
-  return "Servicepartnern saknar registrerad certifiering."
+  return "Servicekontakten saknar registrerad certifiering."
 }

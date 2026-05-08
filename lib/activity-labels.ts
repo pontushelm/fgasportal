@@ -2,7 +2,7 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   installation_created: "Aggregat skapat",
   installation_updated: "Aggregat uppdaterat",
   installation_scrapped: "Aggregat skrotat",
-  service_partner_assigned: "Servicepartner tilldelad",
+  service_partner_assigned: "Servicekontakt tilldelad",
   property_assigned: "Fastighet tilldelad",
   property_removed: "Fastighet borttagen",
   company_billing_updated: "Fakturauppgifter uppdaterade",
@@ -46,7 +46,7 @@ export function formatActivityDescription({
     if (typeof metadata.originalFileName === "string") return metadata.originalFileName
     if (typeof metadata.inspectorName === "string") return metadata.inspectorName
     if (typeof metadata.contractorName === "string") {
-      return `Servicepartner: ${metadata.contractorName}`
+      return `Servicekontakt: ${metadata.contractorName}`
     }
     if (typeof metadata.propertyName === "string") {
       return `Fastighet: ${metadata.propertyName}`
