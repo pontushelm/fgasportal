@@ -47,31 +47,52 @@ const MAX_IMPORT_ROWS = 500
 
 export const IMPORT_FIELD_DEFINITIONS: ImportFieldDefinition[] = [
   {
-    key: "name",
-    label: "Namn",
+    key: "equipmentId",
+    label: "Aggregat-ID / märkning",
     required: true,
+    aliases: [
+      "aggregat-id",
+      "aggregat id",
+      "aggregatid",
+      "aggregatnummer",
+      "aggregatnr",
+      "aggregat nr",
+      "märkning",
+      "markning",
+      "märk-id",
+      "mark-id",
+      "märknings-id",
+      "marknings-id",
+      "objekt-id",
+      "objekt id",
+      "objektid",
+      "utrustnings-id",
+      "utrustnings id",
+      "utrustningsid",
+      "inventarienummer",
+      "anläggnings-id",
+      "anlaggnings-id",
+      "anläggnings id",
+      "anlaggnings id",
+      "anlaggningsid",
+      "id",
+      "asset id",
+      "equipment id",
+    ],
+  },
+  {
+    key: "name",
+    label: "Aggregatnamn / benämning",
     aliases: [
       "namn",
       "aggregat",
       "aggregatnamn",
       "benämning",
+      "benamning",
       "equipment",
       "unit name",
       "installation",
       "installation name",
-    ],
-  },
-  {
-    key: "equipmentId",
-    label: "Utrustnings-ID / Aggregat-ID",
-    aliases: [
-      "aggregat-id",
-      "aggregatid",
-      "utrustnings-id",
-      "utrustningsid",
-      "id",
-      "asset id",
-      "equipment id",
     ],
   },
   {
@@ -203,6 +224,20 @@ export const REQUIRED_IMPORT_FIELDS = IMPORT_FIELD_DEFINITIONS.filter(
   (field) => field.required
 ).map((field) => field.key)
 
+export const IMPORT_IDENTITY_FIELDS: ImportFieldKey[] = ["equipmentId", "name"]
+
+export function getMissingRequiredImportFields(mappedFields: ImportFieldKey[]) {
+  return REQUIRED_IMPORT_FIELDS.filter((field) => {
+    if (field === "equipmentId") {
+      return !IMPORT_IDENTITY_FIELDS.some((identityField) =>
+        mappedFields.includes(identityField)
+      )
+    }
+
+    return !mappedFields.includes(field)
+  })
+}
+
 export function parseImportRows(rows: Record<string, unknown>[]) {
   return rows.slice(0, MAX_IMPORT_ROWS).map((row, index) =>
     normalizeImportRow(row, index + 2)
@@ -215,8 +250,9 @@ export function normalizeImportRow(
 ): ParsedImportRow {
   const errors: string[] = []
   const warnings: string[] = []
-  const name = getString(rawRow, "name")
+  const rawName = getString(rawRow, "name")
   const equipmentId = getOptionalString(rawRow, "equipmentId")
+  const name = rawName || equipmentId || ""
   const location = getString(rawRow, "location")
   const propertyName = getOptionalString(rawRow, "propertyName")
   const municipality = getOptionalString(rawRow, "municipality")
@@ -237,7 +273,13 @@ export function normalizeImportRow(
     getValue(rawRow, "inspectionIntervalMonths")
   )
 
-  if (!name) errors.push("Saknar namn")
+  if (!equipmentId && !rawName) {
+    errors.push("Saknar Aggregat-ID / märkning eller aggregatnamn")
+  } else if (!equipmentId && rawName) {
+    warnings.push(
+      "Saknar Aggregat-ID / märkning - rekommenderas för register och framtida händelsematchning"
+    )
+  }
   if (!rawRefrigerantType) {
     errors.push("Saknar köldmedium")
   } else if (!refrigerantType) {

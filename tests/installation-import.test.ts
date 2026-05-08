@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
-  getSuggestedImportField,
   getDuplicateMappedFields,
+  getSuggestedImportField,
   isImportFieldSelectedByAnotherColumn,
   mapImportRowsWithMapping,
   normalizeImportRow,
@@ -17,10 +17,10 @@ describe("installation import parsing", () => {
     )
   })
 
-  it("imports rows with missing optional placement and property as warnings", () => {
+  it("imports Aggregat-ID only rows and uses it as display name", () => {
     const row = normalizeImportRow(
       {
-        name: "Kylaggregat 1",
+        equipmentId: "AGG-001",
         refrigerantType: "R-404A",
         refrigerantAmount: "10",
       },
@@ -32,10 +32,30 @@ describe("installation import parsing", () => {
       "Saknar placering - kan kompletteras senare",
       "Saknar fastighet - kan kopplas senare",
     ])
+    expect(row.name).toBe("AGG-001")
+    expect(row.equipmentId).toBe("AGG-001")
     expect(row.refrigerantType).toBe("R404A")
   })
 
-  it("blocks rows with missing required fields", () => {
+  it("imports name-only rows with a warning for backward compatibility", () => {
+    const row = normalizeImportRow(
+      {
+        name: "Kylaggregat 1",
+        refrigerantType: "R404A",
+        refrigerantAmount: "10",
+      },
+      2
+    )
+
+    expect(row.errors).toEqual([])
+    expect(row.warnings).toContain(
+      "Saknar Aggregat-ID / märkning - rekommenderas för register och framtida händelsematchning"
+    )
+    expect(row.name).toBe("Kylaggregat 1")
+    expect(row.equipmentId).toBeNull()
+  })
+
+  it("blocks rows missing both Aggregat-ID and name", () => {
     const row = normalizeImportRow(
       {
         location: "Maskinrum",
@@ -45,13 +65,13 @@ describe("installation import parsing", () => {
       2
     )
 
-    expect(row.errors).toContain("Saknar namn")
+    expect(row.errors).toContain("Saknar Aggregat-ID / märkning eller aggregatnamn")
   })
 
   it("blocks invalid fill amount", () => {
     const row = normalizeImportRow(
       {
-        name: "Kylaggregat 1",
+        equipmentId: "AGG-001",
         refrigerantType: "R404A",
         refrigerantAmount: "abc",
       },
@@ -61,10 +81,10 @@ describe("installation import parsing", () => {
     expect(row.errors).toContain("Ogiltig fyllnadsmängd")
   })
 
-  it("warns for unknown refrigerants without crashing", () => {
+  it("warns for unknown refrigerants without changing CO2e behavior", () => {
     const row = normalizeImportRow(
       {
-        name: "Kylaggregat 1",
+        equipmentId: "AGG-001",
         refrigerantType: "R999X",
         refrigerantAmount: "10",
       },
@@ -73,6 +93,8 @@ describe("installation import parsing", () => {
 
     expect(row.errors).toEqual([])
     expect(row.refrigerantType).toBe("R999X")
+    expect(row.inspectionIntervalMonths).toBeNull()
+    expect(row.nextInspection).toBeNull()
     expect(row.warnings).toContain(
       "Okänt GWP-värde - CO₂e och kontrollplikt kan kompletteras senare"
     )
@@ -80,6 +102,7 @@ describe("installation import parsing", () => {
 
   it("parses rows through explicit column mapping", () => {
     const mapping: ColumnMapping = {
+      "Aggregat-ID": "equipmentId",
       Aggregat: "name",
       Gas: "refrigerantType",
       "Köldmediemängd": "refrigerantAmount",
@@ -88,6 +111,7 @@ describe("installation import parsing", () => {
     const rows = mapImportRowsWithMapping(
       [
         {
+          "Aggregat-ID": "AGG-001",
           Aggregat: "Kylaggregat 1",
           Gas: "R 404 A",
           "Köldmediemängd": 10,
@@ -100,9 +124,24 @@ describe("installation import parsing", () => {
     const parsed = parseImportRows(rows)
 
     expect(parsed[0].name).toBe("Kylaggregat 1")
+    expect(parsed[0].equipmentId).toBe("AGG-001")
     expect(parsed[0].refrigerantType).toBe("R404A")
     expect(parsed[0].refrigerantAmount).toBe(10)
     expect(parsed[0].errors).toEqual([])
+  })
+
+  it("maps common Swedish Aggregat-ID aliases to equipmentId", () => {
+    expect(getSuggestedImportField("Aggregat-ID")).toBe("equipmentId")
+    expect(getSuggestedImportField("Aggregat ID")).toBe("equipmentId")
+    expect(getSuggestedImportField("Aggregatnummer")).toBe("equipmentId")
+    expect(getSuggestedImportField("Aggregatnr")).toBe("equipmentId")
+    expect(getSuggestedImportField("Aggregat nr")).toBe("equipmentId")
+    expect(getSuggestedImportField("Märkning")).toBe("equipmentId")
+    expect(getSuggestedImportField("Märk-ID")).toBe("equipmentId")
+    expect(getSuggestedImportField("Objekt-ID")).toBe("equipmentId")
+    expect(getSuggestedImportField("Utrustnings-ID")).toBe("equipmentId")
+    expect(getSuggestedImportField("Inventarienummer")).toBe("equipmentId")
+    expect(getSuggestedImportField("Anläggnings-ID")).toBe("equipmentId")
   })
 
   it("detects duplicate mapped target fields", () => {

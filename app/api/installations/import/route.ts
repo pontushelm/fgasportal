@@ -14,7 +14,7 @@ const importRequestSchema = z.object({
   rows: z.array(
     z.object({
       row: z.number(),
-      name: z.string(),
+      name: z.string().optional().default(""),
       equipmentId: z.string().nullable().optional(),
       location: z.string(),
       propertyName: z.string().nullable().optional(),
@@ -67,12 +67,18 @@ export async function POST(request: NextRequest) {
       }
 
       const duplicate = await prisma.installation.findFirst({
-        where: {
-          companyId,
-          archivedAt: null,
-          name: parsed.name,
-          location: parsed.location,
-        },
+        where: parsed.equipmentId
+          ? {
+              companyId,
+              archivedAt: null,
+              equipmentId: parsed.equipmentId,
+            }
+          : {
+              companyId,
+              archivedAt: null,
+              name: parsed.name,
+              location: parsed.location,
+            },
         select: {
           id: true,
         },
@@ -82,7 +88,9 @@ export async function POST(request: NextRequest) {
         skipped += 1
         errors.push({
           row: parsed.row,
-          message: "Duplicate installation with same name and location",
+          message: parsed.equipmentId
+            ? "Duplicate installation with same Aggregat-ID / märkning"
+            : "Duplicate installation with same name and location",
         })
         continue
       }

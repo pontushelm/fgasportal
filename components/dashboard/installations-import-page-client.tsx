@@ -5,9 +5,9 @@ import { useMemo, useState } from "react"
 import * as XLSX from "xlsx"
 import {
   IMPORT_FIELD_DEFINITIONS,
-  REQUIRED_IMPORT_FIELDS,
   getDuplicateMappedFields,
   getImportFieldLabel,
+  getMissingRequiredImportFields,
   getMaxImportRows,
   getSuggestedImportField,
   isImportFieldSelectedByAnotherColumn,
@@ -37,8 +37,8 @@ type WorksheetPreview = {
 }
 
 const TEMPLATE_COLUMNS = [
-  "Namn",
-  "Utrustnings-ID",
+  "Aggregat-ID / märkning",
+  "Aggregatnamn / benämning",
   "Plats",
   "Fastighet",
   "Kommun",
@@ -57,8 +57,8 @@ const TEMPLATE_COLUMNS = [
 
 const TEMPLATE_ROWS = [
   {
-    Namn: "Kylaggregat 1",
-    "Utrustnings-ID": "AGG-001",
+    "Aggregat-ID / märkning": "AGG-001",
+    "Aggregatnamn / benämning": "Kylaggregat 1",
     Plats: "Tak plan 3",
     Fastighet: "Stadshuset",
     Kommun: "Stockholm",
@@ -75,8 +75,8 @@ const TEMPLATE_ROWS = [
     Operatör: "Fastighetsavdelningen",
   },
   {
-    Namn: "Frysrum",
-    "Utrustnings-ID": "AGG-002",
+    "Aggregat-ID / märkning": "AGG-002",
+    "Aggregatnamn / benämning": "Frysrum",
     Plats: "Källare",
     Fastighet: "Servicehuset",
     Kommun: "Stockholm",
@@ -117,9 +117,7 @@ export default function ImportInstallationsPage({
     () => Object.values(columnMapping).filter(Boolean) as ImportFieldKey[],
     [columnMapping]
   )
-  const missingRequiredFields = REQUIRED_IMPORT_FIELDS.filter(
-    (field) => !mappedFields.includes(field)
-  )
+  const missingRequiredFields = getMissingRequiredImportFields(mappedFields)
   const duplicatedFields = useMemo(
     () => getDuplicateMappedFields(columnMapping),
     [columnMapping]
@@ -257,8 +255,9 @@ export default function ImportInstallationsPage({
         </h1>
         <p className="mt-2 text-sm text-slate-700">
           Ladda upp en .xlsx- eller .csv-fil, mappa kolumnerna och importera de
-          rader som har nödvändiga uppgifter. Rader med varningar kan importeras
-          och kompletteras senare.
+          rader som har nödvändiga uppgifter. Aggregat-ID / märkning är den
+          viktigaste identiteten för register och framtida händelsematchning.
+          Rader med varningar kan importeras och kompletteras senare.
         </p>
       </div>
 
@@ -266,9 +265,9 @@ export default function ImportInstallationsPage({
         <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
           <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
             <p>
-              Obligatoriska fält är Namn, Köldmedium och Fyllnadsmängd. Extra
-              kolumner kan lämnas omappade och saknad placering eller fastighet
-              blir bara en varning.
+              Obligatoriska fält är Aggregat-ID / märkning, Köldmedium och
+              Fyllnadsmängd. Aggregatnamn / benämning är valfritt; om det
+              saknas används Aggregat-ID som visningsnamn.
             </p>
             <p className="mt-2 text-xs text-slate-600">
               GWP och CO₂e beräknas automatiskt från köldmedium och
@@ -500,8 +499,8 @@ export default function ImportInstallationsPage({
               <thead className="sticky top-0 bg-slate-50">
                 <tr>
                   <th className={tableHeaderClassName}>Rad</th>
-                  <th className={tableHeaderClassName}>Namn</th>
-                  <th className={tableHeaderClassName}>Utrustnings-ID</th>
+                  <th className={tableHeaderClassName}>Aggregat-ID / märkning</th>
+                  <th className={tableHeaderClassName}>Aggregatnamn / benämning</th>
                   <th className={tableHeaderClassName}>Plats</th>
                   <th className={tableHeaderClassName}>Fastighet</th>
                   <th className={tableHeaderClassName}>Köldmedium</th>
@@ -516,8 +515,8 @@ export default function ImportInstallationsPage({
                 {rows.map((row) => (
                   <tr key={row.row}>
                     <td className={tableCellClassName}>{row.row}</td>
-                    <td className={tableCellClassName}>{row.name || "-"}</td>
                     <td className={tableCellClassName}>{row.equipmentId || "-"}</td>
+                    <td className={tableCellClassName}>{row.name || "-"}</td>
                     <td className={tableCellClassName}>{row.location || "-"}</td>
                     <td className={tableCellClassName}>{row.propertyName || "-"}</td>
                     <td className={tableCellClassName}>{row.refrigerantType || "-"}</td>
