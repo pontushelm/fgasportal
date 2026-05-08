@@ -11,6 +11,10 @@ import {
   type ComplianceStatus,
 } from "@/lib/fgas-calculations"
 import type { UserRole } from "@/lib/auth"
+import {
+  getInstallationEventAmountLabel,
+  hasInstallationEventAmount,
+} from "@/lib/installation-events"
 import { isAdminRole } from "@/lib/roles"
 import {
   calculateInstallationRisk,
@@ -493,7 +497,12 @@ export default function InstallationDetailPage() {
         ...current,
         type: nextType,
         date: current.date || getTodayInputValue(),
-        refrigerantAddedKg: nextType === "REFILL" ? current.refrigerantAddedKg : "",
+        refrigerantAddedKg:
+          nextType === current.type &&
+          isInstallationEventType(nextType) &&
+          hasInstallationEventAmount(nextType)
+            ? current.refrigerantAddedKg
+            : "",
         newRefrigerantType:
           nextType === "REFRIGERANT_CHANGE" ? current.newRefrigerantType : "",
         recoveredRefrigerantKg:
@@ -775,7 +784,8 @@ export default function InstallationDetailPage() {
         date: eventForm.date,
         type: eventForm.type,
         refrigerantAddedKg:
-          eventForm.type === "REFILL" || eventForm.type === "REFRIGERANT_CHANGE"
+          isInstallationEventType(eventForm.type) &&
+          hasInstallationEventAmount(eventForm.type)
             ? eventForm.refrigerantAddedKg
             : "",
         newRefrigerantType:
@@ -1469,9 +1479,11 @@ export default function InstallationDetailPage() {
                 <option value="SCRAP">Skrotning</option>
               </select>
             </label>
-            {eventForm.type === "REFILL" && (
+            {isInstallationEventType(eventForm.type) &&
+              hasInstallationEventAmount(eventForm.type) &&
+              eventForm.type !== "REFRIGERANT_CHANGE" && (
               <label className={fieldClassName}>
-                Påfylld mängd kg
+                {getInstallationEventAmountLabel(eventForm.type, { includeUnit: true })}
                 <input
                   className={formControlClassName}
                   name="refrigerantAddedKg"
@@ -1479,7 +1491,7 @@ export default function InstallationDetailPage() {
                   onChange={handleEventChange}
                   inputMode="decimal"
                 />
-              </label>
+                </label>
             )}
             {eventForm.type === "REFRIGERANT_CHANGE" && (
               <div className="grid gap-3 rounded-md border border-amber-200 bg-amber-50 p-3">
@@ -1521,7 +1533,9 @@ export default function InstallationDetailPage() {
                   />
                 </label>
                 <label className={fieldClassName}>
-                  Påfylld mängd nytt köldmedium (kg)
+                  {getInstallationEventAmountLabel("REFRIGERANT_CHANGE", {
+                    includeUnit: true,
+                  })}
                   <input
                     className={formControlClassName}
                     name="refrigerantAddedKg"
@@ -1880,6 +1894,7 @@ function EventTimelineItem({
         </div>
         {event.refrigerantAddedKg !== null && event.refrigerantAddedKg !== undefined && (
           <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold">
+            {getInstallationEventAmountLabel(event.type) ?? "Mängd"}:{" "}
             {formatNumber(event.refrigerantAddedKg)} kg
           </span>
         )}
@@ -1973,6 +1988,10 @@ function canDeleteDocument(
 
 function compareEventsByDateDesc(first: InstallationEvent, second: InstallationEvent) {
   return new Date(second.date).getTime() - new Date(first.date).getTime()
+}
+
+function isInstallationEventType(type: EventFormType): type is InstallationEventType {
+  return type !== "ARCHIVE" && type !== "SCRAP"
 }
 
 function calculateInspectionPreview(

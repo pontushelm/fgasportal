@@ -198,11 +198,14 @@ export const createInstallationEventSchema = z.object({
 }).refine((data) => data.type !== "LEAK" || Boolean(data.notes?.trim()), {
   message: "Anteckningar krävs för läckagehändelser",
   path: ["notes"],
+}).refine((data) => data.type !== "REFILL" || data.refrigerantAddedKg !== null, {
+  message: "Påfylld mängd krävs för påfyllning",
+  path: ["refrigerantAddedKg"],
 }).refine((data) => data.type !== "REFRIGERANT_CHANGE" || Boolean(data.newRefrigerantType), {
   message: "Nytt köldmedium krävs vid byte av köldmedium",
   path: ["newRefrigerantType"],
 }).refine((data) => data.refrigerantAddedKg === null || data.refrigerantAddedKg >= 0, {
-  message: "Påfylld mängd måste vara 0 eller högre",
+  message: "Mängd måste vara 0 eller högre",
   path: ["refrigerantAddedKg"],
 }).refine((data) => data.recoveredRefrigerantKg === null || data.recoveredRefrigerantKg >= 0, {
   message: "Omhändertagen mängd måste vara 0 eller högre",

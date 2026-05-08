@@ -5,6 +5,11 @@ import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui"
 import type { CertificationStatusResult } from "@/lib/certification-status"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
+import {
+  getInstallationEventAmountLabel,
+  hasInstallationEventAmount,
+  type InstallationEventType,
+} from "@/lib/installation-events"
 
 type ServiceInstallation = {
   id: string
@@ -17,18 +22,11 @@ type ServiceInstallation = {
   daysUntilDue: number | null
 }
 
-type EventType =
-  | "INSPECTION"
-  | "LEAK"
-  | "REFILL"
-  | "SERVICE"
-  | "REPAIR"
-  | "RECOVERY"
-  | "REFRIGERANT_CHANGE"
+type ServiceEventType = Exclude<InstallationEventType, "REFRIGERANT_CHANGE">
 
 type EventFormData = {
   installationId: string
-  type: EventType
+  type: ServiceEventType
   date: string
   refrigerantAddedKg: string
   notes: string
@@ -69,14 +67,13 @@ const STATUS_TONE: Record<ComplianceStatus, string> = {
   NOT_INSPECTED: "bg-blue-100 text-blue-700",
 }
 
-const EVENT_LABELS: Record<EventType, string> = {
+const EVENT_LABELS: Record<ServiceEventType, string> = {
   INSPECTION: "Kontroll",
   LEAK: "Läckage",
   REFILL: "Påfyllning",
   SERVICE: "Service",
   REPAIR: "Reparation",
   RECOVERY: "Tömning / Återvinning",
-  REFRIGERANT_CHANGE: "Byte av köldmedium",
 }
 
 const initialEventForm: EventFormData = {
@@ -172,7 +169,7 @@ export default function ServiceDashboardPage() {
     }
   }, [router])
 
-  function startEvent(installationId: string, type: EventType) {
+  function startEvent(installationId: string, type: ServiceEventType) {
     setError("")
     setSuccess("")
     setEventForm({
@@ -193,6 +190,19 @@ export default function ServiceDashboardPage() {
   function handleChange(
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
+    if (event.target.name === "type") {
+      const nextType = event.target.value as ServiceEventType
+      setEventForm((current) => ({
+        ...current,
+        type: nextType,
+        refrigerantAddedKg:
+          nextType === current.type && hasInstallationEventAmount(nextType)
+            ? current.refrigerantAddedKg
+            : "",
+      }))
+      return
+    }
+
     setEventForm({
       ...eventForm,
       [event.target.name]: event.target.value,
@@ -275,7 +285,7 @@ export default function ServiceDashboardPage() {
           date: eventForm.date,
           type: eventForm.type,
           refrigerantAddedKg:
-            eventForm.type === "REFILL" ? eventForm.refrigerantAddedKg : "",
+            hasInstallationEventAmount(eventForm.type) ? eventForm.refrigerantAddedKg : "",
           notes: eventForm.notes,
         }),
       }
@@ -469,16 +479,15 @@ export default function ServiceDashboardPage() {
                 <option value="SERVICE">Service</option>
                 <option value="REPAIR">Reparation</option>
                 <option value="RECOVERY">Tömning / Återvinning</option>
-                <option value="REFRIGERANT_CHANGE">Byte av köldmedium</option>
               </select>
             </label>
             <label className={fieldClassName}>
               Datum
               <input name="date" type="date" value={eventForm.date} onChange={handleChange} required />
             </label>
-            {eventForm.type === "REFILL" && (
+            {hasInstallationEventAmount(eventForm.type) && (
               <label className={fieldClassName}>
-                Påfylld mängd kg
+                {getInstallationEventAmountLabel(eventForm.type, { includeUnit: true })}
                 <input
                   name="refrigerantAddedKg"
                   value={eventForm.refrigerantAddedKg}
