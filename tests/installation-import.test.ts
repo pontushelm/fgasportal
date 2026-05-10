@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest"
 import {
   getDuplicateMappedFields,
+  findImportPropertyMatch,
   getSuggestedImportField,
+  getImportPropertyMatchWarning,
+  isDuplicateEquipmentIdentity,
   isImportFieldSelectedByAnotherColumn,
   mapImportRowsWithMapping,
   normalizeImportRow,
@@ -142,6 +145,92 @@ describe("installation import parsing", () => {
     expect(getSuggestedImportField("Utrustnings-ID")).toBe("equipmentId")
     expect(getSuggestedImportField("Inventarienummer")).toBe("equipmentId")
     expect(getSuggestedImportField("Anläggnings-ID")).toBe("equipmentId")
+  })
+
+  it("matches imported property names case-insensitively", () => {
+    const property = findImportPropertyMatch("  stadshuset  ", [
+      { id: "property-1", name: "Stadshuset" },
+    ])
+
+    expect(property?.id).toBe("property-1")
+  })
+
+  it("returns no property match for unknown property names", () => {
+    const property = findImportPropertyMatch("Okänd fastighet", [
+      { id: "property-1", name: "Stadshuset" },
+    ])
+
+    expect(property).toBeNull()
+  })
+
+  it("warns for unmatched property names without blocking the row", () => {
+    const row = normalizeImportRow(
+      {
+        equipmentId: "AGG-001",
+        propertyName: "Okänd fastighet",
+        refrigerantType: "R404A",
+        refrigerantAmount: "10",
+      },
+      2
+    )
+
+    expect(row.errors).toEqual([])
+    expect(
+      getImportPropertyMatchWarning(row.propertyName, [
+        { id: "property-1", name: "Stadshuset" },
+      ])
+    ).toBe("Fastigheten hittades inte och aggregatet importeras utan kopplad fastighet.")
+  })
+
+  it("blocks duplicate equipmentId on the same matched property", () => {
+    expect(
+      isDuplicateEquipmentIdentity({
+        equipmentId: "VP1",
+        propertyId: "property-1",
+        propertyName: "Stadshuset",
+        existingInstallations: [
+          {
+            equipmentId: "VP1",
+            propertyId: "property-1",
+            propertyName: "Stadshuset",
+          },
+        ],
+      })
+    ).toBe(true)
+  })
+
+  it("allows duplicate equipmentId on different matched properties", () => {
+    expect(
+      isDuplicateEquipmentIdentity({
+        equipmentId: "VP1",
+        propertyId: "property-2",
+        propertyName: "Servicehuset",
+        existingInstallations: [
+          {
+            equipmentId: "VP1",
+            propertyId: "property-1",
+            propertyName: "Stadshuset",
+          },
+        ],
+      })
+    ).toBe(false)
+  })
+
+  it("handles duplicate equipmentId safely without matched property context", () => {
+    expect(
+      isDuplicateEquipmentIdentity({
+        equipmentId: "VP1",
+        propertyId: null,
+        propertyName: "Okänd fastighet",
+        existingInstallations: [
+          {
+            equipmentId: "VP1",
+            propertyId: null,
+            propertyName: "Okänd fastighet",
+          },
+        ],
+      })
+    ).toBe(true)
   })
 
   it("detects duplicate mapped target fields", () => {

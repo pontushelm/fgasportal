@@ -4,6 +4,8 @@ import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import {
   getMaxImportRows,
+  findImportPropertyMatch,
+  isDuplicateEquipmentIdentity,
   normalizeImportRow,
   type ImportInstallationInput,
 } from "@/lib/installation-import"
@@ -53,6 +55,15 @@ export async function POST(request: NextRequest) {
     const errors: ImportError[] = []
     let created = 0
     let skipped = 0
+    const properties = await prisma.property.findMany({
+      where: {
+        companyId,
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    })
 
     for (const row of rows) {
       const parsed = normalizeImportRow(row as ImportInstallationInput, row.row)
@@ -66,30 +77,45 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      const duplicate = await prisma.installation.findFirst({
-        where: parsed.equipmentId
-          ? {
-              companyId,
-              archivedAt: null,
-              equipmentId: parsed.equipmentId,
-            }
-          : {
-              companyId,
-              archivedAt: null,
-              name: parsed.name,
-              location: parsed.location,
-            },
-        select: {
-          id: true,
-        },
-      })
+      const propertyMatch = findImportPropertyMatch(parsed.propertyName, properties)
+      const duplicate = parsed.equipmentId
+        ? isDuplicateEquipmentIdentity({
+            equipmentId: parsed.equipmentId,
+            propertyId: propertyMatch?.id ?? null,
+            propertyName: parsed.propertyName,
+            existingInstallations: await prisma.installation.findMany({
+              where: {
+                companyId,
+                archivedAt: null,
+                equipmentId: parsed.equipmentId,
+              },
+              select: {
+                equipmentId: true,
+                propertyId: true,
+                propertyName: true,
+              },
+            }),
+          })
+        : Boolean(
+            await prisma.installation.findFirst({
+              where: {
+                companyId,
+                archivedAt: null,
+                name: parsed.name,
+                location: parsed.location,
+              },
+              select: {
+                id: true,
+              },
+            })
+          )
 
       if (duplicate) {
         skipped += 1
         errors.push({
           row: parsed.row,
           message: parsed.equipmentId
-            ? "Duplicate installation with same Aggregat-ID / märkning"
+            ? "Duplicate installation with same Aggregat-ID / märkning and property context"
             : "Duplicate installation with same name and location",
         })
         continue
@@ -118,6 +144,7 @@ export async function POST(request: NextRequest) {
           name: parsed.name,
           location: parsed.location,
           equipmentId: parsed.equipmentId,
+          propertyId: propertyMatch?.id ?? null,
           propertyName: parsed.propertyName,
           serialNumber: parsed.serialNumber,
           equipmentType: parsed.equipmentType,

@@ -10,12 +10,15 @@ import {
   getMissingRequiredImportFields,
   getMaxImportRows,
   getSuggestedImportField,
+  findImportPropertyMatch,
+  getImportPropertyMatchWarning,
   isImportFieldSelectedByAnotherColumn,
   isEmptyImportRow,
   mapImportRowsWithMapping,
   parseImportRows,
   type ColumnMapping,
   type ImportFieldKey,
+  type ImportPropertyReference,
   type ParsedImportRow,
 } from "@/lib/installation-import"
 
@@ -34,6 +37,11 @@ type ImportInstallationsPageProps = {
 type WorksheetPreview = {
   name: string
   rows: Record<string, unknown>[]
+}
+
+type PreviewImportRow = ParsedImportRow & {
+  matchedPropertyId: string | null
+  matchedPropertyName: string | null
 }
 
 const TEMPLATE_COLUMNS = [
@@ -105,7 +113,8 @@ export default function ImportInstallationsPage({
   const [rawRows, setRawRows] = useState<Record<string, unknown>[]>([])
   const [detectedColumns, setDetectedColumns] = useState<string[]>([])
   const [columnMapping, setColumnMapping] = useState<ColumnMapping>({})
-  const [rows, setRows] = useState<ParsedImportRow[]>([])
+  const [rows, setRows] = useState<PreviewImportRow[]>([])
+  const [properties, setProperties] = useState<ImportPropertyReference[]>([])
   const [error, setError] = useState("")
   const [summary, setSummary] = useState<ImportSummary | null>(null)
   const [isParsing, setIsParsing] = useState(false)
@@ -134,6 +143,7 @@ export default function ImportInstallationsPage({
     setDetectedColumns([])
     setColumnMapping({})
     setRows([])
+    setProperties([])
     setError("")
     setSummary(null)
   }
@@ -151,15 +161,22 @@ export default function ImportInstallationsPage({
         type: "array",
         cellDates: true,
       })
+      const propertiesRes = await fetch("/api/properties", {
+        credentials: "include",
+      })
+      const propertyData: ImportPropertyReference[] = propertiesRes.ok
+        ? await propertiesRes.json()
+        : []
       const parsedWorksheets = workbook.SheetNames.map((name) => ({
         name,
         rows: readWorksheetRows(workbook.Sheets[name]),
       }))
       const firstWorksheet = parsedWorksheets[0]
 
+      setProperties(propertyData)
       setWorksheets(parsedWorksheets)
       setSelectedWorksheetName(firstWorksheet?.name ?? "")
-      applyWorksheetPreview(firstWorksheet?.rows ?? [])
+      applyWorksheetPreview(firstWorksheet?.rows ?? [], propertyData)
     } catch (err) {
       console.error("Parse import file error:", err)
       setWorksheets([])
@@ -168,6 +185,7 @@ export default function ImportInstallationsPage({
       setDetectedColumns([])
       setColumnMapping({})
       setRows([])
+      setProperties([])
       setError("Kunde inte läsa filen. Kontrollera att den är en giltig .xlsx eller .csv.")
     } finally {
       setIsParsing(false)
@@ -179,11 +197,14 @@ export default function ImportInstallationsPage({
     const worksheet = worksheets.find((item) => item.name === worksheetName)
 
     setSelectedWorksheetName(worksheetName)
-    applyWorksheetPreview(worksheet?.rows ?? [])
+    applyWorksheetPreview(worksheet?.rows ?? [], properties)
   }
 
-  function applyWorksheetPreview(worksheetRows: Record<string, unknown>[]) {
-    const preview = applyWorksheetPreviewRows(worksheetRows)
+  function applyWorksheetPreview(
+    worksheetRows: Record<string, unknown>[],
+    propertyOptions: ImportPropertyReference[]
+  ) {
+    const preview = applyWorksheetPreviewRows(worksheetRows, propertyOptions)
 
     setRawRows(worksheetRows)
     setDetectedColumns(preview.columns)
@@ -198,7 +219,7 @@ export default function ImportInstallationsPage({
     }
 
     setColumnMapping(nextMapping)
-    setRows(buildPreviewRows(rawRows, nextMapping))
+    setRows(buildPreviewRows(rawRows, nextMapping, properties))
   }
 
   function handleDownloadTemplate() {
@@ -273,6 +294,10 @@ export default function ImportInstallationsPage({
               GWP och CO₂e beräknas automatiskt från köldmedium och
               fyllnadsmängd. Importera normalt inte separata GWP- eller
               CO₂e-kolumner.
+            </p>
+            <p className="mt-2 text-xs text-slate-600">
+              För att koppla aggregat automatiskt behöver fastigheten redan
+              finnas i FgasPortal och namnet matcha importfilen.
             </p>
             <p className="mt-2 text-xs text-slate-600">
               Har du ett äldre eller komplext register? FgasPortal kan hjälpa
@@ -503,6 +528,7 @@ export default function ImportInstallationsPage({
                   <th className={tableHeaderClassName}>Aggregatnamn / benämning</th>
                   <th className={tableHeaderClassName}>Plats</th>
                   <th className={tableHeaderClassName}>Fastighet</th>
+                  <th className={tableHeaderClassName}>Fastighetskoppling</th>
                   <th className={tableHeaderClassName}>Köldmedium</th>
                   <th className={tableHeaderClassName}>Mängd</th>
                   <th className={tableHeaderClassName}>Senaste kontroll</th>
@@ -519,6 +545,9 @@ export default function ImportInstallationsPage({
                     <td className={tableCellClassName}>{row.name || "-"}</td>
                     <td className={tableCellClassName}>{row.location || "-"}</td>
                     <td className={tableCellClassName}>{row.propertyName || "-"}</td>
+                    <td className={tableCellClassName}>
+                      {formatPropertyMatchStatus(row)}
+                    </td>
                     <td className={tableCellClassName}>{row.refrigerantType || "-"}</td>
                     <td className={tableCellClassName}>{row.refrigerantAmount ?? "-"}</td>
                     <td className={tableCellClassName}>{row.lastInspection || "-"}</td>
@@ -585,23 +614,53 @@ function createSuggestedMapping(columns: string[]): ColumnMapping {
   )
 }
 
-function applyWorksheetPreviewRows(rows: Record<string, unknown>[]) {
+function applyWorksheetPreviewRows(
+  rows: Record<string, unknown>[],
+  properties: ImportPropertyReference[]
+) {
   const columns = getDetectedColumns(rows)
   const suggestedMapping = createSuggestedMapping(columns)
 
   return {
     columns,
     suggestedMapping,
-    parsedRows: buildPreviewRows(rows, suggestedMapping),
+    parsedRows: buildPreviewRows(rows, suggestedMapping, properties),
   }
 }
 
-function buildPreviewRows(rows: Record<string, unknown>[], mapping: ColumnMapping) {
+function buildPreviewRows(
+  rows: Record<string, unknown>[],
+  mapping: ColumnMapping,
+  properties: ImportPropertyReference[]
+) {
   const mappedRows = mapImportRowsWithMapping(rows, mapping)
     .filter((row) => !isEmptyImportRow(row))
     .slice(0, getMaxImportRows())
 
-  return parseImportRows(mappedRows)
+  return parseImportRows(mappedRows).map((row) =>
+    addPropertyMatchPreview(row, properties)
+  )
+}
+
+function addPropertyMatchPreview(
+  row: ParsedImportRow,
+  properties: ImportPropertyReference[]
+): PreviewImportRow {
+  const propertyMatch = findImportPropertyMatch(row.propertyName, properties)
+  const propertyWarning = getImportPropertyMatchWarning(row.propertyName, properties)
+
+  return {
+    ...row,
+    warnings: propertyWarning ? [...row.warnings, propertyWarning] : row.warnings,
+    matchedPropertyId: propertyMatch?.id ?? null,
+    matchedPropertyName: propertyMatch?.name ?? null,
+  }
+}
+
+function formatPropertyMatchStatus(row: PreviewImportRow) {
+  if (!row.propertyName) return "Saknas"
+  if (row.matchedPropertyName) return `Kopplas till ${row.matchedPropertyName}`
+  return "Hittades inte"
 }
 
 function getDetectedColumns(rows: Record<string, unknown>[]) {

@@ -43,7 +43,20 @@ export type ParsedImportRow = ImportInstallationInput & {
   warnings: string[]
 }
 
+export type ImportPropertyReference = {
+  id: string
+  name: string
+}
+
+export type ExistingEquipmentIdentity = {
+  equipmentId: string | null
+  propertyId: string | null
+  propertyName: string | null
+}
+
 const MAX_IMPORT_ROWS = 500
+export const UNMATCHED_PROPERTY_WARNING =
+  "Fastigheten hittades inte och aggregatet importeras utan kopplad fastighet."
 
 export const IMPORT_FIELD_DEFINITIONS: ImportFieldDefinition[] = [
   {
@@ -435,6 +448,69 @@ export function isImportFieldSelectedByAnotherColumn(
 
 export function getMaxImportRows() {
   return MAX_IMPORT_ROWS
+}
+
+export function normalizeImportMatchValue(value: string | null | undefined) {
+  return value?.trim().toLowerCase() ?? ""
+}
+
+export function findImportPropertyMatch(
+  propertyName: string | null | undefined,
+  properties: ImportPropertyReference[]
+) {
+  const normalizedPropertyName = normalizeImportMatchValue(propertyName)
+  if (!normalizedPropertyName) return null
+
+  return (
+    properties.find(
+      (property) => normalizeImportMatchValue(property.name) === normalizedPropertyName
+    ) ?? null
+  )
+}
+
+export function getImportPropertyMatchWarning(
+  propertyName: string | null | undefined,
+  properties: ImportPropertyReference[]
+) {
+  return propertyName && !findImportPropertyMatch(propertyName, properties)
+    ? UNMATCHED_PROPERTY_WARNING
+    : null
+}
+
+export function isDuplicateEquipmentIdentity({
+  equipmentId,
+  propertyId,
+  propertyName,
+  existingInstallations,
+}: {
+  equipmentId: string | null
+  propertyId: string | null
+  propertyName: string | null
+  existingInstallations: ExistingEquipmentIdentity[]
+}) {
+  const normalizedEquipmentId = normalizeImportMatchValue(equipmentId)
+  if (!normalizedEquipmentId) return false
+
+  const normalizedPropertyName = normalizeImportMatchValue(propertyName)
+
+  // Keep equipment identity property-scoped so future event imports can match
+  // recurring IDs like "VP1" by Aggregat-ID plus property context.
+  return existingInstallations.some((installation) => {
+    if (normalizeImportMatchValue(installation.equipmentId) !== normalizedEquipmentId) {
+      return false
+    }
+
+    if (propertyId) return installation.propertyId === propertyId
+
+    if (normalizedPropertyName) {
+      return (
+        !installation.propertyId &&
+        normalizeImportMatchValue(installation.propertyName) === normalizedPropertyName
+      )
+    }
+
+    return !installation.propertyId
+  })
 }
 
 function getValue(row: Record<string, unknown>, key: ImportFieldKey) {
