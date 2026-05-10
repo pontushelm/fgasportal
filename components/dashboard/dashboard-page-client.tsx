@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useId, useState } from "react"
 import { Badge, Card, PageHeader } from "@/components/ui"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 
@@ -218,6 +218,7 @@ export default function DashboardPage() {
                 key={card.key}
                 label={card.label}
                 tone={card.tone}
+                tooltip={card.tooltip}
                 value={getKpiValue(card.key, dashboardData)}
               />
             ))}
@@ -326,14 +327,17 @@ export default function DashboardPage() {
 function MetricCard({
   description,
   label,
+  tooltip,
   value,
   tone = "neutral",
 }: {
   description: string
   label: string
+  tooltip: string
   value: number | string
   tone?: "neutral" | "emerald" | "red" | "amber" | "sky"
 }) {
+  const tooltipId = useId()
   const toneClass = {
     neutral: "border-l-slate-300",
     emerald: "border-l-emerald-500",
@@ -343,10 +347,21 @@ function MetricCard({
   }[tone]
 
   return (
-    <div className={`min-h-28 rounded-xl border border-slate-200 border-l-4 bg-white px-3 py-3 shadow-sm ${toneClass}`}>
+    <div
+      aria-describedby={tooltipId}
+      className={`group relative min-h-28 rounded-xl border border-slate-200 border-l-4 bg-white px-3 py-3 shadow-sm outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${toneClass}`}
+      tabIndex={0}
+    >
       <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
       <div className="mt-2 break-words text-2xl font-bold tracking-tight text-slate-950">{value}</div>
       <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
+      <div
+        className="pointer-events-none absolute left-3 right-3 top-full z-20 mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-700 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus:opacity-100 group-focus-visible:opacity-100"
+        id={tooltipId}
+        role="tooltip"
+      >
+        {tooltip}
+      </div>
     </div>
   )
 }
