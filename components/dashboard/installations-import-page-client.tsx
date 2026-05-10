@@ -281,34 +281,42 @@ export default function ImportInstallationsPage({
           Importera aggregat
         </h1>
         <p className="mt-2 text-sm text-slate-700">
-          Ladda upp en .xlsx- eller .csv-fil, mappa kolumnerna och importera de
-          rader som har nödvändiga uppgifter. Aggregat-ID / märkning är den
-          viktigaste identiteten för register och framtida händelsematchning.
-          Rader med varningar kan importeras och kompletteras senare.
+          Ladda upp Excel/CSV, kontrollera mappningen och förhandsgranska innan
+          import.
         </p>
       </div>
 
       <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
         <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
-          <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
-            <p>
-              Obligatoriska fält är Aggregat-ID / märkning, Köldmedium och
-              Fyllnadsmängd. Aggregatnamn / benämning är valfritt; om det
-              saknas används Aggregat-ID som visningsnamn.
-            </p>
-            <p className="mt-2 text-xs text-slate-600">
-              GWP och CO₂e beräknas automatiskt från köldmedium och
-              fyllnadsmängd. Importera normalt inte separata GWP- eller
-              CO₂e-kolumner.
-            </p>
-            <p className="mt-2 text-xs text-slate-600">
-              För att koppla aggregat automatiskt behöver fastigheten redan
-              finnas i FgasPortal och namnet matcha importfilen.
-            </p>
-            <p className="mt-2 text-xs text-slate-600">
-              Har du ett äldre eller komplext register? FgasPortal kan hjälpa
-              till med import och datarensning vid onboarding.
-            </p>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+            <ul className="grid gap-1.5">
+              <li>Aggregat-ID / märkning används som primär identitet.</li>
+              <li>GWP och CO₂e beräknas automatiskt.</li>
+              <li>
+                Fastigheter kopplas bara om de redan finns och namnet matchar.
+              </li>
+            </ul>
+            <details className="mt-3 text-xs text-slate-600">
+              <summary className="cursor-pointer font-semibold text-slate-700">
+                Visa importtips
+              </summary>
+              <div className="mt-2 grid gap-1.5">
+                <p>
+                  Aggregatnamn / benämning är valfritt; om det saknas används
+                  Aggregat-ID som visningsnamn.
+                </p>
+                <p>
+                  Importera normalt inte separata GWP- eller CO₂e-kolumner.
+                </p>
+                <p>
+                  För att koppla aggregat automatiskt behöver fastigheten redan
+                  finnas i FgasPortal och namnet matcha importfilen.
+                </p>
+                <p>
+                  Äldre eller komplexa register kan behöva rensas innan import.
+                </p>
+              </div>
+            </details>
           </div>
           <button
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
