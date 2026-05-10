@@ -52,10 +52,19 @@ export async function buildAnnualFgasReportData({
   const installations = await prisma.installation.findMany({
     where: {
       companyId,
-      installationDate: { lt: endDate },
-      OR: [
-        { scrappedAt: null },
-        { scrappedAt: { gte: startDate } },
+      AND: [
+        {
+          OR: [
+            { installationDate: null },
+            { installationDate: { lt: endDate } },
+          ],
+        },
+        {
+          OR: [
+            { scrappedAt: null },
+            { scrappedAt: { gte: startDate } },
+          ],
+        },
       ],
       ...(assignedContractorId ? { assignedContractorId } : {}),
       ...(propertyId ? { propertyId } : {}),

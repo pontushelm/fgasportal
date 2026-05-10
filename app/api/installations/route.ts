@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
         serialNumber: emptyToNull(validatedData.serialNumber),
         propertyName: emptyToNull(validatedData.propertyName),
         propertyId: propertyId ?? null,
+        installationDate: validatedData.installationDate ?? null,
         equipmentType: emptyToNull(validatedData.equipmentType),
         operatorName: emptyToNull(validatedData.operatorName),
         assignedContractorId: assignedContractorId ?? null,

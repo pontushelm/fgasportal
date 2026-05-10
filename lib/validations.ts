@@ -105,12 +105,19 @@ const optionalTextField = z.string()
   .optional()
   .transform((val) => val?.trim() ?? "")
 
-const installationDateSchema = z.string()
-  .transform((val) => new Date(val))
-  .refine((date) => date >= new Date("1950-01-01"), {
+const nullableInstallationDateSchema = z.union([z.string(), z.null(), z.undefined()])
+  .transform((val) => {
+    if (val === undefined) return undefined
+    if (val === null) return null
+
+    const trimmedValue = val.trim()
+    return trimmedValue ? new Date(trimmedValue) : null
+  })
+  .refine((date) => date == null || date >= new Date("1950-01-01"), {
     message: "Driftsättningsdatum är för långt bakåt i tiden",
   })
   .refine((date) => {
+    if (date == null) return true
     const maxDate = new Date()
     maxDate.setFullYear(maxDate.getFullYear() + 1)
     return date <= maxDate
@@ -135,7 +142,7 @@ export const createInstallationSchema = z.object({
   ...installationRegisterFieldsSchema,
   refrigerantType: z.string().min(1, "Köldmedietyp krävs"),
   refrigerantAmount: z.string().transform((val) => parseFloat(val)),
-  installationDate: installationDateSchema,
+  installationDate: nullableInstallationDateSchema,
   lastInspection: optionalDateField,
   inspectionIntervalMonths: optionalIntegerField,
   notes: z.string().optional(),
@@ -159,7 +166,7 @@ export const editInstallationSchema = z.object({
   ...installationRegisterFieldsSchema,
   refrigerantType: z.string().min(1, "Köldmedietyp krävs"),
   refrigerantAmount: z.string().transform((val) => parseFloat(val)),
-  installationDate: optionalDateField,
+  installationDate: nullableInstallationDateSchema,
   lastInspection: optionalDateField,
   inspectionIntervalMonths: optionalIntegerField,
   notes: z.string().optional(),

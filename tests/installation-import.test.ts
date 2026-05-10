@@ -40,6 +40,7 @@ describe("installation import parsing", () => {
     expect(row.name).toBe("AGG-001")
     expect(row.equipmentId).toBe("AGG-001")
     expect(row.refrigerantType).toBe("R404A")
+    expect(row.installationDate).toBeNull()
   })
 
   it("imports name-only rows with a warning for backward compatibility", () => {

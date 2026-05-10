@@ -21,6 +21,7 @@ type InstallationFormData = {
   refrigerantAmount: string
   hasLeakDetectionSystem: boolean
   installationDate: string
+  isInstallationDateUnknown: boolean
   lastInspection: string
   notes: string
 }
@@ -70,6 +71,7 @@ const initialFormData: InstallationFormData = {
   refrigerantAmount: "",
   hasLeakDetectionSystem: false,
   installationDate: "",
+  isInstallationDateUnknown: false,
   lastInspection: "",
   notes: "",
 }
@@ -120,10 +122,13 @@ export default function CreateInstallationForm({
         ? e.target.checked
         : e.target.value
 
-    setFormData({
-      ...formData,
+    setFormData((current) => ({
+      ...current,
       [e.target.name]: value,
-    })
+      ...(e.target.name === "isInstallationDateUnknown" && value === true
+        ? { installationDate: "" }
+        : {}),
+    }))
   }
 
   const inspectionPreview = calculateInspectionPreview(
@@ -145,7 +150,12 @@ export default function CreateInstallationForm({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify(formData),
+      body: JSON.stringify({
+        ...formData,
+        installationDate: formData.isInstallationDateUnknown
+          ? null
+          : formData.installationDate,
+      }),
     })
 
     const result = await res.json()
@@ -223,8 +233,28 @@ export default function CreateInstallationForm({
       </label>
 
       <label className={labelClassName}>
-        <span>Driftsättningsdatum <RequiredMark /></span>
-        <input className={inputClassName} name="installationDate" type="date" min={minInstallationDate} max={maxInstallationDate} value={formData.installationDate} onChange={handleChange} required />
+        Driftsättningsdatum
+        <input
+          className={inputClassName}
+          name="installationDate"
+          type="date"
+          min={minInstallationDate}
+          max={maxInstallationDate}
+          value={formData.installationDate}
+          onChange={handleChange}
+          disabled={formData.isInstallationDateUnknown}
+          required={!formData.isInstallationDateUnknown}
+        />
+      </label>
+      <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+        <input
+          className="h-4 w-4 rounded border-slate-300 text-blue-600"
+          name="isInstallationDateUnknown"
+          type="checkbox"
+          checked={formData.isInstallationDateUnknown}
+          onChange={handleChange}
+        />
+        Driftsättningsdatum okänt
       </label>
 
       <label className={labelClassName}>

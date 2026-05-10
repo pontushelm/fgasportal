@@ -192,7 +192,7 @@ model Installation {
   refrigerantType   String
   refrigerantAmount Float
   hasLeakDetectionSystem Boolean @default(false)
-  installationDate  DateTime
+  installationDate  DateTime?
   lastInspection    DateTime?
   inspectionIntervalMonths Int?
   nextInspection    DateTime?

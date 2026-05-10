@@ -118,7 +118,7 @@ type InstallationDetail = {
   refrigerantType: string
   refrigerantAmount: number
   hasLeakDetectionSystem: boolean
-  installationDate: string
+  installationDate: string | null
   lastInspection?: string | null
   nextInspection?: string | null
   archivedAt?: string | null
@@ -182,6 +182,7 @@ type InstallationEditFormData = {
   refrigerantAmount: string
   hasLeakDetectionSystem: boolean
   installationDate: string
+  isInstallationDateUnknown: boolean
   assignedContractorId: string
   notes: string
 }
@@ -241,6 +242,7 @@ const initialEditFormData: InstallationEditFormData = {
   refrigerantAmount: "",
   hasLeakDetectionSystem: false,
   installationDate: "",
+  isInstallationDateUnknown: false,
   assignedContractorId: "",
   notes: "",
 }
@@ -488,6 +490,7 @@ export default function InstallationDetailPage() {
         refrigerantAmount: String(data.refrigerantAmount),
         hasLeakDetectionSystem: data.hasLeakDetectionSystem,
         installationDate: toDateInputValue(data.installationDate),
+        isInstallationDateUnknown: !data.installationDate,
         assignedContractorId: data.assignedContractorId || "",
         notes: data.notes || "",
       })
@@ -574,10 +577,13 @@ export default function InstallationDetailPage() {
         ? event.target.checked
         : event.target.value
 
-    setEditForm({
-      ...editForm,
+    setEditForm((current) => ({
+      ...current,
       [event.target.name]: value,
-    })
+      ...(event.target.name === "isInstallationDateUnknown" && value === true
+        ? { installationDate: "" }
+        : {}),
+    }))
   }
 
   function openEventModal(type: EventFormType = "SERVICE") {
@@ -659,7 +665,12 @@ export default function InstallationDetailPage() {
         "Content-Type": "application/json",
       },
       credentials: "include",
-      body: JSON.stringify(editForm),
+      body: JSON.stringify({
+        ...editForm,
+        installationDate: editForm.isInstallationDateUnknown
+          ? null
+          : editForm.installationDate,
+      }),
     })
 
     const result: { error?: string } = await res.json()
@@ -1183,7 +1194,10 @@ export default function InstallationDetailPage() {
               value={compliance.gwp === null ? "Okänt GWP-värde" : String(compliance.gwp)}
             />
             <DetailItem label="Kontrollintervall" value={formatInspectionInterval(compliance)} />
-            <DetailItem label="Driftsättningsdatum" value={formatDate(installation.installationDate)} />
+            <DetailItem
+              label="Driftsättningsdatum"
+              value={formatKnownDate(installation.installationDate)}
+            />
           </dl>
           {installation.notes && (
             <div className="mt-5 rounded-md bg-slate-50 p-4">
@@ -1470,8 +1484,28 @@ export default function InstallationDetailPage() {
                 <input className={formControlClassName} name="refrigerantAmount" value={editForm.refrigerantAmount} onChange={handleEditChange} required />
               </label>
               <label className={fieldClassName}>
-                <span>Driftsättningsdatum <RequiredMark /></span>
-                <input className={formControlClassName} name="installationDate" type="date" min={minInstallationDate} max={maxInstallationDate} value={editForm.installationDate} onChange={handleEditChange} required />
+                Driftsättningsdatum
+                <input
+                  className={formControlClassName}
+                  name="installationDate"
+                  type="date"
+                  min={minInstallationDate}
+                  max={maxInstallationDate}
+                  value={editForm.installationDate}
+                  onChange={handleEditChange}
+                  disabled={editForm.isInstallationDateUnknown}
+                  required={!editForm.isInstallationDateUnknown}
+                />
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <input
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600"
+                  name="isInstallationDateUnknown"
+                  type="checkbox"
+                  checked={editForm.isInstallationDateUnknown}
+                  onChange={handleEditChange}
+                />
+                Driftsättningsdatum okänt
               </label>
               <label className={fieldClassName}>
                 Servicekontakt
@@ -2014,15 +2048,41 @@ function RiskBadge({
   level: InstallationRiskLevel
   reasons?: string[]
 }) {
-  const title = reasons.length > 0 ? `Risk baseras på: ${reasons.join(". ")}` : undefined
+  const tooltipId = `risk-tooltip-${level.toLowerCase()}`
 
   return (
-    <span
-      aria-label={title}
-      className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${RISK_TONE[level]}`}
-      title={title}
-    >
-      {RISK_LABELS[level] ?? "Risk saknas"}
+    <span className="group relative inline-flex items-center gap-1">
+      <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${RISK_TONE[level]}`}>
+        {RISK_LABELS[level] ?? "Risk saknas"}
+      </span>
+      {reasons.length > 0 && (
+        <>
+          <span
+            aria-describedby={tooltipId}
+            aria-label="Visa riskförklaring"
+            className="inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-slate-300 bg-white text-[11px] font-bold text-slate-600"
+            tabIndex={0}
+          >
+            i
+          </span>
+          <span
+            className="pointer-events-none absolute right-0 top-full z-20 mt-2 hidden w-72 rounded-md border border-slate-200 bg-white p-3 text-left text-xs font-normal text-slate-700 shadow-lg group-focus-within:block group-hover:block"
+            id={tooltipId}
+            role="tooltip"
+          >
+            <span className="font-semibold text-slate-900">
+              Riskklassningen påverkas av:
+            </span>
+            <span className="mt-2 block space-y-1">
+              {reasons.map((reason) => (
+                <span className="block" key={reason}>
+                  {reason}
+                </span>
+              ))}
+            </span>
+          </span>
+        </>
+      )}
     </span>
   )
 }
@@ -2115,6 +2175,10 @@ function formatDate(value: string) {
 
 function formatOptionalDate(value?: string | null) {
   return value ? formatDate(value) : "-"
+}
+
+function formatKnownDate(value?: string | null) {
+  return value ? formatDate(value) : "Okänt"
 }
 
 function formatOptionalText(value?: string | null) {

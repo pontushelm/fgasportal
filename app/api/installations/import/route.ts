@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
         : calculateNextInspectionDate(lastInspection, inspectionIntervalMonths)
       const installationDate = parsed.installationDate
         ? new Date(parsed.installationDate)
-        : new Date()
+        : null
 
       await prisma.installation.create({
         data: {
