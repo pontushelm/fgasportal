@@ -4,8 +4,10 @@ import Link from "next/link"
 import { useMemo, useState } from "react"
 import * as XLSX from "xlsx"
 import {
+  EVENT_HISTORY_IMPORT_MESSAGE,
   IMPORT_FIELD_DEFINITIONS,
   getDuplicateMappedFields,
+  getDetectedEventHistoryColumns,
   getImportFieldLabel,
   getMissingRequiredImportFields,
   getMaxImportRows,
@@ -130,6 +132,10 @@ export default function ImportInstallationsPage({
   const duplicatedFields = useMemo(
     () => getDuplicateMappedFields(columnMapping),
     [columnMapping]
+  )
+  const detectedEventHistoryColumns = useMemo(
+    () => getDetectedEventHistoryColumns(detectedColumns),
+    [detectedColumns]
   )
   const hasBlockingMappingIssue =
     missingRequiredFields.length > 0 || duplicatedFields.length > 0
@@ -445,6 +451,15 @@ export default function ImportInstallationsPage({
               </tbody>
             </table>
           </div>
+
+          {detectedEventHistoryColumns.length > 0 && (
+            <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">
+              <p>{EVENT_HISTORY_IMPORT_MESSAGE}</p>
+              <p className="mt-1 text-xs">
+                Upptäckta historikkolumner: {detectedEventHistoryColumns.join(", ")}.
+              </p>
+            </div>
+          )}
 
           {hasBlockingMappingIssue && (
             <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">

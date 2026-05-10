@@ -57,6 +57,37 @@ export type ExistingEquipmentIdentity = {
 const MAX_IMPORT_ROWS = 500
 export const UNMATCHED_PROPERTY_WARNING =
   "Fastigheten hittades inte och aggregatet importeras utan kopplad fastighet."
+export const EVENT_HISTORY_IMPORT_MESSAGE =
+  "Filen verkar innehålla händelsehistorik. Den här importen skapar endast aggregat. Händelser som läckage, kontroller, service och påfyllningar importeras inte i detta steg."
+export const DUPLICATE_AGGREGAT_HISTORY_MESSAGE =
+  "Raden verkar vara ytterligare historik för samma aggregat och importerades inte som nytt aggregat. Händelseimport byggs separat."
+
+const EVENT_HISTORY_COLUMN_ALIASES = [
+  "händelsedatum",
+  "handelsedatum",
+  "händelse datum",
+  "handelse datum",
+  "händelsetyp",
+  "handelsetyp",
+  "händelse typ",
+  "handelse typ",
+  "event date",
+  "event type",
+  "kontroll",
+  "kontrolldatum",
+  "läckage",
+  "lackage",
+  "påfyllning",
+  "pafyllning",
+  "service",
+  "reparation",
+  "byte av köldmedium",
+  "byte av koldmedium",
+  "återvinning",
+  "atervinning",
+  "tömning",
+  "tomning",
+]
 
 export const IMPORT_FIELD_DEFINITIONS: ImportFieldDefinition[] = [
   {
@@ -303,7 +334,6 @@ export function normalizeImportRow(
     errors.push("Ogiltig fyllnadsmängd")
   }
 
-  if (!location) warnings.push("Saknar placering - kan kompletteras senare")
   if (!propertyName) warnings.push("Saknar fastighet - kan kopplas senare")
 
   const rawLastInspection = getValue(rawRow, "lastInspection")
@@ -398,6 +428,16 @@ export function getSuggestedImportField(header: string): ImportFieldKey | null {
 
 export function getImportFieldLabel(key: ImportFieldKey) {
   return IMPORT_FIELD_DEFINITIONS.find((field) => field.key === key)?.label ?? key
+}
+
+export function getDetectedEventHistoryColumns(headers: string[]) {
+  const normalizedEventAliases = new Set(
+    EVENT_HISTORY_COLUMN_ALIASES.map((alias) => normalizeHeader(alias))
+  )
+
+  return headers.filter((header) =>
+    normalizedEventAliases.has(normalizeHeader(header))
+  )
 }
 
 export function mapImportRowHeaders(row: Record<string, unknown>) {

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
 import {
+  DUPLICATE_AGGREGAT_HISTORY_MESSAGE,
+  EVENT_HISTORY_IMPORT_MESSAGE,
   getDuplicateMappedFields,
+  getDetectedEventHistoryColumns,
   findImportPropertyMatch,
   getSuggestedImportField,
   getImportPropertyMatchWarning,
@@ -32,7 +35,6 @@ describe("installation import parsing", () => {
 
     expect(row.errors).toEqual([])
     expect(row.warnings).toEqual([
-      "Saknar placering - kan kompletteras senare",
       "Saknar fastighet - kan kopplas senare",
     ])
     expect(row.name).toBe("AGG-001")
@@ -56,6 +58,21 @@ describe("installation import parsing", () => {
     )
     expect(row.name).toBe("Kylaggregat 1")
     expect(row.equipmentId).toBeNull()
+  })
+
+  it("does not warn per row when placement is missing", () => {
+    const row = normalizeImportRow(
+      {
+        equipmentId: "AGG-001",
+        propertyName: "Stadshuset",
+        refrigerantType: "R404A",
+        refrigerantAmount: "10",
+      },
+      2
+    )
+
+    expect(row.errors).toEqual([])
+    expect(row.warnings).not.toContain("Saknar placering - kan kompletteras senare")
   })
 
   it("blocks rows missing both Aggregat-ID and name", () => {
@@ -147,6 +164,21 @@ describe("installation import parsing", () => {
     expect(getSuggestedImportField("Anläggnings-ID")).toBe("equipmentId")
   })
 
+  it("detects likely event-history columns", () => {
+    const detectedColumns = getDetectedEventHistoryColumns([
+      "Aggregat-ID",
+      "Händelsedatum",
+      "Händelsetyp",
+      "Läckage",
+      "Fastighet",
+    ])
+
+    expect(detectedColumns).toEqual(["Händelsedatum", "Händelsetyp", "Läckage"])
+    expect(EVENT_HISTORY_IMPORT_MESSAGE).toContain(
+      "Den här importen skapar endast aggregat"
+    )
+  })
+
   it("matches imported property names case-insensitively", () => {
     const property = findImportPropertyMatch("  stadshuset  ", [
       { id: "property-1", name: "Stadshuset" },
@@ -231,6 +263,12 @@ describe("installation import parsing", () => {
         ],
       })
     ).toBe(true)
+  })
+
+  it("uses a clear duplicate message for likely historical rows", () => {
+    expect(DUPLICATE_AGGREGAT_HISTORY_MESSAGE).toBe(
+      "Raden verkar vara ytterligare historik för samma aggregat och importerades inte som nytt aggregat. Händelseimport byggs separat."
+    )
   })
 
   it("detects duplicate mapped target fields", () => {

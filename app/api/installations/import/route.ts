@@ -3,6 +3,7 @@ import { z, ZodError } from "zod"
 import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import {
+  DUPLICATE_AGGREGAT_HISTORY_MESSAGE,
   getMaxImportRows,
   findImportPropertyMatch,
   isDuplicateEquipmentIdentity,
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest) {
         errors.push({
           row: parsed.row,
           message: parsed.equipmentId
-            ? "Duplicate installation with same Aggregat-ID / märkning and property context"
+            ? DUPLICATE_AGGREGAT_HISTORY_MESSAGE
             : "Duplicate installation with same name and location",
         })
         continue
