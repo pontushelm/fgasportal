@@ -73,6 +73,10 @@ const secondaryNavigation: NavigationItem[] = [
     href: "/dashboard/settings",
     label: "Mina inställningar",
   },
+  {
+    href: "/dashboard/help",
+    label: "Hjälp",
+  },
 ]
 
 export function Sidebar() {
