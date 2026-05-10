@@ -1256,38 +1256,17 @@ function InstallationQuickView({
             )}
           </section>
 
-          {!installation.scrappedAt && (
-            <section className="rounded-lg border border-slate-200 bg-white p-4">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                Åtgärder
-              </h3>
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                <QuickAction href={`/dashboard/installations/${installation.id}`}>
-                  Ny händelse
-                </QuickAction>
-                <QuickAction href={`/dashboard/installations/${installation.id}`}>
-                  Redigera aggregat
-                </QuickAction>
-                <QuickAction href={`/dashboard/installations/${installation.id}#documents`}>
-                  Ladda upp dokument
-                </QuickAction>
-                <Link
-                  className="rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-blue-700 sm:col-span-2"
-                  href={`/dashboard/installations/${installation.id}`}
-                >
-                  Öppna hela aggregatsidan
-                </Link>
-              </div>
-            </section>
-          )}
-          {installation.scrappedAt && (
+          <section className="rounded-lg border border-slate-200 bg-white p-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              Åtgärd
+            </h3>
             <Link
-              className="rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-blue-700"
+              className="mt-4 inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-blue-700"
               href={`/dashboard/installations/${installation.id}`}
             >
               Öppna hela aggregatsidan
             </Link>
-          )}
+          </section>
         </div>
       </aside>
     </div>
@@ -1420,23 +1399,6 @@ function HistoryItem({
         </p>
       )}
     </div>
-  )
-}
-
-function QuickAction({
-  children,
-  href,
-}: {
-  children: React.ReactNode
-  href: string
-}) {
-  return (
-    <Link
-      className="rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-semibold text-slate-800 hover:bg-slate-50"
-      href={href}
-    >
-      {children}
-    </Link>
   )
 }
 
