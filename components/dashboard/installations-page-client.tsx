@@ -619,10 +619,6 @@ export default function InstallationsPageClient() {
         title="Registrerade aggregat"
         subtitle="Register över organisationens köldmedieaggregat."
       />
-      <p className="mt-3 max-w-3xl text-sm text-slate-600">
-        Har du ett befintligt Excel-register? Importera flera aggregat samtidigt.
-      </p>
-
       <Card className="mt-6 p-4">
         <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <label className="grid gap-1 text-sm font-medium text-slate-700">
@@ -731,78 +727,87 @@ export default function InstallationsPageClient() {
             <option value="24">Var 24:e månad</option>
             <option value="none">Ej kontrollpliktigt</option>
           </FilterSelect>
-
-          <FilterSelect label="Sortering" value={sortValue} onChange={updateSort}>
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </FilterSelect>
         </div>
 
-        <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 lg:flex-row lg:items-end lg:justify-between">
-          <label className="grid gap-1 text-sm font-medium text-slate-700 lg:min-w-72">
-            Mina sparade filter
-            <select
-              className={filterControlClassName}
-              value={selectedSavedFilterId}
-              onChange={(event) => applySavedFilter(event.target.value)}
-            >
-              <option value="">Välj sparat filter</option>
-              {savedFilters.map((filter) => (
-                <option key={filter.id} value={filter.id}>
-                  {filter.name}
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="mt-4 grid gap-3 border-t border-slate-200 pt-4 lg:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)] lg:items-end">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+            <label className="grid gap-1 text-sm font-medium text-slate-700 lg:min-w-72">
+              Mina sparade filter
+              <select
+                className={filterControlClassName}
+                value={selectedSavedFilterId}
+                onChange={(event) => applySavedFilter(event.target.value)}
+              >
+                <option value="">Välj sparat filter</option>
+                {savedFilters.map((filter) => (
+                  <option key={filter.id} value={filter.id}>
+                    {filter.name}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-            {isSaveFilterOpen ? (
-              <form className="flex flex-col gap-2 sm:flex-row sm:items-end" onSubmit={handleSaveFilter}>
-                <label className="grid gap-1 text-sm font-medium text-slate-700">
-                  Filternamn
-                  <input
-                    className={filterControlClassName}
-                    placeholder="Ex. Försenade R410A"
-                    value={saveFilterName}
-                    onChange={(event) => setSaveFilterName(event.target.value)}
-                  />
-                </label>
-                <button
-                  className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
-                  type="submit"
-                  disabled={isSavingFilter}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              {isSaveFilterOpen ? (
+                <form
+                  className="flex flex-col gap-2 sm:flex-row sm:items-end"
+                  onSubmit={handleSaveFilter}
                 >
-                  {isSavingFilter ? "Sparar..." : "Spara"}
-                </button>
+                  <label className="grid gap-1 text-sm font-medium text-slate-700">
+                    Filternamn
+                    <input
+                      className={filterControlClassName}
+                      placeholder="Ex. Försenade R410A"
+                      value={saveFilterName}
+                      onChange={(event) =>
+                        setSaveFilterName(event.target.value)
+                      }
+                    />
+                  </label>
+                  <button
+                    className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
+                    type="submit"
+                    disabled={isSavingFilter}
+                  >
+                    {isSavingFilter ? "Sparar..." : "Spara"}
+                  </button>
+                  <button
+                    className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                    type="button"
+                    disabled={isSavingFilter}
+                    onClick={() => {
+                      setIsSaveFilterOpen(false)
+                      setSaveFilterName("")
+                      setSavedFilterError("")
+                    }}
+                  >
+                    Avbryt
+                  </button>
+                </form>
+              ) : (
                 <button
                   className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
                   type="button"
-                  disabled={isSavingFilter}
                   onClick={() => {
-                    setIsSaveFilterOpen(false)
-                    setSaveFilterName("")
+                    setIsSaveFilterOpen(true)
                     setSavedFilterError("")
+                    setSavedFilterSuccess("")
                   }}
                 >
-                  Avbryt
+                  Spara filter
                 </button>
-              </form>
-            ) : (
-              <button
-                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-                type="button"
-                onClick={() => {
-                  setIsSaveFilterOpen(true)
-                  setSavedFilterError("")
-                  setSavedFilterSuccess("")
-                }}
-              >
-                Spara filter
-              </button>
-            )}
+              )}
+            </div>
+          </div>
+
+          <div className="lg:justify-self-end lg:min-w-56">
+            <FilterSelect label="Sortering" value={sortValue} onChange={updateSort}>
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </FilterSelect>
           </div>
         </div>
 

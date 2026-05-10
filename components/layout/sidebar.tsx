@@ -215,7 +215,6 @@ export function Sidebar() {
               <span>FgasPortal</span>
             </Link>
             <div className="mt-2 flex items-center gap-2">
-              <Badge variant="info">F-gas</Badge>
               {currentUser?.role && (
                 <Badge variant="neutral">{formatRoleLabel(currentUser.role)}</Badge>
               )}

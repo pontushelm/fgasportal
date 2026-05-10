@@ -291,9 +291,12 @@ export default function ImportInstallationsPage({
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
             <ul className="grid gap-1.5">
               <li>Aggregat-ID / märkning används som primär identitet.</li>
-              <li>GWP och CO₂e beräknas automatiskt.</li>
               <li>
-                Fastigheter kopplas bara om de redan finns och namnet matchar.
+                GWP och CO₂e beräknas automatiskt och behöver inte importeras.
+              </li>
+              <li>
+                Fastigheter kopplas bara om de redan finns inlagda i systemet
+                och namnet matchar.
               </li>
             </ul>
             <details className="mt-3 text-xs text-slate-600">
