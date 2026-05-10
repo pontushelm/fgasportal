@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { logActivity } from "@/lib/activity-log"
 import { authenticateApiRequest, forbiddenResponse } from "@/lib/auth"
+import { COMPANY_SETTINGS_ASSIGNABLE_ROLES } from "@/lib/company-settings-users"
 import { prisma } from "@/lib/db"
 
 const updateUserRoleSchema = z.object({
-  role: z.enum(["ADMIN", "MEMBER", "CONTRACTOR"]),
+  role: z.enum(COMPANY_SETTINGS_ASSIGNABLE_ROLES),
 })
 
 export async function PATCH(

@@ -165,7 +165,7 @@ export default function PropertiesPageClient() {
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
       <PageHeader
         title="Fastighetsöversikt"
-        subtitle="Se compliance, risk och klimatpåverkan per fastighet."
+        subtitle="Följ kontrollstatus, risk och klimatpåverkan per fastighet."
       />
 
       {isLoading && <p className="mt-8 text-sm text-slate-700">Laddar fastigheter...</p>}

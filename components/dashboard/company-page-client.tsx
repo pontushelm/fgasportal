@@ -388,6 +388,10 @@ export default function CompanySettingsPage() {
   async function handleRoleChange(user: CompanyUser, role: UserRole) {
     if (isTransferringOwnership) return
     if (role === "OWNER") return
+    if (role === "CONTRACTOR") {
+      setUserManagementError("Servicekontakter hanteras från sidan Servicekontakter.")
+      return
+    }
     if (user.id === currentUser?.userId) return
 
     setUserManagementError("")
@@ -945,9 +949,6 @@ function ManagedUsersTable({
                     >
                       <option value="ADMIN">{formatRoleLabel("ADMIN")}</option>
                       <option value="MEMBER">{formatRoleLabel("MEMBER")}</option>
-                      <option value="CONTRACTOR">
-                        {formatRoleLabel("CONTRACTOR")}
-                      </option>
                     </select>
                   ) : isCurrentUser ? (
                     <Badge variant="neutral" title={formatRoleDescription(user.role)}>
@@ -974,9 +975,6 @@ function ManagedUsersTable({
                         <option value="">Ändra till...</option>
                         <option value="ADMIN">{formatRoleLabel("ADMIN")}</option>
                         <option value="MEMBER">{formatRoleLabel("MEMBER")}</option>
-                        <option value="CONTRACTOR">
-                          {formatRoleLabel("CONTRACTOR")}
-                        </option>
                       </select>
                     </div>
                   )}

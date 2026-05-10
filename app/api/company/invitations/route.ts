@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { ZodError } from "zod"
 import { logActivity } from "@/lib/activity-log"
 import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
+import { COMPANY_SETTINGS_USER_ROLES } from "@/lib/company-settings-users"
 import { prisma } from "@/lib/db"
 import { sendInvitationEmail } from "@/lib/email"
 import {
@@ -27,6 +28,9 @@ export async function GET(request: NextRequest) {
         where: {
           companyId,
           isActive: true,
+          role: {
+            in: [...COMPANY_SETTINGS_USER_ROLES],
+          },
         },
         orderBy: {
           createdAt: "asc",

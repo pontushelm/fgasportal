@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useId, useMemo, useState } from "react"
 import { Badge, Card, EmptyState as UiEmptyState, PageHeader, SectionHeader } from "@/components/ui"
 import { getInstallationEventAmountLabel } from "@/lib/installation-events"
 
@@ -346,8 +346,6 @@ export default function ReportsPage() {
             </div>
           </div>
         }
-        backHref="/dashboard"
-        backLabel="Till dashboard"
         title={selectedReport.title}
         subtitle={selectedReport.subtitle}
       />
@@ -510,6 +508,7 @@ function MetricCard({
   value: number | string
   tone?: "neutral" | "sky" | "red" | "amber"
 }) {
+  const tooltipId = useId()
   const toneClass = {
     neutral: "border-neutral-200 bg-white",
     sky: "border-sky-200 bg-sky-50",
@@ -519,12 +518,19 @@ function MetricCard({
 
   return (
     <Card
-      aria-label={`${label}: ${description}`}
-      className={`cursor-help p-4 ${toneClass}`}
-      title={description}
+      aria-describedby={tooltipId}
+      className={`group relative p-4 outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${toneClass}`}
+      tabIndex={0}
     >
       <div className="text-sm font-medium text-neutral-600">{label}</div>
       <div className="mt-2 text-2xl font-bold text-neutral-950">{value}</div>
+      <div
+        className="pointer-events-none absolute left-3 right-3 top-full z-20 mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-700 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus:opacity-100 group-focus-visible:opacity-100"
+        id={tooltipId}
+        role="tooltip"
+      >
+        {description}
+      </div>
     </Card>
   )
 }

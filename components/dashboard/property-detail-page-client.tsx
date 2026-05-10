@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useId, useState } from "react"
 import { Badge, buttonClassName, Card, EmptyState, PageHeader, SectionHeader } from "@/components/ui"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 import type { InstallationRiskLevel } from "@/lib/risk-classification"
@@ -155,12 +155,12 @@ export default function PropertyDetailPageClient() {
               </dl>
             </Card>
 
-            <Card className="p-5">
+            <Card className="self-start p-4">
               <SectionHeader
                 title="Riskfördelning"
                 subtitle="Fördelning mellan hög, medel och låg risk."
               />
-              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <div className="mt-4 grid gap-2 sm:grid-cols-3">
                 <RiskBox label="Hög" value={data.summary.riskDistribution.HIGH} tone="red" />
                 <RiskBox label="Medel" value={data.summary.riskDistribution.MEDIUM} tone="amber" />
                 <RiskBox label="Låg" value={data.summary.riskDistribution.LOW} tone="green" />
@@ -243,6 +243,7 @@ function MetricCard({
   tone?: "slate" | "red" | "amber"
   value: number | string
 }) {
+  const tooltipId = useId()
   const toneClass = {
     slate: "border-l-slate-300",
     red: "border-l-red-500",
@@ -251,14 +252,21 @@ function MetricCard({
 
   return (
     <Card
-      aria-label={`${label}: ${description}`}
-      className={`flex min-h-28 cursor-help flex-col justify-center border-l-4 p-4 ${toneClass}`}
-      title={description}
+      aria-describedby={tooltipId}
+      className={`group relative flex min-h-28 flex-col justify-center border-l-4 p-4 outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${toneClass}`}
+      tabIndex={0}
     >
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         {label}
       </p>
       <p className="mt-2 text-2xl font-bold text-slate-950">{value}</p>
+      <div
+        className="pointer-events-none absolute left-3 right-3 top-full z-20 mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-700 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus:opacity-100 group-focus-visible:opacity-100"
+        id={tooltipId}
+        role="tooltip"
+      >
+        {description}
+      </div>
     </Card>
   )
 }
@@ -288,9 +296,9 @@ function RiskBox({
   }[tone]
 
   return (
-    <div className={`rounded-xl border p-4 ${toneClass}`}>
+    <div className={`rounded-lg border px-3 py-2.5 ${toneClass}`}>
       <p className="text-xs font-semibold uppercase tracking-wide">{label}</p>
-      <p className="mt-2 text-2xl font-bold">{value}</p>
+      <p className="mt-1 text-xl font-bold">{value}</p>
     </div>
   )
 }
