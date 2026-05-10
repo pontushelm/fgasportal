@@ -281,7 +281,7 @@ export default function ImportInstallationsPage({
           Importera aggregat
         </h1>
         <p className="mt-2 text-sm text-slate-700">
-          Ladda upp Excel/CSV, kontrollera mappningen och förhandsgranska innan
+          Ladda upp Excel/CSV, kontrollera kopplingarna och förhandsgranska innan
           import.
         </p>
       </div>
@@ -371,7 +371,7 @@ export default function ImportInstallationsPage({
               ))}
             </select>
             <p className="text-xs font-normal text-slate-500">
-              När du byter arbetsblad byggs kolumner, föreslagna mappningar och
+              När du byter arbetsblad byggs kolumner, föreslagna kopplingar och
               förhandsgranskning om från det valda bladet.
             </p>
           </div>
@@ -384,11 +384,11 @@ export default function ImportInstallationsPage({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold text-slate-950">
-                Kolumnmappning
+                Kolumnkoppling
               </h2>
               <p className="mt-1 text-sm text-slate-600">
                 FgasPortal föreslår matchningar baserat på kolumnnamn. Ändra vid
-                behov eller lämna kolumner omappade.
+                behov eller lämna kolumner utan koppling.
               </p>
             </div>
             <div className="text-sm text-slate-600">
@@ -450,10 +450,10 @@ export default function ImportInstallationsPage({
                       <td className={tableCellClassName}>
                         {mappedField ? (
                           <span className="font-medium text-emerald-700">
-                            Mappad till {getImportFieldLabel(mappedField)}
+                            OK
                           </span>
                         ) : (
-                          <span className="text-slate-500">Omappad</span>
+                          <span className="text-slate-500">Ej kopplad</span>
                         )}
                       </td>
                     </tr>
@@ -476,7 +476,7 @@ export default function ImportInstallationsPage({
             <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
               {missingRequiredFields.length > 0 && (
                 <p>
-                  Saknar obligatorisk mappning:{" "}
+                  Saknar obligatorisk koppling:{" "}
                   {missingRequiredFields.map(getImportFieldLabel).join(", ")}.
                 </p>
               )}
@@ -485,7 +485,7 @@ export default function ImportInstallationsPage({
                   Samma FgasPortal-fält är valt flera gånger:{" "}
                   {[...new Set(duplicatedFields)].map(getImportFieldLabel).join(", ")}.
                   Välj ett unikt fält per kolumn eller lämna extra kolumner
-                  omappade.
+                  utan koppling.
                 </p>
               )}
             </div>

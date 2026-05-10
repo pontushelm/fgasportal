@@ -121,6 +121,7 @@ type InstallationDetail = {
   installationDate: string
   lastInspection?: string | null
   nextInspection?: string | null
+  archivedAt?: string | null
   scrappedAt?: string | null
   scrappedByCompanyMembershipId?: string | null
   scrapComment?: string | null
@@ -376,6 +377,9 @@ export default function InstallationDetailPage() {
   const [showRefrigerantEditHelp, setShowRefrigerantEditHelp] = useState(false)
   const [archiveError, setArchiveError] = useState("")
   const [isArchiving, setIsArchiving] = useState(false)
+  const [permanentDeleteConfirmation, setPermanentDeleteConfirmation] = useState("")
+  const [permanentDeleteError, setPermanentDeleteError] = useState("")
+  const [isPermanentlyDeleting, setIsPermanentlyDeleting] = useState(false)
   const [scrapForm, setScrapForm] = useState<ScrapFormData>(initialScrapFormData)
   const [scrapCertificateFile, setScrapCertificateFile] = useState<File | null>(null)
   const [scrapError, setScrapError] = useState("")
@@ -923,6 +927,39 @@ export default function InstallationDetailPage() {
     setDeletingDocumentId(null)
   }
 
+  async function handlePermanentDelete(event: React.FormEvent) {
+    event.preventDefault()
+    setPermanentDeleteError("")
+    setIsPermanentlyDeleting(true)
+
+    const res = await fetch(`/api/installations/${params.id}/permanent-delete`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        confirmation: permanentDeleteConfirmation,
+      }),
+    })
+
+    if (res.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!res.ok) {
+      const result: { error?: string } = await res.json()
+      setPermanentDeleteError(
+        result.error || "Kunde inte ta bort aggregatet permanent"
+      )
+      setIsPermanentlyDeleting(false)
+      return
+    }
+
+    router.push("/dashboard/installations")
+  }
+
   if (isLoading) {
     return (
       <main className="mx-auto max-w-6xl px-4 py-10 text-slate-900">
@@ -962,7 +999,11 @@ export default function InstallationDetailPage() {
     isInspectionOverdue: compliance.status === "OVERDUE",
   })
   const canManage = isAdminRole(currentUser?.role)
+  const canPermanentlyDelete = currentUser?.role === "OWNER"
+  const isArchived = Boolean(installation.archivedAt)
   const isScrapped = Boolean(installation.scrappedAt)
+  const canManageActiveInstallation = canManage && !isArchived && !isScrapped
+  const permanentDeleteLabel = installation.equipmentId || installation.name
   const editInspectionPreview = calculateInspectionPreview(
     editForm.refrigerantType,
     editForm.refrigerantAmount,
@@ -994,6 +1035,8 @@ export default function InstallationDetailPage() {
           <div className="flex flex-wrap gap-2">
             {isScrapped ? (
               <ScrappedBadge />
+            ) : isArchived ? (
+              <ArchivedBadge />
             ) : (
               <>
                 <RiskBadge level={risk.level} />
@@ -1003,7 +1046,7 @@ export default function InstallationDetailPage() {
           </div>
         </div>
 
-        {canManage && !isScrapped && (
+        {canManageActiveInstallation && (
           <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-200 pt-4">
             <ActionButton label="Ny händelse" onClick={() => openEventModal()} primary />
             <ActionButton label="Redigera aggregat" onClick={openEditModal} />
@@ -1100,6 +1143,20 @@ export default function InstallationDetailPage() {
         </section>
       )}
 
+      {isArchived && !isScrapped && (
+        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-950">Arkiverat aggregat</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Aggregatet visas för historik men ingår inte i aktiva listor.
+              </p>
+            </div>
+            <ArchivedBadge />
+          </div>
+        </section>
+      )}
+
       <section className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_0.6fr]">
         <div className="rounded-lg border border-slate-200 bg-white p-5">
           <h2 className="text-lg font-semibold text-slate-950">Aggregatdetaljer</h2>
@@ -1150,7 +1207,7 @@ export default function InstallationDetailPage() {
               {documents.length} uppladdade dokument
             </p>
           </div>
-          {canManage && !isScrapped && (
+          {canManageActiveInstallation && (
             <ActionButton label="Ladda upp dokument" onClick={openDocumentModal} />
           )}
         </div>
@@ -1202,16 +1259,18 @@ export default function InstallationDetailPage() {
                         >
                           Öppna dokument
                         </a>
-                        {canDeleteDocument(document, currentUser) && (
-                          <button
-                            className="font-semibold text-red-700 underline-offset-4 hover:underline disabled:text-slate-400"
-                            type="button"
-                            disabled={deletingDocumentId === document.id}
-                            onClick={() => void handleDeleteDocument(document.id)}
-                          >
-                            {deletingDocumentId === document.id ? "Tar bort..." : "Ta bort"}
-                          </button>
-                        )}
+                        {!isArchived &&
+                          !isScrapped &&
+                          canDeleteDocument(document, currentUser) && (
+                            <button
+                              className="font-semibold text-red-700 underline-offset-4 hover:underline disabled:text-slate-400"
+                              type="button"
+                              disabled={deletingDocumentId === document.id}
+                              onClick={() => void handleDeleteDocument(document.id)}
+                            >
+                              {deletingDocumentId === document.id ? "Tar bort..." : "Ta bort"}
+                            </button>
+                          )}
                       </div>
                     </TableCell>
                   </tr>
@@ -1304,7 +1363,53 @@ export default function InstallationDetailPage() {
         )}
       </section>
 
-      {isEditing && canManage && !isScrapped && (
+      {canPermanentlyDelete && (
+        <section className="mt-6 rounded-lg border border-red-200 bg-white p-5">
+          <details>
+            <summary className="cursor-pointer text-sm font-semibold text-red-800">
+              Riskzon: permanent borttagning
+            </summary>
+            <form className="mt-4 grid gap-3" onSubmit={handlePermanentDelete}>
+              <p className="text-sm text-slate-700">
+                Använd bara detta om aggregatet skapades av misstag. Arkivering
+                och skrotning är de normala livscykelåtgärderna och sparar
+                historiken.
+              </p>
+              <label className={fieldClassName}>
+                Skriv {permanentDeleteLabel} för att bekräfta
+                <input
+                  className={formControlClassName}
+                  value={permanentDeleteConfirmation}
+                  onChange={(event) =>
+                    setPermanentDeleteConfirmation(event.target.value)
+                  }
+                />
+              </label>
+              {permanentDeleteError && (
+                <p className="text-sm font-semibold text-red-700">
+                  {permanentDeleteError}
+                </p>
+              )}
+              <div>
+                <button
+                  className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-800 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  type="submit"
+                  disabled={
+                    isPermanentlyDeleting ||
+                    permanentDeleteConfirmation.trim().length === 0
+                  }
+                >
+                  {isPermanentlyDeleting
+                    ? "Tar bort..."
+                    : "Ta bort permanent"}
+                </button>
+              </div>
+            </form>
+          </details>
+        </section>
+      )}
+
+      {isEditing && canManageActiveInstallation && (
         <ModalFrame
           title="Redigera aggregat"
           onClose={() => setIsEditing(false)}
@@ -1456,7 +1561,7 @@ export default function InstallationDetailPage() {
         </ModalFrame>
       )}
 
-      {isEventModalOpen && canManage && !isScrapped && (
+      {isEventModalOpen && canManageActiveInstallation && (
         <ModalFrame
           title={`Ny händelse: ${EVENT_FORM_LABELS[eventForm.type]}`}
           description={
@@ -1672,7 +1777,7 @@ export default function InstallationDetailPage() {
         </ModalFrame>
       )}
 
-      {isDocumentModalOpen && canManage && !isScrapped && (
+      {isDocumentModalOpen && canManageActiveInstallation && (
         <ModalFrame title="Ladda upp dokument" onClose={closeDocumentModal} closeDisabled={isUploadingDocument}>
           <form className="grid gap-3" onSubmit={handleDocumentSubmit}>
             <label className={fieldClassName}>
@@ -1882,6 +1987,10 @@ function CertificationBadge({ status }: { status: CertificationStatusResult }) {
 
 function ScrappedBadge() {
   return <Badge variant="neutral">Skrotad</Badge>
+}
+
+function ArchivedBadge() {
+  return <Badge variant="neutral">Arkiverad</Badge>
 }
 
 function CertificationWarningBox({ message }: { message: string }) {

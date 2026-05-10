@@ -32,7 +32,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
       where: {
         id,
         companyId,
-        archivedAt: null,
         ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
       },
       include: {

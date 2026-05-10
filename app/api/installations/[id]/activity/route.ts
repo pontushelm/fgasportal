@@ -18,7 +18,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
       where: {
         id,
         companyId: auth.user.companyId,
-        archivedAt: null,
       },
       select: {
         id: true,
