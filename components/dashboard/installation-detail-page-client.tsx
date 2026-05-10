@@ -379,6 +379,7 @@ export default function InstallationDetailPage() {
   const [isArchiving, setIsArchiving] = useState(false)
   const [permanentDeleteConfirmation, setPermanentDeleteConfirmation] = useState("")
   const [permanentDeleteError, setPermanentDeleteError] = useState("")
+  const [isPermanentDeleteModalOpen, setIsPermanentDeleteModalOpen] = useState(false)
   const [isPermanentlyDeleting, setIsPermanentlyDeleting] = useState(false)
   const [scrapForm, setScrapForm] = useState<ScrapFormData>(initialScrapFormData)
   const [scrapCertificateFile, setScrapCertificateFile] = useState<File | null>(null)
@@ -625,6 +626,19 @@ export default function InstallationDetailPage() {
     if (isUploadingDocument) return
     setIsDocumentModalOpen(false)
     setDocumentError("")
+  }
+
+  function openPermanentDeleteModal() {
+    setPermanentDeleteConfirmation("")
+    setPermanentDeleteError("")
+    setIsPermanentDeleteModalOpen(true)
+  }
+
+  function closePermanentDeleteModal() {
+    if (isPermanentlyDeleting) return
+    setIsPermanentDeleteModalOpen(false)
+    setPermanentDeleteConfirmation("")
+    setPermanentDeleteError("")
   }
 
   function openEditModal() {
@@ -1053,6 +1067,18 @@ export default function InstallationDetailPage() {
           </div>
         )}
 
+        {canPermanentlyDelete && (
+          <div className="mt-4 border-t border-slate-200 pt-4">
+            <button
+              className="text-sm font-semibold text-slate-500 underline-offset-4 hover:text-red-700 hover:underline"
+              type="button"
+              onClick={openPermanentDeleteModal}
+            >
+              Ta bort permanent
+            </button>
+          </div>
+        )}
+
         {(editSuccess || eventSuccess || documentSuccess || archiveError) && (
           <div className="mt-4 grid gap-2 text-sm font-semibold">
             {editSuccess && <p className="text-green-700">{editSuccess}</p>}
@@ -1362,52 +1388,6 @@ export default function InstallationDetailPage() {
           </div>
         )}
       </section>
-
-      {canPermanentlyDelete && (
-        <section className="mt-6 rounded-lg border border-red-200 bg-white p-5">
-          <details>
-            <summary className="cursor-pointer text-sm font-semibold text-red-800">
-              Riskzon: permanent borttagning
-            </summary>
-            <form className="mt-4 grid gap-3" onSubmit={handlePermanentDelete}>
-              <p className="text-sm text-slate-700">
-                Använd bara detta om aggregatet skapades av misstag. Arkivering
-                och skrotning är de normala livscykelåtgärderna och sparar
-                historiken.
-              </p>
-              <label className={fieldClassName}>
-                Skriv {permanentDeleteLabel} för att bekräfta
-                <input
-                  className={formControlClassName}
-                  value={permanentDeleteConfirmation}
-                  onChange={(event) =>
-                    setPermanentDeleteConfirmation(event.target.value)
-                  }
-                />
-              </label>
-              {permanentDeleteError && (
-                <p className="text-sm font-semibold text-red-700">
-                  {permanentDeleteError}
-                </p>
-              )}
-              <div>
-                <button
-                  className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-800 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  type="submit"
-                  disabled={
-                    isPermanentlyDeleting ||
-                    permanentDeleteConfirmation.trim().length === 0
-                  }
-                >
-                  {isPermanentlyDeleting
-                    ? "Tar bort..."
-                    : "Ta bort permanent"}
-                </button>
-              </div>
-            </form>
-          </details>
-        </section>
-      )}
 
       {isEditing && canManageActiveInstallation && (
         <ModalFrame
@@ -1837,6 +1817,63 @@ export default function InstallationDetailPage() {
                 type="button"
                 onClick={closeDocumentModal}
                 disabled={isUploadingDocument}
+              >
+                Avbryt
+              </button>
+            </div>
+          </form>
+        </ModalFrame>
+      )}
+
+      {isPermanentDeleteModalOpen && canPermanentlyDelete && (
+        <ModalFrame
+          title="Ta bort aggregat permanent"
+          description="Permanent borttagning kan inte ångras."
+          onClose={closePermanentDeleteModal}
+          closeDisabled={isPermanentlyDeleting}
+        >
+          <form className="grid gap-4" onSubmit={handlePermanentDelete}>
+            <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-950">
+              <p className="font-semibold">
+                Använd bara permanent borttagning för felregistreringar.
+              </p>
+              <p className="mt-1">
+                Arkivering och skrotning är de normala livscykelåtgärderna och
+                sparar aggregatets historik. Permanent borttagning raderar
+                aggregatet och kan inte ångras.
+              </p>
+            </div>
+            <label className={fieldClassName}>
+              Skriv {permanentDeleteLabel} för att bekräfta
+              <input
+                className={formControlClassName}
+                value={permanentDeleteConfirmation}
+                onChange={(event) =>
+                  setPermanentDeleteConfirmation(event.target.value)
+                }
+              />
+            </label>
+            {permanentDeleteError && (
+              <p className="text-sm font-semibold text-red-700">
+                {permanentDeleteError}
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button
+                className="rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-800 disabled:cursor-not-allowed disabled:bg-red-300"
+                type="submit"
+                disabled={
+                  isPermanentlyDeleting ||
+                  permanentDeleteConfirmation.trim().length === 0
+                }
+              >
+                {isPermanentlyDeleting ? "Tar bort..." : "Ta bort permanent"}
+              </button>
+              <button
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                type="button"
+                onClick={closePermanentDeleteModal}
+                disabled={isPermanentlyDeleting}
               >
                 Avbryt
               </button>

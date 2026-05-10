@@ -616,8 +616,8 @@ export default function InstallationsPageClient() {
           </>
         }
         eyebrow="Aggregat"
-        title="Registrerade aggregat"
-        subtitle="Register över organisationens köldmedieaggregat."
+        title="Aggregat"
+        subtitle="Översikt över organisationens köldmedieaggregat."
       />
       <Card className="mt-6 p-4">
         <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
