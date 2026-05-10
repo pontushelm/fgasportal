@@ -37,7 +37,7 @@ const STATUS_SORT_ORDER: Record<ComplianceStatus, number> = {
   NOT_REQUIRED: 5,
 }
 
-const ACTION_PREVIEW_LIMIT = 10
+const ACTION_PREVIEW_LIMIT = 5
 
 export async function GET(request: NextRequest) {
   try {
@@ -123,6 +123,7 @@ export async function GET(request: NextRequest) {
       return {
         id: installation.id,
         name: installation.name,
+        equipmentId: installation.equipmentId,
         location: installation.location,
         refrigerantType: installation.refrigerantType,
         refrigerantAmount: installation.refrigerantAmount,
@@ -146,6 +147,7 @@ export async function GET(request: NextRequest) {
       installation.events.map((event) => ({
         ...event,
         installationName: installation.name,
+        equipmentId: installation.equipmentId,
         installationLocation: installation.location,
         propertyName: installation.property?.name ?? installation.propertyName,
       }))

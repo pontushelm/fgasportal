@@ -28,6 +28,7 @@ type ActionItem = {
   priority: "HIGH" | "MEDIUM" | "LOW"
   installationId: string
   installationName: string
+  equipmentId: string | null
   propertyName: string | null
   href: string
   dueDate?: string | null
@@ -151,7 +152,6 @@ export default function DashboardPage() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
-  const [showAllActions, setShowAllActions] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -193,9 +193,7 @@ export default function DashboardPage() {
   }, [router])
 
   const sortedActionItems = dashboardData?.actionItems ?? []
-  const visibleActionItems = showAllActions
-    ? sortedActionItems
-    : sortedActionItems.slice(0, ACTION_PREVIEW_LIMIT)
+  const visibleActionItems = sortedActionItems.slice(0, ACTION_PREVIEW_LIMIT)
   const hasMoreActions = sortedActionItems.length > ACTION_PREVIEW_LIMIT
 
   return (
@@ -246,15 +244,12 @@ export default function DashboardPage() {
                     Prioriterade statusproblem och uppföljningspunkter.
                   </p>
                 </div>
-                {hasMoreActions && (
-                  <button
-                    className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-                    type="button"
-                    onClick={() => setShowAllActions((current) => !current)}
-                  >
-                    {showAllActions ? "Visa färre åtgärder" : "Visa fler åtgärder"}
-                  </button>
-                )}
+                <Link
+                  className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                  href="/dashboard/actions"
+                >
+                  Visa alla åtgärder
+                </Link>
               </div>
 
               {visibleActionItems.length === 0 ? (
@@ -267,6 +262,11 @@ export default function DashboardPage() {
                     <ActionRow item={item} key={item.id} />
                   ))}
                 </div>
+              )}
+              {hasMoreActions && (
+                <p className="mt-3 text-xs text-slate-500">
+                  Visar de fem mest prioriterade åtgärderna.
+                </p>
               )}
             </Card>
 
@@ -388,6 +388,9 @@ function ActionRow({ item }: { item: ActionItem }) {
         </div>
         <p className="mt-1 text-sm font-semibold text-slate-900">
           {item.installationName}
+          {item.equipmentId ? (
+            <span className="font-normal text-slate-600"> · {item.equipmentId}</span>
+          ) : null}
           {item.propertyName ? (
             <span className="font-normal text-slate-600"> - {item.propertyName}</span>
           ) : null}

@@ -26,6 +26,7 @@ export type DashboardAction = {
   description: string
   installationId: string
   installationName: string
+  equipmentId: string | null
   propertyName: string | null
   href: string
   dueDate: Date | null
@@ -38,6 +39,7 @@ export type DashboardAction = {
 export type ActionInstallationInput = {
   id: string
   name: string
+  equipmentId?: string | null
   propertyName?: string | null
   nextInspection: Date | null
   inspectionInterval: number | null
@@ -50,6 +52,7 @@ export type ActionLeakageEventInput = {
   id: string
   installationId: string
   installationName: string
+  equipmentId?: string | null
   propertyName?: string | null
   date: Date
 }
@@ -172,6 +175,7 @@ export function generateDashboardActions({
       description: `${event.installationName} har läckage registrerat ${formatDate(event.date)}`,
       installationId: event.installationId,
       installationName: event.installationName,
+      equipmentId: event.equipmentId ?? null,
       propertyName: event.propertyName ?? null,
       href: `/dashboard/installations/${event.installationId}`,
       dueDate: null,
@@ -230,6 +234,7 @@ function createAction({
     description,
     installationId: installation.id,
     installationName: installation.name,
+    equipmentId: installation.equipmentId ?? null,
     propertyName: installation.propertyName ?? null,
     href,
     dueDate,

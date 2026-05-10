@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { generateDashboardActions } from "@/lib/actions/generate-actions"
+import { filterDashboardActions } from "@/lib/actions/action-filters"
 import {
   getCurrentYearRange,
   isDateInRange,
@@ -75,6 +76,40 @@ describe("dashboard action generation", () => {
     })
 
     expect(actions).toEqual([])
+  })
+
+  it("filters generated actions by operational category without changing order", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-05-08T12:00:00"),
+      installations: [
+        {
+          id: "overdue",
+          name: "Overdue aggregat",
+          nextInspection: new Date("2026-04-01"),
+          inspectionInterval: 12,
+          complianceStatus: "OVERDUE",
+          assignedContractorId: null,
+          risk: { level: "LOW", score: 1 },
+        },
+        {
+          id: "risk",
+          name: "Risk aggregat",
+          nextInspection: null,
+          inspectionInterval: null,
+          complianceStatus: "OK",
+          assignedContractorId: "contractor-1",
+          risk: { level: "HIGH", score: 9 },
+        },
+      ],
+      leakageEvents: [],
+    })
+
+    expect(filterDashboardActions(actions, "OVERDUE_INSPECTIONS").map((action) => action.type)).toEqual([
+      "OVERDUE_INSPECTION",
+    ])
+    expect(filterDashboardActions(actions, "HIGH_RISK").map((action) => action.type)).toEqual([
+      "HIGH_RISK",
+    ])
   })
 })
 

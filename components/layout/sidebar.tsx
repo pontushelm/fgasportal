@@ -34,6 +34,7 @@ type NavigationItem = {
 
 const primaryNavigation: NavigationItem[] = [
   { href: "/dashboard", label: "Dashboard", roles: ["OWNER", "ADMIN", "MEMBER"] },
+  { href: "/dashboard/actions", label: "Åtgärder", roles: ["OWNER", "ADMIN", "MEMBER"] },
   {
     href: "/dashboard/installations",
     label: "Aggregat",
