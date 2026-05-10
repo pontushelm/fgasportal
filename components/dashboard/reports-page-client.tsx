@@ -348,7 +348,6 @@ export default function ReportsPage() {
         }
         backHref="/dashboard"
         backLabel="Till dashboard"
-        eyebrow="Rapportering"
         title={selectedReport.title}
         subtitle={selectedReport.subtitle}
       />

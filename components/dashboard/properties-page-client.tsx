@@ -164,7 +164,6 @@ export default function PropertiesPageClient() {
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
       <PageHeader
-        eyebrow="Fastigheter"
         title="Fastighetsöversikt"
         subtitle="Se compliance, risk och klimatpåverkan per fastighet."
       />

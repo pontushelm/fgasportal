@@ -89,7 +89,7 @@ const ACTION_PRIORITY_LABELS: Record<ActionItem["priority"], string> = {
   LOW: "Låg",
 }
 
-const ACTION_PREVIEW_LIMIT = 5
+const ACTION_PREVIEW_LIMIT = 7
 
 const KPI_CARDS = [
   {
@@ -200,7 +200,6 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
       <section className="mx-auto max-w-7xl">
         <PageHeader
-          eyebrow="Compliance dashboard"
           title="F-gasöversikt"
           subtitle="Se compliance-läget, prioriterade åtgärder och risker för era köldmedieaggregat."
         />
@@ -219,7 +218,6 @@ export default function DashboardPage() {
                 key={card.key}
                 label={card.label}
                 tone={card.tone}
-                tooltip={card.tooltip}
                 value={getKpiValue(card.key, dashboardData)}
               />
             ))}
@@ -265,7 +263,7 @@ export default function DashboardPage() {
               )}
               {hasMoreActions && (
                 <p className="mt-3 text-xs text-slate-500">
-                  Visar de fem mest prioriterade åtgärderna.
+                  Visar de sju mest prioriterade åtgärderna.
                 </p>
               )}
             </Card>
@@ -279,7 +277,10 @@ export default function DashboardPage() {
                 </div>
               </VisualCard>
 
-              <VisualCard title="Statusfördelning">
+              <VisualCard
+                title="Kontrollstatus"
+                description="Fördelning av aggregat utifrån kontrollplikt och kontrollstatus."
+              >
                 <SegmentedStatusBar
                   distribution={dashboardData.statusDistribution}
                   total={dashboardData.metrics.totalInstallations}
@@ -308,6 +309,7 @@ export default function DashboardPage() {
                   items={dashboardData.refrigerantDistribution.slice(0, 5).map((item) => ({
                     label: item.label,
                     value: item.co2eTon,
+                    displayValue: Math.round(item.co2eTon),
                     suffix: "t",
                   }))}
                 />
@@ -324,13 +326,11 @@ export default function DashboardPage() {
 function MetricCard({
   description,
   label,
-  tooltip,
   value,
   tone = "neutral",
 }: {
   description: string
   label: string
-  tooltip: string
   value: number | string
   tone?: "neutral" | "emerald" | "red" | "amber" | "sky"
 }) {
@@ -343,11 +343,7 @@ function MetricCard({
   }[tone]
 
   return (
-    <div
-      aria-label={`${label}: ${tooltip}`}
-      className={`min-h-28 cursor-help rounded-xl border border-slate-200 border-l-4 bg-white px-3 py-3 shadow-sm ${toneClass}`}
-      title={tooltip}
-    >
+    <div className={`min-h-28 rounded-xl border border-slate-200 border-l-4 bg-white px-3 py-3 shadow-sm ${toneClass}`}>
       <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
       <div className="mt-2 break-words text-2xl font-bold tracking-tight text-slate-950">{value}</div>
       <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
@@ -409,14 +405,17 @@ function ActionRow({ item }: { item: ActionItem }) {
 
 function VisualCard({
   title,
+  description,
   children,
 }: {
   title: string
+  description?: string
   children: React.ReactNode
 }) {
   return (
     <Card className="p-4">
       <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
+      {description ? <p className="mt-1 text-sm text-slate-600">{description}</p> : null}
       <div className="mt-4">{children}</div>
     </Card>
   )
@@ -444,7 +443,6 @@ function SegmentedStatusBar({
             className={STATUS_BAR_TONE[status]}
             key={status}
             style={{ width: `${(count / total) * 100}%` }}
-            title={`${STATUS_LABELS[status]}: ${count}`}
           />
         )
       })}
@@ -472,7 +470,7 @@ function DistributionList({
 function DistributionBars({
   items,
 }: {
-  items: Array<{ label: string; value: number; suffix?: string }>
+  items: Array<{ label: string; value: number; displayValue?: number; suffix?: string }>
 }) {
   const maxValue = Math.max(...items.map((item) => item.value), 0)
 
@@ -487,7 +485,7 @@ function DistributionBars({
           <div className="mb-1 flex items-center justify-between gap-3 text-sm">
             <span className="truncate font-semibold text-slate-800">{item.label}</span>
             <span className="shrink-0 text-slate-700">
-              {formatNumber(item.value)} {item.suffix ?? ""}
+              {formatNumber(item.displayValue ?? item.value)} {item.suffix ?? ""}
             </span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-100">

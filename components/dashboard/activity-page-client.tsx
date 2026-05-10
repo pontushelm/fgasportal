@@ -166,7 +166,6 @@ export default function ActivityPageClient() {
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-900 dark:text-slate-100 sm:px-6 lg:px-8">
       <PageHeader
-        eyebrow="Spårbarhet"
         title="Aktivitetslogg"
         subtitle="Se vad som har hänt i systemet, när det hände och vem som utförde åtgärden."
       />

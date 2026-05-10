@@ -317,7 +317,6 @@ export default function ContractorsOverviewPageClient() {
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 dark:text-slate-100 sm:px-6 lg:px-8">
       <PageHeader
-        eyebrow="Servicekontakter"
         title="Inbjudna servicekontakter"
         subtitle="Följ tilldelade aggregat, försenade kontroller och risk per inbjuden kontakt/tekniker."
         actions={

@@ -615,7 +615,6 @@ export default function InstallationsPageClient() {
             </Button>
           </>
         }
-        eyebrow="Aggregat"
         title="Aggregat"
         subtitle="Översikt över organisationens köldmedieaggregat."
       />

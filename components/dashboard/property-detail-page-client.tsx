@@ -110,7 +110,6 @@ export default function PropertyDetailPageClient() {
         }
         backHref="/dashboard/properties"
         backLabel="Tillbaka till fastigheter"
-        eyebrow="Fastighet"
         title={data?.property.name ?? "Fastighet"}
         subtitle="Compliance, risk och klimatpåverkan för fastigheten."
       />
