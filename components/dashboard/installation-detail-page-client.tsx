@@ -1053,7 +1053,7 @@ export default function InstallationDetailPage() {
               <ArchivedBadge />
             ) : (
               <>
-                <RiskBadge level={risk.level} />
+                <RiskBadge level={risk.level} reasons={risk.reasons} />
                 <ComplianceBadge status={compliance.status} />
               </>
             )}
@@ -1091,16 +1091,6 @@ export default function InstallationDetailPage() {
           <SummaryItem label="Nästa kontroll" value={formatOptionalDate(installation.nextInspection)} />
         </div>
 
-        {!isScrapped && (
-          <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
-          <p className="text-sm font-semibold text-slate-900">Risk baseras på:</p>
-          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
-            {risk.reasons.map((reason) => (
-              <li key={reason}>{reason}</li>
-            ))}
-          </ul>
-          </div>
-        )}
       </section>
 
       {isScrapped && (
@@ -1384,9 +1374,6 @@ export default function InstallationDetailPage() {
               <h2 className="text-base font-semibold text-slate-950">
                 Avancerade åtgärder
               </h2>
-              <p className="mt-1 text-sm text-slate-600">
-                Endast för korrigering av felaktiga registreringar.
-              </p>
             </div>
             <button
               className="inline-flex justify-center rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
@@ -2020,9 +2007,21 @@ function ModalFrame({
   )
 }
 
-function RiskBadge({ level }: { level: InstallationRiskLevel }) {
+function RiskBadge({
+  level,
+  reasons = [],
+}: {
+  level: InstallationRiskLevel
+  reasons?: string[]
+}) {
+  const title = reasons.length > 0 ? `Risk baseras på: ${reasons.join(". ")}` : undefined
+
   return (
-    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${RISK_TONE[level]}`}>
+    <span
+      aria-label={title}
+      className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${RISK_TONE[level]}`}
+      title={title}
+    >
       {RISK_LABELS[level] ?? "Risk saknas"}
     </span>
   )
