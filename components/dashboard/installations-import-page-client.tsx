@@ -284,6 +284,17 @@ export default function ImportInstallationsPage({
           Ladda upp Excel/CSV, kontrollera kopplingarna och förhandsgranska innan
           import.
         </p>
+        <p className="mt-2 text-sm text-slate-600">
+          Ska du importera historiska kontroller, läckage, service eller
+          påfyllningar?{" "}
+          <Link
+            className="font-semibold text-blue-700 underline-offset-4 hover:underline"
+            href="/dashboard/installations/import-events"
+          >
+            Gå till händelseimport
+          </Link>
+          .
+        </p>
       </div>
 
       <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">

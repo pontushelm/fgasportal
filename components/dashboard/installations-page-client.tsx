@@ -613,6 +613,12 @@ export default function InstallationsPageClient() {
             >
               Importera aggregat
             </Button>
+            <Link
+              className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+              href="/dashboard/installations/import-events"
+            >
+              Importera händelser
+            </Link>
           </>
         }
         title="Aggregat"
