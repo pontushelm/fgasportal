@@ -292,6 +292,149 @@ describe("installation event import preview", () => {
     expect(rows.every((row) => row.status !== "blocked")).toBe(true)
   })
 
+  it("accepts repair rows with a recommended comment warning", () => {
+    const [row] = buildEventImportPreview({
+      rows: [
+        {
+          equipmentId: "VP1",
+          propertyName: "Stadshuset",
+          eventType: "Reparation",
+          eventDate: "2026-04-01",
+        },
+      ],
+      installations,
+      properties,
+    })
+
+    expect(row.normalizedType).toBe("REPAIR")
+    expect(row.status).toBe("warning")
+    expect(row.warnings).toContain("Kommentar rekommenderas för reparationer")
+  })
+
+  it("accepts recovery rows and warns when recovered amount is missing", () => {
+    const [row] = buildEventImportPreview({
+      rows: [
+        {
+          equipmentId: "VP1",
+          propertyName: "Stadshuset",
+          eventType: "Tömning / återvinning",
+          eventDate: "2026-04-02",
+        },
+      ],
+      installations,
+      properties,
+    })
+
+    expect(row.normalizedType).toBe("RECOVERY")
+    expect(row.status).toBe("warning")
+    expect(row.warnings).toContain(
+      "Omhändertagen mängd saknas - händelsen importeras utan mängd"
+    )
+  })
+
+  it("accepts refrigerant change rows with structured refrigerant fields", () => {
+    const [row] = buildEventImportPreview({
+      rows: [
+        {
+          equipmentId: "VP1",
+          propertyName: "Stadshuset",
+          eventType: "Köldmediebyte",
+          eventDate: "2026-04-03",
+          amountKg: 10,
+          previousRefrigerantType: "R404A",
+          newRefrigerantType: "R449A",
+          recoveredKg: 9.5,
+        },
+      ],
+      installations,
+      properties,
+    })
+
+    expect(row.normalizedType).toBe("REFRIGERANT_CHANGE")
+    expect(row.status).toBe("valid")
+    expect(row.previousRefrigerantType).toBe("R404A")
+    expect(row.newRefrigerantType).toBe("R449A")
+    expect(row.recoveredKg).toBe(9.5)
+  })
+
+  it("blocks refrigerant change rows without a new refrigerant", () => {
+    const [row] = buildEventImportPreview({
+      rows: [
+        {
+          equipmentId: "VP1",
+          propertyName: "Stadshuset",
+          eventType: "Byte av köldmedium",
+          eventDate: "2026-04-03",
+          amountKg: 10,
+        },
+      ],
+      installations,
+      properties,
+    })
+
+    expect(row.status).toBe("blocked")
+    expect(row.errors).toContain("Nytt köldmedium krävs vid byte av köldmedium")
+  })
+
+  it("blocks duplicate recovery rows using recovered amount", () => {
+    const rows = buildEventImportPreview({
+      rows: [
+        {
+          equipmentId: "VP1",
+          propertyName: "Stadshuset",
+          eventType: "Återvinning",
+          eventDate: "2026-04-04",
+          recoveredKg: 4,
+        },
+        {
+          equipmentId: "VP1",
+          propertyName: "Stadshuset",
+          eventType: "Tömning",
+          eventDate: "2026-04-04",
+          recoveredKg: "4,0",
+        },
+      ],
+      installations,
+      properties,
+    })
+
+    expect(rows[0].status).toBe("valid")
+    expect(rows[1].status).toBe("blocked")
+    expect(rows[1].errors).toContain(
+      "En liknande händelse finns redan i filen för samma aggregat och datum."
+    )
+  })
+
+  it("blocks recovery rows that duplicate an existing event", () => {
+    const [row] = buildEventImportPreview({
+      rows: [
+        {
+          equipmentId: "VP1",
+          propertyName: "Stadshuset",
+          eventType: "Återvinning",
+          eventDate: "2026-04-04",
+          recoveredKg: 4,
+        },
+      ],
+      installations,
+      properties,
+      existingEvents: [
+        {
+          installationId: "installation-a",
+          type: "RECOVERY",
+          date: "2026-04-04",
+          refrigerantAddedKg: 4,
+          notes: null,
+        },
+      ],
+    })
+
+    expect(row.status).toBe("blocked")
+    expect(row.errors).toContain(
+      "En liknande händelse finns redan för detta aggregat på samma datum."
+    )
+  })
+
   it("accepts raw client payload values before row-level normalization", () => {
     const payload = eventImportRequestSchema.parse({
       mode: "preview",
@@ -333,7 +476,7 @@ describe("installation event import preview", () => {
   it("blocks invalid event type and missing date during preview validation", () => {
     const row = normalizeEventImportRow({
       equipmentId: "FRYS-01",
-      eventType: "Byte av köldmedium",
+      eventType: "Skrotning",
       eventDate: "",
     })
 

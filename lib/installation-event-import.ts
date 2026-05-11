@@ -4,7 +4,13 @@ import { z } from "zod"
 
 export type SupportedEventImportType = Extract<
   InstallationEventType,
-  "INSPECTION" | "LEAK" | "REFILL" | "SERVICE"
+  | "INSPECTION"
+  | "LEAK"
+  | "REFILL"
+  | "SERVICE"
+  | "REPAIR"
+  | "RECOVERY"
+  | "REFRIGERANT_CHANGE"
 >
 
 export type EventImportFieldKey =
@@ -13,6 +19,9 @@ export type EventImportFieldKey =
   | "eventType"
   | "eventDate"
   | "amountKg"
+  | "previousRefrigerantType"
+  | "newRefrigerantType"
+  | "recoveredKg"
   | "notes"
 
 export type EventImportFieldDefinition = {
@@ -31,6 +40,9 @@ export type EventImportInputRow = {
   eventType: string
   eventDate: string | null
   amountKg: number | null
+  previousRefrigerantType: string | null
+  newRefrigerantType: string | null
+  recoveredKg: number | null
   notes: string | null
 }
 
@@ -153,6 +165,45 @@ export const EVENT_IMPORT_FIELD_DEFINITIONS: EventImportFieldDefinition[] = [
     ],
   },
   {
+    key: "previousRefrigerantType",
+    label: "Tidigare köldmedium",
+    aliases: [
+      "tidigare köldmedium",
+      "tidigare koldmedium",
+      "gammalt köldmedium",
+      "gammalt koldmedium",
+      "previous refrigerant",
+      "old refrigerant",
+    ],
+  },
+  {
+    key: "newRefrigerantType",
+    label: "Nytt köldmedium",
+    aliases: [
+      "nytt köldmedium",
+      "nytt koldmedium",
+      "nytt media",
+      "nytt köldmedia",
+      "new refrigerant",
+    ],
+  },
+  {
+    key: "recoveredKg",
+    label: "Omhändertagen mängd",
+    aliases: [
+      "återvunnen mängd",
+      "atervunnen mangd",
+      "återvinning mängd",
+      "atervinning mangd",
+      "omhändertagen mängd",
+      "omhandertagen mangd",
+      "tömd mängd",
+      "tomd mangd",
+      "recovered amount",
+      "recovered kg",
+    ],
+  },
+  {
     key: "notes",
     label: "Kommentar / anteckning",
     aliases: ["kommentar", "anteckning", "anteckningar", "notes", "notering"],
@@ -223,7 +274,17 @@ export function mapEventImportRowsWithMapping(
 }
 
 export function isEmptyEventImportRow(row: Record<string, unknown>) {
-  return ["equipmentId", "propertyName", "eventType", "eventDate", "amountKg", "notes"]
+  return [
+    "equipmentId",
+    "propertyName",
+    "eventType",
+    "eventDate",
+    "amountKg",
+    "previousRefrigerantType",
+    "newRefrigerantType",
+    "recoveredKg",
+    "notes",
+  ]
     .every((key) => !hasValue(row[key]))
 }
 
@@ -238,6 +299,9 @@ export function normalizeEventImportRow(
   const normalizedType = normalizeEventType(eventType)
   const eventDate = parseDateValue(rawRow.eventDate)
   const amountKg = parseNumber(rawRow.amountKg)
+  const previousRefrigerantType = getOptionalString(rawRow, "previousRefrigerantType")
+  const newRefrigerantType = getOptionalString(rawRow, "newRefrigerantType")
+  const recoveredKg = parseNumber(rawRow.recoveredKg)
   const notes = getOptionalString(rawRow, "notes")
   const errors: string[] = []
   const warnings: string[] = []
@@ -252,8 +316,14 @@ export function normalizeEventImportRow(
   if (hasValue(rawRow.amountKg) && amountKg === null) {
     errors.push("Ogiltig mängd")
   }
+  if (hasValue(rawRow.recoveredKg) && recoveredKg === null) {
+    errors.push("Ogiltig omhändertagen mängd")
+  }
   if (amountKg !== null && amountKg < 0) {
     errors.push("Mängd måste vara 0 eller högre")
+  }
+  if (recoveredKg !== null && recoveredKg < 0) {
+    errors.push("Omhändertagen mängd måste vara 0 eller högre")
   }
   if (normalizedType === "LEAK" && !notes) {
     errors.push("Anteckningar krävs för läckagehändelser")
@@ -263,6 +333,18 @@ export function normalizeEventImportRow(
   }
   if (normalizedType === "REFILL" && amountKg === null) {
     errors.push("Påfylld mängd krävs för påfyllning")
+  }
+  if (normalizedType === "REPAIR" && !notes) {
+    warnings.push("Kommentar rekommenderas för reparationer")
+  }
+  if (normalizedType === "RECOVERY" && recoveredKg === null && amountKg === null) {
+    warnings.push("Omhändertagen mängd saknas - händelsen importeras utan mängd")
+  }
+  if (normalizedType === "REFRIGERANT_CHANGE" && !newRefrigerantType) {
+    errors.push("Nytt köldmedium krävs vid byte av köldmedium")
+  }
+  if (normalizedType === "REFRIGERANT_CHANGE" && amountKg === null) {
+    warnings.push("Ny fyllnadsmängd saknas - händelsen importeras utan mängd")
   }
   if (!propertyName) {
     warnings.push("Saknar fastighet - händelsen matchas endast på Aggregat-ID")
@@ -275,6 +357,9 @@ export function normalizeEventImportRow(
     eventType,
     eventDate,
     amountKg,
+    previousRefrigerantType,
+    newRefrigerantType,
+    recoveredKg,
     notes,
     normalizedType,
     errors,
@@ -343,7 +428,7 @@ function getEventImportDuplicateErrors({
   if (!installationId || !row.normalizedType || !row.eventDate) return []
 
   const importKey = getEventImportIdentityKey({
-    amountKg: row.amountKg,
+    amountKg: getEventImportIdentityAmount(row.normalizedType, row),
     date: row.eventDate,
     installationId,
     notes: row.notes,
@@ -413,17 +498,33 @@ function getEventImportIdentityKey({
 function isSupportedEventImportType(
   type: InstallationEventType
 ): type is SupportedEventImportType {
-  return ["INSPECTION", "LEAK", "REFILL", "SERVICE"].includes(type)
+  return [
+    "INSPECTION",
+    "LEAK",
+    "REFILL",
+    "SERVICE",
+    "REPAIR",
+    "RECOVERY",
+    "REFRIGERANT_CHANGE",
+  ].includes(type)
 }
 
 function normalizeEventImportAmountIdentity(
   type: SupportedEventImportType,
   amountKg: number | null
 ) {
-  if (type !== "LEAK" && type !== "REFILL") return ""
+  if (!["LEAK", "REFILL", "RECOVERY", "REFRIGERANT_CHANGE"].includes(type)) return ""
   if (amountKg === null) return ""
 
   return Number(amountKg).toFixed(3)
+}
+
+function getEventImportIdentityAmount(
+  type: SupportedEventImportType,
+  row: ParsedEventImportRow
+) {
+  if (type === "RECOVERY") return row.recoveredKg ?? row.amountKg
+  return row.amountKg
 }
 
 function normalizeEventImportNotesIdentity(notes: string | null) {
@@ -525,10 +626,47 @@ export function normalizeEventType(value: string): SupportedEventImportType | nu
   if (["service", "servicehandelse", "service event"].includes(normalized)) {
     return "SERVICE"
   }
+  if (["reparation", "repair"].includes(normalized)) {
+    return "REPAIR"
+  }
+  if (
+    [
+      "atervinning",
+      "atervinning tomning",
+      "tomning",
+      "tomning atervinning",
+      "recovery",
+      "reclaim",
+    ].includes(normalized)
+  ) {
+    return "RECOVERY"
+  }
+  if (
+    [
+      "byteavkoldmedium",
+      "byte av koldmedium",
+      "koldmediebyte",
+      "koldmediumbyte",
+      "refrigerant change",
+      "refrigerant replacement",
+    ].includes(normalized)
+  ) {
+    return "REFRIGERANT_CHANGE"
+  }
   if (["inspection", "inspektion"].includes(value.trim().toLowerCase())) {
     return "INSPECTION"
   }
-  if (["INSPECTION", "LEAK", "REFILL", "SERVICE"].includes(value.trim())) {
+  if (
+    [
+      "INSPECTION",
+      "LEAK",
+      "REFILL",
+      "SERVICE",
+      "REPAIR",
+      "RECOVERY",
+      "REFRIGERANT_CHANGE",
+    ].includes(value.trim())
+  ) {
     return value.trim() as SupportedEventImportType
   }
 

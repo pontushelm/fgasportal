@@ -47,6 +47,9 @@ const TEMPLATE_COLUMNS = [
   "Händelsetyp",
   "Händelsedatum",
   "Mängd",
+  "Tidigare köldmedium",
+  "Nytt köldmedium",
+  "Omhändertagen mängd",
   "Kommentar",
 ]
 
@@ -65,7 +68,21 @@ const TEMPLATE_ROWS = [
     Händelsetyp: "Påfyllning",
     Händelsedatum: "2026-02-01",
     Mängd: 2.5,
+    "Tidigare köldmedium": "",
+    "Nytt köldmedium": "",
+    "Omhändertagen mängd": "",
     Kommentar: "Påfyllning efter service",
+  },
+  {
+    "Aggregat-ID": "AGG-001",
+    Fastighet: "Stadshuset",
+    Händelsetyp: "Byte av köldmedium",
+    Händelsedatum: "2026-03-01",
+    Mängd: 10,
+    "Tidigare köldmedium": "R404A",
+    "Nytt köldmedium": "R449A",
+    "Omhändertagen mängd": 9.5,
+    Kommentar: "Historiskt köldmediebyte",
   },
 ]
 
@@ -283,7 +300,7 @@ export default function InstallationEventImportPageClient() {
         <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
             <ul className="grid gap-1.5">
-              <li>Endast kontroll, läckage, påfyllning och service stöds i Phase 1.</li>
+              <li>Kontroll, läckage, påfyllning, service, reparation, tömning/återvinning och köldmediebyte stöds.</li>
               <li>Aggregat-ID / märkning är primär matchningsnyckel.</li>
               <li>Fastighet hjälper till att särskilja återkommande ID:n som VP1 eller Kyl 01.</li>
               <li>Importen skapar inte aggregat automatiskt.</li>
@@ -532,7 +549,7 @@ export default function InstallationEventImportPageClient() {
                     <td className={tableCellClassName}>{row.installationName || "-"}</td>
                     <td className={tableCellClassName}>{formatEventType(row.normalizedType)}</td>
                     <td className={tableCellClassName}>{row.eventDate || "-"}</td>
-                    <td className={tableCellClassName}>{row.amountKg ?? "-"}</td>
+                    <td className={tableCellClassName}>{formatEventAmount(row)}</td>
                     <td
                       className={`${tableCellClassName} min-w-80 ${
                         row.status === "blocked"
@@ -620,7 +637,15 @@ function formatEventType(type: EventImportPreviewRow["normalizedType"]) {
   if (type === "LEAK") return "Läckage"
   if (type === "REFILL") return "Påfyllning"
   if (type === "SERVICE") return "Service"
+  if (type === "REPAIR") return "Reparation"
+  if (type === "RECOVERY") return "Tömning / Återvinning"
+  if (type === "REFRIGERANT_CHANGE") return "Byte av köldmedium"
   return "-"
+}
+
+function formatEventAmount(row: EventImportPreviewRow) {
+  if (row.normalizedType === "RECOVERY") return row.recoveredKg ?? row.amountKg ?? "-"
+  return row.amountKg ?? "-"
 }
 
 function PreviewFilterButton({

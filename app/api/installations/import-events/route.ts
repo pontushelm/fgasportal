@@ -3,12 +3,14 @@ import { ZodError } from "zod"
 import { getEventActivityAction, logActivity } from "@/lib/activity-log"
 import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import {
   buildEventImportPreview,
   eventImportRequestSchema,
   type EventImportPreviewRow,
 } from "@/lib/installation-event-import"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
+import { normalizeRefrigerantCode } from "@/lib/refrigerants"
 import { createInstallationEventSchema } from "@/lib/validations"
 
 export async function POST(request: NextRequest) {
@@ -67,7 +69,15 @@ export async function POST(request: NextRequest) {
                 in: installationIds,
               },
               type: {
-                in: ["INSPECTION", "LEAK", "REFILL", "SERVICE"],
+                in: [
+                  "INSPECTION",
+                  "LEAK",
+                  "REFILL",
+                  "SERVICE",
+                  "REPAIR",
+                  "RECOVERY",
+                  "REFRIGERANT_CHANGE",
+                ],
               },
             },
             select: {
@@ -143,15 +153,15 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      const amountForEvent =
-        row.normalizedType === "LEAK" || row.normalizedType === "REFILL"
-          ? row.amountKg
-          : null
+      const amountForEvent = getAmountForImportedEvent(row)
       const validation = createInstallationEventSchema.safeParse({
         date: row.eventDate,
         type: row.normalizedType,
         refrigerantAddedKg: amountForEvent === null ? "" : String(amountForEvent),
-        notes: row.notes ?? "",
+        newRefrigerantType: row.newRefrigerantType ?? "",
+        recoveredRefrigerantKg:
+          row.recoveredKg === null ? "" : String(row.recoveredKg),
+        notes: buildImportedEventNotes(row),
       })
 
       if (!validation.success) {
@@ -202,6 +212,37 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+function getAmountForImportedEvent(row: EventImportPreviewRow) {
+  if (!row.normalizedType) return null
+  if (row.normalizedType === "RECOVERY") return row.recoveredKg ?? row.amountKg
+  if (
+    row.normalizedType === "LEAK" ||
+    row.normalizedType === "REFILL" ||
+    row.normalizedType === "REFRIGERANT_CHANGE"
+  ) {
+    return row.amountKg
+  }
+
+  return null
+}
+
+function buildImportedEventNotes(row: EventImportPreviewRow) {
+  const notes = [
+    row.previousRefrigerantType
+      ? `Tidigare köldmedium enligt import: ${row.previousRefrigerantType}.`
+      : null,
+    row.newRefrigerantType && row.normalizedType !== "REFRIGERANT_CHANGE"
+      ? `Nytt köldmedium enligt import: ${row.newRefrigerantType}.`
+      : null,
+    row.recoveredKg !== null && row.normalizedType !== "REFRIGERANT_CHANGE"
+      ? `Omhändertagen mängd enligt import: ${row.recoveredKg} kg.`
+      : null,
+    row.notes,
+  ].filter(Boolean)
+
+  return notes.join(" ")
 }
 
 function summarizePreview(rows: EventImportPreviewRow[]) {
@@ -286,6 +327,72 @@ async function createImportedEvent({
       eventType: result.type,
       date: result.date,
       installationId: installation.id,
+      userId,
+    })
+    return
+  }
+
+  if (event.type === "REFRIGERANT_CHANGE") {
+    const nextRefrigerantType =
+      normalizeRefrigerantCode(event.newRefrigerantType) ?? event.newRefrigerantType
+    const previousRefrigerantType = installation.refrigerantType
+    const recoveredRefrigerantKg = event.recoveredRefrigerantKg
+    const addedRefrigerantKg = event.refrigerantAddedKg
+    const changeNote = [
+      `Byte av köldmedium från ${previousRefrigerantType} till ${nextRefrigerantType}.`,
+      recoveredRefrigerantKg !== null
+        ? `Omhändertagen mängd: ${recoveredRefrigerantKg} kg.`
+        : null,
+      addedRefrigerantKg !== null
+        ? `Påfylld mängd nytt köldmedium: ${addedRefrigerantKg} kg.`
+        : null,
+      emptyToNull(event.notes),
+    ].filter(Boolean).join(" ")
+    const nextCompliance = calculateInstallationCompliance(
+      nextRefrigerantType,
+      installation.refrigerantAmount,
+      installation.hasLeakDetectionSystem,
+      installation.lastInspection,
+      installation.nextInspection
+    )
+    const nextInspection = calculateNextInspectionDate(
+      installation.lastInspection,
+      nextCompliance.inspectionIntervalMonths
+    )
+
+    const result = await prisma.$transaction(async (tx) => {
+      const importedEvent = await tx.installationEvent.create({
+        data: {
+          installationId: installation.id,
+          date: event.date,
+          type: event.type,
+          refrigerantAddedKg: addedRefrigerantKg,
+          notes: changeNote,
+          createdById: userId,
+        },
+      })
+
+      await tx.installation.update({
+        where: {
+          id: installation.id,
+        },
+        data: {
+          refrigerantType: nextRefrigerantType,
+          inspectionIntervalMonths: nextCompliance.inspectionIntervalMonths,
+          nextInspection,
+        },
+      })
+
+      return importedEvent
+    })
+
+    await logImportedEventActivity({
+      companyId,
+      eventId: result.id,
+      eventType: result.type,
+      date: result.date,
+      installationId: installation.id,
+      refrigerantAddedKg: result.refrigerantAddedKg,
       userId,
     })
     return
