@@ -28,6 +28,11 @@ export type FgasReportData = {
     refilledAmountKg: number
     serviceEvents: number
   }
+  warnings: Array<{
+    id: string
+    message: string
+    installationName?: string | null
+  }>
   refrigerants: Array<{
     refrigerantType: string
     installationCount: number
@@ -129,6 +134,7 @@ export async function getFgasAnnualReport({
   let leakageEvents = 0
   let refilledAmountKg = 0
   let serviceEvents = 0
+  const warnings: FgasReportData["warnings"] = []
 
   const events = installations.flatMap((installation) => {
     const refrigerantType =
@@ -172,12 +178,33 @@ export async function getFgasAnnualReport({
       if (event.type === "LEAK") {
         leakageEvents += 1
         summary.leakageEvents += 1
+        if (event.refrigerantAddedKg == null) {
+          warnings.push({
+            id: `leak-missing-amount-${event.id}`,
+            installationName: installation.name,
+            message: "Läckagehändelse saknar läckagemängd.",
+          })
+        }
       }
       if (event.type === "REFILL") {
         refilledAmountKg += addedAmount
         summary.refilledAmountKg += addedAmount
       }
       if (event.type === "SERVICE") serviceEvents += 1
+      if (event.type === "RECOVERY" && event.refrigerantAddedKg == null) {
+        warnings.push({
+          id: `recovery-missing-amount-${event.id}`,
+          installationName: installation.name,
+          message: "Tömning/återvinning saknar omhändertagen mängd.",
+        })
+      }
+      if (event.type === "REFRIGERANT_CHANGE" && event.refrigerantAddedKg == null) {
+        warnings.push({
+          id: `refrigerant-change-missing-amount-${event.id}`,
+          installationName: installation.name,
+          message: "Köldmediebyte saknar ny fyllnadsmängd.",
+        })
+      }
 
       return {
         id: event.id,
@@ -210,6 +237,17 @@ export async function getFgasAnnualReport({
       refilledAmountKg,
       serviceEvents,
     },
+    warnings: [
+      ...(unknownCo2eInstallations > 0
+        ? [
+            {
+              id: "unknown-co2e",
+              message: `${unknownCo2eInstallations} aggregat saknar känt GWP/CO₂e-värde.`,
+            },
+          ]
+        : []),
+      ...warnings.sort((first, second) => first.id.localeCompare(second.id, "sv")),
+    ],
     refrigerants: Array.from(refrigerantMap.values()).sort((first, second) =>
       first.refrigerantType.localeCompare(second.refrigerantType, "sv")
     ),

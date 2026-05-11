@@ -49,6 +49,7 @@ export type AnnualFgasReportData = {
     regeneratedReusedRefrigerantKg: number | null
     scrappedEquipmentCount: number
   }
+  warnings: AnnualFgasReportWarning[]
   equipment: AnnualFgasEquipmentRow[]
   leakageControls: AnnualFgasLeakageControlRow[]
   refrigerantHandlingLog: AnnualFgasRefrigerantHandlingRow[]
@@ -102,10 +103,19 @@ export type AnnualFgasRefrigerantHandlingRow = {
   equipmentId: string | null
   refrigerantType: string
   eventType: string
+  previousRefrigerantType: string | null
+  newRefrigerantType: string | null
   addedKg: number | null
   recoveredKg: number | null
   regeneratedReusedKg: number | null
   notes: string | null
+}
+
+export type AnnualFgasReportWarning = {
+  id: string
+  message: string
+  equipmentName?: string | null
+  equipmentId?: string | null
 }
 
 export type AnnualFgasScrappedEquipmentRow = {

@@ -35,6 +35,11 @@ type ReportData = {
     refilledAmountKg: number
     serviceEvents: number
   }
+  warnings?: Array<{
+    id: string
+    message: string
+    installationName?: string | null
+  }>
   refrigerants: Array<{
     refrigerantType: string
     installationCount: number
@@ -355,6 +360,31 @@ export default function ReportsPage() {
 
       {reportData && !isLoading && (
         <>
+          {selectedReportType === "annual" &&
+            reportData.warnings &&
+            reportData.warnings.length > 0 && (
+            <section className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+              <h2 className="font-semibold">Rapportunderlag att kontrollera</h2>
+              <p className="mt-1 text-amber-900">
+                Rapporten kan skapas, men följande uppgifter bör kontrolleras innan den skickas till tillsynsmyndigheten.
+              </p>
+              <ul className="mt-3 grid gap-1">
+                {reportData.warnings.slice(0, 5).map((warning) => (
+                  <li key={warning.id}>
+                    {warning.installationName
+                      ? `${warning.installationName}: ${warning.message}`
+                      : warning.message}
+                  </li>
+                ))}
+              </ul>
+              {reportData.warnings.length > 5 && (
+                <p className="mt-2 font-medium">
+                  +{reportData.warnings.length - 5} fler varningar visas i PDF-underlaget.
+                </p>
+              )}
+            </section>
+          )}
+
           <section className="mt-8 grid gap-4 md:grid-cols-3">
             <MetricCard
               description={METRIC_HELP.totalInstallations}

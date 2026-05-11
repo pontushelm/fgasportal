@@ -89,6 +89,10 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
             </p>
           )}
 
+          {report.warnings.length > 0 && (
+            <ReportWarnings rows={report.warnings} />
+          )}
+
           <ReportSection title="Köldmediehantering - sammanställning av aggregat">
             <RefrigerantHandlingLog
               equipment={report.equipment}
@@ -96,6 +100,23 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
               showRegeneratedReused={hasRegeneratedReused}
             />
           </ReportSection>
+
+          {report.refrigerantHandlingLog.length > 0 && (
+            <ReportSection title="Köldmediehantering - händelser under året">
+              <DataTable
+                columns={["Datum", "Aggregat", "Typ", "Köldmedium", "Tillfört", "Återvunnet", "Anteckning"]}
+                rows={report.refrigerantHandlingLog.map((row) => [
+                  formatDate(row.date),
+                  displayEquipment(row.equipmentName, row.equipmentId),
+                  row.eventType,
+                  formatHandlingRefrigerant(row),
+                  formatOptionalNumber(row.addedKg),
+                  formatOptionalNumber(row.recoveredKg),
+                  row.notes || "-",
+                ])}
+              />
+            </ReportSection>
+          )}
 
           <ReportSection title="Aggregatförteckning">
             <EquipmentList rows={report.equipment} />
@@ -284,6 +305,30 @@ export function CertificateRegister({
   )
 }
 
+export function ReportWarnings({
+  rows,
+}: {
+  rows: AnnualFgasReportData["warnings"]
+}) {
+  return (
+    <ReportSection title="Rapportunderlag att kontrollera">
+      <p className="muted">
+        Rapporten kan skapas, men följande uppgifter bör kontrolleras innan den
+        skickas till tillsynsmyndigheten.
+      </p>
+      <ul className="warning-list">
+        {rows.map((row) => (
+          <li key={row.id}>
+            {row.equipmentName
+              ? `${displayEquipment(row.equipmentName, row.equipmentId ?? null)}: ${row.message}`
+              : row.message}
+          </li>
+        ))}
+      </ul>
+    </ReportSection>
+  )
+}
+
 export function RefrigerantHandlingLog({
   equipment,
   rows,
@@ -294,11 +339,16 @@ export function RefrigerantHandlingLog({
   showRegeneratedReused: boolean
 }) {
   const addedByEquipment = new Map<string, number>()
+  const recoveredByEquipment = new Map<string, number>()
   const regeneratedByEquipment = new Map<string, number>()
 
   rows.forEach((row) => {
     const key = row.equipmentId || row.equipmentName
     addedByEquipment.set(key, (addedByEquipment.get(key) ?? 0) + (row.addedKg ?? 0))
+    recoveredByEquipment.set(
+      key,
+      (recoveredByEquipment.get(key) ?? 0) + (row.recoveredKg ?? 0)
+    )
     regeneratedByEquipment.set(
       key,
       (regeneratedByEquipment.get(key) ?? 0) + (row.regeneratedReusedKg ?? 0)
@@ -329,7 +379,7 @@ export function RefrigerantHandlingLog({
           ...(showRegeneratedReused
             ? [formatOptionalNumber(regeneratedByEquipment.get(key))]
             : []),
-          "-",
+          formatOptionalNumber(recoveredByEquipment.get(key)),
         ]
       })}
     />
@@ -440,6 +490,14 @@ function formatCo2eSummary(report: AnnualFgasReportData) {
 function formatOptionalNumber(value: number | null | undefined) {
   if (!value) return "-"
   return formatNumber(value)
+}
+
+function formatHandlingRefrigerant(row: AnnualFgasRefrigerantHandlingRow) {
+  if (row.previousRefrigerantType && row.newRefrigerantType) {
+    return `${row.previousRefrigerantType} → ${row.newRefrigerantType}`
+  }
+
+  return row.newRefrigerantType ?? row.refrigerantType
 }
 
 function statusLabel(status: AnnualFgasEquipmentRow["status"]) {
@@ -648,6 +706,13 @@ const annualReportPrintStyles = `
     color: #78350f;
     margin: 10px 0 0;
     padding: 7px 9px;
+  }
+
+  .warning-list {
+    border: 1px solid #d97706;
+    color: #78350f;
+    margin: 6px 0 0;
+    padding: 7px 9px 7px 18px;
   }
 
   .lined-box {

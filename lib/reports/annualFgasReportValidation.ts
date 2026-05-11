@@ -1,0 +1,206 @@
+import type {
+  AnnualFgasCertificateEntry,
+  AnnualFgasEquipmentRow,
+  AnnualFgasRefrigerantHandlingRow,
+  AnnualFgasReportWarning,
+  AnnualFgasScrappedEquipmentRow,
+} from "@/lib/reports/annualFgasReportTypes"
+
+export const ANNUAL_FGAS_EVENT_LABELS = {
+  INSPECTION: "Läckagekontroll",
+  LEAK: "Läckage/reparation",
+  REFILL: "Påfyllning",
+  SERVICE: "Service",
+  REPAIR: "Reparation",
+  RECOVERY: "Tömning / Återvinning",
+  REFRIGERANT_CHANGE: "Byte av köldmedium",
+} as const
+
+export type AnnualFgasEventType = keyof typeof ANNUAL_FGAS_EVENT_LABELS
+
+export function buildRefrigerantHandlingRow({
+  equipmentId,
+  equipmentName,
+  event,
+  fallbackRefrigerantType,
+}: {
+  equipmentId: string | null
+  equipmentName: string
+  event: {
+    id: string
+    date: Date
+    type: AnnualFgasEventType
+    refrigerantAddedKg: number | null
+    notes: string | null
+  }
+  fallbackRefrigerantType: string
+}): AnnualFgasRefrigerantHandlingRow {
+  const parsedChange = parseRefrigerantChangeNotes(event.notes)
+  const isRefrigerantChange = event.type === "REFRIGERANT_CHANGE"
+
+  return {
+    id: event.id,
+    date: event.date,
+    equipmentName,
+    equipmentId,
+    refrigerantType: parsedChange.newRefrigerantType ?? fallbackRefrigerantType,
+    eventType: ANNUAL_FGAS_EVENT_LABELS[event.type],
+    previousRefrigerantType: parsedChange.previousRefrigerantType,
+    newRefrigerantType: parsedChange.newRefrigerantType,
+    addedKg:
+      event.type === "REFILL" || isRefrigerantChange
+        ? event.refrigerantAddedKg
+        : null,
+    recoveredKg:
+      event.type === "RECOVERY"
+        ? event.refrigerantAddedKg
+        : isRefrigerantChange
+          ? parsedChange.recoveredKg
+          : null,
+    regeneratedReusedKg: null,
+    notes: event.notes,
+  }
+}
+
+export function buildAnnualFgasReportWarnings({
+  certificateRegister,
+  co2eSummary,
+  equipment,
+  reportInstallations,
+  scrappedEquipment,
+}: {
+  certificateRegister: AnnualFgasCertificateEntry[]
+  co2eSummary: { unknownCo2eEquipmentCount: number }
+  equipment: AnnualFgasEquipmentRow[]
+  refrigerantHandlingLog: AnnualFgasRefrigerantHandlingRow[]
+  reportInstallations: Array<{
+    id: string
+    name: string
+    equipmentId: string | null
+    assignedContractorId: string | null
+    assignedContractor: {
+      memberships: Array<{ certificationNumber: string | null }>
+    } | null
+    events: Array<{
+      id: string
+      type: AnnualFgasEventType
+      refrigerantAddedKg: number | null
+      notes: string | null
+    }>
+  }>
+  scrappedEquipment: AnnualFgasScrappedEquipmentRow[]
+}): AnnualFgasReportWarning[] {
+  const warnings: AnnualFgasReportWarning[] = []
+
+  if (co2eSummary.unknownCo2eEquipmentCount > 0) {
+    warnings.push({
+      id: "unknown-co2e",
+      message: `${co2eSummary.unknownCo2eEquipmentCount} aggregat saknar känt GWP/CO₂e-värde.`,
+    })
+  }
+
+  reportInstallations.forEach((installation) => {
+    if (!installation.assignedContractorId) {
+      warnings.push({
+        id: `missing-service-contact-${installation.id}`,
+        equipmentName: installation.name,
+        equipmentId: installation.equipmentId,
+        message: "Aggregatet saknar tilldelad servicekontakt.",
+      })
+    } else if (!installation.assignedContractor?.memberships[0]?.certificationNumber) {
+      warnings.push({
+        id: `missing-certificate-${installation.id}`,
+        equipmentName: installation.name,
+        equipmentId: installation.equipmentId,
+        message: "Tilldelad servicekontakt saknar registrerat certifikatnummer.",
+      })
+    }
+
+    installation.events.forEach((event) => {
+      if (event.type === "LEAK" && event.refrigerantAddedKg == null) {
+        warnings.push({
+          id: `leak-missing-amount-${event.id}`,
+          equipmentName: installation.name,
+          equipmentId: installation.equipmentId,
+          message: "Läckagehändelse saknar läckagemängd.",
+        })
+      }
+      if (event.type === "RECOVERY" && event.refrigerantAddedKg == null) {
+        warnings.push({
+          id: `recovery-missing-amount-${event.id}`,
+          equipmentName: installation.name,
+          equipmentId: installation.equipmentId,
+          message: "Tömning/återvinning saknar omhändertagen mängd.",
+        })
+      }
+      if (event.type === "REFRIGERANT_CHANGE") {
+        const parsedChange = parseRefrigerantChangeNotes(event.notes)
+        if (!parsedChange.newRefrigerantType) {
+          warnings.push({
+            id: `refrigerant-change-missing-new-refrigerant-${event.id}`,
+            equipmentName: installation.name,
+            equipmentId: installation.equipmentId,
+            message: "Köldmediebyte saknar tydligt nytt köldmedium i rapportunderlaget.",
+          })
+        }
+        if (event.refrigerantAddedKg == null) {
+          warnings.push({
+            id: `refrigerant-change-missing-amount-${event.id}`,
+            equipmentName: installation.name,
+            equipmentId: installation.equipmentId,
+            message: "Köldmediebyte saknar ny fyllnadsmängd.",
+          })
+        }
+      }
+    })
+  })
+
+  scrappedEquipment.forEach((row) => {
+    if (row.recoveredKg == null) {
+      warnings.push({
+        id: `scrap-missing-recovered-${row.id}`,
+        equipmentName: row.equipmentName,
+        equipmentId: row.equipmentId,
+        message: "Skrotat aggregat saknar återvunnen mängd.",
+      })
+    }
+    if (!row.certificateFileName) {
+      warnings.push({
+        id: `scrap-missing-certificate-${row.id}`,
+        equipmentName: row.equipmentName,
+        equipmentId: row.equipmentId,
+        message: "Skrotat aggregat saknar intyg/dokumentreferens.",
+      })
+    }
+  })
+
+  if (certificateRegister.length === 0 && equipment.length > 0) {
+    warnings.push({
+      id: "empty-certificate-register",
+      message: "Certifikatregister saknar registrerade tekniker/servicepartners.",
+    })
+  }
+
+  return warnings.sort((first, second) => first.id.localeCompare(second.id, "sv"))
+}
+
+function parseRefrigerantChangeNotes(notes: string | null) {
+  const text = notes ?? ""
+  const changeMatch = text.match(/Byte av köldmedium från\s+(.+?)\s+till\s+(.+?)\./i)
+  const importPreviousMatch = text.match(/Tidigare köldmedium enligt import:\s*(.+?)\./i)
+  const importNewMatch = text.match(/Nytt köldmedium enligt import:\s*(.+?)\./i)
+  const recoveredMatch = text.match(/Omhändertagen mängd:\s*([\d,.]+)\s*kg/i)
+
+  return {
+    previousRefrigerantType:
+      changeMatch?.[1]?.trim() ?? importPreviousMatch?.[1]?.trim() ?? null,
+    newRefrigerantType:
+      changeMatch?.[2]?.trim() ?? importNewMatch?.[1]?.trim() ?? null,
+    recoveredKg: recoveredMatch ? parseNumber(recoveredMatch[1]) : null,
+  }
+}
+
+function parseNumber(value: string) {
+  const parsed = Number(value.replace(",", "."))
+  return Number.isFinite(parsed) ? parsed : null
+}

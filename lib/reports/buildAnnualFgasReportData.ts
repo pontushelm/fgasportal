@@ -7,18 +7,12 @@ import type {
   AnnualFgasReportFilter,
 } from "@/lib/reports/annualFgasReportTypes"
 import { summarizeAnnualFgasCo2e } from "@/lib/reports/annualFgasReportSummary"
+import {
+  buildAnnualFgasReportWarnings as buildAnnualFgasReportWarningsShared,
+  buildRefrigerantHandlingRow as buildRefrigerantHandlingRowShared,
+} from "@/lib/reports/annualFgasReportValidation"
 
 const UNKNOWN_REFRIGERANT = "Okänt köldmedium"
-
-const EVENT_LABELS = {
-  INSPECTION: "Läckagekontroll",
-  LEAK: "Läckage/reparation",
-  REFILL: "Påfyllning",
-  SERVICE: "Service",
-  REPAIR: "Reparation",
-  RECOVERY: "Tömning / Återvinning",
-  REFRIGERANT_CHANGE: "Byte av köldmedium",
-} as const
 
 export async function buildAnnualFgasReportData({
   assignedContractorId,
@@ -235,21 +229,15 @@ export async function buildAnnualFgasReportData({
   )
 
   const refrigerantHandlingLog = reportInstallations.flatMap((installation) =>
-    installation.events.map((event) => ({
-      id: event.id,
-      date: event.date,
-      equipmentName: installation.name,
-      equipmentId: installation.equipmentId,
-      refrigerantType:
-        installation.refrigerantType?.trim() || UNKNOWN_REFRIGERANT,
-      eventType: EVENT_LABELS[event.type],
-      addedKg: event.type === "REFILL" ? event.refrigerantAddedKg : null,
-      // Existing schema stores recovered refrigerant on scrapping, not per event.
-      recoveredKg: null,
-      // Add a dedicated Prisma field here if regenerated/reused refrigerant is tracked later.
-      regeneratedReusedKg: null,
-      notes: event.notes,
-    }))
+    installation.events.map((event) =>
+      buildRefrigerantHandlingRowShared({
+        equipmentId: installation.equipmentId,
+        equipmentName: installation.name,
+        event,
+        fallbackRefrigerantType:
+          installation.refrigerantType?.trim() || UNKNOWN_REFRIGERANT,
+      })
+    )
   )
 
   const scrappedEquipment = reportInstallations
@@ -298,10 +286,9 @@ export async function buildAnnualFgasReportData({
     (sum, row) => sum + (row.addedKg ?? 0),
     0
   )
-  const recoveredRefrigerantKg = scrappedEquipment.reduce(
-    (sum, row) => sum + (row.recoveredKg ?? 0),
-    0
-  )
+  const recoveredRefrigerantKg =
+    scrappedEquipment.reduce((sum, row) => sum + (row.recoveredKg ?? 0), 0) +
+    refrigerantHandlingLog.reduce((sum, row) => sum + (row.recoveredKg ?? 0), 0)
   const co2eSummary = summarizeAnnualFgasCo2e(equipment)
   const leakageNotes = [
     ...reportInstallations.flatMap((installation) =>
@@ -313,6 +300,14 @@ export async function buildAnnualFgasReportData({
       .filter((control) => control.notes)
       .map((control) => `${control.equipmentName}: ${control.notes}`),
   ]
+  const warnings = buildAnnualFgasReportWarningsShared({
+    certificateRegister,
+    co2eSummary,
+    equipment,
+    refrigerantHandlingLog,
+    reportInstallations,
+    scrappedEquipment,
+  })
 
   return {
     reportYear: year,
@@ -385,6 +380,7 @@ export async function buildAnnualFgasReportData({
         : null,
       scrappedEquipmentCount: scrappedEquipment.length,
     },
+    warnings,
     equipment,
     leakageControls,
     refrigerantHandlingLog,
