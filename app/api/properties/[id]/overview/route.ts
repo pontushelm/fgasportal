@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
+import { generateDashboardActions } from "@/lib/actions/generate-actions"
 import { authenticateApiRequest, isContractor } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
+import {
+  calculatePropertyLeakageClimateImpact,
+  createEmptyPropertyLeakageClimateImpact,
+  filterPropertyActions,
+  mergePropertyLeakageClimateImpact,
+} from "@/lib/property-overview"
 import { calculateInstallationRisk } from "@/lib/risk-classification"
 
 type RouteContext = {
@@ -46,11 +53,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
               },
             },
             events: {
-              where: {
-                type: "LEAK",
-              },
               select: {
                 id: true,
+                date: true,
+                type: true,
+                refrigerantAddedKg: true,
+                notes: true,
+              },
+              orderBy: {
+                date: "desc",
               },
             },
           },
@@ -76,9 +87,21 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
     let totalCo2eTon = 0
     let overdueInspections = 0
+    let dueSoonInspections = 0
+    let notInspected = 0
+    const leakageClimateImpact = createEmptyPropertyLeakageClimateImpact()
+    const leakageEventsForActions: Array<{
+      id: string
+      installationId: string
+      installationName: string
+      equipmentId: string | null
+      propertyName: string | null
+      date: Date
+    }> = []
 
     const installations = property.installations.map((installation) => {
       const { events, ...installationData } = installation
+      const leakEvents = events.filter((event) => event.type === "LEAK")
       const compliance = calculateInstallationCompliance(
         installation.refrigerantType,
         installation.refrigerantAmount,
@@ -91,23 +114,82 @@ export async function GET(request: NextRequest, context: RouteContext) {
         refrigerantAmount: installation.refrigerantAmount,
         gwp: compliance.gwp,
         hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
-        leakageEventsCount: events.length,
+        leakageEventsCount: leakEvents.length,
         isInspectionOverdue: compliance.status === "OVERDUE",
       })
 
       totalCo2eTon += compliance.co2eTon ?? 0
+      if (compliance.status === "DUE_SOON") dueSoonInspections += 1
       if (compliance.status === "OVERDUE") overdueInspections += 1
+      if (compliance.status === "NOT_INSPECTED") notInspected += 1
       riskDistribution[risk.level] += 1
+      mergePropertyLeakageClimateImpact(
+        leakageClimateImpact,
+        calculatePropertyLeakageClimateImpact({
+          events: leakEvents,
+          refrigerantType: installation.refrigerantType,
+        })
+      )
+      leakageEventsForActions.push(
+        ...leakEvents.map((event) => ({
+          id: event.id,
+          installationId: installation.id,
+          installationName: installation.name,
+          equipmentId: installation.equipmentId,
+          propertyName: property.name,
+          date: event.date,
+        }))
+      )
 
       return {
         ...installationData,
         co2eTon: compliance.co2eTon,
         complianceStatus: compliance.status,
+        inspectionIntervalMonths: compliance.inspectionIntervalMonths,
         daysUntilDue: compliance.daysUntilDue,
         riskLevel: risk.level,
         riskScore: risk.score,
+        recentEvents: events.slice(0, 5),
       }
     })
+    const actions = filterPropertyActions(
+      generateDashboardActions({
+        installations: installations.map((installation) => ({
+          id: installation.id,
+          name: installation.name,
+          equipmentId: installation.equipmentId,
+          propertyName: property.name,
+          nextInspection: installation.nextInspection,
+          inspectionInterval: installation.inspectionIntervalMonths,
+          complianceStatus: installation.complianceStatus,
+          assignedContractorId: installation.assignedContractorId,
+          risk: {
+            level: installation.riskLevel,
+            score: installation.riskScore,
+          },
+        })),
+        leakageEvents: leakageEventsForActions,
+      }),
+      installations.map((installation) => installation.id)
+    )
+    const serviceContacts = Array.from(
+      new Map(
+        installations
+          .map((installation) => installation.assignedContractor)
+          .filter(Boolean)
+          .map((contractor) => [contractor!.id, contractor!])
+      ).values()
+    )
+    const recentEvents = installations
+      .flatMap((installation) =>
+        installation.recentEvents.map((event) => ({
+          ...event,
+          installationId: installation.id,
+          installationName: installation.name,
+        }))
+      )
+      .sort((first, second) => second.date.getTime() - first.date.getTime())
+      .slice(0, 8)
 
     return NextResponse.json(
       {
@@ -123,11 +205,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
         summary: {
           installationsCount: installations.length,
           totalCo2eTon,
+          dueSoonInspections,
           overdueInspections,
+          notInspected,
           highRiskInstallations: riskDistribution.HIGH,
           riskDistribution,
+          leakageClimateImpact,
         },
         installations,
+        actions: actions.slice(0, 8),
+        serviceContacts,
+        recentEvents,
       },
       { status: 200 }
     )

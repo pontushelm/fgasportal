@@ -14,8 +14,17 @@ type PropertySummary = {
   city: string | null
   installationsCount: number
   totalCo2eTon: number
+  dueSoonInspections: number
   overdueInspections: number
+  notInspected: number
   highRiskInstallations: number
+  leakageClimateImpact: {
+    leakageEventsCount: number
+    leakageAmountKg: number
+    leakageCo2eTon: number
+    unknownLeakageCo2eCount: number
+    isLeakageCo2eIncomplete: boolean
+  }
 }
 
 type CurrentUser = {
@@ -288,12 +297,23 @@ export default function PropertiesPageClient() {
                     </TableCell>
                     <TableCell>{property.municipality || "-"}</TableCell>
                     <TableCell>{property.installationsCount}</TableCell>
-                    <TableCell>{formatNumber(property.totalCo2eTon)} ton</TableCell>
                     <TableCell>
-                      <StatusCount count={property.overdueInspections} />
+                      <ControlStatusSummary property={property} />
                     </TableCell>
                     <TableCell>
-                      <RiskCount count={property.highRiskInstallations} />
+                      <p className="font-semibold text-slate-950">
+                        {formatNumber(property.totalCo2eTon)} ton installerad CO₂e
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {formatNumber(property.leakageClimateImpact.leakageCo2eTon)} ton från läckage i år
+                        {property.leakageClimateImpact.isLeakageCo2eIncomplete ? " (ofullständigt)" : ""}
+                      </p>
+                    </TableCell>
+                    <TableCell>
+                      <RiskCount
+                        count={property.highRiskInstallations}
+                        total={property.installationsCount}
+                      />
                     </TableCell>
                   </tr>
                 ))}
@@ -306,20 +326,48 @@ export default function PropertiesPageClient() {
   )
 }
 
-function StatusCount({ count }: { count: number }) {
-  if (count === 0) return <Badge variant="success">0</Badge>
-  return <Badge variant="danger">{count}</Badge>
+function ControlStatusSummary({ property }: { property: PropertySummary }) {
+  if (
+    property.overdueInspections === 0 &&
+    property.dueSoonInspections === 0 &&
+    property.notInspected === 0
+  ) {
+    return <Badge variant="success">Inga akuta kontrollärenden</Badge>
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {property.overdueInspections > 0 && (
+        <Badge variant="danger">{property.overdueInspections} försenade</Badge>
+      )}
+      {property.dueSoonInspections > 0 && (
+        <Badge variant="warning">{property.dueSoonInspections} inom 30 dagar</Badge>
+      )}
+      {property.notInspected > 0 && (
+        <Badge variant="info">{property.notInspected} ej kontrollerade</Badge>
+      )}
+    </div>
+  )
 }
 
-function RiskCount({ count }: { count: number }) {
-  if (count === 0) return <Badge variant="success">0</Badge>
-  return <Badge variant="warning">{count}</Badge>
+function RiskCount({ count, total }: { count: number; total: number }) {
+  if (count === 0) return <Badge variant="success">Ingen hög risk</Badge>
+  return <Badge variant="warning">{count} av {total} hög risk</Badge>
 }
 
 function TableHeader({ children }: { children: React.ReactNode }) {
+  const label =
+    children === "Total COâ‚‚e"
+      ? "Kontrollstatus"
+      : children === "FÃ¶rsenade kontroller"
+        ? "Klimatpåverkan"
+        : children === "HÃ¶griskaggregat"
+          ? "Risk"
+          : children
+
   return (
     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-      {children}
+      {label}
     </th>
   )
 }

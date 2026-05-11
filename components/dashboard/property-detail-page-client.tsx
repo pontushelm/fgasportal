@@ -20,20 +20,56 @@ type PropertyDetail = {
   summary: {
     installationsCount: number
     totalCo2eTon: number
+    dueSoonInspections: number
     overdueInspections: number
+    notInspected: number
     highRiskInstallations: number
     riskDistribution: Record<InstallationRiskLevel, number>
+    leakageClimateImpact: {
+      leakageEventsCount: number
+      leakageAmountKg: number
+      leakageCo2eTon: number
+      unknownLeakageCo2eCount: number
+      isLeakageCo2eIncomplete: boolean
+    }
   }
   installations: Array<{
     id: string
     name: string
+    equipmentId: string | null
     location: string
     refrigerantType: string
     refrigerantAmount: number
+    assignedContractorId: string | null
     nextInspection: string | null
     co2eTon: number | null
     complianceStatus: ComplianceStatus
     riskLevel: InstallationRiskLevel
+  }>
+  actions: Array<{
+    id: string
+    severity: "HIGH" | "MEDIUM" | "LOW"
+    title: string
+    description: string
+    installationName: string
+    equipmentId: string | null
+    href: string
+    dueDate: string | null
+    createdAt: string | null
+  }>
+  serviceContacts: Array<{
+    id: string
+    name: string
+    email: string
+  }>
+  recentEvents: Array<{
+    id: string
+    date: string
+    type: string
+    refrigerantAddedKg: number | null
+    notes: string | null
+    installationId: string
+    installationName: string
   }>
 }
 
@@ -119,7 +155,7 @@ export default function PropertyDetailPageClient() {
 
       {data && !isLoading && (
         <>
-          <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
             <MetricCard
               description="Antal aktiva aggregat kopplade till fastigheten."
               label="Antal aggregat"
@@ -131,10 +167,22 @@ export default function PropertyDetailPageClient() {
               value={`${formatNumber(data.summary.totalCo2eTon)} ton`}
             />
             <MetricCard
+              description="Uppskattad klimatpåverkan från registrerade läckagehändelser under innevarande år. Separat från installerad CO₂e."
+              label="Läckage i år"
+              value={`${formatNumber(data.summary.leakageClimateImpact.leakageCo2eTon)} ton`}
+              tone={data.summary.leakageClimateImpact.leakageEventsCount > 0 ? "red" : "slate"}
+            />
+            <MetricCard
               description="Aggregat där nästa läckagekontroll har passerat."
               label="Försenade kontroller"
               value={data.summary.overdueInspections}
               tone="red"
+            />
+            <MetricCard
+              description="Aggregat med kontroll inom 30 dagar."
+              label="Kommande kontroller"
+              value={data.summary.dueSoonInspections}
+              tone="amber"
             />
             <MetricCard
               description="Aggregat med hög risk baserat på CO₂e, försenad kontroll eller läckagehistorik."
@@ -165,6 +213,76 @@ export default function PropertyDetailPageClient() {
                 <RiskBox label="Medel" value={data.summary.riskDistribution.MEDIUM} tone="amber" />
                 <RiskBox label="Låg" value={data.summary.riskDistribution.LOW} tone="green" />
               </div>
+            </Card>
+          </section>
+
+          <section className="mt-6 grid gap-6 lg:grid-cols-3">
+            <Card className="p-5">
+              <SectionHeader
+                title="Åtgärder"
+                subtitle="Fastighetsrelevanta uppföljningar från åtgärdslogiken."
+              />
+              {data.actions.length === 0 ? (
+                <p className="mt-4 text-sm text-slate-600">Inga aktuella åtgärder.</p>
+              ) : (
+                <ul className="mt-4 grid gap-3 text-sm">
+                  {data.actions.slice(0, 5).map((action) => (
+                    <li className="rounded-lg border border-slate-200 p-3" key={action.id}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <Link
+                            className="font-semibold text-slate-950 underline-offset-4 hover:underline"
+                            href={action.href}
+                          >
+                            {action.title}
+                          </Link>
+                          <p className="mt-1 text-slate-600">{action.installationName}</p>
+                        </div>
+                        <ActionSeverityBadge severity={action.severity} />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+
+            <Card className="p-5">
+              <SectionHeader title="Servicekontakter" />
+              {data.serviceContacts.length === 0 ? (
+                <p className="mt-4 text-sm text-slate-600">Inga servicekontakter tilldelade.</p>
+              ) : (
+                <ul className="mt-4 grid gap-2 text-sm">
+                  {data.serviceContacts.map((contact) => (
+                    <li className="rounded-lg bg-slate-50 p-3" key={contact.id}>
+                      <p className="font-semibold text-slate-950">{contact.name}</p>
+                      <p className="text-slate-600">{contact.email}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+
+            <Card className="p-5">
+              <SectionHeader title="Senaste händelser" />
+              {data.recentEvents.length === 0 ? (
+                <p className="mt-4 text-sm text-slate-600">Inga händelser registrerade.</p>
+              ) : (
+                <ul className="mt-4 grid gap-2 text-sm">
+                  {data.recentEvents.slice(0, 6).map((event) => (
+                    <li className="rounded-lg bg-slate-50 p-3" key={event.id}>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-semibold text-slate-950">
+                          {formatEventType(event.type)}
+                        </p>
+                        <span className="text-xs text-slate-500">
+                          {formatOptionalDate(event.date)}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-slate-600">{event.installationName}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </Card>
           </section>
 
@@ -321,6 +439,27 @@ function StatusBadge({ status }: { status: ComplianceStatus }) {
 function RiskBadge({ level }: { level: InstallationRiskLevel }) {
   const variant = level === "HIGH" ? "danger" : level === "MEDIUM" ? "warning" : "success"
   return <Badge variant={variant}>{RISK_LABELS[level]}</Badge>
+}
+
+function ActionSeverityBadge({ severity }: { severity: "HIGH" | "MEDIUM" | "LOW" }) {
+  const variant = severity === "HIGH" ? "danger" : severity === "MEDIUM" ? "warning" : "neutral"
+  const label = severity === "HIGH" ? "Hög" : severity === "MEDIUM" ? "Medel" : "Låg"
+
+  return <Badge variant={variant}>{label}</Badge>
+}
+
+function formatEventType(type: string) {
+  const labels: Record<string, string> = {
+    INSPECTION: "Kontroll",
+    LEAK: "Läckage",
+    REFILL: "Påfyllning",
+    SERVICE: "Service",
+    REPAIR: "Reparation",
+    RECOVERY: "Tömning / återvinning",
+    REFRIGERANT_CHANGE: "Byte av köldmedium",
+  }
+
+  return labels[type] ?? type
 }
 
 function TableHeader({ children }: { children: React.ReactNode }) {

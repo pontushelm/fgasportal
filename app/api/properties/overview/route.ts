@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import { authenticateApiRequest, isContractor } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
+import {
+  calculatePropertyLeakageClimateImpact,
+  createEmptyPropertyLeakageClimateImpact,
+  mergePropertyLeakageClimateImpact,
+  type PropertyLeakageClimateImpact,
+} from "@/lib/property-overview"
 import { calculateInstallationRisk } from "@/lib/risk-classification"
 
 type PropertySummary = {
@@ -11,8 +17,11 @@ type PropertySummary = {
   city: string | null
   installationsCount: number
   totalCo2eTon: number
+  dueSoonInspections: number
   overdueInspections: number
+  notInspected: number
   highRiskInstallations: number
+  leakageClimateImpact: PropertyLeakageClimateImpact
 }
 
 export async function GET(request: NextRequest) {
@@ -41,6 +50,8 @@ export async function GET(request: NextRequest) {
             },
             select: {
               id: true,
+              date: true,
+              refrigerantAddedKg: true,
             },
           },
         },
@@ -74,6 +85,8 @@ export async function GET(request: NextRequest) {
               },
               select: {
                 id: true,
+                date: true,
+                refrigerantAddedKg: true,
               },
             },
           },
@@ -118,7 +131,7 @@ function aggregateInstallationsByProperty(
     hasLeakDetectionSystem: boolean
     lastInspection: Date | null
     nextInspection: Date | null
-    events: Array<{ id: string }>
+    events: Array<{ id: string; date: Date; refrigerantAddedKg: number | null }>
   }>
 ) {
   const summaries = new Map<string, PropertySummary>()
@@ -150,8 +163,11 @@ function createEmptyPropertySummary(property: {
     city: property.city,
     installationsCount: 0,
     totalCo2eTon: 0,
+    dueSoonInspections: 0,
     overdueInspections: 0,
+    notInspected: 0,
     highRiskInstallations: 0,
+    leakageClimateImpact: createEmptyPropertyLeakageClimateImpact(),
   }
 }
 
@@ -163,7 +179,7 @@ function applyInstallationToSummary(
     hasLeakDetectionSystem: boolean
     lastInspection: Date | null
     nextInspection: Date | null
-    events: Array<{ id: string }>
+    events: Array<{ id: string; date: Date; refrigerantAddedKg: number | null }>
   }
 ) {
   const compliance = calculateInstallationCompliance(
@@ -184,6 +200,15 @@ function applyInstallationToSummary(
 
   summary.installationsCount += 1
   summary.totalCo2eTon += compliance.co2eTon ?? 0
+  if (compliance.status === "DUE_SOON") summary.dueSoonInspections += 1
   if (compliance.status === "OVERDUE") summary.overdueInspections += 1
+  if (compliance.status === "NOT_INSPECTED") summary.notInspected += 1
   if (risk.level === "HIGH") summary.highRiskInstallations += 1
+  mergePropertyLeakageClimateImpact(
+    summary.leakageClimateImpact,
+    calculatePropertyLeakageClimateImpact({
+      events: installation.events,
+      refrigerantType: installation.refrigerantType,
+    })
+  )
 }
