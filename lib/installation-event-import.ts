@@ -57,6 +57,20 @@ export type EventImportInstallationReference = {
   } | null
 }
 
+export type EventImportExistingEventReference = {
+  installationId: string
+  type: InstallationEventType
+  date: string | Date
+  refrigerantAddedKg: number | null
+  notes: string | null
+}
+
+export type EventImportExistingInspectionReference = {
+  installationId: string
+  inspectionDate: string | Date
+  notes?: string | null
+}
+
 export type EventImportPreviewRow = ParsedEventImportRow & {
   status: "valid" | "warning" | "blocked"
   installationId: string | null
@@ -67,6 +81,10 @@ export type EventImportPreviewRow = ParsedEventImportRow & {
 export type EventImportPreviewFilter = "all" | "importable" | "warnings" | "blocked"
 
 const MAX_EVENT_IMPORT_ROWS = 500
+const DUPLICATE_EVENT_MESSAGE =
+  "En liknande händelse finns redan för detta aggregat på samma datum."
+const DUPLICATE_FILE_ROW_MESSAGE =
+  "En liknande händelse finns redan i filen för samma aggregat och datum."
 
 export const eventImportRequestSchema = z.object({
   mode: z.enum(["preview", "import"]),
@@ -265,21 +283,34 @@ export function normalizeEventImportRow(
 }
 
 export function buildEventImportPreview({
+  existingEvents = [],
+  existingInspections = [],
   rows,
   installations,
   properties,
 }: {
+  existingEvents?: EventImportExistingEventReference[]
+  existingInspections?: EventImportExistingInspectionReference[]
   rows: Record<string, unknown>[]
   installations: EventImportInstallationReference[]
   properties: EventImportPropertyReference[]
 }) {
+  const seenImportKeys = new Set<string>()
+
   return rows
     .filter((row) => !isEmptyEventImportRow(row))
     .slice(0, MAX_EVENT_IMPORT_ROWS)
     .map((row, index) => {
       const parsed = normalizeEventImportRow(row, index + 2)
       const match = findEventImportInstallationMatch(parsed, installations, properties)
-      const errors = [...parsed.errors, ...match.errors]
+      const duplicateErrors = getEventImportDuplicateErrors({
+        existingEvents,
+        existingInspections,
+        installationId: match.installation?.id ?? null,
+        row: parsed,
+        seenImportKeys,
+      })
+      const errors = [...parsed.errors, ...match.errors, ...duplicateErrors]
       const warnings = [...parsed.warnings, ...match.warnings]
       const status =
         errors.length > 0 ? "blocked" : warnings.length > 0 ? "warning" : "valid"
@@ -294,6 +325,114 @@ export function buildEventImportPreview({
         matchedPropertyName: match.matchedPropertyName,
       } satisfies EventImportPreviewRow
     })
+}
+
+function getEventImportDuplicateErrors({
+  existingEvents,
+  existingInspections,
+  installationId,
+  row,
+  seenImportKeys,
+}: {
+  existingEvents: EventImportExistingEventReference[]
+  existingInspections: EventImportExistingInspectionReference[]
+  installationId: string | null
+  row: ParsedEventImportRow
+  seenImportKeys: Set<string>
+}) {
+  if (!installationId || !row.normalizedType || !row.eventDate) return []
+
+  const importKey = getEventImportIdentityKey({
+    amountKg: row.amountKg,
+    date: row.eventDate,
+    installationId,
+    notes: row.notes,
+    type: row.normalizedType,
+  })
+
+  if (!importKey) return []
+
+  const errors: string[] = []
+  const hasExistingEventDuplicate = existingEvents.some((event) => {
+    const eventKey = getEventImportIdentityKey({
+      amountKg: event.refrigerantAddedKg,
+      date: event.date,
+      installationId: event.installationId,
+      notes: event.notes,
+      type: event.type,
+    })
+
+    return eventKey === importKey
+  })
+  const hasExistingInspectionDuplicate =
+    row.normalizedType === "INSPECTION" &&
+    existingInspections.some(
+      (inspection) =>
+        inspection.installationId === installationId &&
+        normalizeDateIdentity(inspection.inspectionDate) === row.eventDate
+    )
+
+  if (hasExistingEventDuplicate || hasExistingInspectionDuplicate) {
+    errors.push(DUPLICATE_EVENT_MESSAGE)
+  }
+
+  if (seenImportKeys.has(importKey)) {
+    errors.push(DUPLICATE_FILE_ROW_MESSAGE)
+  } else {
+    seenImportKeys.add(importKey)
+  }
+
+  return errors
+}
+
+function getEventImportIdentityKey({
+  amountKg,
+  date,
+  installationId,
+  notes,
+  type,
+}: {
+  amountKg: number | null
+  date: string | Date
+  installationId: string
+  notes: string | null
+  type: InstallationEventType
+}) {
+  const normalizedDate = normalizeDateIdentity(date)
+  if (!normalizedDate || !isSupportedEventImportType(type)) return null
+
+  return [
+    installationId,
+    type,
+    normalizedDate,
+    normalizeEventImportAmountIdentity(type, amountKg),
+    normalizeEventImportNotesIdentity(notes),
+  ].join("|")
+}
+
+function isSupportedEventImportType(
+  type: InstallationEventType
+): type is SupportedEventImportType {
+  return ["INSPECTION", "LEAK", "REFILL", "SERVICE"].includes(type)
+}
+
+function normalizeEventImportAmountIdentity(
+  type: SupportedEventImportType,
+  amountKg: number | null
+) {
+  if (type !== "LEAK" && type !== "REFILL") return ""
+  if (amountKg === null) return ""
+
+  return Number(amountKg).toFixed(3)
+}
+
+function normalizeEventImportNotesIdentity(notes: string | null) {
+  return (notes ?? "").trim().replace(/\s+/g, " ").toLowerCase()
+}
+
+function normalizeDateIdentity(value: string | Date) {
+  if (value instanceof Date) return formatDate(value)
+  return parseDateValue(value) ?? null
 }
 
 export function findEventImportInstallationMatch(

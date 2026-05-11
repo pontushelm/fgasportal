@@ -58,7 +58,43 @@ export async function POST(request: NextRequest) {
         },
       }),
     ])
+    const installationIds = installations.map((installation) => installation.id)
+    const [existingEvents, existingInspections] = installationIds.length
+      ? await Promise.all([
+          prisma.installationEvent.findMany({
+            where: {
+              installationId: {
+                in: installationIds,
+              },
+              type: {
+                in: ["INSPECTION", "LEAK", "REFILL", "SERVICE"],
+              },
+            },
+            select: {
+              installationId: true,
+              type: true,
+              date: true,
+              refrigerantAddedKg: true,
+              notes: true,
+            },
+          }),
+          prisma.inspection.findMany({
+            where: {
+              installationId: {
+                in: installationIds,
+              },
+            },
+            select: {
+              installationId: true,
+              inspectionDate: true,
+              notes: true,
+            },
+          }),
+        ])
+      : [[], []]
     const previewRows = buildEventImportPreview({
+      existingEvents,
+      existingInspections,
       rows,
       installations,
       properties,

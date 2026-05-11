@@ -71,6 +71,7 @@ const TEMPLATE_ROWS = [
 
 export default function InstallationEventImportPageClient() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [fileInputKey, setFileInputKey] = useState(0)
   const [worksheets, setWorksheets] = useState<WorksheetPreview[]>([])
   const [selectedWorksheetName, setSelectedWorksheetName] = useState("")
   const [rawRows, setRawRows] = useState<Record<string, unknown>[]>([])
@@ -254,6 +255,12 @@ export default function InstallationEventImportPageClient() {
     setError("")
   }
 
+  function handleImportMore() {
+    setSelectedFile(null)
+    setFileInputKey((current) => current + 1)
+    resetPreviewState()
+  }
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
       <div>
@@ -295,6 +302,7 @@ export default function InstallationEventImportPageClient() {
           <input
             accept=".xlsx,.csv"
             className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-blue-700"
+            key={fileInputKey}
             type="file"
             onChange={handleFileChange}
           />
@@ -545,31 +553,51 @@ export default function InstallationEventImportPageClient() {
       )}
 
       {importSummary && (
-        <section className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-900 shadow-sm">
-          <h2 className="text-lg font-semibold">Importen är klar</h2>
-          <p className="mt-2 text-base font-semibold">
-            {importSummary.created} händelser importerades.
-          </p>
-          {importSummary.skipped > 0 && (
-            <p className="mt-1">
-              {importSummary.skipped} rader kunde inte importeras och behöver kontrolleras.
+        <div
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4"
+          role="dialog"
+        >
+          <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-800 shadow-2xl">
+            <h2 className="text-lg font-semibold text-slate-950">Importen är klar</h2>
+            <p className="mt-3 text-base font-semibold text-emerald-800">
+              {importSummary.created} händelser importerades.
             </p>
-          )}
-          {warningRows.length > 0 && (
-            <p className="mt-1">
-              {warningRows.length} importerbara rader hade varningar i förhandsgranskningen.
-            </p>
-          )}
-          {importSummary.errors.length > 0 && (
-            <ul className="mt-2 list-disc pl-5">
-              {importSummary.errors.map((item) => (
-                <li key={`${item.row}-${item.message}`}>
-                  Rad {item.row}: {item.message}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+            {importSummary.skipped > 0 && (
+              <p className="mt-2">{importSummary.skipped} rader kunde inte importeras.</p>
+            )}
+            {warningRows.length > 0 && (
+              <p className="mt-1">{warningRows.length} rader hade varningar.</p>
+            )}
+            {importSummary.errors.length > 0 && (
+              <div className="mt-3 max-h-36 overflow-auto rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                <p className="font-semibold">Rader att kontrollera</p>
+                <ul className="mt-1 grid gap-1">
+                  {importSummary.errors.map((item) => (
+                    <li key={`${item.row}-${item.message}`}>
+                      Rad {item.row}: {item.message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                type="button"
+                onClick={handleImportMore}
+              >
+                Importera fler händelser
+              </button>
+              <Link
+                className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                href="/dashboard/installations"
+              >
+                Gå till aggregat
+              </Link>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   )

@@ -178,6 +178,90 @@ describe("installation event import preview", () => {
     expect(filterEventImportPreviewRows(rows, "blocked")).toHaveLength(1)
   })
 
+  it("blocks rows that duplicate an existing imported event", () => {
+    const [row] = buildEventImportPreview({
+      rows: [
+        {
+          equipmentId: "FRYS-01",
+          eventType: "Service",
+          eventDate: "2026-01-10",
+          notes: "Årlig service",
+        },
+      ],
+      installations,
+      properties,
+      existingEvents: [
+        {
+          installationId: "installation-c",
+          type: "SERVICE",
+          date: "2026-01-10",
+          refrigerantAddedKg: null,
+          notes: "  årlig   service ",
+        },
+      ],
+    })
+
+    expect(row.status).toBe("blocked")
+    expect(row.errors).toContain(
+      "En liknande händelse finns redan för detta aggregat på samma datum."
+    )
+  })
+
+  it("blocks later duplicate rows within the same uploaded file", () => {
+    const rows = buildEventImportPreview({
+      rows: [
+        {
+          equipmentId: "FRYS-01",
+          eventType: "Påfyllning",
+          eventDate: "2026-03-02",
+          amountKg: 1.5,
+          notes: "Påfyllning efter service",
+        },
+        {
+          equipmentId: "FRYS-01",
+          eventType: "Påfyllning",
+          eventDate: "2026-03-02",
+          amountKg: "1,5",
+          notes: " påfyllning   efter service ",
+        },
+      ],
+      installations,
+      properties,
+    })
+
+    expect(rows[0].status).toBe("warning")
+    expect(rows[1].status).toBe("blocked")
+    expect(rows[1].errors).toContain(
+      "En liknande händelse finns redan i filen för samma aggregat och datum."
+    )
+  })
+
+  it("blocks imported inspections that duplicate existing inspection records", () => {
+    const [row] = buildEventImportPreview({
+      rows: [
+        {
+          equipmentId: "FRYS-01",
+          eventType: "Kontroll",
+          eventDate: "2026-01-10",
+        },
+      ],
+      installations,
+      properties,
+      existingInspections: [
+        {
+          installationId: "installation-c",
+          inspectionDate: "2026-01-10",
+          notes: null,
+        },
+      ],
+    })
+
+    expect(row.status).toBe("blocked")
+    expect(row.errors).toContain(
+      "En liknande händelse finns redan för detta aggregat på samma datum."
+    )
+  })
+
   it("accepts valid leakage, refill and service rows", () => {
     const rows = buildEventImportPreview({
       rows: [
