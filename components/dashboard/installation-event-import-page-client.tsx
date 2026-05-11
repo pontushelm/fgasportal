@@ -5,6 +5,7 @@ import { useMemo, useState } from "react"
 import * as XLSX from "xlsx"
 import {
   EVENT_IMPORT_FIELD_DEFINITIONS,
+  filterEventImportPreviewRows,
   getDuplicateEventImportMappedFields,
   getEventImportFieldLabel,
   getMaxEventImportRows,
@@ -15,6 +16,7 @@ import {
   mapEventImportRowsWithMapping,
   type EventImportColumnMapping,
   type EventImportFieldKey,
+  type EventImportPreviewFilter,
   type EventImportPreviewRow,
 } from "@/lib/installation-event-import"
 
@@ -75,6 +77,7 @@ export default function InstallationEventImportPageClient() {
   const [detectedColumns, setDetectedColumns] = useState<string[]>([])
   const [columnMapping, setColumnMapping] = useState<EventImportColumnMapping>({})
   const [previewRows, setPreviewRows] = useState<EventImportPreviewRow[]>([])
+  const [previewFilter, setPreviewFilter] = useState<EventImportPreviewFilter>("all")
   const [previewSummary, setPreviewSummary] = useState<PreviewResponse["summary"] | null>(null)
   const [importSummary, setImportSummary] = useState<ImportSummary | null>(null)
   const [error, setError] = useState("")
@@ -95,6 +98,7 @@ export default function InstallationEventImportPageClient() {
   const importableRows = previewRows.filter((row) => row.status !== "blocked")
   const warningRows = previewRows.filter((row) => row.status === "warning")
   const blockedRows = previewRows.filter((row) => row.status === "blocked")
+  const visiblePreviewRows = filterEventImportPreviewRows(previewRows, previewFilter)
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -147,6 +151,7 @@ export default function InstallationEventImportPageClient() {
       [column]: field,
     }))
     setPreviewRows([])
+    setPreviewFilter("all")
     setPreviewSummary(null)
     setImportSummary(null)
   }
@@ -203,6 +208,7 @@ export default function InstallationEventImportPageClient() {
 
     if (mode === "preview") {
       setPreviewRows(result.rows)
+      setPreviewFilter(result.summary?.blocked > 0 ? "blocked" : "all")
       setPreviewSummary(result.summary)
       return
     }
@@ -230,6 +236,7 @@ export default function InstallationEventImportPageClient() {
     setDetectedColumns(columns)
     setColumnMapping(suggestedMapping)
     setPreviewRows([])
+    setPreviewFilter("all")
     setPreviewSummary(null)
     setImportSummary(null)
   }
@@ -241,6 +248,7 @@ export default function InstallationEventImportPageClient() {
     setDetectedColumns([])
     setColumnMapping({})
     setPreviewRows([])
+    setPreviewFilter("all")
     setPreviewSummary(null)
     setImportSummary(null)
     setError("")
@@ -448,6 +456,42 @@ export default function InstallationEventImportPageClient() {
             </button>
           </div>
 
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <PreviewFilterButton
+              active={previewFilter === "all"}
+              count={previewRows.length}
+              label="Alla"
+              onClick={() => setPreviewFilter("all")}
+            />
+            <PreviewFilterButton
+              active={previewFilter === "importable"}
+              count={importableRows.length}
+              label="Importerbara"
+              onClick={() => setPreviewFilter("importable")}
+            />
+            <PreviewFilterButton
+              active={previewFilter === "warnings"}
+              count={warningRows.length}
+              label="Varningar"
+              onClick={() => setPreviewFilter("warnings")}
+            />
+            <PreviewFilterButton
+              active={previewFilter === "blocked"}
+              count={blockedRows.length}
+              label="Blockerade"
+              onClick={() => setPreviewFilter("blocked")}
+            />
+            {blockedRows.length > 0 && previewFilter !== "blocked" && (
+              <button
+                className="ml-auto rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+                type="button"
+                onClick={() => setPreviewFilter("blocked")}
+              >
+                Visa blockerade rader
+              </button>
+            )}
+          </div>
+
           <div className="mt-4 max-h-[55vh] overflow-auto rounded-lg border border-slate-200">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="sticky top-0 bg-slate-50">
@@ -463,9 +507,18 @@ export default function InstallationEventImportPageClient() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
-                {previewRows.map((row) => (
-                  <tr key={row.row}>
-                    <td className={tableCellClassName}>{row.row}</td>
+                {visiblePreviewRows.map((row) => (
+                  <tr
+                    className={
+                      row.status === "blocked"
+                        ? "bg-red-50/50"
+                        : row.status === "warning"
+                          ? "bg-amber-50/40"
+                          : ""
+                    }
+                    key={row.row}
+                  >
+                    <td className={`${tableCellClassName} font-semibold`}>Excel-rad {row.row}</td>
                     <td className={tableCellClassName}>{row.equipmentId || "-"}</td>
                     <td className={tableCellClassName}>{row.propertyName || "-"}</td>
                     <td className={tableCellClassName}>{row.installationName || "-"}</td>
@@ -473,7 +526,7 @@ export default function InstallationEventImportPageClient() {
                     <td className={tableCellClassName}>{row.eventDate || "-"}</td>
                     <td className={tableCellClassName}>{row.amountKg ?? "-"}</td>
                     <td
-                      className={`${tableCellClassName} font-semibold ${
+                      className={`${tableCellClassName} min-w-80 ${
                         row.status === "blocked"
                           ? "text-red-700"
                           : row.status === "warning"
@@ -481,11 +534,7 @@ export default function InstallationEventImportPageClient() {
                             : "text-emerald-700"
                       }`}
                     >
-                      {row.status === "blocked"
-                        ? row.errors.join(", ")
-                        : row.status === "warning"
-                          ? row.warnings.join(", ")
-                          : "Giltig"}
+                      <StatusMessages row={row} />
                     </td>
                   </tr>
                 ))}
@@ -496,10 +545,21 @@ export default function InstallationEventImportPageClient() {
       )}
 
       {importSummary && (
-        <section className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-          <h2 className="font-semibold">Import klar</h2>
-          <p className="mt-2">Skapade händelser: {importSummary.created}</p>
-          <p>Hoppade över: {importSummary.skipped}</p>
+        <section className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-900 shadow-sm">
+          <h2 className="text-lg font-semibold">Importen är klar</h2>
+          <p className="mt-2 text-base font-semibold">
+            {importSummary.created} händelser importerades.
+          </p>
+          {importSummary.skipped > 0 && (
+            <p className="mt-1">
+              {importSummary.skipped} rader kunde inte importeras och behöver kontrolleras.
+            </p>
+          )}
+          {warningRows.length > 0 && (
+            <p className="mt-1">
+              {warningRows.length} importerbara rader hade varningar i förhandsgranskningen.
+            </p>
+          )}
           {importSummary.errors.length > 0 && (
             <ul className="mt-2 list-disc pl-5">
               {importSummary.errors.map((item) => (
@@ -533,6 +593,51 @@ function formatEventType(type: EventImportPreviewRow["normalizedType"]) {
   if (type === "REFILL") return "Påfyllning"
   if (type === "SERVICE") return "Service"
   return "-"
+}
+
+function PreviewFilterButton({
+  active,
+  count,
+  label,
+  onClick,
+}: {
+  active: boolean
+  count: number
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
+        active
+          ? "border-blue-600 bg-blue-50 text-blue-800"
+          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+      }`}
+      type="button"
+      onClick={onClick}
+    >
+      {label} <span className="ml-1 text-xs opacity-75">{count}</span>
+    </button>
+  )
+}
+
+function StatusMessages({ row }: { row: EventImportPreviewRow }) {
+  if (row.status === "valid") {
+    return <span className="font-semibold">Giltig</span>
+  }
+
+  const messages = row.status === "blocked" ? row.errors : row.warnings
+
+  return (
+    <ul className="grid gap-1">
+      {messages.map((message) => (
+        <li className="flex gap-2" key={message}>
+          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-current" />
+          <span>{message}</span>
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 const tableHeaderClassName =

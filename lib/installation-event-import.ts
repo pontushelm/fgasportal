@@ -64,6 +64,8 @@ export type EventImportPreviewRow = ParsedEventImportRow & {
   matchedPropertyName: string | null
 }
 
+export type EventImportPreviewFilter = "all" | "importable" | "warnings" | "blocked"
+
 const MAX_EVENT_IMPORT_ROWS = 500
 
 export const eventImportRequestSchema = z.object({
@@ -245,7 +247,7 @@ export function normalizeEventImportRow(
     errors.push("Påfylld mängd krävs för påfyllning")
   }
   if (!propertyName) {
-    warnings.push("Saknar fastighet - matchar endast på Aggregat-ID")
+    warnings.push("Saknar fastighet - händelsen matchas endast på Aggregat-ID")
   }
 
   return {
@@ -357,6 +359,16 @@ export function findEventImportInstallationMatch(
 
   errors.push("Flera aggregat har samma Aggregat-ID - ange fastighet för att särskilja")
   return { installation: null, matchedPropertyName: null, errors, warnings }
+}
+
+export function filterEventImportPreviewRows(
+  rows: EventImportPreviewRow[],
+  filter: EventImportPreviewFilter
+) {
+  if (filter === "importable") return rows.filter((row) => row.status !== "blocked")
+  if (filter === "warnings") return rows.filter((row) => row.status === "warning")
+  if (filter === "blocked") return rows.filter((row) => row.status === "blocked")
+  return rows
 }
 
 export function normalizeEventType(value: string): SupportedEventImportType | null {

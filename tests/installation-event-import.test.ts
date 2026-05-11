@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest"
 import {
   buildEventImportPreview,
   eventImportRequestSchema,
+  filterEventImportPreviewRows,
   normalizeEventImportRow,
 } from "@/lib/installation-event-import"
 
 const properties = [
   { id: "property-a", name: "Stadshuset" },
   { id: "property-b", name: "Servicehuset" },
+  { id: "property-c", name: "Biblioteket" },
 ]
 
 const installations = [
@@ -54,7 +56,7 @@ describe("installation event import preview", () => {
 
     expect(row.installationId).toBe("installation-c")
     expect(row.status).toBe("warning")
-    expect(row.warnings).toContain("Saknar fastighet - matchar endast på Aggregat-ID")
+    expect(row.warnings).toContain("Saknar fastighet - händelsen matchas endast på Aggregat-ID")
   })
 
   it("uses property context to disambiguate duplicate equipment IDs", () => {
@@ -108,6 +110,72 @@ describe("installation event import preview", () => {
 
     expect(row.status).toBe("blocked")
     expect(row.errors).toContain("Flera aggregat har samma Aggregat-ID - ange fastighet för att särskilja")
+  })
+
+  it("allows unique Aggregat-ID without property with a warning", () => {
+    const [row] = buildEventImportPreview({
+      rows: [
+        {
+          equipmentId: "FRYS-01",
+          eventType: "Kontroll",
+          eventDate: "2026-01-10",
+        },
+      ],
+      installations,
+      properties,
+    })
+
+    expect(row.installationId).toBe("installation-c")
+    expect(row.status).toBe("warning")
+    expect(row.warnings).toContain("Saknar fastighet - händelsen matchas endast på Aggregat-ID")
+  })
+
+  it("blocks duplicate Aggregat-ID when provided property does not match candidates", () => {
+    const [row] = buildEventImportPreview({
+      rows: [
+        {
+          equipmentId: "VP1",
+          propertyName: "Biblioteket",
+          eventType: "Kontroll",
+          eventDate: "2026-01-10",
+        },
+      ],
+      installations,
+      properties,
+    })
+
+    expect(row.status).toBe("blocked")
+    expect(row.errors).toContain("Inget aggregat med detta Aggregat-ID hittades på angiven fastighet")
+  })
+
+  it("filters preview rows by importability, warnings and blocked status", () => {
+    const rows = buildEventImportPreview({
+      rows: [
+        {
+          equipmentId: "VP1",
+          propertyName: "Stadshuset",
+          eventType: "Kontroll",
+          eventDate: "2026-01-10",
+        },
+        {
+          equipmentId: "FRYS-01",
+          eventType: "Service",
+          eventDate: "2026-01-10",
+        },
+        {
+          equipmentId: "SAKNAS",
+          eventType: "Service",
+          eventDate: "2026-01-10",
+        },
+      ],
+      installations,
+      properties,
+    })
+
+    expect(filterEventImportPreviewRows(rows, "all")).toHaveLength(3)
+    expect(filterEventImportPreviewRows(rows, "importable")).toHaveLength(2)
+    expect(filterEventImportPreviewRows(rows, "warnings")).toHaveLength(1)
+    expect(filterEventImportPreviewRows(rows, "blocked")).toHaveLength(1)
   })
 
   it("accepts valid leakage, refill and service rows", () => {
