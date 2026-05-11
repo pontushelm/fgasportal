@@ -1,5 +1,6 @@
 import type { InstallationEventType } from "@/lib/installation-events"
 import { normalizeHeader, normalizeImportMatchValue } from "@/lib/installation-import"
+import { z } from "zod"
 
 export type SupportedEventImportType = Extract<
   InstallationEventType,
@@ -64,6 +65,11 @@ export type EventImportPreviewRow = ParsedEventImportRow & {
 }
 
 const MAX_EVENT_IMPORT_ROWS = 500
+
+export const eventImportRequestSchema = z.object({
+  mode: z.enum(["preview", "import"]),
+  rows: z.array(z.record(z.string(), z.unknown())).max(MAX_EVENT_IMPORT_ROWS),
+})
 
 export const EVENT_IMPORT_FIELD_DEFINITIONS: EventImportFieldDefinition[] = [
   {

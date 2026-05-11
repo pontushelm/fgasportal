@@ -1,30 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
-import { ZodError, z } from "zod"
+import { ZodError } from "zod"
 import { getEventActivityAction, logActivity } from "@/lib/activity-log"
 import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import {
   buildEventImportPreview,
-  getMaxEventImportRows,
+  eventImportRequestSchema,
   type EventImportPreviewRow,
 } from "@/lib/installation-event-import"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 import { createInstallationEventSchema } from "@/lib/validations"
-
-const eventImportRequestSchema = z.object({
-  mode: z.enum(["preview", "import"]),
-  rows: z.array(
-    z.object({
-      row: z.number().optional(),
-      equipmentId: z.string().optional().default(""),
-      propertyName: z.string().nullable().optional(),
-      eventType: z.string().optional().default(""),
-      eventDate: z.string().nullable().optional(),
-      amountKg: z.number().nullable().optional(),
-      notes: z.string().nullable().optional(),
-    })
-  ).max(getMaxEventImportRows()),
-})
 
 export async function POST(request: NextRequest) {
   try {
@@ -164,7 +149,14 @@ export async function POST(request: NextRequest) {
 
     if (error instanceof ZodError) {
       return NextResponse.json(
-        { error: "Ogiltiga indata", details: error.issues },
+        {
+          error: "Ogiltiga indata",
+          details: error.issues.map((issue) => ({
+            path: issue.path.join("."),
+            message: issue.message,
+            code: issue.code,
+          })),
+        },
         { status: 400 }
       )
     }

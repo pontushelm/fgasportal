@@ -189,7 +189,15 @@ export default function InstallationEventImportPageClient() {
     setIsImporting(false)
 
     if (!response.ok) {
-      setError(result.error || "Importen misslyckades")
+      const details = Array.isArray(result.details)
+        ? result.details
+            .map((detail: { path?: string; message?: string }) =>
+              [detail.path, detail.message].filter(Boolean).join(": ")
+            )
+            .filter(Boolean)
+            .join("; ")
+        : ""
+      setError(details ? `${result.error || "Importen misslyckades"}: ${details}` : result.error || "Importen misslyckades")
       return
     }
 

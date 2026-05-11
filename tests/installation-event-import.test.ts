@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   buildEventImportPreview,
+  eventImportRequestSchema,
   normalizeEventImportRow,
 } from "@/lib/installation-event-import"
 
@@ -137,6 +138,44 @@ describe("installation event import preview", () => {
 
     expect(rows.map((row) => row.normalizedType)).toEqual(["LEAK", "REFILL", "SERVICE"])
     expect(rows.every((row) => row.status !== "blocked")).toBe(true)
+  })
+
+  it("accepts raw client payload values before row-level normalization", () => {
+    const payload = eventImportRequestSchema.parse({
+      mode: "preview",
+      rows: [
+        {
+          row: 2,
+          equipmentId: "FRYS-01",
+          eventType: "Påfyllning",
+          eventDate: 46084,
+          amountKg: "1,5",
+          notes: "",
+        },
+      ],
+    })
+    const [row] = buildEventImportPreview({
+      rows: payload.rows,
+      installations,
+      properties,
+    })
+
+    expect(row.normalizedType).toBe("REFILL")
+    expect(row.eventDate).toBe("2026-03-03")
+    expect(row.amountKg).toBe(1.5)
+    expect(row.status).not.toBe("blocked")
+  })
+
+  it("returns field-level details only when the request envelope is malformed", () => {
+    const result = eventImportRequestSchema.safeParse({
+      mode: "preview",
+      rows: "not rows",
+    })
+
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues[0]?.path).toEqual(["rows"])
+    }
   })
 
   it("blocks invalid event type and missing date during preview validation", () => {
