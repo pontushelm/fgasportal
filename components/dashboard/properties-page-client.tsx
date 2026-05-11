@@ -276,9 +276,9 @@ export default function PropertiesPageClient() {
                   <TableHeader>Fastighet</TableHeader>
                   <TableHeader>Kommun</TableHeader>
                   <TableHeader>Antal aggregat</TableHeader>
-                  <TableHeader>Total CO₂e</TableHeader>
                   <TableHeader>Försenade kontroller</TableHeader>
-                  <TableHeader>Högriskaggregat</TableHeader>
+                  <TableHeader>Total CO₂e</TableHeader>
+                  <TableHeader>Risk</TableHeader>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
@@ -356,18 +356,9 @@ function RiskCount({ count, total }: { count: number; total: number }) {
 }
 
 function TableHeader({ children }: { children: React.ReactNode }) {
-  const label =
-    children === "Total COâ‚‚e"
-      ? "Kontrollstatus"
-      : children === "FÃ¶rsenade kontroller"
-        ? "Klimatpåverkan"
-        : children === "HÃ¶griskaggregat"
-          ? "Risk"
-          : children
-
   return (
     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-      {label}
+      {children}
     </th>
   )
 }
