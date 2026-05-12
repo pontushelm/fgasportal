@@ -5,11 +5,16 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import { Badge, Card, PageHeader } from "@/components/ui"
 import {
-  filterDashboardActions,
+  filterActionWorkQueue,
+  getActionStableKey,
+  getActionSummaryCounts,
+  type ActionDueDateFilter,
   type ActionFilter,
+  type ActionSeverityFilter,
 } from "@/lib/actions/action-filters"
 import type {
   DashboardActionSeverity,
+  DashboardActionSource,
   DashboardActionType,
 } from "@/lib/actions/generate-actions"
 
@@ -24,11 +29,14 @@ type ActionItem = {
   installationName: string
   equipmentId: string | null
   propertyName: string | null
+  assignedServiceContactId: string | null
+  assignedServiceContactName: string | null
+  assignedServiceContactEmail: string | null
   href: string
   dueDate?: string | null
   createdAt?: string | null
-  createdFrom: "inspection" | "risk" | "service_contact" | "leakage"
-  source: "inspection" | "risk" | "service_contact" | "leakage"
+  createdFrom: DashboardActionSource
+  source: DashboardActionSource
   sortPriority: number
 }
 
@@ -36,7 +44,7 @@ type ActionsResponse = {
   actions: ActionItem[]
 }
 
-const FILTERS: Array<{ label: string; value: ActionFilter }> = [
+const CATEGORY_FILTERS: Array<{ label: string; value: ActionFilter }> = [
   { label: "Alla", value: "ALL" },
   { label: "Försenade kontroller", value: "OVERDUE_INSPECTIONS" },
   { label: "Kommande kontroller", value: "UPCOMING_INSPECTIONS" },
@@ -45,19 +53,41 @@ const FILTERS: Array<{ label: string; value: ActionFilter }> = [
   { label: "Saknar servicekontakt", value: "NO_SERVICE_PARTNER" },
 ]
 
+const SEVERITY_FILTERS: Array<{ label: string; value: ActionSeverityFilter }> = [
+  { label: "Alla nivåer", value: "ALL" },
+  { label: "Hög", value: "HIGH" },
+  { label: "Medel", value: "MEDIUM" },
+  { label: "Låg", value: "LOW" },
+]
+
+const DUE_DATE_FILTERS: Array<{ label: string; value: ActionDueDateFilter }> = [
+  { label: "Alla datum", value: "ALL" },
+  { label: "Försenade", value: "OVERDUE" },
+  { label: "Nästa 30 dagar", value: "NEXT_30_DAYS" },
+  { label: "Nästa 90 dagar", value: "NEXT_90_DAYS" },
+  { label: "Utan förfallodatum", value: "NO_DUE_DATE" },
+]
+
 const SEVERITY_LABELS: Record<DashboardActionSeverity, string> = {
   HIGH: "Hög",
   MEDIUM: "Medel",
   LOW: "Låg",
 }
 
-const STATUS_LABELS: Record<DashboardActionType, string> = {
-  OVERDUE_INSPECTION: "Försenad",
-  DUE_SOON_INSPECTION: "Kommande",
+const ACTION_TYPE_LABELS: Record<DashboardActionType, string> = {
+  OVERDUE_INSPECTION: "Försenad kontroll",
+  DUE_SOON_INSPECTION: "Kommande kontroll",
   NOT_INSPECTED: "Saknar kontroll",
   HIGH_RISK: "Hög risk",
   NO_SERVICE_PARTNER: "Servicekontakt saknas",
-  RECENT_LEAKAGE: "Läckage",
+  RECENT_LEAKAGE: "Läckageuppföljning",
+}
+
+const SOURCE_LABELS: Record<DashboardActionSource, string> = {
+  inspection: "Kontrollstatus",
+  risk: "Riskklassning",
+  service_contact: "Servicekontakt",
+  leakage: "Händelselogg",
 }
 
 export default function ActionsPageClient() {
@@ -66,7 +96,12 @@ export default function ActionsPageClient() {
   const [actions, setActions] = useState<ActionItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
-  const activeFilter = getActionFilter(searchParams.get("filter"))
+  const activeCategory = getActionFilter(searchParams.get("filter"))
+  const activeSeverity = getSeverityFilter(searchParams.get("severity"))
+  const activeDueDate = getDueDateFilter(searchParams.get("due"))
+  const activeProperty = searchParams.get("property") ?? ""
+  const activeServiceContact = searchParams.get("serviceContact") ?? ""
+  const activeSearch = searchParams.get("q") ?? ""
 
   useEffect(() => {
     let isMounted = true
@@ -105,21 +140,45 @@ export default function ActionsPageClient() {
     }
   }, [router])
 
+  const summaryCounts = useMemo(() => getActionSummaryCounts(actions), [actions])
+  const propertyOptions = useMemo(() => getPropertyOptions(actions), [actions])
+  const serviceContactOptions = useMemo(() => getServiceContactOptions(actions), [actions])
   const visibleActions = useMemo(
-    () => filterDashboardActions(actions, activeFilter),
-    [actions, activeFilter]
+    () =>
+      filterActionWorkQueue(actions, {
+        category: activeCategory,
+        severity: activeSeverity,
+        propertyName: activeProperty,
+        serviceContactId: activeServiceContact,
+        dueDate: activeDueDate,
+        search: activeSearch,
+      }),
+    [
+      actions,
+      activeCategory,
+      activeDueDate,
+      activeProperty,
+      activeSearch,
+      activeServiceContact,
+      activeSeverity,
+    ]
   )
 
-  function updateFilter(filter: ActionFilter) {
+  function updateParam(key: string, value: string, emptyValue = "ALL") {
     const params = new URLSearchParams(searchParams.toString())
-    if (filter === "ALL") {
-      params.delete("filter")
+
+    if (!value || value === emptyValue) {
+      params.delete(key)
     } else {
-      params.set("filter", filter)
+      params.set(key, value)
     }
 
     const queryString = params.toString()
     router.replace(queryString ? `/dashboard/actions?${queryString}` : "/dashboard/actions")
+  }
+
+  function clearFilters() {
+    router.replace("/dashboard/actions")
   }
 
   return (
@@ -132,22 +191,112 @@ export default function ActionsPageClient() {
       </section>
 
       <div className="mx-auto mt-6 max-w-7xl">
-        <Card className="p-4">
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <SummaryCard label="Totalt" value={summaryCounts.total} />
+          <SummaryCard label="Hög prio" value={summaryCounts.highSeverity} tone="red" />
+          <SummaryCard label="Försenade" value={summaryCounts.overdue} tone="red" />
+          <SummaryCard label="Kommande" value={summaryCounts.dueSoon} tone="amber" />
+          <SummaryCard label="Läckage" value={summaryCounts.leakageFollowUp} tone="red" />
+          <SummaryCard label="Saknar servicekontakt" value={summaryCounts.missingServiceContact} />
+        </section>
+
+        <Card className="mt-4 p-4">
           <div className="flex flex-wrap gap-2">
-            {FILTERS.map((filter) => (
+            {CATEGORY_FILTERS.map((filter) => (
               <button
                 className={`rounded-md border px-3 py-2 text-sm font-semibold ${
-                  activeFilter === filter.value
+                  activeCategory === filter.value
                     ? "border-blue-600 bg-blue-50 text-blue-800"
                     : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                 }`}
                 key={filter.value}
                 type="button"
-                onClick={() => updateFilter(filter.value)}
+                onClick={() => updateParam("filter", filter.value)}
               >
                 {filter.label}
               </button>
             ))}
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <FilterField label="Prioritet">
+              <select
+                className={filterControlClassName}
+                value={activeSeverity}
+                onChange={(event) => updateParam("severity", event.target.value)}
+              >
+                {SEVERITY_FILTERS.map((filter) => (
+                  <option key={filter.value} value={filter.value}>
+                    {filter.label}
+                  </option>
+                ))}
+              </select>
+            </FilterField>
+
+            <FilterField label="Fastighet">
+              <select
+                className={filterControlClassName}
+                value={activeProperty}
+                onChange={(event) => updateParam("property", event.target.value, "")}
+              >
+                <option value="">Alla fastigheter</option>
+                {propertyOptions.map((property) => (
+                  <option key={property} value={property}>
+                    {property}
+                  </option>
+                ))}
+              </select>
+            </FilterField>
+
+            <FilterField label="Servicekontakt">
+              <select
+                className={filterControlClassName}
+                value={activeServiceContact}
+                onChange={(event) => updateParam("serviceContact", event.target.value, "")}
+              >
+                <option value="">Alla servicekontakter</option>
+                {serviceContactOptions.map((contact) => (
+                  <option key={contact.id} value={contact.id}>
+                    {contact.name}
+                  </option>
+                ))}
+              </select>
+            </FilterField>
+
+            <FilterField label="Förfallodatum">
+              <select
+                className={filterControlClassName}
+                value={activeDueDate}
+                onChange={(event) => updateParam("due", event.target.value)}
+              >
+                {DUE_DATE_FILTERS.map((filter) => (
+                  <option key={filter.value} value={filter.value}>
+                    {filter.label}
+                  </option>
+                ))}
+              </select>
+            </FilterField>
+
+            <FilterField label="Sök">
+              <input
+                className={filterControlClassName}
+                placeholder="Aggregat, ID, fastighet..."
+                type="search"
+                value={activeSearch}
+                onChange={(event) => updateParam("q", event.target.value, "")}
+              />
+            </FilterField>
+          </div>
+
+          <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-500">
+            <span>Filtren sparas i URL:en och kan användas i framtida länkar.</span>
+            <button
+              className="font-semibold text-blue-700 underline-offset-4 hover:underline"
+              type="button"
+              onClick={clearFilters}
+            >
+              Rensa filter
+            </button>
           </div>
         </Card>
 
@@ -156,10 +305,11 @@ export default function ActionsPageClient() {
 
         {!isLoading && !error && (
           <Card className="mt-4 overflow-hidden">
-            <div className="border-b border-slate-200 px-4 py-3">
+            <div className="flex flex-col gap-1 border-b border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm font-semibold text-slate-950">
                 {visibleActions.length} åtgärder
               </p>
+              <p className="text-xs text-slate-500">Sorteras efter serverns prioritering.</p>
             </div>
             {visibleActions.length === 0 ? (
               <p className="px-4 py-8 text-sm text-slate-600">
@@ -168,7 +318,7 @@ export default function ActionsPageClient() {
             ) : (
               <div className="divide-y divide-slate-200">
                 {visibleActions.map((action) => (
-                  <ActionRow action={action} key={action.id} />
+                  <ActionRow action={action} key={getActionStableKey(action)} />
                 ))}
               </div>
             )}
@@ -179,13 +329,54 @@ export default function ActionsPageClient() {
   )
 }
 
+const filterControlClassName =
+  "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+
+function SummaryCard({
+  label,
+  tone = "slate",
+  value,
+}: {
+  label: string
+  tone?: "slate" | "red" | "amber"
+  value: number
+}) {
+  const toneClass = {
+    slate: "border-l-slate-300",
+    red: "border-l-red-500",
+    amber: "border-l-amber-500",
+  }[tone]
+
+  return (
+    <Card className={`border-l-4 px-4 py-3 ${toneClass}`}>
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-1 text-2xl font-bold text-slate-950">{value}</p>
+    </Card>
+  )
+}
+
+function FilterField({
+  children,
+  label,
+}: {
+  children: React.ReactNode
+  label: string
+}) {
+  return (
+    <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <span>{label}</span>
+      {children}
+    </label>
+  )
+}
+
 function ActionRow({ action }: { action: ActionItem }) {
   return (
     <article className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <SeverityBadge severity={action.severity} />
-          <Badge variant="neutral">{STATUS_LABELS[action.type]}</Badge>
+          <Badge variant="neutral">{ACTION_TYPE_LABELS[action.type]}</Badge>
           <h2 className="text-sm font-semibold text-slate-950">{action.title}</h2>
         </div>
         <p className="mt-2 text-sm font-semibold text-slate-900">
@@ -195,9 +386,11 @@ function ActionRow({ action }: { action: ActionItem }) {
           ) : null}
         </p>
         <p className="mt-1 text-sm text-slate-600">{action.description}</p>
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+        <div className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-2 lg:grid-cols-4">
           <span>Fastighet: {action.propertyName || "-"}</span>
-          <span>Datum: {formatActionDate(action)}</span>
+          <span>Servicekontakt: {action.assignedServiceContactName || "-"}</span>
+          <span>{getDateLabel(action)}: {formatActionDate(action)}</span>
+          <span>Källa: {SOURCE_LABELS[action.source]}</span>
         </div>
       </div>
       <Link
@@ -216,6 +409,12 @@ function SeverityBadge({ severity }: { severity: DashboardActionSeverity }) {
   return <Badge variant={variant}>{SEVERITY_LABELS[severity]}</Badge>
 }
 
+function getDateLabel(action: ActionItem) {
+  if (action.type === "RECENT_LEAKAGE") return "Händelsedatum"
+  if (action.dueDate) return "Förfallodatum"
+  return "Datum"
+}
+
 function formatActionDate(action: ActionItem) {
   const date = action.dueDate ?? action.createdAt
   if (!date) return "-"
@@ -223,8 +422,42 @@ function formatActionDate(action: ActionItem) {
   return new Intl.DateTimeFormat("sv-SE").format(new Date(date))
 }
 
+function getPropertyOptions(actions: ActionItem[]) {
+  return Array.from(
+    new Set(actions.map((action) => action.propertyName).filter(Boolean) as string[])
+  ).sort((first, second) => first.localeCompare(second, "sv"))
+}
+
+function getServiceContactOptions(actions: ActionItem[]) {
+  const contacts = new Map<string, { id: string; name: string }>()
+
+  actions.forEach((action) => {
+    if (!action.assignedServiceContactId || !action.assignedServiceContactName) return
+    contacts.set(action.assignedServiceContactId, {
+      id: action.assignedServiceContactId,
+      name: action.assignedServiceContactName,
+    })
+  })
+
+  return Array.from(contacts.values()).sort((first, second) =>
+    first.name.localeCompare(second.name, "sv")
+  )
+}
+
 function getActionFilter(value: string | null): ActionFilter {
-  return FILTERS.some((filter) => filter.value === value)
+  return CATEGORY_FILTERS.some((filter) => filter.value === value)
     ? (value as ActionFilter)
+    : "ALL"
+}
+
+function getSeverityFilter(value: string | null): ActionSeverityFilter {
+  return SEVERITY_FILTERS.some((filter) => filter.value === value)
+    ? (value as ActionSeverityFilter)
+    : "ALL"
+}
+
+function getDueDateFilter(value: string | null): ActionDueDateFilter {
+  return DUE_DATE_FILTERS.some((filter) => filter.value === value)
+    ? (value as ActionDueDateFilter)
     : "ALL"
 }

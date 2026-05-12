@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest"
 import { generateDashboardActions } from "@/lib/actions/generate-actions"
-import { filterDashboardActions } from "@/lib/actions/action-filters"
+import {
+  filterActionWorkQueue,
+  filterDashboardActions,
+  getActionStableKey,
+  getActionSummaryCounts,
+} from "@/lib/actions/action-filters"
 import {
   getCurrentYearRange,
   isDateInRange,
@@ -110,6 +115,129 @@ describe("dashboard action generation", () => {
     expect(filterDashboardActions(actions, "HIGH_RISK").map((action) => action.type)).toEqual([
       "HIGH_RISK",
     ])
+  })
+
+  it("keeps deterministic action keys for future workflow state overlays", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-05-08T12:00:00"),
+      installations: [
+        {
+          id: "installation-1",
+          name: "Aggregat 1",
+          nextInspection: new Date("2026-04-01"),
+          inspectionInterval: 12,
+          complianceStatus: "OVERDUE",
+          assignedContractorId: null,
+          risk: { level: "LOW", score: 1 },
+        },
+      ],
+      leakageEvents: [
+        {
+          id: "leak-1",
+          installationId: "installation-1",
+          installationName: "Aggregat 1",
+          date: new Date("2026-05-05"),
+        },
+      ],
+    })
+
+    expect(actions.map(getActionStableKey)).toEqual([
+      "OVERDUE_INSPECTION:installation-1:overdue-installation-1",
+      "RECENT_LEAKAGE:installation-1:recent-leakage-leak-1",
+      "NO_SERVICE_PARTNER:installation-1:no-service-partner-installation-1",
+    ])
+  })
+
+  it("filters the operational action queue by metadata without changing server order", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-05-08T12:00:00"),
+      installations: [
+        {
+          id: "overdue",
+          name: "Kylcentral A",
+          equipmentId: "KA-1",
+          propertyName: "Stadshuset",
+          nextInspection: new Date("2026-04-01"),
+          inspectionInterval: 12,
+          complianceStatus: "OVERDUE",
+          assignedContractorId: "contractor-1",
+          assignedServiceContactId: "contractor-1",
+          assignedServiceContactName: "Service Tekniker",
+          risk: { level: "LOW", score: 1 },
+        },
+        {
+          id: "due-soon",
+          name: "Värmepump B",
+          equipmentId: "VP-2",
+          propertyName: "Skolan",
+          nextInspection: new Date("2026-05-20"),
+          inspectionInterval: 12,
+          complianceStatus: "DUE_SOON",
+          assignedContractorId: null,
+          risk: { level: "LOW", score: 1 },
+        },
+      ],
+      leakageEvents: [],
+    })
+
+    expect(
+      filterActionWorkQueue(actions, {
+        propertyName: "stadshuset",
+        severity: "HIGH",
+        serviceContactId: "contractor-1",
+        search: "ka-1",
+        today: new Date("2026-05-08T12:00:00"),
+      }).map((action) => action.id)
+    ).toEqual(["overdue-overdue"])
+    expect(
+      filterActionWorkQueue(actions, {
+        dueDate: "NEXT_30_DAYS",
+        today: new Date("2026-05-08T12:00:00"),
+      }).map((action) => action.id)
+    ).toEqual(["due-soon-due-soon"])
+  })
+
+  it("summarizes operational action counts", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-05-08T12:00:00"),
+      installations: [
+        {
+          id: "overdue",
+          name: "Overdue aggregat",
+          nextInspection: new Date("2026-04-01"),
+          inspectionInterval: 12,
+          complianceStatus: "OVERDUE",
+          assignedContractorId: null,
+          risk: { level: "LOW", score: 1 },
+        },
+        {
+          id: "due-soon",
+          name: "Due soon aggregat",
+          nextInspection: new Date("2026-05-20"),
+          inspectionInterval: 12,
+          complianceStatus: "DUE_SOON",
+          assignedContractorId: "contractor-1",
+          risk: { level: "LOW", score: 1 },
+        },
+      ],
+      leakageEvents: [
+        {
+          id: "leak-1",
+          installationId: "leaky",
+          installationName: "Leaky aggregat",
+          date: new Date("2026-05-05"),
+        },
+      ],
+    })
+
+    expect(getActionSummaryCounts(actions, new Date("2026-05-08T12:00:00"))).toEqual({
+      total: 4,
+      highSeverity: 2,
+      overdue: 1,
+      dueSoon: 1,
+      leakageFollowUp: 1,
+      missingServiceContact: 1,
+    })
   })
 })
 

@@ -28,6 +28,9 @@ export type DashboardAction = {
   installationName: string
   equipmentId: string | null
   propertyName: string | null
+  assignedServiceContactId: string | null
+  assignedServiceContactName: string | null
+  assignedServiceContactEmail: string | null
   href: string
   dueDate: Date | null
   createdAt: Date | null
@@ -45,6 +48,9 @@ export type ActionInstallationInput = {
   inspectionInterval: number | null
   complianceStatus: ComplianceStatus
   assignedContractorId: string | null
+  assignedServiceContactId?: string | null
+  assignedServiceContactName?: string | null
+  assignedServiceContactEmail?: string | null
   risk: { level: InstallationRiskLevel; score: number }
 }
 
@@ -54,6 +60,9 @@ export type ActionLeakageEventInput = {
   installationName: string
   equipmentId?: string | null
   propertyName?: string | null
+  assignedServiceContactId?: string | null
+  assignedServiceContactName?: string | null
+  assignedServiceContactEmail?: string | null
   date: Date
 }
 
@@ -177,6 +186,9 @@ export function generateDashboardActions({
       installationName: event.installationName,
       equipmentId: event.equipmentId ?? null,
       propertyName: event.propertyName ?? null,
+      assignedServiceContactId: event.assignedServiceContactId ?? null,
+      assignedServiceContactName: event.assignedServiceContactName ?? null,
+      assignedServiceContactEmail: event.assignedServiceContactEmail ?? null,
       href: `/dashboard/installations/${event.installationId}`,
       dueDate: null,
       createdAt: event.date,
@@ -236,6 +248,9 @@ function createAction({
     installationName: installation.name,
     equipmentId: installation.equipmentId ?? null,
     propertyName: installation.propertyName ?? null,
+    assignedServiceContactId: installation.assignedServiceContactId ?? null,
+    assignedServiceContactName: installation.assignedServiceContactName ?? null,
+    assignedServiceContactEmail: installation.assignedServiceContactEmail ?? null,
     href,
     dueDate,
     createdAt,

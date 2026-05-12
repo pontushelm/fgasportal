@@ -27,6 +27,13 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
           name: true,
         },
       },
+      assignedContractor: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
     },
   })
 
@@ -56,6 +63,9 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
       inspectionInterval: compliance.inspectionIntervalMonths,
       complianceStatus: compliance.status,
       assignedContractorId: installation.assignedContractorId,
+      assignedServiceContactId: installation.assignedContractor?.id ?? null,
+      assignedServiceContactName: installation.assignedContractor?.name ?? null,
+      assignedServiceContactEmail: installation.assignedContractor?.email ?? null,
       risk,
     }
   })
@@ -67,6 +77,9 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
       installationName: installation.name,
       equipmentId: installation.equipmentId,
       propertyName: installation.property?.name ?? installation.propertyName,
+      assignedServiceContactId: installation.assignedContractor?.id ?? null,
+      assignedServiceContactName: installation.assignedContractor?.name ?? null,
+      assignedServiceContactEmail: installation.assignedContractor?.email ?? null,
       date: event.date,
     }))
   )

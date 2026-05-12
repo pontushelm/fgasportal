@@ -137,6 +137,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
           installationName: installation.name,
           equipmentId: installation.equipmentId,
           propertyName: property.name,
+          assignedServiceContactId: installation.assignedContractor?.id ?? null,
+          assignedServiceContactName: installation.assignedContractor?.name ?? null,
+          assignedServiceContactEmail: installation.assignedContractor?.email ?? null,
           date: event.date,
         }))
       )
@@ -163,6 +166,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
           inspectionInterval: installation.inspectionIntervalMonths,
           complianceStatus: installation.complianceStatus,
           assignedContractorId: installation.assignedContractorId,
+          assignedServiceContactId: installation.assignedContractor?.id ?? null,
+          assignedServiceContactName: installation.assignedContractor?.name ?? null,
+          assignedServiceContactEmail: installation.assignedContractor?.email ?? null,
           risk: {
             level: installation.riskLevel,
             score: installation.riskScore,
