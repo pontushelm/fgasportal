@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { ZodError, z } from "zod"
+import {
+  ACTION_SAVED_FILTER_PAGE,
+  validateActionFilterQueryParams,
+} from "@/lib/actions/action-filters"
 import { authenticateApiRequest } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 
@@ -7,6 +11,10 @@ const savedFilterSchema = z.object({
   name: z.string().trim().min(1).max(80),
   page: z.string().trim().min(1).max(80),
   queryParams: z.record(z.string(), z.string()),
+})
+
+const deleteSavedFilterSchema = z.object({
+  id: z.string().trim().min(1),
 })
 
 export async function GET(request: NextRequest) {
@@ -51,11 +59,23 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const validatedData = savedFilterSchema.parse(body)
+    const queryParams = validateSavedFilterQueryParams(
+      validatedData.page,
+      validatedData.queryParams
+    )
+
+    if (!queryParams) {
+      return NextResponse.json(
+        { error: "Ogiltiga filterparametrar" },
+        { status: 400 }
+      )
+    }
+
     const savedFilter = await prisma.savedFilter.create({
       data: {
         name: validatedData.name,
         page: validatedData.page,
-        queryParams: validatedData.queryParams,
+        queryParams,
         userId: auth.user.userId,
         companyId: auth.user.companyId,
       },
@@ -84,4 +104,55 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const auth = await authenticateApiRequest(request)
+    if (auth.response) return auth.response
+
+    const body = await request.json()
+    const { id } = deleteSavedFilterSchema.parse(body)
+    const result = await prisma.savedFilter.deleteMany({
+      where: {
+        id,
+        userId: auth.user.userId,
+        companyId: auth.user.companyId,
+      },
+    })
+
+    if (result.count === 0) {
+      return NextResponse.json(
+        { error: "Filtret hittades inte" },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({ ok: true }, { status: 200 })
+  } catch (error: unknown) {
+    console.error("Delete saved filter error:", error)
+
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { error: "Ogiltiga indata", details: error.issues },
+        { status: 400 }
+      )
+    }
+
+    return NextResponse.json(
+      { error: "Ett ovÃ¤ntat fel uppstod" },
+      { status: 500 }
+    )
+  }
+}
+
+function validateSavedFilterQueryParams(
+  page: string,
+  queryParams: Record<string, string>
+) {
+  if (page === ACTION_SAVED_FILTER_PAGE) {
+    return validateActionFilterQueryParams(queryParams)
+  }
+
+  return queryParams
 }

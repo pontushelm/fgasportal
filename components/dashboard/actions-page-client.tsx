@@ -5,9 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import { Badge, Card, PageHeader } from "@/components/ui"
 import {
+  ACTION_SAVED_FILTER_PAGE,
   filterActionWorkQueue,
   getActionStableKey,
   getActionSummaryCounts,
+  sanitizeActionFilterQueryParams,
   type ActionDueDateFilter,
   type ActionFilter,
   type ActionSeverityFilter,
@@ -48,6 +50,14 @@ type ActionsResponse = {
 type RegisteredProperty = {
   id: string
   name: string
+}
+
+type SavedActionView = {
+  id: string
+  name: string
+  page: string
+  queryParams: Record<string, string>
+  createdAt: string
 }
 
 const CATEGORY_FILTERS: Array<{ label: string; value: ActionFilter }> = [
@@ -94,6 +104,13 @@ export default function ActionsPageClient() {
   const searchParams = useSearchParams()
   const [actions, setActions] = useState<ActionItem[]>([])
   const [registeredProperties, setRegisteredProperties] = useState<RegisteredProperty[]>([])
+  const [savedViews, setSavedViews] = useState<SavedActionView[]>([])
+  const [selectedSavedViewId, setSelectedSavedViewId] = useState("")
+  const [isSaveViewOpen, setIsSaveViewOpen] = useState(false)
+  const [saveViewName, setSaveViewName] = useState("")
+  const [isSavingView, setIsSavingView] = useState(false)
+  const [savedViewMessage, setSavedViewMessage] = useState("")
+  const [savedViewError, setSavedViewError] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
   const activeCategory = getActionFilter(searchParams.get("filter"))
@@ -110,21 +127,28 @@ export default function ActionsPageClient() {
       setIsLoading(true)
       setError("")
 
-      const [actionsResponse, propertiesResponse] = await Promise.all([
+      const [actionsResponse, propertiesResponse, savedViewsResponse] = await Promise.all([
         fetch("/api/dashboard/actions", {
           credentials: "include",
         }),
         fetch("/api/properties", {
           credentials: "include",
         }),
+        fetch(`/api/saved-filters?page=${ACTION_SAVED_FILTER_PAGE}`, {
+          credentials: "include",
+        }),
       ])
 
-      if (actionsResponse.status === 401 || propertiesResponse.status === 401) {
+      if (
+        actionsResponse.status === 401 ||
+        propertiesResponse.status === 401 ||
+        savedViewsResponse.status === 401
+      ) {
         router.push("/login")
         return
       }
 
-      if (!actionsResponse.ok || !propertiesResponse.ok) {
+      if (!actionsResponse.ok || !propertiesResponse.ok || !savedViewsResponse.ok) {
         if (!isMounted) return
         setError("Kunde inte hämta åtgärder")
         setIsLoading(false)
@@ -133,10 +157,12 @@ export default function ActionsPageClient() {
 
       const data: ActionsResponse = await actionsResponse.json()
       const propertiesData: RegisteredProperty[] = await propertiesResponse.json()
+      const savedViewsData: SavedActionView[] = await savedViewsResponse.json()
       if (!isMounted) return
 
       setActions(data.actions)
       setRegisteredProperties(propertiesData)
+      setSavedViews(savedViewsData)
       setIsLoading(false)
     }
 
@@ -176,6 +202,8 @@ export default function ActionsPageClient() {
 
   function updateParam(key: string, value: string, emptyValue = "ALL") {
     const params = new URLSearchParams(searchParams.toString())
+    setSelectedSavedViewId("")
+    setSavedViewMessage("")
 
     if (!value || value === emptyValue) {
       params.delete(key)
@@ -189,6 +217,101 @@ export default function ActionsPageClient() {
 
   function clearFilters() {
     router.replace("/dashboard/actions")
+    setSelectedSavedViewId("")
+    setSavedViewMessage("")
+  }
+
+  function applySavedView(savedViewId: string) {
+    setSelectedSavedViewId(savedViewId)
+    setSavedViewMessage("")
+    setSavedViewError("")
+
+    if (!savedViewId) return
+
+    const savedView = savedViews.find((view) => view.id === savedViewId)
+    if (!savedView) return
+
+    const params = new URLSearchParams(savedView.queryParams)
+    router.replace(`/dashboard/actions${params.toString() ? `?${params.toString()}` : ""}`)
+  }
+
+  async function handleSaveView(event: React.FormEvent) {
+    event.preventDefault()
+    setSavedViewError("")
+    setSavedViewMessage("")
+
+    const trimmedName = saveViewName.trim()
+    if (!trimmedName) {
+      setSavedViewError("Ange ett namn fÃ¶r vyn")
+      return
+    }
+
+    setIsSavingView(true)
+
+    const response = await fetch("/api/saved-filters", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        name: trimmedName,
+        page: ACTION_SAVED_FILTER_PAGE,
+        queryParams: sanitizeActionFilterQueryParams(searchParams),
+      }),
+    })
+    const result: SavedActionView & { error?: string } = await response.json()
+
+    if (response.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!response.ok) {
+      setSavedViewError(result.error || "Kunde inte spara vyn")
+      setIsSavingView(false)
+      return
+    }
+
+    setSavedViews((current) => [result, ...current])
+    setSelectedSavedViewId(result.id)
+    setSaveViewName("")
+    setIsSaveViewOpen(false)
+    setSavedViewMessage("Vyn har sparats")
+    setIsSavingView(false)
+  }
+
+  async function handleDeleteSavedView() {
+    if (!selectedSavedViewId) return
+
+    setSavedViewError("")
+    setSavedViewMessage("")
+
+    const response = await fetch("/api/saved-filters", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        id: selectedSavedViewId,
+      }),
+    })
+    const result: { error?: string } = await response.json()
+
+    if (response.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!response.ok) {
+      setSavedViewError(result.error || "Kunde inte ta bort vyn")
+      return
+    }
+
+    setSavedViews((current) => current.filter((view) => view.id !== selectedSavedViewId))
+    setSelectedSavedViewId("")
+    setSavedViewMessage("Vyn har tagits bort")
   }
 
   return (
@@ -300,6 +423,92 @@ export default function ActionsPageClient() {
               />
             </FilterField>
           </div>
+
+          <div className="mt-4 grid gap-3 border-t border-slate-200 pt-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500 lg:min-w-72">
+                Sparade vyer
+                <select
+                  className={filterControlClassName}
+                  value={selectedSavedViewId}
+                  onChange={(event) => applySavedView(event.target.value)}
+                >
+                  <option value="">
+                    {savedViews.length === 0 ? "Inga sparade vyer än" : "Välj sparad vy"}
+                  </option>
+                  {savedViews.map((view) => (
+                    <option key={view.id} value={view.id}>
+                      {view.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {isSaveViewOpen ? (
+                <form
+                  className="flex flex-col gap-2 sm:flex-row sm:items-end"
+                  onSubmit={handleSaveView}
+                >
+                  <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Vynamn
+                    <input
+                      className={filterControlClassName}
+                      placeholder="Ex. Akuta kontroller"
+                      value={saveViewName}
+                      onChange={(event) => setSaveViewName(event.target.value)}
+                    />
+                  </label>
+                  <button
+                    className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
+                    disabled={isSavingView}
+                    type="submit"
+                  >
+                    {isSavingView ? "Sparar..." : "Spara vy"}
+                  </button>
+                  <button
+                    className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                    disabled={isSavingView}
+                    type="button"
+                    onClick={() => {
+                      setIsSaveViewOpen(false)
+                      setSaveViewName("")
+                      setSavedViewError("")
+                    }}
+                  >
+                    Avbryt
+                  </button>
+                </form>
+              ) : (
+                <button
+                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                  type="button"
+                  onClick={() => {
+                    setIsSaveViewOpen(true)
+                    setSavedViewError("")
+                    setSavedViewMessage("")
+                  }}
+                >
+                  Spara aktuell vy
+                </button>
+              )}
+            </div>
+
+            <button
+              className="rounded-md border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 disabled:hover:bg-white"
+              disabled={!selectedSavedViewId}
+              type="button"
+              onClick={handleDeleteSavedView}
+            >
+              Ta bort vy
+            </button>
+          </div>
+
+          {savedViewError ? (
+            <p className="mt-3 text-sm font-semibold text-red-700">{savedViewError}</p>
+          ) : null}
+          {savedViewMessage ? (
+            <p className="mt-3 text-sm font-semibold text-green-700">{savedViewMessage}</p>
+          ) : null}
 
           <div className="mt-3 flex justify-end text-xs text-slate-500">
             <button

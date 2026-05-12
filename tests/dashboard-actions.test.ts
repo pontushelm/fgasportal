@@ -5,6 +5,8 @@ import {
   filterDashboardActions,
   getActionStableKey,
   getActionSummaryCounts,
+  sanitizeActionFilterQueryParams,
+  validateActionFilterQueryParams,
 } from "@/lib/actions/action-filters"
 import {
   getCurrentYearRange,
@@ -239,6 +241,31 @@ describe("dashboard action generation", () => {
       leakageFollowUp: 1,
       missingServiceContact: 1,
     })
+  })
+
+  it("sanitizes and validates saved action view query params", () => {
+    const queryParams = sanitizeActionFilterQueryParams({
+      filter: "LEAKAGE",
+      severity: "HIGH",
+      property: "property-1",
+      serviceContact: "contractor-1",
+      due: "NEXT_30_DAYS",
+      q: "  kylrum  ",
+      unexpected: "ignored",
+      empty: "",
+    })
+
+    expect(queryParams).toEqual({
+      filter: "LEAKAGE",
+      severity: "HIGH",
+      property: "property-1",
+      serviceContact: "contractor-1",
+      due: "NEXT_30_DAYS",
+      q: "kylrum",
+    })
+    expect(validateActionFilterQueryParams(queryParams)).toEqual(queryParams)
+    expect(validateActionFilterQueryParams({ filter: "NOT_A_FILTER" })).toBeNull()
+    expect(validateActionFilterQueryParams({ unexpected: "value" })).toBeNull()
   })
 })
 

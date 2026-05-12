@@ -27,6 +27,19 @@ export type ActionViewFilters = {
   today?: Date
 }
 
+export const ACTION_SAVED_FILTER_PAGE = "dashboard-actions"
+
+const ACTION_FILTER_QUERY_KEYS = [
+  "filter",
+  "severity",
+  "property",
+  "serviceContact",
+  "due",
+  "q",
+] as const
+
+export type ActionFilterQueryKey = (typeof ACTION_FILTER_QUERY_KEYS)[number]
+
 export type ActionSummaryCounts = {
   total: number
   highSeverity: number
@@ -34,6 +47,51 @@ export type ActionSummaryCounts = {
   dueSoon: number
   leakageFollowUp: number
   missingServiceContact: number
+}
+
+export function sanitizeActionFilterQueryParams(
+  input: URLSearchParams | Record<string, string>
+) {
+  const entries =
+    input instanceof URLSearchParams
+      ? Array.from(input.entries())
+      : Object.entries(input)
+  const sanitized: Record<string, string> = {}
+
+  entries.forEach(([key, value]) => {
+    if (!isActionFilterQueryKey(key)) return
+
+    const trimmedValue = value.trim()
+    if (!trimmedValue) return
+
+    sanitized[key] = trimmedValue
+  })
+
+  return sanitized
+}
+
+export function validateActionFilterQueryParams(queryParams: Record<string, string>) {
+  const sanitized = sanitizeActionFilterQueryParams(queryParams)
+  const hasUnknownKeys = Object.keys(queryParams).some(
+    (key) => !isActionFilterQueryKey(key)
+  )
+
+  if (hasUnknownKeys) return null
+  if (sanitized.filter && !isAllowedValue(sanitized.filter, ACTION_FILTER_VALUES)) return null
+  if (
+    sanitized.severity &&
+    !isAllowedValue(sanitized.severity, ACTION_SEVERITY_FILTER_VALUES)
+  ) {
+    return null
+  }
+  if (sanitized.due && !isAllowedValue(sanitized.due, ACTION_DUE_DATE_FILTER_VALUES)) {
+    return null
+  }
+  if (sanitized.property && sanitized.property.length > 120) return null
+  if (sanitized.serviceContact && sanitized.serviceContact.length > 120) return null
+  if (sanitized.q && sanitized.q.length > 120) return null
+
+  return sanitized
 }
 
 type FilterableAction = {
@@ -61,6 +119,30 @@ const ACTION_FILTER_TYPES: Record<Exclude<ActionFilter, "ALL">, DashboardActionT
   HIGH_RISK: ["HIGH_RISK"],
   NO_SERVICE_PARTNER: ["NO_SERVICE_PARTNER"],
 }
+
+const ACTION_FILTER_VALUES: ActionFilter[] = [
+  "ALL",
+  "OVERDUE_INSPECTIONS",
+  "UPCOMING_INSPECTIONS",
+  "LEAKAGE",
+  "HIGH_RISK",
+  "NO_SERVICE_PARTNER",
+]
+
+const ACTION_SEVERITY_FILTER_VALUES: ActionSeverityFilter[] = [
+  "ALL",
+  "HIGH",
+  "MEDIUM",
+  "LOW",
+]
+
+const ACTION_DUE_DATE_FILTER_VALUES: ActionDueDateFilter[] = [
+  "ALL",
+  "OVERDUE",
+  "NEXT_30_DAYS",
+  "NEXT_90_DAYS",
+  "NO_DUE_DATE",
+]
 
 export function filterDashboardActions<T extends Pick<DashboardAction, "type">>(
   actions: T[],
@@ -191,6 +273,14 @@ function normalizeSearch(value?: string | null) {
 function normalizeFilterValue(value?: string | null) {
   const trimmed = value?.trim().toLowerCase()
   return trimmed || ""
+}
+
+function isActionFilterQueryKey(key: string): key is ActionFilterQueryKey {
+  return ACTION_FILTER_QUERY_KEYS.includes(key as ActionFilterQueryKey)
+}
+
+function isAllowedValue<T extends string>(value: string, allowedValues: T[]) {
+  return allowedValues.includes(value as T)
 }
 
 function addDays(date: Date, days: number) {
