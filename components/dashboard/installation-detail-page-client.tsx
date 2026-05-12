@@ -280,6 +280,18 @@ const EVENT_TONE: Record<InstallationEventType, string> = {
   REFRIGERANT_CHANGE: "border-cyan-200 bg-cyan-50 text-cyan-800",
 }
 
+const EVENT_HELP_TEXT: Record<EventFormType, string> = {
+  INSPECTION: "Uppdaterar senaste och nästa kontroll automatiskt.",
+  LEAK: "Ange uppskattad eller konstaterad läckagemängd om den är känd.",
+  REFILL: "Ange mängd påfyllt köldmedium.",
+  SERVICE: "Beskriv utförd åtgärd kort.",
+  REPAIR: "Beskriv utförd åtgärd kort.",
+  RECOVERY: "Ange återvunnen eller borttagen mängd.",
+  REFRIGERANT_CHANGE: "Används när aggregatet byter köldmedium.",
+  ARCHIVE: "Arkivering tar bort aggregatet från aktiva vyer men sparar historiken.",
+  SCRAP: "Skrotning markerar aggregatet som permanent taget ur drift.",
+}
+
 const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   INSPECTION_REPORT: "Kontrollrapport",
   SERVICE_REPORT: "Serviceprotokoll",
@@ -1050,11 +1062,11 @@ export default function InstallationDetailPage() {
   )
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10 text-slate-900">
-      <section className="rounded-lg border border-slate-200 bg-white p-6">
+    <main className="mx-auto max-w-6xl px-4 py-6 text-slate-900 sm:py-10">
+      <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-950">{installation.name}</h1>
+            <h1 className="text-2xl font-bold text-slate-950 sm:text-3xl">{installation.name}</h1>
             <p className="mt-2 text-slate-600">{installation.location}</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1072,8 +1084,11 @@ export default function InstallationDetailPage() {
         </div>
 
         {canManageActiveInstallation && (
-          <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-200 pt-4">
+          <div className="mt-5 grid gap-2 border-t border-slate-200 pt-4 sm:flex sm:flex-wrap">
             <ActionButton label="Ny händelse" onClick={() => openEventModal()} primary />
+            <ActionButton label="Registrera kontroll" onClick={() => openEventModal("INSPECTION")} />
+            <ActionButton label="Registrera läckage" onClick={() => openEventModal("LEAK")} tone="danger" />
+            <ActionButton label="Registrera service" onClick={() => openEventModal("SERVICE")} />
             <ActionButton label="Redigera aggregat" onClick={openEditModal} />
           </div>
         )}
@@ -1087,7 +1102,7 @@ export default function InstallationDetailPage() {
           </div>
         )}
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <SummaryItem label="Köldmedium" value={installation.refrigerantType} />
           <SummaryItem label="Fyllnadsmängd" value={`${formatNumber(installation.refrigerantAmount)} kg`} />
           <SummaryItem
@@ -1575,35 +1590,31 @@ export default function InstallationDetailPage() {
       {isEventModalOpen && canManageActiveInstallation && (
         <ModalFrame
           title={`Ny händelse: ${EVENT_FORM_LABELS[eventForm.type]}`}
-          description={
-            eventForm.type === "ARCHIVE"
-              ? "Arkivering tar bort aggregatet från aktiva vyer men sparar historiken."
-              : eventForm.type === "SCRAP"
-                ? "Skrotning markerar aggregatet som permanent taget ur drift."
-                : "Kontrollhändelser uppdaterar automatiskt senaste och nästa kontroll."
-          }
+          description={EVENT_HELP_TEXT[eventForm.type]}
           onClose={closeEventModal}
           closeDisabled={isSubmittingEvent || isArchiving || isScrapping}
         >
-          <form className="grid gap-3" onSubmit={handleEventSubmit}>
-            <label className={fieldClassName}>
-              Datum
-              <input className={formControlClassName} name="date" type="date" value={eventForm.date} onChange={handleEventChange} required />
-            </label>
-            <label className={fieldClassName}>
-              Typ
-              <select className={formControlClassName} name="type" value={eventForm.type} onChange={handleEventChange} required>
-                <option value="INSPECTION">Kontroll</option>
-                <option value="LEAK">Läckage</option>
-                <option value="REFILL">Påfyllning</option>
-                <option value="SERVICE">Service</option>
-                <option value="REPAIR">Reparation</option>
-                <option value="RECOVERY">Tömning / Återvinning</option>
-                <option value="REFRIGERANT_CHANGE">Byte av köldmedium</option>
-                <option value="ARCHIVE">Arkivering</option>
-                <option value="SCRAP">Skrotning</option>
-              </select>
-            </label>
+          <form className="grid gap-4" onSubmit={handleEventSubmit}>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className={fieldClassName}>
+                Datum
+                <input className={formControlClassName} name="date" type="date" value={eventForm.date} onChange={handleEventChange} required />
+              </label>
+              <label className={fieldClassName}>
+                Typ
+                <select className={formControlClassName} name="type" value={eventForm.type} onChange={handleEventChange} required>
+                  <option value="INSPECTION">Kontroll</option>
+                  <option value="LEAK">Läckage</option>
+                  <option value="REFILL">Påfyllning</option>
+                  <option value="SERVICE">Service</option>
+                  <option value="REPAIR">Reparation</option>
+                  <option value="RECOVERY">Tömning / Återvinning</option>
+                  <option value="REFRIGERANT_CHANGE">Byte av köldmedium</option>
+                  <option value="ARCHIVE">Arkivering</option>
+                  <option value="SCRAP">Skrotning</option>
+                </select>
+              </label>
+            </div>
             {isInstallationEventType(eventForm.type) &&
               hasInstallationEventAmount(eventForm.type) &&
               eventForm.type !== "REFRIGERANT_CHANGE" && (
@@ -1757,9 +1768,9 @@ export default function InstallationDetailPage() {
             {eventError && <p className="text-sm font-semibold text-red-700">{eventError}</p>}
             {archiveError && <p className="text-sm font-semibold text-red-700">{archiveError}</p>}
             {scrapError && <p className="text-sm font-semibold text-red-700">{scrapError}</p>}
-            <div className="flex flex-wrap gap-2 pt-2">
+            <div className="grid gap-2 pt-2 sm:flex sm:flex-wrap">
               <button
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                className="min-h-11 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
                 type="submit"
                 disabled={isSubmittingEvent || isArchiving || isScrapping}
               >
@@ -1776,7 +1787,7 @@ export default function InstallationDetailPage() {
                       : "Lägg till händelse"}
               </button>
               <button
-                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                className="min-h-11 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
                 type="button"
                 onClick={closeEventModal}
                 disabled={isSubmittingEvent || isArchiving || isScrapping}
@@ -1995,7 +2006,7 @@ function ActionButton({
 
   return (
     <button
-      className={`rounded-md border px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60 ${toneClass}`}
+      className={`min-h-11 w-full rounded-md border px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto ${toneClass}`}
       type="button"
       onClick={onClick}
       disabled={disabled}
@@ -2019,15 +2030,15 @@ function ModalFrame({
   title: string
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-5 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 px-3 py-3 sm:items-center sm:px-4 sm:py-6">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-4 shadow-xl sm:p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
             {description && <p className="mt-1 text-sm text-slate-600">{description}</p>}
           </div>
           <button
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             type="button"
             onClick={onClose}
             disabled={closeDisabled}
