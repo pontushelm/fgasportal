@@ -156,6 +156,7 @@ describe("dashboard action generation", () => {
           id: "overdue",
           name: "Kylcentral A",
           equipmentId: "KA-1",
+          propertyId: "property-1",
           propertyName: "Stadshuset",
           nextInspection: new Date("2026-04-01"),
           inspectionInterval: 12,
@@ -182,7 +183,7 @@ describe("dashboard action generation", () => {
 
     expect(
       filterActionWorkQueue(actions, {
-        propertyName: "stadshuset",
+        propertyId: "property-1",
         severity: "HIGH",
         serviceContactId: "contractor-1",
         search: "ka-1",

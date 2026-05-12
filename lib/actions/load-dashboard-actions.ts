@@ -24,6 +24,7 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
       },
       property: {
         select: {
+          id: true,
           name: true,
         },
       },
@@ -58,6 +59,7 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
       id: installation.id,
       name: installation.name,
       equipmentId: installation.equipmentId,
+      propertyId: installation.property?.id ?? null,
       propertyName: installation.property?.name ?? installation.propertyName,
       nextInspection: installation.nextInspection,
       inspectionInterval: compliance.inspectionIntervalMonths,
@@ -76,6 +78,7 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
       installationId: installation.id,
       installationName: installation.name,
       equipmentId: installation.equipmentId,
+      propertyId: installation.property?.id ?? null,
       propertyName: installation.property?.name ?? installation.propertyName,
       assignedServiceContactId: installation.assignedContractor?.id ?? null,
       assignedServiceContactName: installation.assignedContractor?.name ?? null,

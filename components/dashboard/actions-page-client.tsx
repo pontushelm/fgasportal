@@ -28,6 +28,7 @@ type ActionItem = {
   installationId: string
   installationName: string
   equipmentId: string | null
+  propertyId: string | null
   propertyName: string | null
   assignedServiceContactId: string | null
   assignedServiceContactName: string | null
@@ -42,6 +43,11 @@ type ActionItem = {
 
 type ActionsResponse = {
   actions: ActionItem[]
+}
+
+type RegisteredProperty = {
+  id: string
+  name: string
 }
 
 const CATEGORY_FILTERS: Array<{ label: string; value: ActionFilter }> = [
@@ -83,17 +89,11 @@ const ACTION_TYPE_LABELS: Record<DashboardActionType, string> = {
   RECENT_LEAKAGE: "Läckageuppföljning",
 }
 
-const SOURCE_LABELS: Record<DashboardActionSource, string> = {
-  inspection: "Kontrollstatus",
-  risk: "Riskklassning",
-  service_contact: "Servicekontakt",
-  leakage: "Händelselogg",
-}
-
 export default function ActionsPageClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [actions, setActions] = useState<ActionItem[]>([])
+  const [registeredProperties, setRegisteredProperties] = useState<RegisteredProperty[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
   const activeCategory = getActionFilter(searchParams.get("filter"))
@@ -110,26 +110,33 @@ export default function ActionsPageClient() {
       setIsLoading(true)
       setError("")
 
-      const response = await fetch("/api/dashboard/actions", {
-        credentials: "include",
-      })
+      const [actionsResponse, propertiesResponse] = await Promise.all([
+        fetch("/api/dashboard/actions", {
+          credentials: "include",
+        }),
+        fetch("/api/properties", {
+          credentials: "include",
+        }),
+      ])
 
-      if (response.status === 401) {
+      if (actionsResponse.status === 401 || propertiesResponse.status === 401) {
         router.push("/login")
         return
       }
 
-      if (!response.ok) {
+      if (!actionsResponse.ok || !propertiesResponse.ok) {
         if (!isMounted) return
         setError("Kunde inte hämta åtgärder")
         setIsLoading(false)
         return
       }
 
-      const data: ActionsResponse = await response.json()
+      const data: ActionsResponse = await actionsResponse.json()
+      const propertiesData: RegisteredProperty[] = await propertiesResponse.json()
       if (!isMounted) return
 
       setActions(data.actions)
+      setRegisteredProperties(propertiesData)
       setIsLoading(false)
     }
 
@@ -141,14 +148,17 @@ export default function ActionsPageClient() {
   }, [router])
 
   const summaryCounts = useMemo(() => getActionSummaryCounts(actions), [actions])
-  const propertyOptions = useMemo(() => getPropertyOptions(actions), [actions])
+  const hasActionsWithoutRegisteredProperty = useMemo(
+    () => actions.some((action) => !action.propertyId),
+    [actions]
+  )
   const serviceContactOptions = useMemo(() => getServiceContactOptions(actions), [actions])
   const visibleActions = useMemo(
     () =>
       filterActionWorkQueue(actions, {
         category: activeCategory,
         severity: activeSeverity,
-        propertyName: activeProperty,
+        propertyId: activeProperty,
         serviceContactId: activeServiceContact,
         dueDate: activeDueDate,
         search: activeSearch,
@@ -240,11 +250,14 @@ export default function ActionsPageClient() {
                 onChange={(event) => updateParam("property", event.target.value, "")}
               >
                 <option value="">Alla fastigheter</option>
-                {propertyOptions.map((property) => (
-                  <option key={property} value={property}>
-                    {property}
+                {registeredProperties.map((property) => (
+                  <option key={property.id} value={property.id}>
+                    {property.name}
                   </option>
                 ))}
+                {hasActionsWithoutRegisteredProperty ? (
+                  <option value="none">Ingen registrerad fastighet</option>
+                ) : null}
               </select>
             </FilterField>
 
@@ -288,8 +301,7 @@ export default function ActionsPageClient() {
             </FilterField>
           </div>
 
-          <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-500">
-            <span>Filtren sparas i URL:en och kan användas i framtida länkar.</span>
+          <div className="mt-3 flex justify-end text-xs text-slate-500">
             <button
               className="font-semibold text-blue-700 underline-offset-4 hover:underline"
               type="button"
@@ -386,11 +398,10 @@ function ActionRow({ action }: { action: ActionItem }) {
           ) : null}
         </p>
         <p className="mt-1 text-sm text-slate-600">{action.description}</p>
-        <div className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-2 lg:grid-cols-3">
           <span>Fastighet: {action.propertyName || "-"}</span>
           <span>Servicekontakt: {action.assignedServiceContactName || "-"}</span>
           <span>{getDateLabel(action)}: {formatActionDate(action)}</span>
-          <span>Källa: {SOURCE_LABELS[action.source]}</span>
         </div>
       </div>
       <Link
@@ -420,12 +431,6 @@ function formatActionDate(action: ActionItem) {
   if (!date) return "-"
 
   return new Intl.DateTimeFormat("sv-SE").format(new Date(date))
-}
-
-function getPropertyOptions(actions: ActionItem[]) {
-  return Array.from(
-    new Set(actions.map((action) => action.propertyName).filter(Boolean) as string[])
-  ).sort((first, second) => first.localeCompare(second, "sv"))
 }
 
 function getServiceContactOptions(actions: ActionItem[]) {

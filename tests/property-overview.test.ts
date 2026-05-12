@@ -59,6 +59,7 @@ function createAction(id: string, installationId: string): DashboardAction {
     installationId,
     installationName: "Aggregat",
     equipmentId: null,
+    propertyId: null,
     propertyName: "Fastighet",
     assignedServiceContactId: null,
     assignedServiceContactName: null,

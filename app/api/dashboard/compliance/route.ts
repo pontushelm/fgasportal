@@ -64,6 +64,7 @@ export async function GET(request: NextRequest) {
         },
         property: {
           select: {
+            id: true,
             name: true,
           },
         },
@@ -137,6 +138,7 @@ export async function GET(request: NextRequest) {
         nextInspection: installation.nextInspection,
         lastInspection: installation.lastInspection,
         assignedContractorId: installation.assignedContractorId,
+        propertyId: installation.property?.id ?? null,
         propertyName: installation.property?.name ?? installation.propertyName,
         leakageEventsCount,
         risk,

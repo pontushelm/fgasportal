@@ -27,6 +27,7 @@ export type DashboardAction = {
   installationId: string
   installationName: string
   equipmentId: string | null
+  propertyId: string | null
   propertyName: string | null
   assignedServiceContactId: string | null
   assignedServiceContactName: string | null
@@ -43,6 +44,7 @@ export type ActionInstallationInput = {
   id: string
   name: string
   equipmentId?: string | null
+  propertyId?: string | null
   propertyName?: string | null
   nextInspection: Date | null
   inspectionInterval: number | null
@@ -59,6 +61,7 @@ export type ActionLeakageEventInput = {
   installationId: string
   installationName: string
   equipmentId?: string | null
+  propertyId?: string | null
   propertyName?: string | null
   assignedServiceContactId?: string | null
   assignedServiceContactName?: string | null
@@ -185,6 +188,7 @@ export function generateDashboardActions({
       installationId: event.installationId,
       installationName: event.installationName,
       equipmentId: event.equipmentId ?? null,
+      propertyId: event.propertyId ?? null,
       propertyName: event.propertyName ?? null,
       assignedServiceContactId: event.assignedServiceContactId ?? null,
       assignedServiceContactName: event.assignedServiceContactName ?? null,
@@ -247,6 +251,7 @@ function createAction({
     installationId: installation.id,
     installationName: installation.name,
     equipmentId: installation.equipmentId ?? null,
+    propertyId: installation.propertyId ?? null,
     propertyName: installation.propertyName ?? null,
     assignedServiceContactId: installation.assignedServiceContactId ?? null,
     assignedServiceContactName: installation.assignedServiceContactName ?? null,

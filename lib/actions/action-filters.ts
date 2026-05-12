@@ -20,7 +20,7 @@ export type ActionDueDateFilter =
 export type ActionViewFilters = {
   category?: ActionFilter
   severity?: ActionSeverityFilter
-  propertyName?: string
+  propertyId?: string
   serviceContactId?: string
   dueDate?: ActionDueDateFilter
   search?: string
@@ -41,6 +41,7 @@ type FilterableAction = {
   severity: DashboardAction["severity"]
   installationName: string
   equipmentId: string | null
+  propertyId: string | null
   propertyName: string | null
   assignedServiceContactId: string | null
   title: string
@@ -77,7 +78,7 @@ export function filterActionWorkQueue<T extends FilterableAction>(
 ) {
   const today = startOfDay(filters.today ?? new Date())
   const normalizedSearch = normalizeSearch(filters.search)
-  const propertyName = normalizeFilterValue(filters.propertyName)
+  const propertyId = normalizeFilterValue(filters.propertyId)
   const serviceContactId = normalizeFilterValue(filters.serviceContactId)
   const category = filters.category ?? "ALL"
   const severity = filters.severity ?? "ALL"
@@ -85,7 +86,14 @@ export function filterActionWorkQueue<T extends FilterableAction>(
 
   return filterDashboardActions(actions, category).filter((action) => {
     if (severity !== "ALL" && action.severity !== severity) return false
-    if (propertyName && normalizeFilterValue(action.propertyName) !== propertyName) return false
+    if (propertyId === "none" && action.propertyId) return false
+    if (
+      propertyId &&
+      propertyId !== "none" &&
+      normalizeFilterValue(action.propertyId) !== propertyId
+    ) {
+      return false
+    }
     if (
       serviceContactId &&
       normalizeFilterValue(action.assignedServiceContactId) !== serviceContactId
