@@ -7,11 +7,13 @@ type SendInspectionReminderEmailInput = {
   nextInspection: Date
   status: "DUE_SOON" | "OVERDUE"
   installationUrl: string
+  actionQueueUrl: string
 }
 
 type SendContractorAssignmentEmailInput = {
   to: string
   contractorPortalUrl: string
+  actionQueueUrl: string
 }
 
 type SendLeakNotificationEmailInput = {
@@ -22,6 +24,7 @@ type SendLeakNotificationEmailInput = {
   eventDate: Date
   leakageAmountKg: number | null
   installationUrl: string
+  actionQueueUrl: string
 }
 
 type SendPasswordResetEmailInput = {
@@ -44,11 +47,16 @@ export async function sendInspectionReminderEmail({
   nextInspection,
   status,
   installationUrl,
+  actionQueueUrl,
 }: SendInspectionReminderEmailInput) {
   const apiKey = requireEnv("RESEND_API_KEY")
   const from = requireEnv("REMINDER_FROM_EMAIL")
   const subjectStatus =
     status === "OVERDUE" ? "försenad kontroll" : "kontroll inom 30 dagar"
+  const actionLinkLabel =
+    status === "OVERDUE"
+      ? "Visa försenade kontroller i åtgärdskön:"
+      : "Visa kommande kontroller i åtgärdskön:"
   const text = [
     `Kontrollpåminnelse: ${installationName}`,
     "",
@@ -59,7 +67,10 @@ export async function sendInspectionReminderEmail({
     `Nästa kontroll: ${formatDate(nextInspection)}`,
     `Status: ${status === "OVERDUE" ? "Försenad" : "Inom 30 dagar"}`,
     "",
-    "Öppna aggregatet för att kontrollera status och planera åtgärd:",
+    actionLinkLabel,
+    actionQueueUrl,
+    "",
+    "Öppna aggregatet för mer information:",
     installationUrl,
     "",
     "Vänliga hälsningar,",
@@ -87,6 +98,7 @@ export async function sendInspectionReminderEmail({
 export async function sendContractorAssignmentEmail({
   to,
   contractorPortalUrl,
+  actionQueueUrl,
 }: SendContractorAssignmentEmailInput) {
   const apiKey = requireEnv("RESEND_API_KEY")
   const from = requireEnv("REMINDER_FROM_EMAIL")
@@ -97,6 +109,10 @@ export async function sendContractorAssignmentEmail({
     "",
     "Logga in för att se tilldelade aggregat, kontrollstatus och eventuella kommande åtgärder.",
     "",
+    "Gå till åtgärdskön:",
+    actionQueueUrl,
+    "",
+    "Öppna servicevyn:",
     contractorPortalUrl,
     "",
     "Vänliga hälsningar,",
@@ -127,6 +143,7 @@ export async function sendLeakNotificationEmail({
   eventDate,
   leakageAmountKg,
   installationUrl,
+  actionQueueUrl,
 }: SendLeakNotificationEmailInput) {
   const apiKey = requireEnv("RESEND_API_KEY")
   const from = requireEnv("REMINDER_FROM_EMAIL")
@@ -143,7 +160,10 @@ export async function sendLeakNotificationEmail({
       ? `Läckagemängd: ${formatNumber(leakageAmountKg)} kg`
       : "Läckagemängd: Ej angiven",
     "",
-    "Öppna aggregatet för att granska händelsen och eventuella uppföljande åtgärder:",
+    "Se läckageuppföljning i åtgärdskön:",
+    actionQueueUrl,
+    "",
+    "Öppna aggregatet för att granska händelsen:",
     installationUrl,
     "",
     "Vänliga hälsningar,",

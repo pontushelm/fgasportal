@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client"
+import { getInspectionActionQueueUrl } from "@/lib/actions/action-links"
 import { prisma } from "@/lib/db"
 import { sendInspectionReminderEmail } from "@/lib/email"
 import {
@@ -145,6 +146,12 @@ export async function sendInspectionReminders(
           nextInspection: installation.nextInspection,
           status,
           installationUrl: `${appUrl}/dashboard/installations/${installation.id}`,
+          actionQueueUrl: getInspectionActionQueueUrl({
+            appUrl,
+            status,
+            serviceContactId:
+              user.id === installation.assignedContractor?.id ? user.id : null,
+          }),
         })
 
         await prisma.reminderLog.create({

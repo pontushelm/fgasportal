@@ -1,3 +1,4 @@
+import { buildActionQueueUrl } from "@/lib/actions/action-links"
 import { prisma } from "@/lib/db"
 import { sendContractorAssignmentEmail } from "@/lib/email"
 
@@ -44,7 +45,8 @@ export async function notifyContractorsAboutNewAssignments(
         contractor,
       ])
     )
-    const contractorPortalUrl = `${getAppUrl()}/dashboard/service`
+    const appUrl = getAppUrl()
+    const contractorPortalUrl = `${appUrl}/dashboard/service`
 
     await Promise.all(
       Array.from(contractorsByEmail.values()).map(async (contractor) => {
@@ -52,6 +54,9 @@ export async function notifyContractorsAboutNewAssignments(
           await sendContractorAssignmentEmail({
             to: contractor.email,
             contractorPortalUrl,
+            actionQueueUrl: buildActionQueueUrl(appUrl, {
+              serviceContactId: contractor.id,
+            }),
           })
         } catch (error) {
           console.error("Contractor assignment notification failed", {

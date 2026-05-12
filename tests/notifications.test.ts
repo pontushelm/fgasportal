@@ -1,8 +1,52 @@
 import { describe, expect, it } from "vitest"
 import {
+  buildActionQueueUrl,
+  getInspectionActionQueueUrl,
+  getLeakageActionQueueUrl,
+  getMissingServiceContactActionQueueUrl,
+} from "@/lib/actions/action-links"
+import {
   getReminderRecipients,
   selectLeakNotificationRecipients,
 } from "@/lib/notification-recipient-selection"
+
+describe("notification action deep links", () => {
+  const appUrl = "https://app.example.com"
+
+  it("builds inspection reminder links using existing action filter names", () => {
+    expect(
+      getInspectionActionQueueUrl({
+        appUrl,
+        status: "OVERDUE",
+      })
+    ).toBe(
+      "https://app.example.com/dashboard/actions?filter=OVERDUE_INSPECTIONS&due=OVERDUE"
+    )
+    expect(
+      getInspectionActionQueueUrl({
+        appUrl,
+        status: "DUE_SOON",
+        serviceContactId: "contractor-1",
+      })
+    ).toBe(
+      "https://app.example.com/dashboard/actions?filter=UPCOMING_INSPECTIONS&due=NEXT_30_DAYS&serviceContact=contractor-1"
+    )
+  })
+
+  it("builds leakage and service contact action queue links", () => {
+    expect(getLeakageActionQueueUrl(appUrl)).toBe(
+      "https://app.example.com/dashboard/actions?filter=LEAKAGE"
+    )
+    expect(getMissingServiceContactActionQueueUrl(appUrl)).toBe(
+      "https://app.example.com/dashboard/actions?filter=NO_SERVICE_PARTNER"
+    )
+    expect(
+      buildActionQueueUrl(`${appUrl}/`, {
+        serviceContactId: "contractor-1",
+      })
+    ).toBe("https://app.example.com/dashboard/actions?serviceContact=contractor-1")
+  })
+})
 
 describe("inspection reminder recipients", () => {
   const admin = {

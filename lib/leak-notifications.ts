@@ -1,3 +1,4 @@
+import { getLeakageActionQueueUrl } from "@/lib/actions/action-links"
 import { prisma } from "@/lib/db"
 import { sendLeakNotificationEmail } from "@/lib/email"
 import { selectLeakNotificationRecipients } from "@/lib/notification-recipient-selection"
@@ -54,7 +55,9 @@ export async function notifyAdminsAboutLeakEvent({
 
     if (recipients.length === 0) return
 
-    const installationUrl = `${getAppUrl()}/dashboard/installations/${installation.id}`
+    const appUrl = getAppUrl()
+    const installationUrl = `${appUrl}/dashboard/installations/${installation.id}`
+    const actionQueueUrl = getLeakageActionQueueUrl(appUrl)
     const propertyName = installation.property?.name ?? installation.propertyName
 
     await Promise.all(
@@ -68,6 +71,7 @@ export async function notifyAdminsAboutLeakEvent({
             eventDate: event.date,
             leakageAmountKg: event.refrigerantAddedKg,
             installationUrl,
+            actionQueueUrl,
           })
         } catch (error) {
           console.error("Leak notification email failed", {
