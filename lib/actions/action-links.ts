@@ -4,17 +4,21 @@ export type ActionQueueLinkParams = {
   filter?: ActionFilter
   due?: ActionDueDateFilter
   serviceContactId?: string | null
+  servicePartnerCompanyId?: string | null
 }
 
 export function buildActionQueueUrl(
   appUrl: string,
-  { due, filter, serviceContactId }: ActionQueueLinkParams = {}
+  { due, filter, serviceContactId, servicePartnerCompanyId }: ActionQueueLinkParams = {}
 ) {
   const url = new URL("/dashboard/actions", normalizeAppUrl(appUrl))
 
   if (filter && filter !== "ALL") url.searchParams.set("filter", filter)
   if (due && due !== "ALL") url.searchParams.set("due", due)
   if (serviceContactId) url.searchParams.set("serviceContact", serviceContactId)
+  if (servicePartnerCompanyId) {
+    url.searchParams.set("servicePartnerCompany", servicePartnerCompanyId)
+  }
 
   return url.toString()
 }
@@ -22,16 +26,19 @@ export function buildActionQueueUrl(
 export function getInspectionActionQueueUrl({
   appUrl,
   serviceContactId,
+  servicePartnerCompanyId,
   status,
 }: {
   appUrl: string
   serviceContactId?: string | null
+  servicePartnerCompanyId?: string | null
   status: "DUE_SOON" | "OVERDUE"
 }) {
   return buildActionQueueUrl(appUrl, {
     filter: status === "OVERDUE" ? "OVERDUE_INSPECTIONS" : "UPCOMING_INSPECTIONS",
     due: status === "OVERDUE" ? "OVERDUE" : "NEXT_30_DAYS",
-    serviceContactId,
+    serviceContactId: servicePartnerCompanyId ? null : serviceContactId,
+    servicePartnerCompanyId,
   })
 }
 

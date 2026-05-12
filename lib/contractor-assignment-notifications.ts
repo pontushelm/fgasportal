@@ -36,9 +36,18 @@ export async function notifyContractorsAboutNewAssignments(
             email: true,
           },
         },
+        servicePartnerCompany: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     })
-    const contractors = memberships.map((membership) => membership.user)
+    const contractors = memberships.map((membership) => ({
+      ...membership.user,
+      servicePartnerCompany: membership.servicePartnerCompany,
+    }))
     const contractorsByEmail = new Map(
       contractors.map((contractor) => [
         contractor.email.toLowerCase(),
@@ -55,8 +64,10 @@ export async function notifyContractorsAboutNewAssignments(
             to: contractor.email,
             contractorPortalUrl,
             actionQueueUrl: buildActionQueueUrl(appUrl, {
-              serviceContactId: contractor.id,
+              serviceContactId: contractor.servicePartnerCompany ? null : contractor.id,
+              servicePartnerCompanyId: contractor.servicePartnerCompany?.id ?? null,
             }),
+            servicePartnerCompanyName: contractor.servicePartnerCompany?.name ?? null,
           })
         } catch (error) {
           console.error("Contractor assignment notification failed", {

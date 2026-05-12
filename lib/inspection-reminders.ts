@@ -83,6 +83,12 @@ export async function sendInspectionReminders(
             },
             select: {
               companyId: true,
+              servicePartnerCompany: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
             },
           },
         },
@@ -96,6 +102,10 @@ export async function sendInspectionReminders(
     errors: [],
   }
   const appUrl = getAppUrl()
+  const servicePartnerCompanySummaries = buildServicePartnerCompanyReminderSummaries(
+    installations,
+    currentDate
+  )
 
   for (const installation of installations) {
     if (!installation.nextInspection) {
@@ -121,6 +131,14 @@ export async function sendInspectionReminders(
     }
 
     for (const user of recipients) {
+      const isAssignedContractor = user.id === installation.assignedContractor?.id
+      const servicePartnerCompany =
+        isAssignedContractor
+          ? getAssignedServicePartnerCompany(installation)
+          : null
+      const servicePartnerCompanySummary = servicePartnerCompany
+        ? servicePartnerCompanySummaries.get(servicePartnerCompany.id) ?? null
+        : null
       const reminderKey = createReminderKey(status, installation.nextInspection)
       const alreadySent = await prisma.reminderLog.findUnique({
         where: {
@@ -149,9 +167,11 @@ export async function sendInspectionReminders(
           actionQueueUrl: getInspectionActionQueueUrl({
             appUrl,
             status,
-            serviceContactId:
-              user.id === installation.assignedContractor?.id ? user.id : null,
+            serviceContactId: isAssignedContractor ? user.id : null,
+            servicePartnerCompanyId: servicePartnerCompany?.id ?? null,
           }),
+          servicePartnerCompanyName: servicePartnerCompany?.name ?? null,
+          servicePartnerCompanySummary,
         })
 
         await prisma.reminderLog.create({
@@ -187,6 +207,67 @@ export async function sendInspectionReminders(
   }
 
   return summary
+}
+
+type ReminderInstallation = {
+  nextInspection: Date | null
+  company: {
+    id: string
+  }
+  assignedContractor: {
+    memberships: Array<{
+      companyId: string
+      servicePartnerCompany: {
+        id: string
+        name: string
+      } | null
+    }>
+  } | null
+}
+
+function buildServicePartnerCompanyReminderSummaries(
+  installations: ReminderInstallation[],
+  currentDate: Date
+) {
+  const summaries = new Map<
+    string,
+    { overdueCount: number; dueSoonCount: number }
+  >()
+
+  installations.forEach((installation) => {
+    if (!installation.nextInspection) return
+    const servicePartnerCompany = getAssignedServicePartnerCompany(installation)
+    if (!servicePartnerCompany) return
+
+    const status = classifyInspectionReminderStatus(
+      installation.nextInspection,
+      currentDate
+    )
+    if (status === "OK") return
+
+    const currentSummary = summaries.get(servicePartnerCompany.id) ?? {
+      overdueCount: 0,
+      dueSoonCount: 0,
+    }
+
+    if (status === "OVERDUE") {
+      currentSummary.overdueCount += 1
+    } else {
+      currentSummary.dueSoonCount += 1
+    }
+
+    summaries.set(servicePartnerCompany.id, currentSummary)
+  })
+
+  return summaries
+}
+
+function getAssignedServicePartnerCompany(installation: ReminderInstallation) {
+  return (
+    installation.assignedContractor?.memberships.find(
+      (membership) => membership.companyId === installation.company.id
+    )?.servicePartnerCompany ?? null
+  )
 }
 
 export function classifyInspectionReminderStatus(

@@ -8,12 +8,18 @@ type SendInspectionReminderEmailInput = {
   status: "DUE_SOON" | "OVERDUE"
   installationUrl: string
   actionQueueUrl: string
+  servicePartnerCompanyName?: string | null
+  servicePartnerCompanySummary?: {
+    overdueCount: number
+    dueSoonCount: number
+  } | null
 }
 
 type SendContractorAssignmentEmailInput = {
   to: string
   contractorPortalUrl: string
   actionQueueUrl: string
+  servicePartnerCompanyName?: string | null
 }
 
 type SendLeakNotificationEmailInput = {
@@ -42,25 +48,59 @@ let resend: Resend | null = null
 
 export async function sendInspectionReminderEmail({
   to,
+  ...input
+}: SendInspectionReminderEmailInput) {
+  const apiKey = requireEnv("RESEND_API_KEY")
+  const from = requireEnv("REMINDER_FROM_EMAIL")
+  const subjectStatus =
+    input.status === "OVERDUE" ? "försenad kontroll" : "kontroll inom 30 dagar"
+  const text = buildInspectionReminderEmailText(input)
+
+  resend ??= new Resend(apiKey)
+
+  const result = await resend.emails.send({
+    from,
+    to,
+    subject: `FgasPortal: ${subjectStatus} - ${input.installationName}`,
+    text,
+  })
+
+  if (result.error) {
+    throw new Error(result.error.message)
+  }
+
+  return result.data
+}
+
+export function buildInspectionReminderEmailText({
   installationName,
   location,
   nextInspection,
   status,
   installationUrl,
   actionQueueUrl,
-}: SendInspectionReminderEmailInput) {
-  const apiKey = requireEnv("RESEND_API_KEY")
-  const from = requireEnv("REMINDER_FROM_EMAIL")
+  servicePartnerCompanyName,
+  servicePartnerCompanySummary,
+}: Omit<SendInspectionReminderEmailInput, "to">) {
   const subjectStatus =
     status === "OVERDUE" ? "försenad kontroll" : "kontroll inom 30 dagar"
   const actionLinkLabel =
     status === "OVERDUE"
       ? "Visa försenade kontroller i åtgärdskön:"
       : "Visa kommande kontroller i åtgärdskön:"
-  const text = [
+  const servicePartnerSummaryText =
+    servicePartnerCompanyName && servicePartnerCompanySummary
+      ? `För ${servicePartnerCompanyName} finns ${servicePartnerCompanySummary.overdueCount} försenade kontroller och ${servicePartnerCompanySummary.dueSoonCount} kommande kontroller kopplade till era servicekontakter.`
+      : null
+
+  return [
     `Kontrollpåminnelse: ${installationName}`,
     "",
     `Ett aggregat har ${subjectStatus} i FgasPortal.`,
+    servicePartnerCompanyName
+      ? `Påminnelsen gäller aggregat som är tilldelade dig som servicekontakt hos ${servicePartnerCompanyName}.`
+      : null,
+    servicePartnerSummaryText,
     "",
     `Aggregat: ${installationName}`,
     location ? `Placering: ${location}` : null,
@@ -78,46 +118,15 @@ export async function sendInspectionReminderEmail({
   ]
     .filter(Boolean)
     .join("\n")
-
-  resend ??= new Resend(apiKey)
-
-  const result = await resend.emails.send({
-    from,
-    to,
-    subject: `FgasPortal: ${subjectStatus} - ${installationName}`,
-    text,
-  })
-
-  if (result.error) {
-    throw new Error(result.error.message)
-  }
-
-  return result.data
 }
 
 export async function sendContractorAssignmentEmail({
   to,
-  contractorPortalUrl,
-  actionQueueUrl,
+  ...input
 }: SendContractorAssignmentEmailInput) {
   const apiKey = requireEnv("RESEND_API_KEY")
   const from = requireEnv("REMINDER_FROM_EMAIL")
-  const text = [
-    "Hej,",
-    "",
-    "Du har tilldelats ett eller flera aggregat i FgasPortal.",
-    "",
-    "Logga in för att se tilldelade aggregat, kontrollstatus och eventuella kommande åtgärder.",
-    "",
-    "Gå till åtgärdskön:",
-    actionQueueUrl,
-    "",
-    "Öppna servicevyn:",
-    contractorPortalUrl,
-    "",
-    "Vänliga hälsningar,",
-    "FgasPortal",
-  ].join("\n")
+  const text = buildContractorAssignmentEmailText(input)
 
   resend ??= new Resend(apiKey)
 
@@ -133,6 +142,31 @@ export async function sendContractorAssignmentEmail({
   }
 
   return result.data
+}
+
+export function buildContractorAssignmentEmailText({
+  contractorPortalUrl,
+  actionQueueUrl,
+  servicePartnerCompanyName,
+}: Omit<SendContractorAssignmentEmailInput, "to">) {
+  return [
+    "Hej,",
+    "",
+    servicePartnerCompanyName
+      ? `Ett eller flera aggregat har tilldelats dig som servicekontakt hos ${servicePartnerCompanyName}.`
+      : "Du har tilldelats ett eller flera aggregat i FgasPortal.",
+    "",
+    "Logga in för att se tilldelade aggregat, kontrollstatus och eventuella kommande åtgärder.",
+    "",
+    "Gå till åtgärdskön:",
+    actionQueueUrl,
+    "",
+    "Öppna servicevyn:",
+    contractorPortalUrl,
+    "",
+    "Vänliga hälsningar,",
+    "FgasPortal",
+  ].join("\n")
 }
 
 export async function sendLeakNotificationEmail({
