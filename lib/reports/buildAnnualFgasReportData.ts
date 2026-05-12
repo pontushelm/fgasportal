@@ -8,6 +8,7 @@ import type {
 } from "@/lib/reports/annualFgasReportTypes"
 import { summarizeAnnualFgasCo2e } from "@/lib/reports/annualFgasReportSummary"
 import {
+  buildAnnualFgasReportQualitySummary,
   buildAnnualFgasReportWarnings as buildAnnualFgasReportWarningsShared,
   buildRefrigerantHandlingRow as buildRefrigerantHandlingRowShared,
 } from "@/lib/reports/annualFgasReportValidation"
@@ -304,10 +305,12 @@ export async function buildAnnualFgasReportData({
     certificateRegister,
     co2eSummary,
     equipment,
+    periodEndDate: endDate,
     refrigerantHandlingLog,
     reportInstallations,
     scrappedEquipment,
   })
+  const qualitySummary = buildAnnualFgasReportQualitySummary(warnings)
 
   return {
     reportYear: year,
@@ -380,6 +383,7 @@ export async function buildAnnualFgasReportData({
         : null,
       scrappedEquipmentCount: scrappedEquipment.length,
     },
+    qualitySummary,
     warnings,
     equipment,
     leakageControls,

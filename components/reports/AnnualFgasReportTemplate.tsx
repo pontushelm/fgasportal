@@ -81,6 +81,8 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
             />
           </div>
 
+          <ReportQualitySummary report={report} />
+
           {report.summary.totalCo2eKg === null && (
             <p className="warning-box">
               Total CO₂e kan inte beräknas fullständigt eftersom ett eller flera
@@ -318,13 +320,53 @@ export function ReportWarnings({
       </p>
       <ul className="warning-list">
         {rows.map((row) => (
-          <li key={row.id}>
+          <li key={row.id} className={row.severity === "blocking" ? "warning-required" : undefined}>
+            <strong>{row.severity === "blocking" ? "Kräver komplettering: " : "Bör granskas: "}</strong>
             {row.equipmentName
               ? `${displayEquipment(row.equipmentName, row.equipmentId ?? null)}: ${row.message}`
               : row.message}
           </li>
         ))}
       </ul>
+    </ReportSection>
+  )
+}
+
+export function ReportQualitySummary({ report }: { report: AnnualFgasReportData }) {
+  const status = report.qualitySummary
+
+  return (
+    <ReportSection title="Rapportstatus">
+      <div className={`quality-box quality-${status.status.toLowerCase()}`}>
+        <div>
+          <p className="quality-label">{qualityStatusLabel(status.status)}</p>
+          <p className="muted">
+            Bedömningen baseras på uppgifter som finns registrerade i FgasPortal.
+            Rapporten bör kontrolleras mot organisationens rutiner innan den skickas.
+          </p>
+        </div>
+        <dl>
+          <div>
+            <dt>Kräver komplettering</dt>
+            <dd>{formatInteger(status.blockingIssueCount)}</dd>
+          </div>
+          <div>
+            <dt>Bör granskas</dt>
+            <dd>{formatInteger(status.warningCount)}</dd>
+          </div>
+        </dl>
+      </div>
+      {report.warnings.length > 0 && (
+        <ul className="quality-list">
+          {report.warnings.slice(0, 4).map((warning) => (
+            <li key={warning.id}>
+              {warning.equipmentName
+                ? `${displayEquipment(warning.equipmentName, warning.equipmentId ?? null)}: ${warning.message}`
+                : warning.message}
+            </li>
+          ))}
+        </ul>
+      )}
     </ReportSection>
   )
 }
@@ -505,6 +547,14 @@ function statusLabel(status: AnnualFgasEquipmentRow["status"]) {
     active: "Aktivt",
     archived: "Arkiverat",
     scrapped: "Skrotat",
+  }[status]
+}
+
+function qualityStatusLabel(status: AnnualFgasReportData["qualitySummary"]["status"]) {
+  return {
+    READY: "Rapportstatus: Redo",
+    HAS_WARNINGS: "Rapportstatus: Bör granskas",
+    MISSING_REQUIRED_DATA: "Rapportstatus: Kräver komplettering",
   }[status]
 }
 
@@ -713,6 +763,63 @@ const annualReportPrintStyles = `
     color: #78350f;
     margin: 6px 0 0;
     padding: 7px 9px 7px 18px;
+  }
+
+  .warning-required {
+    color: #7f1d1d;
+  }
+
+  .quality-box {
+    border: 1px solid #c9d0da;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: 1fr 170px;
+    padding: 8px 10px;
+  }
+
+  .quality-box dl {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+  }
+
+  .quality-box div {
+    margin: 0;
+  }
+
+  .quality-box dt,
+  .quality-box dd {
+    display: inline;
+    margin: 0;
+  }
+
+  .quality-box dd {
+    float: right;
+    font-weight: 700;
+  }
+
+  .quality-label {
+    font-size: 11px;
+    font-weight: 700;
+    margin: 0 0 3px;
+  }
+
+  .quality-ready {
+    border-color: #86efac;
+  }
+
+  .quality-has_warnings {
+    border-color: #d97706;
+  }
+
+  .quality-missing_required_data {
+    border-color: #b91c1c;
+  }
+
+  .quality-list {
+    color: #4b5563;
+    margin: 6px 0 0;
+    padding: 0 0 0 16px;
   }
 
   .lined-box {

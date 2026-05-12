@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  buildAnnualFgasReportQualitySummary,
   buildAnnualFgasReportWarnings,
   buildRefrigerantHandlingRow,
 } from "@/lib/reports/annualFgasReportValidation"
@@ -141,5 +142,105 @@ describe("annual F-gas report warnings", () => {
     expect(warnings.map((warning) => warning.id)).toContain("leak-missing-amount-event-leak")
     expect(warnings.map((warning) => warning.id)).toContain("recovery-missing-amount-event-recovery")
     expect(warnings.map((warning) => warning.id)).toContain("scrap-missing-certificate-scrap-a")
+    expect(warnings.find((warning) => warning.id === "unknown-co2e")?.severity).toBe("blocking")
+    expect(warnings.find((warning) => warning.id === "leak-missing-amount-event-leak")?.severity).toBe("review")
+  })
+
+  it("calculates readiness status from blocking and review warnings", () => {
+    expect(buildAnnualFgasReportQualitySummary([])).toEqual({
+      status: "READY",
+      blockingIssueCount: 0,
+      warningCount: 0,
+      totalIssueCount: 0,
+    })
+
+    expect(
+      buildAnnualFgasReportQualitySummary([
+        {
+          id: "missing-certificate",
+          severity: "review",
+          message: "Tilldelad servicekontakt saknar registrerat certifikatnummer.",
+        },
+      ])
+    ).toMatchObject({
+      status: "HAS_WARNINGS",
+      blockingIssueCount: 0,
+      warningCount: 1,
+    })
+
+    expect(
+      buildAnnualFgasReportQualitySummary([
+        {
+          id: "unknown-co2e",
+          severity: "blocking",
+          message: "Aggregat saknar känt GWP/CO₂e-värde.",
+        },
+      ])
+    ).toMatchObject({
+      status: "MISSING_REQUIRED_DATA",
+      blockingIssueCount: 1,
+      warningCount: 0,
+    })
+  })
+
+  it("flags missing property designation as a review warning", () => {
+    const warnings = buildAnnualFgasReportWarnings({
+      certificateRegister: [
+        {
+          name: "Tekniker",
+          role: "Ansvarig tekniker/servicepartner",
+          company: "Kyl AB",
+          certificateNumber: "CERT-1",
+          certificateOrganization: null,
+          validUntil: null,
+        },
+      ],
+      co2eSummary: { unknownCo2eEquipmentCount: 0 },
+      equipment: [
+        {
+          id: "installation-a",
+          equipmentId: "VP1",
+          name: "Kyl A",
+          location: null,
+          propertyName: "Skolan 1",
+          equipmentType: null,
+          refrigerantType: "R404A",
+          refrigerantAmountKg: 10,
+          co2eKg: 39220,
+          controlRequired: false,
+          inspectionIntervalMonths: null,
+          leakDetectionSystem: false,
+          installedAt: null,
+          lastInspectionAt: null,
+          nextInspectionAt: null,
+          status: "active",
+        },
+      ],
+      refrigerantHandlingLog: [],
+      reportInstallations: [
+        {
+          id: "installation-a",
+          name: "Kyl A",
+          equipmentId: "VP1",
+          assignedContractorId: "contractor-a",
+          assignedContractor: {
+            memberships: [{ certificationNumber: "CERT-1" }],
+          },
+          property: {
+            municipality: "Malmö",
+            propertyDesignation: null,
+          },
+          events: [],
+        },
+      ],
+      scrappedEquipment: [],
+    })
+
+    expect(warnings).toEqual([
+      expect.objectContaining({
+        id: "missing-property-designation-installation-a",
+        severity: "review",
+      }),
+    ])
   })
 })

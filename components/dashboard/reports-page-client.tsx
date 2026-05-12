@@ -37,9 +37,16 @@ type ReportData = {
   }
   warnings?: Array<{
     id: string
+    severity?: "blocking" | "review"
     message: string
     installationName?: string | null
   }>
+  qualitySummary?: {
+    status: "READY" | "HAS_WARNINGS" | "MISSING_REQUIRED_DATA"
+    blockingIssueCount: number
+    warningCount: number
+    totalIssueCount: number
+  }
   refrigerants: Array<{
     refrigerantType: string
     installationCount: number
@@ -360,29 +367,8 @@ export default function ReportsPage() {
 
       {reportData && !isLoading && (
         <>
-          {selectedReportType === "annual" &&
-            reportData.warnings &&
-            reportData.warnings.length > 0 && (
-            <section className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-              <h2 className="font-semibold">Rapportunderlag att kontrollera</h2>
-              <p className="mt-1 text-amber-900">
-                Rapporten kan skapas, men följande uppgifter bör kontrolleras innan den skickas till tillsynsmyndigheten.
-              </p>
-              <ul className="mt-3 grid gap-1">
-                {reportData.warnings.slice(0, 5).map((warning) => (
-                  <li key={warning.id}>
-                    {warning.installationName
-                      ? `${warning.installationName}: ${warning.message}`
-                      : warning.message}
-                  </li>
-                ))}
-              </ul>
-              {reportData.warnings.length > 5 && (
-                <p className="mt-2 font-medium">
-                  +{reportData.warnings.length - 5} fler varningar visas i PDF-underlaget.
-                </p>
-              )}
-            </section>
+          {selectedReportType === "annual" && (
+            <ReportQualityPanel reportData={reportData} />
           )}
 
           <section className="mt-8 grid gap-4 md:grid-cols-3">
@@ -565,6 +551,69 @@ function MetricCard({
   )
 }
 
+function ReportQualityPanel({ reportData }: { reportData: ReportData }) {
+  const summary =
+    reportData.qualitySummary ??
+    buildClientQualitySummary(reportData.warnings ?? [])
+  const tone =
+    summary.status === "MISSING_REQUIRED_DATA"
+      ? "border-red-200 bg-red-50 text-red-950"
+      : summary.status === "HAS_WARNINGS"
+        ? "border-amber-200 bg-amber-50 text-amber-950"
+        : "border-emerald-200 bg-emerald-50 text-emerald-950"
+  const textTone =
+    summary.status === "MISSING_REQUIRED_DATA"
+      ? "text-red-800"
+      : summary.status === "HAS_WARNINGS"
+        ? "text-amber-900"
+        : "text-emerald-800"
+  const warnings = reportData.warnings ?? []
+
+  return (
+    <section className={`mt-6 rounded-lg border p-4 text-sm ${tone}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="font-semibold">{qualityStatusLabel(summary.status)}</h2>
+          <p className={`mt-1 ${textTone}`}>
+            {qualityStatusDescription(summary.status)}
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-right text-xs font-semibold sm:min-w-48">
+          <div className="rounded-md bg-white/70 px-3 py-2">
+            <div className="text-lg">{summary.blockingIssueCount}</div>
+            <div>Kräver komplettering</div>
+          </div>
+          <div className="rounded-md bg-white/70 px-3 py-2">
+            <div className="text-lg">{summary.warningCount}</div>
+            <div>Bör granskas</div>
+          </div>
+        </div>
+      </div>
+      {warnings.length > 0 && (
+        <>
+          <ul className="mt-3 grid gap-1">
+            {warnings.slice(0, 5).map((warning) => (
+              <li key={warning.id}>
+                <span className="font-semibold">
+                  {warning.severity === "blocking" ? "Kräver komplettering: " : "Bör granskas: "}
+                </span>
+                {warning.installationName
+                  ? `${warning.installationName}: ${warning.message}`
+                  : warning.message}
+              </li>
+            ))}
+          </ul>
+          {warnings.length > 5 && (
+            <p className="mt-2 font-medium">
+              +{warnings.length - 5} fler punkter visas i PDF-underlaget.
+            </p>
+          )}
+        </>
+      )}
+    </section>
+  )
+}
+
 function EventBadge({ type }: { type: EventType }) {
   const variant = type === "LEAK" ? "danger" : type === "REFILL" ? "warning" : type === "INSPECTION" ? "info" : "neutral"
 
@@ -615,4 +664,44 @@ function formatTotalCo2eTon(metrics: ReportData["metrics"]) {
 
 function getEventAmountLabel(type: EventType) {
   return getInstallationEventAmountLabel(type) ?? "Mängd"
+}
+function buildClientQualitySummary(warnings: NonNullable<ReportData["warnings"]>) {
+  const blockingIssueCount = warnings.filter(
+    (warning) => warning.severity === "blocking"
+  ).length
+  const warningCount = warnings.length - blockingIssueCount
+
+  return {
+    status:
+      blockingIssueCount > 0
+        ? "MISSING_REQUIRED_DATA"
+        : warningCount > 0
+          ? "HAS_WARNINGS"
+          : "READY",
+    blockingIssueCount,
+    warningCount,
+    totalIssueCount: warnings.length,
+  } satisfies NonNullable<ReportData["qualitySummary"]>
+}
+
+function qualityStatusLabel(
+  status: NonNullable<ReportData["qualitySummary"]>["status"]
+) {
+  return {
+    READY: "Rapportstatus: Redo",
+    HAS_WARNINGS: "Rapportstatus: Bör granskas",
+    MISSING_REQUIRED_DATA: "Rapportstatus: Kräver komplettering",
+  }[status]
+}
+
+function qualityStatusDescription(
+  status: NonNullable<ReportData["qualitySummary"]>["status"]
+) {
+  return {
+    READY: "Inga kända kompletteringspunkter finns i rapportunderlaget.",
+    HAS_WARNINGS:
+      "Rapporten kan skapas, men uppgifterna bör kontrolleras innan den skickas till tillsynsmyndigheten.",
+    MISSING_REQUIRED_DATA:
+      "Rapporten kan skapas, men vissa uppgifter bör kompletteras innan den skickas till kommunen.",
+  }[status]
 }
