@@ -4,12 +4,16 @@ import { getCertificationStatus } from "@/lib/certification-status"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
 import { calculateInstallationRisk } from "@/lib/risk-classification"
+import { buildServicePartnerCompanyMetrics } from "@/lib/service-partner-company-metrics"
 
 export async function GET(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
     if (isContractor(auth.user)) return forbiddenResponse()
+    const currentYear = new Date().getFullYear()
+    const yearStart = new Date(Date.UTC(currentYear, 0, 1))
+    const nextYearStart = new Date(Date.UTC(currentYear + 1, 0, 1))
 
     const memberships = await prisma.companyMembership.findMany({
       where: {
@@ -43,6 +47,10 @@ export async function GET(request: NextRequest) {
                 events: {
                   where: {
                     type: "LEAK",
+                    date: {
+                      gte: yearStart,
+                      lt: nextYearStart,
+                    },
                   },
                   select: {
                     id: true,
@@ -189,11 +197,16 @@ export async function GET(request: NextRequest) {
         updatedAt: true,
       },
     })
+    const servicePartnerCompanyMetrics = buildServicePartnerCompanyMetrics({
+      companies: servicePartnerCompanies,
+      contractors: rows,
+    })
 
     return NextResponse.json(
       {
         summary,
         servicePartnerCompanies,
+        servicePartnerCompanyMetrics,
         contractors: rows,
       },
       { status: 200 }

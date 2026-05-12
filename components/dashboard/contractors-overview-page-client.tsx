@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { Fragment, useEffect, useState } from "react"
 import {
   Badge,
   buttonClassName,
@@ -61,7 +61,27 @@ type ContractorsOverviewResponse = {
     expiredCertifications: number
   }
   servicePartnerCompanies: ServicePartnerCompany[]
+  servicePartnerCompanyMetrics: ServicePartnerCompanyMetrics[]
   contractors: ContractorOverview[]
+}
+
+type ServicePartnerCompanyMetrics = {
+  id: string | null
+  name: string
+  organizationNumber: string | null
+  contactEmail: string | null
+  phone: string | null
+  notes: string | null
+  isUnlinked: boolean
+  linkedContactsCount: number
+  assignedInstallationsCount: number
+  overdueInspections: number
+  dueSoonInspections: number
+  highRiskInstallations: number
+  leakageEventsCount: number
+  certificationWarnings: number
+  latestActivityDate: string | null
+  contractorIds: string[]
 }
 
 const emptyCompanyForm: ServicePartnerCompanyForm = {
@@ -390,9 +410,12 @@ export default function ContractorsOverviewPageClient() {
                         key={company.id}
                       >
                         <div>
-                          <p className="font-semibold text-slate-950 dark:text-slate-100">
+                          <Link
+                            className="font-semibold text-slate-950 underline-offset-4 hover:underline dark:text-slate-100"
+                            href={`/dashboard/contractors/companies/${company.id}`}
+                          >
                             {company.name}
-                          </p>
+                          </Link>
                           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                             {[
                               company.organizationNumber,
@@ -503,6 +526,81 @@ export default function ContractorsOverviewPageClient() {
             </div>
           </Card>
 
+          <Card className="mt-6 p-5">
+            <SectionHeader
+              title="Serviceföretag - operativ översikt"
+              subtitle="Aggregat visas via kopplade servicekontakter. Full företagstilldelning kan byggas ut senare."
+            />
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              {data.servicePartnerCompanyMetrics.map((company) => (
+                <div
+                  className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
+                  key={company.id ?? "unlinked"}
+                >
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      {company.id ? (
+                        <Link
+                          className="font-semibold text-slate-950 underline-offset-4 hover:underline dark:text-slate-100"
+                          href={`/dashboard/contractors/companies/${company.id}`}
+                        >
+                          {company.name}
+                        </Link>
+                      ) : (
+                        <p className="font-semibold text-slate-950 dark:text-slate-100">
+                          {company.name}
+                        </p>
+                      )}
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {company.id
+                          ? "Aggregat via kopplade servicekontakter"
+                          : "Servicekontakter som inte är kopplade till ett serviceföretag"}
+                      </p>
+                    </div>
+                    {company.certificationWarnings > 0 ? (
+                      <Badge variant="warning">
+                        {company.certificationWarnings} certifieringsvarning
+                      </Badge>
+                    ) : (
+                      <Badge variant="success">Certifiering OK</Badge>
+                    )}
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+                    <CompanyMetric label="Kontakter" value={company.linkedContactsCount} />
+                    <CompanyMetric
+                      label="Aggregat"
+                      value={company.assignedInstallationsCount}
+                    />
+                    <CompanyMetric
+                      label="Försenade"
+                      tone={company.overdueInspections > 0 ? "danger" : "neutral"}
+                      value={company.overdueInspections}
+                    />
+                    <CompanyMetric
+                      label="Inom 30 dagar"
+                      tone={company.dueSoonInspections > 0 ? "warning" : "neutral"}
+                      value={company.dueSoonInspections}
+                    />
+                    <CompanyMetric
+                      label="Hög risk"
+                      tone={company.highRiskInstallations > 0 ? "warning" : "neutral"}
+                      value={company.highRiskInstallations}
+                    />
+                    <CompanyMetric
+                      label="Läckage i år"
+                      tone={company.leakageEventsCount > 0 ? "warning" : "neutral"}
+                      value={company.leakageEventsCount}
+                    />
+                    <CompanyMetric
+                      label="Senaste aktivitet"
+                      value={formatOptionalDateTime(company.latestActivityDate)}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
           <Card className="mt-6 overflow-hidden">
             <div className="border-b border-slate-200 p-5 dark:border-slate-800">
               <SectionHeader
@@ -540,12 +638,35 @@ export default function ContractorsOverviewPageClient() {
                       <TableHeader>Inom 30 dagar</TableHeader>
                       <TableHeader>Högriskaggregat</TableHeader>
                       <TableHeader>Certifiering</TableHeader>
-                      <TableHeader>Läckage</TableHeader>
+                      <TableHeader>Läckage i år</TableHeader>
                       <TableHeader>Senaste aktivitet</TableHeader>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-900">
-                    {data.contractors.map((contractor) => (
+                    {data.servicePartnerCompanyMetrics.flatMap((company) =>
+                      data.contractors
+                        .filter((contractor) =>
+                          company.id
+                            ? contractor.servicePartnerCompany?.id === company.id
+                            : !contractor.servicePartnerCompany
+                        )
+                        .map((contractor, contractorIndex) => (
+                          <Fragment key={contractor.id}>
+                            {contractorIndex === 0 && (
+                              <tr className="bg-slate-50 dark:bg-slate-950">
+                                <td
+                                  className="px-4 py-3 text-sm font-semibold text-slate-950 dark:text-slate-100"
+                                  colSpan={10}
+                                >
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span>{company.name}</span>
+                                    <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+                                      {company.assignedInstallationsCount} aggregat via kopplade servicekontakter
+                                    </span>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
                       <tr
                         className="align-top hover:bg-slate-50 dark:hover:bg-slate-800"
                         key={contractor.id}
@@ -610,7 +731,9 @@ export default function ContractorsOverviewPageClient() {
                           {formatOptionalDateTime(contractor.latestActivityDate)}
                         </TableCell>
                       </tr>
-                    ))}
+                          </Fragment>
+                        ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -719,6 +842,33 @@ function MetricCard({
         {formatNumber(value)}
       </p>
     </Card>
+  )
+}
+
+function CompanyMetric({
+  label,
+  tone = "neutral",
+  value,
+}: {
+  label: string
+  tone?: "danger" | "neutral" | "warning"
+  value: number | string
+}) {
+  const valueClassName = {
+    danger: "text-red-700 dark:text-red-300",
+    neutral: "text-slate-950 dark:text-slate-100",
+    warning: "text-amber-700 dark:text-amber-300",
+  }[tone]
+
+  return (
+    <div className="rounded-md bg-slate-50 px-3 py-2 dark:bg-slate-900">
+      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+        {label}
+      </p>
+      <p className={`mt-1 font-semibold ${valueClassName}`}>
+        {typeof value === "number" ? formatNumber(value) : value}
+      </p>
+    </div>
   )
 }
 
