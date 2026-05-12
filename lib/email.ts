@@ -14,6 +14,16 @@ type SendContractorAssignmentEmailInput = {
   contractorPortalUrl: string
 }
 
+type SendLeakNotificationEmailInput = {
+  to: string
+  installationName: string
+  equipmentId: string | null
+  propertyName: string | null
+  eventDate: Date
+  leakageAmountKg: number | null
+  installationUrl: string
+}
+
 type SendPasswordResetEmailInput = {
   to: string
   resetUrl: string
@@ -37,20 +47,23 @@ export async function sendInspectionReminderEmail({
 }: SendInspectionReminderEmailInput) {
   const apiKey = requireEnv("RESEND_API_KEY")
   const from = requireEnv("REMINDER_FROM_EMAIL")
-  const subjectStatus = status === "OVERDUE" ? "overdue" : "due soon"
-  const locationLine = location ? `Location: ${location}\n` : ""
+  const subjectStatus =
+    status === "OVERDUE" ? "försenad kontroll" : "kontroll inom 30 dagar"
   const text = [
-    `Inspection reminder: ${installationName}`,
+    `Kontrollpåminnelse: ${installationName}`,
     "",
-    `The next inspection is ${subjectStatus}.`,
+    `Ett aggregat har ${subjectStatus} i FgasPortal.`,
     "",
-    `Installation: ${installationName}`,
-    locationLine.trimEnd(),
-    `Next inspection: ${formatDate(nextInspection)}`,
-    `Status: ${status}`,
+    `Aggregat: ${installationName}`,
+    location ? `Placering: ${location}` : null,
+    `Nästa kontroll: ${formatDate(nextInspection)}`,
+    `Status: ${status === "OVERDUE" ? "Försenad" : "Inom 30 dagar"}`,
     "",
-    "Open the installation and review the inspection schedule:",
+    "Öppna aggregatet för att kontrollera status och planera åtgärd:",
     installationUrl,
+    "",
+    "Vänliga hälsningar,",
+    "FgasPortal",
   ]
     .filter(Boolean)
     .join("\n")
@@ -60,7 +73,7 @@ export async function sendInspectionReminderEmail({
   const result = await resend.emails.send({
     from,
     to,
-    subject: `FgasPortal inspection ${subjectStatus}: ${installationName}`,
+    subject: `FgasPortal: ${subjectStatus} - ${installationName}`,
     text,
   })
 
@@ -78,15 +91,15 @@ export async function sendContractorAssignmentEmail({
   const apiKey = requireEnv("RESEND_API_KEY")
   const from = requireEnv("REMINDER_FROM_EMAIL")
   const text = [
-    "Hi,",
+    "Hej,",
     "",
-    "You have been assigned one or more installations in FgasPortal.",
+    "Du har tilldelats ett eller flera aggregat i FgasPortal.",
     "",
-    "Please log in to review your assigned installations and any upcoming inspection work.",
+    "Logga in för att se tilldelade aggregat, kontrollstatus och eventuella kommande åtgärder.",
     "",
     contractorPortalUrl,
     "",
-    "Regards,",
+    "Vänliga hälsningar,",
     "FgasPortal",
   ].join("\n")
 
@@ -95,7 +108,56 @@ export async function sendContractorAssignmentEmail({
   const result = await resend.emails.send({
     from,
     to,
-    subject: "You have been assigned new installations in FgasPortal",
+    subject: "FgasPortal: nya tilldelade aggregat",
+    text,
+  })
+
+  if (result.error) {
+    throw new Error(result.error.message)
+  }
+
+  return result.data
+}
+
+export async function sendLeakNotificationEmail({
+  to,
+  installationName,
+  equipmentId,
+  propertyName,
+  eventDate,
+  leakageAmountKg,
+  installationUrl,
+}: SendLeakNotificationEmailInput) {
+  const apiKey = requireEnv("RESEND_API_KEY")
+  const from = requireEnv("REMINDER_FROM_EMAIL")
+  const text = [
+    `Läckage registrerat: ${installationName}`,
+    "",
+    "Ett läckage har registrerats i FgasPortal och bör följas upp i compliancearbetet.",
+    "",
+    `Aggregat: ${installationName}`,
+    equipmentId ? `Aggregat-ID / märkning: ${equipmentId}` : null,
+    propertyName ? `Fastighet: ${propertyName}` : null,
+    `Händelsedatum: ${formatDate(eventDate)}`,
+    leakageAmountKg != null
+      ? `Läckagemängd: ${formatNumber(leakageAmountKg)} kg`
+      : "Läckagemängd: Ej angiven",
+    "",
+    "Öppna aggregatet för att granska händelsen och eventuella uppföljande åtgärder:",
+    installationUrl,
+    "",
+    "Vänliga hälsningar,",
+    "FgasPortal",
+  ]
+    .filter(Boolean)
+    .join("\n")
+
+  resend ??= new Resend(apiKey)
+
+  const result = await resend.emails.send({
+    from,
+    to,
+    subject: `FgasPortal: läckage registrerat - ${installationName}`,
     text,
   })
 
@@ -191,4 +253,10 @@ function requireEnv(name: string) {
 
 function formatDate(date: Date) {
   return date.toISOString().slice(0, 10)
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("sv-SE", {
+    maximumFractionDigits: 2,
+  }).format(value)
 }

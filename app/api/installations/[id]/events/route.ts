@@ -6,6 +6,7 @@ import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 import { createInstallationEventSchema } from "@/lib/validations"
 import { getEventActivityAction, logActivity } from "@/lib/activity-log"
+import { notifyAdminsAboutLeakEvent } from "@/lib/leak-notifications"
 import { normalizeRefrigerantCode } from "@/lib/refrigerants"
 
 type RouteContext = {
@@ -86,6 +87,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
       },
       select: {
         id: true,
+        name: true,
+        equipmentId: true,
+        propertyName: true,
+        property: {
+          select: {
+            name: true,
+          },
+        },
         inspectionIntervalMonths: true,
         refrigerantType: true,
         refrigerantAmount: true,
@@ -311,6 +320,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
         refrigerantAddedKg: event.refrigerantAddedKg,
       },
     })
+
+    if (event.type === "LEAK") {
+      await notifyAdminsAboutLeakEvent({
+        companyId,
+        event,
+        installation,
+      })
+    }
 
     return NextResponse.json(
       {

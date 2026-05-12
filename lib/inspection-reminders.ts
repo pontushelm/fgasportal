@@ -7,6 +7,7 @@ import {
   startOfDay,
   type InspectionStatus,
 } from "@/lib/inspection-status"
+import { getReminderRecipients } from "@/lib/notification-recipient-selection"
 
 export type InspectionReminderStatus = Extract<
   InspectionStatus,
@@ -22,11 +23,6 @@ type ReminderSummary = {
 }
 
 const DUE_SOON_DAYS = 30
-type ReminderRecipient = {
-  id: string
-  email: string
-  notifyInspectionReminderEmails: boolean
-}
 
 export async function sendInspectionReminders(
   today = new Date()
@@ -184,50 +180,6 @@ export async function sendInspectionReminders(
   }
 
   return summary
-}
-
-function getReminderRecipients(installation: {
-  company: {
-    sendInspectionRemindersToContractors: boolean
-    memberships: Array<{ user: ReminderRecipient }>
-    id: string
-  }
-  assignedContractor: {
-    id: string
-    email: string
-    role: string
-    isActive: boolean
-    notifyInspectionReminderEmails: boolean
-    memberships: Array<{ companyId: string }>
-  } | null
-}) {
-  const recipientsByEmail = new Map<string, ReminderRecipient>()
-
-  for (const { user: admin } of installation.company.memberships) {
-    if (admin.email) {
-      recipientsByEmail.set(admin.email.toLowerCase(), admin)
-    }
-  }
-
-  const contractor = installation.assignedContractor
-
-  if (
-    installation.company.sendInspectionRemindersToContractors &&
-    contractor?.email &&
-    contractor.isActive &&
-    contractor.memberships.some(
-      (membership) => membership.companyId === installation.company.id
-    ) &&
-    contractor.notifyInspectionReminderEmails
-  ) {
-    recipientsByEmail.set(contractor.email.toLowerCase(), {
-      id: contractor.id,
-      email: contractor.email,
-      notifyInspectionReminderEmails: contractor.notifyInspectionReminderEmails,
-    })
-  }
-
-  return Array.from(recipientsByEmail.values())
 }
 
 export function classifyInspectionReminderStatus(

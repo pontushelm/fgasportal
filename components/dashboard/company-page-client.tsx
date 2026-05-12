@@ -52,6 +52,7 @@ type CompanyProfile = {
   vatNumber?: string | null
   eInvoiceId?: string | null
   phone?: string | null
+  sendInspectionRemindersToContractors: boolean
 }
 
 type CompanyProfileFormData = {
@@ -62,6 +63,7 @@ type CompanyProfileFormData = {
   address: string
   postalCode: string
   city: string
+  sendInspectionRemindersToContractors: boolean
 }
 
 type BillingFormData = {
@@ -96,6 +98,7 @@ const initialProfileFormData: CompanyProfileFormData = {
   address: "",
   postalCode: "",
   city: "",
+  sendInspectionRemindersToContractors: false,
 }
 
 const initialBillingFormData: BillingFormData = {
@@ -131,12 +134,15 @@ export default function CompanySettingsPage() {
   const [isEditingBilling, setIsEditingBilling] = useState(false)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [isSavingBilling, setIsSavingBilling] = useState(false)
+  const [isSavingReminderSettings, setIsSavingReminderSettings] = useState(false)
   const [isSubmittingInvite, setIsSubmittingInvite] = useState(false)
   const [error, setError] = useState("")
   const [profileError, setProfileError] = useState("")
   const [profileSuccess, setProfileSuccess] = useState("")
   const [billingError, setBillingError] = useState("")
   const [billingSuccess, setBillingSuccess] = useState("")
+  const [reminderSettingsError, setReminderSettingsError] = useState("")
+  const [reminderSettingsSuccess, setReminderSettingsSuccess] = useState("")
   const [inviteError, setInviteError] = useState("")
   const [inviteSuccess, setInviteSuccess] = useState("")
   const [inviteWarning, setInviteWarning] = useState("")
@@ -326,6 +332,55 @@ export default function CompanySettingsPage() {
     setIsEditingBilling(false)
     setBillingSuccess("Fakturauppgifter har sparats")
     setIsSavingBilling(false)
+  }
+
+  async function handleContractorReminderSettingChange(enabled: boolean) {
+    if (!companyProfile) return
+
+    setReminderSettingsError("")
+    setReminderSettingsSuccess("")
+    setIsSavingReminderSettings(true)
+
+    const res = await fetch("/api/company/inspection-reminders", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        sendInspectionRemindersToContractors: enabled,
+      }),
+    })
+    const result: {
+      error?: string
+      sendInspectionRemindersToContractors?: boolean
+    } = await res.json()
+
+    if (res.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!res.ok || typeof result.sendInspectionRemindersToContractors !== "boolean") {
+      setReminderSettingsError(
+        result.error || "Kunde inte spara påminnelseinställningen"
+      )
+      setIsSavingReminderSettings(false)
+      return
+    }
+
+    setCompanyProfile({
+      ...companyProfile,
+      sendInspectionRemindersToContractors:
+        result.sendInspectionRemindersToContractors,
+    })
+    setProfileForm((current) => ({
+      ...current,
+      sendInspectionRemindersToContractors:
+        result.sendInspectionRemindersToContractors ?? false,
+    }))
+    setReminderSettingsSuccess("Påminnelseinställningen har sparats")
+    setIsSavingReminderSettings(false)
   }
 
   async function handleInviteSubmit(event: React.FormEvent) {
@@ -639,6 +694,43 @@ export default function CompanySettingsPage() {
               <p className="mt-4 text-sm font-semibold text-green-700">{profileSuccess}</p>
             )}
           </Card>
+
+          {canAdminister && (
+          <Card className="mt-8 p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-950">
+                  Kontrollpåminnelser till servicekontakter
+                </h2>
+                <p className="mt-1 max-w-3xl text-sm text-slate-700">
+                  Ägare och administratörer får alltid kontrollpåminnelser enligt sina personliga notifieringsinställningar. Tilldelade servicekontakter kan också få påminnelser om detta är aktiverat.
+                </p>
+              </div>
+              <label className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800">
+                <input
+                  checked={companyProfile.sendInspectionRemindersToContractors}
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600"
+                  disabled={isSavingReminderSettings}
+                  type="checkbox"
+                  onChange={(event) =>
+                    void handleContractorReminderSettingChange(event.target.checked)
+                  }
+                />
+                Servicekontakter får kontrollpåminnelser
+              </label>
+            </div>
+            {reminderSettingsError && (
+              <p className="mt-4 font-semibold text-red-700">
+                {reminderSettingsError}
+              </p>
+            )}
+            {reminderSettingsSuccess && (
+              <p className="mt-4 font-semibold text-green-700">
+                {reminderSettingsSuccess}
+              </p>
+            )}
+          </Card>
+          )}
 
           {canViewBilling && (
           <Card className="mt-8 p-5">
@@ -1093,6 +1185,8 @@ function toProfileFormData(company: CompanyProfile): CompanyProfileFormData {
     address: company.address || "",
     postalCode: company.postalCode || "",
     city: company.city || "",
+    sendInspectionRemindersToContractors:
+      company.sendInspectionRemindersToContractors,
   }
 }
 
