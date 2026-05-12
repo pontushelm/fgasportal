@@ -20,6 +20,7 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   document_uploaded: "Dokument uppladdat",
   document_deleted: "Dokument borttaget",
   report_exported: "Rapport exporterad",
+  annual_report_signed: "Årsrapport signerad",
   inspection_due_reminder_sent: "Påminnelse skickad",
   inspection_overdue_reminder_sent: "Förseningspåminnelse skickad",
 }
@@ -59,6 +60,12 @@ export function formatActivityDescription({
     }
     if (typeof metadata.format === "string" && typeof metadata.year === "number") {
       return `F-gas årsrapport ${metadata.year} (${metadata.format.toUpperCase()})`
+    }
+    if (
+      typeof metadata.signerName === "string" &&
+      typeof metadata.year === "number"
+    ) {
+      return `Årsrapport ${metadata.year} signerades av ${metadata.signerName}`
     }
     if (typeof metadata.name === "string") return metadata.name
     if (typeof metadata.targetUserEmail === "string") {

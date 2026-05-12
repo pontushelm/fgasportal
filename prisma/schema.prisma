@@ -65,6 +65,7 @@ model Company {
   installationDocuments InstallationDocument[]
   activityLogs ActivityLog[]
   savedFilters SavedFilter[]
+  signedAnnualFgasReports SignedAnnualFgasReport[]
   servicePartnerCompanies ServicePartnerCompany[]
 
   @@map("companies")
@@ -98,6 +99,7 @@ model User {
   uploadedInstallationDocuments InstallationDocument[]
   activityLogs ActivityLog[]
   savedFilters SavedFilter[]
+  signedAnnualFgasReports SignedAnnualFgasReport[]
   passwordResetTokens PasswordResetToken[]
 
   @@map("users")
@@ -372,4 +374,31 @@ model SavedFilter {
   @@index([userId])
   @@index([page])
   @@map("saved_filters")
+}
+
+model SignedAnnualFgasReport {
+  id                 String   @id @default(cuid())
+  companyId          String
+  userId             String?
+  reportYear         Int
+  municipality       String?
+  propertyId         String?
+  propertyName       String?
+  signerName         String
+  signerRole         String
+  signingDate        DateTime
+  comment            String?
+  readinessStatus    String
+  blockingIssueCount Int
+  reviewWarningCount Int
+  createdAt          DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([reportYear])
+  @@index([createdAt])
+  @@map("signed_annual_fgas_reports")
 }

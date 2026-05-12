@@ -5,6 +5,12 @@ import {
   buildRefrigerantHandlingRow,
 } from "@/lib/reports/annualFgasReportValidation"
 import { parseAnnualFgasSigningMetadata } from "@/lib/reports/annualFgasSigning"
+import {
+  buildSignedAnnualReportCreateData,
+  buildSignedAnnualReportHistoryWhere,
+  mapSignedAnnualReportHistoryItem,
+} from "@/lib/reports/signedAnnualFgasReports"
+import type { AnnualFgasReportData } from "@/lib/reports/annualFgasReportTypes"
 import { summarizeAnnualFgasCo2e } from "@/lib/reports/annualFgasReportSummary"
 
 describe("annual F-gas report summary", () => {
@@ -121,6 +127,110 @@ describe("annual F-gas refrigerant handling", () => {
     expect(row.recoveredKg).toBe(9.5)
     expect(row.previousRefrigerantType).toBe("R404A")
     expect(row.newRefrigerantType).toBe("R449A")
+  })
+})
+
+describe("signed annual F-gas report history", () => {
+  it("builds signed history create data from report metadata and readiness", () => {
+    const report = {
+      facility: { name: "Skolan 1" },
+      qualitySummary: {
+        status: "HAS_WARNINGS",
+        blockingIssueCount: 0,
+        warningCount: 2,
+        totalIssueCount: 2,
+      },
+      signingMetadata: {
+        signerName: "Anna Andersson",
+        signerRole: "Miljösamordnare",
+        signingDate: new Date("2026-03-31"),
+        comment: "Granskat mot tillgängligt underlag.",
+        attestationText: "Intygande",
+      },
+    } as AnnualFgasReportData
+
+    expect(
+      buildSignedAnnualReportCreateData({
+        companyId: "company-a",
+        userId: "user-a",
+        report,
+        reportYear: 2026,
+        municipality: "Malmö",
+        propertyId: "property-a",
+      })
+    ).toMatchObject({
+      companyId: "company-a",
+      userId: "user-a",
+      reportYear: 2026,
+      municipality: "Malmö",
+      propertyId: "property-a",
+      propertyName: "Skolan 1",
+      signerName: "Anna Andersson",
+      signerRole: "Miljösamordnare",
+      readinessStatus: "HAS_WARNINGS",
+      blockingIssueCount: 0,
+      reviewWarningCount: 2,
+    })
+  })
+
+  it("does not create signed history data for unsigned reports", () => {
+    const report = {
+      signingMetadata: null,
+    } as AnnualFgasReportData
+
+    expect(
+      buildSignedAnnualReportCreateData({
+        companyId: "company-a",
+        userId: "user-a",
+        report,
+        reportYear: 2026,
+        municipality: null,
+        propertyId: null,
+      })
+    ).toBeNull()
+  })
+
+  it("scopes signed report history by company and contractor user when needed", () => {
+    expect(
+      buildSignedAnnualReportHistoryWhere({
+        companyId: "company-a",
+        isContractor: false,
+        userId: "user-a",
+      })
+    ).toEqual({ companyId: "company-a" })
+
+    expect(
+      buildSignedAnnualReportHistoryWhere({
+        companyId: "company-a",
+        isContractor: true,
+        userId: "user-a",
+      })
+    ).toEqual({ companyId: "company-a", userId: "user-a" })
+  })
+
+  it("maps history records with regeneration link and scope summary", () => {
+    expect(
+      mapSignedAnnualReportHistoryItem({
+        id: "history-a",
+        reportYear: 2026,
+        municipality: "Malmö",
+        propertyId: null,
+        propertyName: null,
+        signerName: "Anna Andersson",
+        signerRole: "Miljösamordnare",
+        signingDate: new Date("2026-03-31"),
+        comment: null,
+        readinessStatus: "READY",
+        blockingIssueCount: 0,
+        reviewWarningCount: 0,
+        createdAt: new Date("2026-04-01"),
+        user: { name: "Anna Andersson", email: "anna@example.com" },
+      })
+    ).toMatchObject({
+      id: "history-a",
+      scopeSummary: "Kommun: Malmö",
+      regenerateHref: "/api/reports/annual-fgas?historyId=history-a",
+    })
   })
 })
 

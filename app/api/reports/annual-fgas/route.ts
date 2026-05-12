@@ -7,6 +7,12 @@ import { authenticateApiRequest, isContractor } from "@/lib/auth"
 import { buildAnnualFgasReportData } from "@/lib/reports/buildAnnualFgasReportData"
 import { generatePdfFromHtml } from "@/lib/reports/generatePdf"
 import { parseAnnualFgasSigningMetadata } from "@/lib/reports/annualFgasSigning"
+import {
+  buildSignedAnnualReportHistoryWhere,
+  buildSignedAnnualReportCreateData,
+  buildSigningMetadataFromHistory,
+} from "@/lib/reports/signedAnnualFgasReports"
+import { prisma } from "@/lib/db"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -24,10 +30,41 @@ export async function GET(request: NextRequest) {
     const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
-    const year = parseReportYear(request.nextUrl.searchParams.get("year"))
-    const municipality = request.nextUrl.searchParams.get("municipality")?.trim()
-    const propertyId = request.nextUrl.searchParams.get("propertyId")?.trim()
-    const signing = parseAnnualFgasSigningMetadata(request.nextUrl.searchParams)
+    const historyId = request.nextUrl.searchParams.get("historyId")?.trim()
+    const historyRecord = historyId
+        ? await prisma.signedAnnualFgasReport.findFirst({
+            where: {
+              id: historyId,
+              ...buildSignedAnnualReportHistoryWhere({
+                companyId: auth.user.companyId,
+                isContractor: isContractor(auth.user),
+                userId: auth.user.userId,
+              }),
+            },
+          })
+      : null
+
+    if (historyId && !historyRecord) {
+      return NextResponse.json(
+        { error: "Signerad rapport hittades inte" },
+        { status: 404 }
+      )
+    }
+
+    const requestedYear = parseReportYear(request.nextUrl.searchParams.get("year"))
+    const year = historyRecord?.reportYear ?? requestedYear
+    const municipality =
+      historyRecord?.municipality ??
+      request.nextUrl.searchParams.get("municipality")?.trim()
+    const propertyId =
+      historyRecord?.propertyId ??
+      request.nextUrl.searchParams.get("propertyId")?.trim()
+    const signing = historyRecord
+      ? {
+          ok: true as const,
+          metadata: buildSigningMetadataFromHistory(historyRecord),
+        }
+      : parseAnnualFgasSigningMetadata(request.nextUrl.searchParams)
 
     if (!year) {
       return NextResponse.json({ error: "Ogiltigt årtal" }, { status: 400 })
@@ -46,6 +83,7 @@ export async function GET(request: NextRequest) {
       municipality: municipality || null,
       propertyId: propertyId || null,
       signed: Boolean(signing.metadata),
+      regeneratedFromHistory: Boolean(historyRecord),
       year,
     })
 
@@ -78,21 +116,60 @@ export async function GET(request: NextRequest) {
     })
     const filename = `fgas-arsrapport-kontrollpliktiga-aggregat-${year}.pdf`
 
+    const signedHistoryData =
+      !historyRecord && signing.metadata
+        ? buildSignedAnnualReportCreateData({
+            companyId: auth.user.companyId,
+            userId: auth.user.userId,
+            report,
+            reportYear: year,
+            municipality: municipality || null,
+            propertyId: propertyId || null,
+          })
+        : null
+    const signedHistoryRecord = signedHistoryData
+      ? await prisma.signedAnnualFgasReport.create({ data: signedHistoryData })
+      : historyRecord
+
     await logActivity({
       companyId: auth.user.companyId,
       userId: auth.user.userId,
       action: "report_exported",
       entityType: "report",
-      entityId: `annual-fgas-${year}`,
+      entityId: signedHistoryRecord?.id ?? `annual-fgas-${year}`,
       metadata: {
         reportType: "annual_fgas_control_required_equipment",
         year,
         municipality: municipality || null,
         propertyId: propertyId || null,
         signed: Boolean(signing.metadata),
+        signedReportId: signedHistoryRecord?.id ?? null,
+        signerName: signing.metadata?.signerName ?? null,
+        regeneratedFromHistory: Boolean(historyRecord),
         format: "pdf",
       },
     })
+
+    if (!historyRecord && signedHistoryRecord) {
+      await logActivity({
+        companyId: auth.user.companyId,
+        userId: auth.user.userId,
+        action: "annual_report_signed",
+        entityType: "report",
+        entityId: signedHistoryRecord.id,
+        metadata: {
+          reportType: "annual_fgas_control_required_equipment",
+          year,
+          municipality: municipality || null,
+          propertyId: propertyId || null,
+          signerName: signing.metadata?.signerName ?? null,
+          signerRole: signing.metadata?.signerRole ?? null,
+          readinessStatus: report.qualitySummary.status,
+          blockingIssueCount: report.qualitySummary.blockingIssueCount,
+          reviewWarningCount: report.qualitySummary.warningCount,
+        },
+      })
+    }
     logAnnualReportRoute(requestId, "PDF response ready", {
       byteLength: pdf.length,
       durationMs: Date.now() - startedAt,
@@ -173,6 +250,7 @@ function serializeError(error: unknown) {
 
 function sanitizeSearchParams(searchParams: URLSearchParams) {
   return {
+    historyId: searchParams.get("historyId"),
     municipality: searchParams.get("municipality"),
     propertyId: searchParams.get("propertyId"),
     signed: searchParams.get("signed"),

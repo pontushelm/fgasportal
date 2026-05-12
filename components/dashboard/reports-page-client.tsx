@@ -72,6 +72,20 @@ type PropertyOption = {
   municipality?: string | null
 }
 
+type SignedReportHistoryItem = {
+  id: string
+  reportYear: number
+  scopeSummary: string
+  signerName: string
+  signerRole: string
+  signingDate: string
+  readinessStatus: "READY" | "HAS_WARNINGS" | "MISSING_REQUIRED_DATA" | string
+  blockingIssueCount: number
+  reviewWarningCount: number
+  createdAt: string
+  regenerateHref: string
+}
+
 type SigningFormState = {
   signerName: string
   signerRole: string
@@ -179,6 +193,7 @@ export default function ReportsPage() {
   const [selectedMunicipality, setSelectedMunicipality] = useState("")
   const [selectedPropertyId, setSelectedPropertyId] = useState("")
   const [properties, setProperties] = useState<PropertyOption[]>([])
+  const [signedReports, setSignedReports] = useState<SignedReportHistoryItem[]>([])
   const [reportData, setReportData] = useState<ReportData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
@@ -254,21 +269,28 @@ export default function ReportsPage() {
       setIsLoading(true)
       setError("")
 
-      const [response, propertiesResponse] = await Promise.all([
+      const [response, propertiesResponse, signedReportsResponse] = await Promise.all([
         fetch(`/api/reports/fgas?${reportQuery}`, {
           credentials: "include",
         }),
         fetch("/api/properties", {
           credentials: "include",
         }),
+        fetch("/api/reports/annual-fgas/history", {
+          credentials: "include",
+        }),
       ])
 
-      if (response.status === 401 || propertiesResponse.status === 401) {
+      if (
+        response.status === 401 ||
+        propertiesResponse.status === 401 ||
+        signedReportsResponse.status === 401
+      ) {
         router.push("/login")
         return
       }
 
-      if (!response.ok || !propertiesResponse.ok) {
+      if (!response.ok || !propertiesResponse.ok || !signedReportsResponse.ok) {
         if (!isMounted) return
         setError("Kunde inte hämta årsrapporten")
         setIsLoading(false)
@@ -277,11 +299,14 @@ export default function ReportsPage() {
 
       const data: ReportData = await response.json()
       const propertiesData: PropertyOption[] = await propertiesResponse.json()
+      const signedReportsData: SignedReportHistoryItem[] =
+        await signedReportsResponse.json()
 
       if (!isMounted) return
 
       setReportData(data)
       setProperties(propertiesData)
+      setSignedReports(signedReportsData)
       setIsLoading(false)
     }
 
@@ -410,6 +435,7 @@ export default function ReportsPage() {
                 signedPdfExportHref={signedPdfExportHref}
                 status={reportData.qualitySummary?.status}
               />
+              <SignedReportsHistory reports={signedReports} />
             </>
           )}
 
@@ -775,6 +801,78 @@ function ReportSigningPanel({
           Exportera signerad PDF
         </a>
       </div>
+    </section>
+  )
+}
+
+function SignedReportsHistory({
+  reports,
+}: {
+  reports: SignedReportHistoryItem[]
+}) {
+  return (
+    <section className="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-900">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="font-semibold">Signerade rapporter</h2>
+          <p className="text-slate-600">
+            PDF återskapas utifrån nuvarande systemdata och sparad signeringsinformation.
+          </p>
+        </div>
+      </div>
+
+      {reports.length === 0 ? (
+        <p className="mt-3 rounded-md border border-dashed border-slate-300 px-3 py-4 text-slate-600">
+          Inga signerade årsrapporter finns ännu.
+        </p>
+      ) : (
+        <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+          <table className="min-w-full divide-y divide-slate-200 text-sm">
+            <thead className="bg-slate-50">
+              <tr>
+                <TableHeader>År</TableHeader>
+                <TableHeader>Omfattning</TableHeader>
+                <TableHeader>Signerad av</TableHeader>
+                <TableHeader>Signeringsdatum</TableHeader>
+                <TableHeader>Status</TableHeader>
+                <TableHeader>Skapad</TableHeader>
+                <TableHeader>Åtgärd</TableHeader>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {reports.map((report) => (
+                <tr key={report.id}>
+                  <TableCell>{report.reportYear}</TableCell>
+                  <TableCell>{report.scopeSummary}</TableCell>
+                  <TableCell>
+                    <div className="font-semibold text-slate-950">
+                      {report.signerName}
+                    </div>
+                    <div className="text-xs text-slate-600">{report.signerRole}</div>
+                  </TableCell>
+                  <TableCell>{formatDate(report.signingDate)}</TableCell>
+                  <TableCell>
+                    <div>{qualityStatusLabel(report.readinessStatus as NonNullable<ReportData["qualitySummary"]>["status"]).replace("Rapportstatus: ", "")}</div>
+                    <div className="text-xs text-slate-600">
+                      {report.blockingIssueCount} kräver komplettering,{" "}
+                      {report.reviewWarningCount} bör granskas
+                    </div>
+                  </TableCell>
+                  <TableCell>{formatDate(report.createdAt)}</TableCell>
+                  <TableCell>
+                    <a
+                      className="inline-flex h-8 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+                      href={report.regenerateHref}
+                    >
+                      Återskapa PDF
+                    </a>
+                  </TableCell>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   )
 }
