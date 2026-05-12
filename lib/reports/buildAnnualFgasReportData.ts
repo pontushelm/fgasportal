@@ -20,6 +20,7 @@ export async function buildAnnualFgasReportData({
   companyId,
   municipality,
   propertyId,
+  signingMetadata,
   year,
 }: AnnualFgasReportFilter): Promise<AnnualFgasReportData> {
   const startDate = new Date(Date.UTC(year, 0, 1))
@@ -355,6 +356,7 @@ export async function buildAnnualFgasReportData({
       phone: primaryContractor?.company?.phone ?? null,
       certificateNumber: primaryContractorCertification?.certificationNumber ?? null,
     },
+    signingMetadata: signingMetadata ?? null,
     certificateRegister,
     summary: {
       equipmentCount: equipment.length,

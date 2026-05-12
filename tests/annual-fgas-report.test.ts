@@ -4,6 +4,7 @@ import {
   buildAnnualFgasReportWarnings,
   buildRefrigerantHandlingRow,
 } from "@/lib/reports/annualFgasReportValidation"
+import { parseAnnualFgasSigningMetadata } from "@/lib/reports/annualFgasSigning"
 import { summarizeAnnualFgasCo2e } from "@/lib/reports/annualFgasReportSummary"
 
 describe("annual F-gas report summary", () => {
@@ -29,6 +30,56 @@ describe("annual F-gas report summary", () => {
     expect(summary.knownCo2eKg).toBe(39220)
     expect(summary.hasUnknownCo2e).toBe(true)
     expect(summary.unknownCo2eEquipmentCount).toBe(1)
+  })
+})
+
+describe("annual F-gas report signing metadata", () => {
+  it("allows unsigned exports without signing metadata", () => {
+    const result = parseAnnualFgasSigningMetadata(
+      new URLSearchParams("year=2026")
+    )
+
+    expect(result).toEqual({ ok: true, metadata: null })
+  })
+
+  it("validates signed export metadata", () => {
+    const result = parseAnnualFgasSigningMetadata(
+      new URLSearchParams({
+        signed: "1",
+        signerName: "Anna Andersson",
+        signerRole: "Miljösamordnare",
+        signingDate: "2026-03-31",
+        signingComment: "Granskat mot tillgängligt underlag.",
+      })
+    )
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.metadata).toMatchObject({
+      signerName: "Anna Andersson",
+      signerRole: "Miljösamordnare",
+      comment: "Granskat mot tillgängligt underlag.",
+    })
+    expect(result.metadata?.signingDate.toISOString()).toBe(
+      "2026-03-31T00:00:00.000Z"
+    )
+  })
+
+  it("rejects incomplete signed export metadata without affecting unsigned exports", () => {
+    const result = parseAnnualFgasSigningMetadata(
+      new URLSearchParams({
+        signed: "1",
+        signerName: "",
+        signerRole: "",
+        signingDate: "inte-ett-datum",
+      })
+    )
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.errors).toContain("Signeras av måste anges.")
+    expect(result.errors).toContain("Roll/titel måste anges.")
+    expect(result.errors).toContain("Signeringsdatum måste vara ett giltigt datum.")
   })
 })
 

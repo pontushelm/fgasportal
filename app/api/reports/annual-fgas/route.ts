@@ -6,6 +6,7 @@ import { logActivity } from "@/lib/activity-log"
 import { authenticateApiRequest, isContractor } from "@/lib/auth"
 import { buildAnnualFgasReportData } from "@/lib/reports/buildAnnualFgasReportData"
 import { generatePdfFromHtml } from "@/lib/reports/generatePdf"
+import { parseAnnualFgasSigningMetadata } from "@/lib/reports/annualFgasSigning"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -26,9 +27,17 @@ export async function GET(request: NextRequest) {
     const year = parseReportYear(request.nextUrl.searchParams.get("year"))
     const municipality = request.nextUrl.searchParams.get("municipality")?.trim()
     const propertyId = request.nextUrl.searchParams.get("propertyId")?.trim()
+    const signing = parseAnnualFgasSigningMetadata(request.nextUrl.searchParams)
 
     if (!year) {
       return NextResponse.json({ error: "Ogiltigt årtal" }, { status: 400 })
+    }
+
+    if (!signing.ok) {
+      return NextResponse.json(
+        { error: "Ogiltiga signeringsuppgifter", details: signing.errors },
+        { status: 400 }
+      )
     }
 
     logAnnualReportRoute(requestId, "Building report data", {
@@ -36,6 +45,7 @@ export async function GET(request: NextRequest) {
       isContractor: isContractor(auth.user),
       municipality: municipality || null,
       propertyId: propertyId || null,
+      signed: Boolean(signing.metadata),
       year,
     })
 
@@ -44,6 +54,7 @@ export async function GET(request: NextRequest) {
       assignedContractorId: isContractor(auth.user) ? auth.user.userId : undefined,
       municipality: municipality || undefined,
       propertyId: propertyId || undefined,
+      signingMetadata: signing.metadata,
       year,
     })
     logAnnualReportRoute(requestId, "Report data built", {
@@ -78,6 +89,7 @@ export async function GET(request: NextRequest) {
         year,
         municipality: municipality || null,
         propertyId: propertyId || null,
+        signed: Boolean(signing.metadata),
         format: "pdf",
       },
     })
@@ -163,6 +175,7 @@ function sanitizeSearchParams(searchParams: URLSearchParams) {
   return {
     municipality: searchParams.get("municipality"),
     propertyId: searchParams.get("propertyId"),
+    signed: searchParams.get("signed"),
     year: searchParams.get("year"),
   }
 }

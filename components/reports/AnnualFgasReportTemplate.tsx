@@ -169,6 +169,8 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
             <div className="lined-box" />
           </ReportSection>
 
+          {report.signingMetadata && <SigningMetadataSection report={report} />}
+
           <SignatureSection />
         </main>
       </body>
@@ -282,6 +284,35 @@ export function SignatureSection() {
         <div className="signature-line" />
       </div>
     </section>
+  )
+}
+
+export function SigningMetadataSection({ report }: { report: AnnualFgasReportData }) {
+  const signing = report.signingMetadata
+  if (!signing) return null
+
+  return (
+    <ReportSection title="Intygande och signering">
+      <div className="signing-box">
+        <p className="strong">{signing.attestationText}</p>
+        <p className="muted">
+          Detta är ett intygande i FgasPortal och inte en kryptografisk signatur,
+          BankID-signering eller extern e-signatur.
+        </p>
+        <div className="field-grid field-grid-2 signing-fields">
+          <Field label="Signeras av" value={signing.signerName} />
+          <Field label="Roll/titel" value={signing.signerRole} />
+          <Field label="Signeringsdatum" value={formatDate(signing.signingDate)} />
+          <Field label="FÃ¶retag" value={report.operator.name} />
+        </div>
+        {signing.comment && (
+          <div className="signing-comment">
+            <span>Kommentar:</span>
+            <p>{signing.comment}</p>
+          </div>
+        )}
+      </div>
+    </ReportSection>
   )
 }
 
@@ -846,6 +877,31 @@ const annualReportPrintStyles = `
     border-bottom: 1px solid #6b7280;
     height: 18px;
     margin-bottom: 6px;
+  }
+
+  .signing-box {
+    border: 1px solid #94a3b8;
+    break-inside: avoid;
+    padding: 10px;
+  }
+
+  .signing-fields {
+    margin-top: 8px;
+  }
+
+  .signing-comment {
+    border-top: 1px solid #d1d5db;
+    margin-top: 8px;
+    padding-top: 7px;
+  }
+
+  .signing-comment span {
+    color: #4b5563;
+    font-weight: 700;
+  }
+
+  .signing-comment p {
+    margin: 3px 0 0;
   }
 
   @media screen {

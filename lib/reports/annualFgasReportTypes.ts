@@ -4,6 +4,7 @@ export type AnnualFgasReportFilter = {
   municipality?: string
   propertyId?: string
   assignedContractorId?: string
+  signingMetadata?: AnnualFgasSigningMetadata | null
 }
 
 export type AnnualFgasReportData = {
@@ -35,6 +36,7 @@ export type AnnualFgasReportData = {
     phone: string | null
     certificateNumber: string | null
   }
+  signingMetadata: AnnualFgasSigningMetadata | null
   certificateRegister: AnnualFgasCertificateEntry[]
   summary: {
     equipmentCount: number
@@ -56,6 +58,14 @@ export type AnnualFgasReportData = {
   refrigerantHandlingLog: AnnualFgasRefrigerantHandlingRow[]
   scrappedEquipment: AnnualFgasScrappedEquipmentRow[]
   notes: string[]
+}
+
+export type AnnualFgasSigningMetadata = {
+  signerName: string
+  signerRole: string
+  signingDate: Date
+  comment: string | null
+  attestationText: string
 }
 
 export type AnnualFgasReportReadinessStatus =

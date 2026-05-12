@@ -72,6 +72,14 @@ type PropertyOption = {
   municipality?: string | null
 }
 
+type SigningFormState = {
+  signerName: string
+  signerRole: string
+  signingDate: string
+  comment: string
+  confirmed: boolean
+}
+
 const EVENT_LABELS: Record<EventType, string> = {
   INSPECTION: "Kontroll",
   LEAK: "Läckage",
@@ -158,6 +166,10 @@ const yearInputClassName =
   "h-9 w-24 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900"
 const exportButtonClassName =
   "inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+const signingInputClassName =
+  "h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900"
+const signingTextareaClassName =
+  "min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
 
 export default function ReportsPage() {
   const currentYear = new Date().getFullYear()
@@ -170,6 +182,13 @@ export default function ReportsPage() {
   const [reportData, setReportData] = useState<ReportData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
+  const [signingForm, setSigningForm] = useState<SigningFormState>({
+    signerName: "",
+    signerRole: "",
+    signingDate: formatDateInputValue(new Date()),
+    comment: "",
+    confirmed: false,
+  })
   const router = useRouter()
   const municipalityOptions = useMemo(
     () =>
@@ -213,6 +232,20 @@ export default function ReportsPage() {
       REPORT_TYPE_OPTIONS[0],
     [selectedReportType]
   )
+  const signedPdfExportHref = useMemo(
+    () =>
+      buildSignedAnnualPdfHref({
+        baseHref: pdfExportHref,
+        signingForm,
+      }),
+    [pdfExportHref, signingForm]
+  )
+  const canExportSigned =
+    selectedReportType === "annual" &&
+    signingForm.confirmed &&
+    signingForm.signerName.trim().length > 0 &&
+    signingForm.signerRole.trim().length > 0 &&
+    signingForm.signingDate.trim().length > 0
 
   useEffect(() => {
     let isMounted = true
@@ -368,7 +401,16 @@ export default function ReportsPage() {
       {reportData && !isLoading && (
         <>
           {selectedReportType === "annual" && (
-            <ReportQualityPanel reportData={reportData} />
+            <>
+              <ReportQualityPanel reportData={reportData} />
+              <ReportSigningPanel
+                canExportSigned={canExportSigned}
+                onChange={setSigningForm}
+                signingForm={signingForm}
+                signedPdfExportHref={signedPdfExportHref}
+                status={reportData.qualitySummary?.status}
+              />
+            </>
           )}
 
           <section className="mt-8 grid gap-4 md:grid-cols-3">
@@ -614,6 +656,129 @@ function ReportQualityPanel({ reportData }: { reportData: ReportData }) {
   )
 }
 
+function ReportSigningPanel({
+  canExportSigned,
+  onChange,
+  signedPdfExportHref,
+  signingForm,
+  status,
+}: {
+  canExportSigned: boolean
+  onChange: React.Dispatch<React.SetStateAction<SigningFormState>>
+  signedPdfExportHref: string
+  signingForm: SigningFormState
+  status?: NonNullable<ReportData["qualitySummary"]>["status"]
+}) {
+  const hasQualityIssues =
+    status === "MISSING_REQUIRED_DATA" || status === "HAS_WARNINGS"
+
+  return (
+    <section className="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-900">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="font-semibold">Intygande inför signerad export</h2>
+          <p className="mt-1 text-slate-600">
+            Lägg till ansvarig person i PDF:en. Detta är inte BankID eller en extern e-signatur.
+          </p>
+        </div>
+        {hasQualityIssues && (
+          <p className="max-w-md rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+            Rapporten innehåller uppgifter som bör kompletteras eller granskas innan den skickas till kommunen.
+          </p>
+        )}
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <label className={filterLabelClassName}>
+          Signeras av
+          <input
+            className={signingInputClassName}
+            onChange={(event) =>
+              onChange((current) => ({
+                ...current,
+                signerName: event.target.value,
+              }))
+            }
+            value={signingForm.signerName}
+          />
+        </label>
+        <label className={filterLabelClassName}>
+          Roll/titel
+          <input
+            className={signingInputClassName}
+            onChange={(event) =>
+              onChange((current) => ({
+                ...current,
+                signerRole: event.target.value,
+              }))
+            }
+            value={signingForm.signerRole}
+          />
+        </label>
+        <label className={filterLabelClassName}>
+          Signeringsdatum
+          <input
+            className={signingInputClassName}
+            onChange={(event) =>
+              onChange((current) => ({
+                ...current,
+                signingDate: event.target.value,
+              }))
+            }
+            type="date"
+            value={signingForm.signingDate}
+          />
+        </label>
+      </div>
+
+      <label className={`${filterLabelClassName} mt-3`}>
+        Kommentar
+        <textarea
+          className={signingTextareaClassName}
+          maxLength={1000}
+          onChange={(event) =>
+            onChange((current) => ({
+              ...current,
+              comment: event.target.value,
+            }))
+          }
+          value={signingForm.comment}
+        />
+      </label>
+
+      <div className="mt-3 flex flex-col gap-3 border-t border-slate-200 pt-3 sm:flex-row sm:items-center sm:justify-between">
+        <label className="flex gap-2 text-sm font-medium text-slate-700">
+          <input
+            checked={signingForm.confirmed}
+            className="mt-1 h-4 w-4 rounded border-slate-300"
+            onChange={(event) =>
+              onChange((current) => ({
+                ...current,
+                confirmed: event.target.checked,
+              }))
+            }
+            type="checkbox"
+          />
+          <span>
+            Jag intygar att uppgifterna i rapporten är granskade utifrån tillgängliga underlag.
+          </span>
+        </label>
+        <a
+          aria-disabled={!canExportSigned}
+          className={`${exportButtonClassName} ${
+            canExportSigned
+              ? "border-blue-600 bg-blue-600 text-white hover:bg-blue-700"
+              : "pointer-events-none opacity-50"
+          }`}
+          href={canExportSigned ? signedPdfExportHref : undefined}
+        >
+          Exportera signerad PDF
+        </a>
+      </div>
+    </section>
+  )
+}
+
 function EventBadge({ type }: { type: EventType }) {
   const variant = type === "LEAK" ? "danger" : type === "REFILL" ? "warning" : type === "INSPECTION" ? "info" : "neutral"
 
@@ -665,6 +830,32 @@ function formatTotalCo2eTon(metrics: ReportData["metrics"]) {
 function getEventAmountLabel(type: EventType) {
   return getInstallationEventAmountLabel(type) ?? "Mängd"
 }
+function buildSignedAnnualPdfHref({
+  baseHref,
+  signingForm,
+}: {
+  baseHref: string
+  signingForm: SigningFormState
+}) {
+  const params = new URLSearchParams(baseHref.split("?")[1] ?? "")
+
+  params.set("signed", "1")
+  params.set("signerName", signingForm.signerName.trim())
+  params.set("signerRole", signingForm.signerRole.trim())
+  params.set("signingDate", signingForm.signingDate)
+  if (signingForm.comment.trim()) {
+    params.set("signingComment", signingForm.comment.trim())
+  } else {
+    params.delete("signingComment")
+  }
+
+  return `/api/reports/annual-fgas?${params.toString()}`
+}
+
+function formatDateInputValue(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
+
 function buildClientQualitySummary(warnings: NonNullable<ReportData["warnings"]>) {
   const blockingIssueCount = warnings.filter(
     (warning) => warning.severity === "blocking"
