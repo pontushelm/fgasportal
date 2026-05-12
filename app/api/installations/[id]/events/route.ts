@@ -200,6 +200,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         normalizeRefrigerantCode(validatedData.newRefrigerantType) ??
         validatedData.newRefrigerantType
       const previousRefrigerantType = installation.refrigerantType
+      const previousAmountKg = installation.refrigerantAmount
       const recoveredRefrigerantKg = validatedData.recoveredRefrigerantKg
       const addedRefrigerantKg = validatedData.refrigerantAddedKg
       const changeNote = [
@@ -214,7 +215,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       ].filter(Boolean).join(" ")
       const nextCompliance = calculateInstallationCompliance(
         nextRefrigerantType,
-        installation.refrigerantAmount,
+        addedRefrigerantKg ?? installation.refrigerantAmount,
         installation.hasLeakDetectionSystem,
         installation.lastInspection,
         installation.nextInspection
@@ -231,6 +232,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
             date: validatedData.date,
             type: validatedData.type,
             refrigerantAddedKg: addedRefrigerantKg,
+            previousRefrigerantType,
+            newRefrigerantType: nextRefrigerantType,
+            previousAmountKg,
+            newAmountKg: addedRefrigerantKg,
+            recoveredAmountKg: recoveredRefrigerantKg,
             notes: changeNote,
             createdById: userId,
           },
@@ -250,6 +256,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
           },
           data: {
             refrigerantType: nextRefrigerantType,
+            refrigerantAmount:
+              addedRefrigerantKg ?? installation.refrigerantAmount,
             inspectionIntervalMonths: nextCompliance.inspectionIntervalMonths,
             nextInspection,
           },
@@ -280,6 +288,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
           date: result.event.date.toISOString(),
           previousRefrigerantType,
           newRefrigerantType: nextRefrigerantType,
+          previousAmountKg,
+          newAmountKg: addedRefrigerantKg,
           recoveredRefrigerantKg,
           refrigerantAddedKg: addedRefrigerantKg,
         },
@@ -294,6 +304,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
         date: validatedData.date,
         type: validatedData.type,
         refrigerantAddedKg: validatedData.refrigerantAddedKg,
+        recoveredAmountKg:
+          validatedData.type === "RECOVERY"
+            ? validatedData.recoveredRefrigerantKg ??
+              validatedData.refrigerantAddedKg
+            : null,
         notes: emptyToNull(validatedData.notes),
         createdById: userId,
       },

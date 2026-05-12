@@ -33,38 +33,38 @@ enum UserRole {
 }
 
 model Company {
-  id        String   @id @default(cuid())
-  name      String
-  orgNumber String   @unique
-  organizationNumber String?
-  contactPerson String?
-  contactEmail String?
-  contactPhone String?
-  address   String?
-  postalCode String?
-  city String?
-  billingEmail String?
-  invoiceReference String?
-  billingAddress String?
-  vatNumber String?
-  eInvoiceId String?
+  id                                   String   @id @default(cuid())
+  name                                 String
+  orgNumber                            String   @unique
+  organizationNumber                   String?
+  contactPerson                        String?
+  contactEmail                         String?
+  contactPhone                         String?
+  address                              String?
+  postalCode                           String?
+  city                                 String?
+  billingEmail                         String?
+  invoiceReference                     String?
+  billingAddress                       String?
+  vatNumber                            String?
+  eInvoiceId                           String?
   /// Deprecated: retained for backward compatibility, not edited in company settings.
-  supervisoryAuthority String?
-  sendInspectionRemindersToContractors Boolean @default(false)
-  phone     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  isActive  Boolean  @default(true)
-  planType  String   @default("free")
+  supervisoryAuthority                 String?
+  sendInspectionRemindersToContractors Boolean  @default(false)
+  phone                                String?
+  createdAt                            DateTime @default(now())
+  updatedAt                            DateTime @updatedAt
+  isActive                             Boolean  @default(true)
+  planType                             String   @default("free")
 
-  users         User[]
-  memberships   CompanyMembership[]
-  properties    Property[]
-  installations Installation[]
-  invitations   Invitation[]
-  installationDocuments InstallationDocument[]
-  activityLogs ActivityLog[]
-  savedFilters SavedFilter[]
+  users                   User[]
+  memberships             CompanyMembership[]
+  properties              Property[]
+  installations           Installation[]
+  invitations             Invitation[]
+  installationDocuments   InstallationDocument[]
+  activityLogs            ActivityLog[]
+  savedFilters            SavedFilter[]
   signedAnnualFgasReports SignedAnnualFgasReport[]
   servicePartnerCompanies ServicePartnerCompany[]
 
@@ -72,35 +72,35 @@ model Company {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  password  String
-  role      UserRole @default(ADMIN)
-  themePreference String @default("light")
-  notifyAssignmentEmails Boolean @default(true)
-  notifyInspectionReminderEmails Boolean @default(true)
-  notifyDocumentEmails Boolean @default(true)
-  notifyAnnualReportDeadlineEmails Boolean @default(true)
-  notifyLeakEmails Boolean @default(true)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                               String   @id @default(cuid())
+  email                            String   @unique
+  name                             String
+  password                         String
+  role                             UserRole @default(ADMIN)
+  themePreference                  String   @default("light")
+  notifyAssignmentEmails           Boolean  @default(true)
+  notifyInspectionReminderEmails   Boolean  @default(true)
+  notifyDocumentEmails             Boolean  @default(true)
+  notifyAnnualReportDeadlineEmails Boolean  @default(true)
+  notifyLeakEmails                 Boolean  @default(true)
+  isActive                         Boolean  @default(true)
+  createdAt                        DateTime @default(now())
+  updatedAt                        DateTime @updatedAt
 
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId   String
+  company     Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
   memberships CompanyMembership[]
 
-  createdInstallations Installation[] @relation("CreatedBy")
-  updatedInstallations Installation[] @relation("UpdatedBy")
-  assignedInstallations Installation[] @relation("AssignedContractor")
-  sentInvitations      Invitation[]   @relation("InvitedBy")
-  installationEvents   InstallationEvent[]
+  createdInstallations          Installation[]           @relation("CreatedBy")
+  updatedInstallations          Installation[]           @relation("UpdatedBy")
+  assignedInstallations         Installation[]           @relation("AssignedContractor")
+  sentInvitations               Invitation[]             @relation("InvitedBy")
+  installationEvents            InstallationEvent[]
   uploadedInstallationDocuments InstallationDocument[]
-  activityLogs ActivityLog[]
-  savedFilters SavedFilter[]
-  signedAnnualFgasReports SignedAnnualFgasReport[]
-  passwordResetTokens PasswordResetToken[]
+  activityLogs                  ActivityLog[]
+  savedFilters                  SavedFilter[]
+  signedAnnualFgasReports       SignedAnnualFgasReport[]
+  passwordResetTokens           PasswordResetToken[]
 
   @@map("users")
 }
@@ -121,21 +121,21 @@ model PasswordResetToken {
 }
 
 model CompanyMembership {
-  id        String   @id @default(cuid())
-  userId    String
-  companyId String
-  role      UserRole
-  isActive  Boolean  @default(true)
-  isCertifiedCompany Boolean @default(false)
-  certificationNumber String?
-  certificationValidUntil DateTime?
+  id                        String    @id @default(cuid())
+  userId                    String
+  companyId                 String
+  role                      UserRole
+  isActive                  Boolean   @default(true)
+  isCertifiedCompany        Boolean   @default(false)
+  certificationNumber       String?
+  certificationValidUntil   DateTime?
   certificationOrganization String?
-  servicePartnerCompanyId String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  servicePartnerCompanyId   String?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
 
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company               Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
   servicePartnerCompany ServicePartnerCompany? @relation(fields: [servicePartnerCompanyId], references: [id], onDelete: SetNull)
 
   @@unique([userId, companyId])
@@ -165,13 +165,13 @@ model ServicePartnerCompany {
 }
 
 model Invitation {
-  id              String    @id @default(cuid())
-  email           String
-  role            String
-  token           String    @unique
-  acceptedAt      DateTime?
-  expiresAt       DateTime
-  createdAt       DateTime  @default(now())
+  id         String    @id @default(cuid())
+  email      String
+  role       String
+  token      String    @unique
+  acceptedAt DateTime?
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
 
   companyId String
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -183,34 +183,34 @@ model Invitation {
 }
 
 model Installation {
-  id                String   @id @default(cuid())
-  name              String
-  location          String
-  equipmentId       String?
-  serialNumber      String?
-  propertyName      String?
-  equipmentType     String?
-  operatorName      String?
-  refrigerantType   String
-  refrigerantAmount Float
-  hasLeakDetectionSystem Boolean @default(false)
-  installationDate  DateTime?
-  lastInspection    DateTime?
-  inspectionIntervalMonths Int?
-  nextInspection    DateTime?
-  notes             String?
-  isActive          Boolean  @default(true)
-  archivedAt        DateTime?
-  scrappedAt        DateTime?
+  id                            String    @id @default(cuid())
+  name                          String
+  location                      String
+  equipmentId                   String?
+  serialNumber                  String?
+  propertyName                  String?
+  equipmentType                 String?
+  operatorName                  String?
+  refrigerantType               String
+  refrigerantAmount             Float
+  hasLeakDetectionSystem        Boolean   @default(false)
+  installationDate              DateTime?
+  lastInspection                DateTime?
+  inspectionIntervalMonths      Int?
+  nextInspection                DateTime?
+  notes                         String?
+  isActive                      Boolean   @default(true)
+  archivedAt                    DateTime?
+  scrappedAt                    DateTime?
   scrappedByCompanyMembershipId String?
-  scrapComment      String?
-  scrapCertificateUrl String?
-  scrapCertificateFileName String?
-  scrapCertificateBlobPath String?
-  scrapServicePartnerId String?
-  recoveredRefrigerantKg Float?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  scrapComment                  String?
+  scrapCertificateUrl           String?
+  scrapCertificateFileName      String?
+  scrapCertificateBlobPath      String?
+  scrapServicePartnerId         String?
+  recoveredRefrigerantKg        Float?
+  createdAt                     DateTime  @default(now())
+  updatedAt                     DateTime  @updatedAt
 
   companyId String
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -219,18 +219,18 @@ model Installation {
   property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
 
   createdById String
-  createdBy   User @relation("CreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdBy   User   @relation("CreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
 
   updatedById String
-  updatedBy   User @relation("UpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  updatedBy   User   @relation("UpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
 
   assignedContractorId String?
-  assignedContractor   User? @relation("AssignedContractor", fields: [assignedContractorId], references: [id], onDelete: SetNull)
+  assignedContractor   User?   @relation("AssignedContractor", fields: [assignedContractorId], references: [id], onDelete: SetNull)
 
-  inspections Inspection[]
+  inspections  Inspection[]
   reminderLogs ReminderLog[]
-  events InstallationEvent[]
-  documents InstallationDocument[]
+  events       InstallationEvent[]
+  documents    InstallationDocument[]
   activityLogs ActivityLog[]
 
   @@map("installations")
@@ -257,15 +257,15 @@ model Property {
 }
 
 model Inspection {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   inspectionDate DateTime
   inspectorName  String
   status         String?
   notes          String?
   findings       String?
   nextDueDate    DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   installationId String
   installation   Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
@@ -292,17 +292,22 @@ model ReminderLog {
 }
 
 model InstallationEvent {
-  id                 String                @id @default(cuid())
-  installationId     String
-  installation       Installation          @relation(fields: [installationId], references: [id], onDelete: Cascade)
-  date               DateTime
-  type               InstallationEventType
-  refrigerantAddedKg Float?
-  notes              String?
-  createdById        String?
-  createdBy          User?                 @relation(fields: [createdById], references: [id])
-  createdAt          DateTime              @default(now())
-  documents          InstallationDocument[]
+  id                      String                 @id @default(cuid())
+  installationId          String
+  installation            Installation           @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  date                    DateTime
+  type                    InstallationEventType
+  refrigerantAddedKg      Float?
+  previousRefrigerantType String?
+  newRefrigerantType      String?
+  previousAmountKg        Float?
+  newAmountKg             Float?
+  recoveredAmountKg       Float?
+  notes                   String?
+  createdById             String?
+  createdBy               User?                  @relation(fields: [createdById], references: [id])
+  createdAt               DateTime               @default(now())
+  documents               InstallationDocument[]
 
   @@index([installationId])
   @@map("installation_events")

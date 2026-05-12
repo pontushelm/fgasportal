@@ -128,6 +128,52 @@ describe("annual F-gas refrigerant handling", () => {
     expect(row.previousRefrigerantType).toBe("R404A")
     expect(row.newRefrigerantType).toBe("R449A")
   })
+
+  it("prefers structured refrigerant change fields over notes", () => {
+    const row = buildRefrigerantHandlingRow({
+      equipmentId: "VP1",
+      equipmentName: "Kyl A",
+      fallbackRefrigerantType: "R449A",
+      event: {
+        id: "event-change-structured",
+        date: new Date("2026-02-01"),
+        type: "REFRIGERANT_CHANGE",
+        refrigerantAddedKg: 10,
+        previousRefrigerantType: "R404A",
+        newRefrigerantType: "R454C",
+        previousAmountKg: 42,
+        newAmountKg: 24,
+        recoveredAmountKg: 18,
+        notes: "Äldre anteckning med annan text.",
+      },
+    })
+
+    expect(row.refrigerantType).toBe("R454C")
+    expect(row.previousRefrigerantType).toBe("R404A")
+    expect(row.newRefrigerantType).toBe("R454C")
+    expect(row.previousAmountKg).toBe(42)
+    expect(row.newAmountKg).toBe(24)
+    expect(row.addedKg).toBe(24)
+    expect(row.recoveredKg).toBe(18)
+  })
+
+  it("prefers structured recovery amount when available", () => {
+    const row = buildRefrigerantHandlingRow({
+      equipmentId: "VP1",
+      equipmentName: "Kyl A",
+      fallbackRefrigerantType: "R404A",
+      event: {
+        id: "event-recovery-structured",
+        date: new Date("2026-02-01"),
+        type: "RECOVERY",
+        refrigerantAddedKg: null,
+        recoveredAmountKg: 7.25,
+        notes: null,
+      },
+    })
+
+    expect(row.recoveredKg).toBe(7.25)
+  })
 })
 
 describe("signed annual F-gas report history", () => {

@@ -40,6 +40,30 @@ describe("installation event validation", () => {
     expect(result.success).toBe(false)
   })
 
+  it("blocks refrigerant replacement without a new fill amount", () => {
+    const result = createInstallationEventSchema.safeParse({
+      date: "2026-05-08",
+      type: "REFRIGERANT_CHANGE",
+      newRefrigerantType: "R449A",
+      notes: "Byte registrerat",
+    })
+
+    expect(result.success).toBe(false)
+  })
+
+  it("accepts comma decimals for structured recovery amounts", () => {
+    const result = createInstallationEventSchema.safeParse({
+      date: "2026-05-08",
+      type: "RECOVERY",
+      refrigerantAddedKg: "4,5",
+      notes: "Tömning utförd",
+    })
+
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.data.refrigerantAddedKg).toBe(4.5)
+  })
+
   it("requires refill amount for refill events", () => {
     const result = createInstallationEventSchema.safeParse({
       date: "2026-05-08",

@@ -62,6 +62,11 @@ type ReportData = {
     installationName: string
     type: EventType
     refrigerantAddedKg: number | null
+    previousRefrigerantType?: string | null
+    newRefrigerantType?: string | null
+    previousAmountKg?: number | null
+    newAmountKg?: number | null
+    recoveredAmountKg?: number | null
     notes: string | null
   }>
 }

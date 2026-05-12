@@ -56,6 +56,11 @@ export type FgasReportData = {
     refrigerantType: string
     type: FgasReportEventType
     refrigerantAddedKg: number | null
+    previousRefrigerantType: string | null
+    newRefrigerantType: string | null
+    previousAmountKg: number | null
+    newAmountKg: number | null
+    recoveredAmountKg: number | null
     notes: string | null
   }>
 }
@@ -199,7 +204,11 @@ export async function getFgasAnnualReport({
         summary.refilledAmountKg += addedAmount
       }
       if (event.type === "SERVICE") serviceEvents += 1
-      if (event.type === "RECOVERY" && event.refrigerantAddedKg == null) {
+      if (
+        event.type === "RECOVERY" &&
+        event.recoveredAmountKg == null &&
+        event.refrigerantAddedKg == null
+      ) {
         warnings.push({
           id: `recovery-missing-amount-${event.id}`,
           severity: "review",
@@ -207,7 +216,11 @@ export async function getFgasAnnualReport({
           message: "Tömning/återvinning saknar omhändertagen mängd.",
         })
       }
-      if (event.type === "REFRIGERANT_CHANGE" && event.refrigerantAddedKg == null) {
+      if (
+        event.type === "REFRIGERANT_CHANGE" &&
+        event.newAmountKg == null &&
+        event.refrigerantAddedKg == null
+      ) {
         warnings.push({
           id: `refrigerant-change-missing-amount-${event.id}`,
           severity: "review",
@@ -224,6 +237,11 @@ export async function getFgasAnnualReport({
         refrigerantType,
         type: event.type as FgasReportEventType,
         refrigerantAddedKg: event.refrigerantAddedKg,
+        previousRefrigerantType: event.previousRefrigerantType,
+        newRefrigerantType: event.newRefrigerantType,
+        previousAmountKg: event.previousAmountKg,
+        newAmountKg: event.newAmountKg,
+        recoveredAmountKg: event.recoveredAmountKg,
         notes: event.notes,
       }
     })

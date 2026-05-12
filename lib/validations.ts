@@ -194,13 +194,13 @@ export const createInstallationEventSchema = z.object({
   ]),
   refrigerantAddedKg: z.string()
     .optional()
-    .transform((val) => (val ? parseFloat(val) : null)),
+    .transform((val) => parseOptionalDecimal(val)),
   newRefrigerantType: z.string()
     .optional()
     .transform((val) => val?.trim() ?? ""),
   recoveredRefrigerantKg: z.string()
     .optional()
-    .transform((val) => (val ? parseFloat(val) : null)),
+    .transform((val) => parseOptionalDecimal(val)),
   notes: z.string().optional(),
 }).refine((data) => data.type !== "LEAK" || Boolean(data.notes?.trim()), {
   message: "Anteckningar krävs för läckagehändelser",
@@ -211,12 +211,27 @@ export const createInstallationEventSchema = z.object({
 }).refine((data) => data.type !== "REFRIGERANT_CHANGE" || Boolean(data.newRefrigerantType), {
   message: "Nytt köldmedium krävs vid byte av köldmedium",
   path: ["newRefrigerantType"],
+}).refine((data) => data.type !== "REFRIGERANT_CHANGE" || data.refrigerantAddedKg !== null, {
+  message: "Ny fyllnadsmängd krävs vid byte av köldmedium",
+  path: ["refrigerantAddedKg"],
+}).refine((data) => data.refrigerantAddedKg === null || Number.isFinite(data.refrigerantAddedKg), {
+  message: "Mängd måste vara ett giltigt tal",
+  path: ["refrigerantAddedKg"],
 }).refine((data) => data.refrigerantAddedKg === null || data.refrigerantAddedKg >= 0, {
   message: "Mängd måste vara 0 eller högre",
   path: ["refrigerantAddedKg"],
+}).refine((data) => data.recoveredRefrigerantKg === null || Number.isFinite(data.recoveredRefrigerantKg), {
+  message: "Omhändertagen mängd måste vara ett giltigt tal",
+  path: ["recoveredRefrigerantKg"],
 }).refine((data) => data.recoveredRefrigerantKg === null || data.recoveredRefrigerantKg >= 0, {
   message: "Omhändertagen mängd måste vara 0 eller högre",
   path: ["recoveredRefrigerantKg"],
 })
 
 export type CreateInstallationEventData = z.infer<typeof createInstallationEventSchema>
+
+function parseOptionalDecimal(value?: string) {
+  const normalizedValue = value?.trim().replace(",", ".")
+  if (!normalizedValue) return null
+  return Number(normalizedValue)
+}

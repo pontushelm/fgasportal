@@ -47,6 +47,11 @@ type InstallationEvent = {
   date: string
   type: InstallationEventType
   refrigerantAddedKg?: number | null
+  previousRefrigerantType?: string | null
+  newRefrigerantType?: string | null
+  previousAmountKg?: number | null
+  newAmountKg?: number | null
+  recoveredAmountKg?: number | null
   notes?: string | null
   createdBy?: {
     name: string
@@ -1640,10 +1645,18 @@ export default function InstallationDetailPage() {
                   Ändringen kommer sparas i aggregatets historik.
                 </p>
                 <label className={fieldClassName}>
-                  Tidigare köldmedium
+                  Nuvarande köldmedium
                   <input
                     className={formControlClassName}
                     value={installation.refrigerantType}
+                    readOnly
+                  />
+                </label>
+                <label className={fieldClassName}>
+                  Nuvarande fyllnadsmängd
+                  <input
+                    className={formControlClassName}
+                    value={`${formatNumber(installation.refrigerantAmount)} kg`}
                     readOnly
                   />
                 </label>
@@ -1678,6 +1691,7 @@ export default function InstallationDetailPage() {
                     value={eventForm.refrigerantAddedKg}
                     onChange={handleEventChange}
                     inputMode="decimal"
+                    required
                   />
                 </label>
               </div>
@@ -2141,6 +2155,8 @@ function EventTimelineItem({
   event: InstallationEvent
   documentCount: number
 }) {
+  const structuredDetails = formatEventStructuredDetails(event)
+
   return (
     <article className={`rounded-lg border p-4 ${EVENT_TONE[event.type]}`}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -2148,13 +2164,24 @@ function EventTimelineItem({
           <div className="text-sm font-semibold">{formatDate(event.date)}</div>
           <h3 className="mt-1 text-base font-bold">{EVENT_LABELS[event.type]}</h3>
         </div>
-        {event.refrigerantAddedKg !== null && event.refrigerantAddedKg !== undefined && (
+        {structuredDetails.length === 0 &&
+          event.refrigerantAddedKg !== null &&
+          event.refrigerantAddedKg !== undefined && (
           <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold">
             {getInstallationEventAmountLabel(event.type) ?? "Mängd"}:{" "}
             {formatNumber(event.refrigerantAddedKg)} kg
           </span>
         )}
       </div>
+      {structuredDetails.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
+          {structuredDetails.map((detail) => (
+            <span key={detail} className="rounded-full bg-white/80 px-3 py-1">
+              {detail}
+            </span>
+          ))}
+        </div>
+      )}
       <p className="mt-3 text-sm">{event.notes || "Ingen anteckning"}</p>
       <div className="mt-2 flex flex-wrap gap-3 text-xs opacity-80">
         <span>Skapad av: {formatCreatedBy(event.createdBy)}</span>
@@ -2166,6 +2193,30 @@ function EventTimelineItem({
       </div>
     </article>
   )
+}
+
+function formatEventStructuredDetails(event: InstallationEvent) {
+  const details: string[] = []
+
+  if (event.type === "REFRIGERANT_CHANGE") {
+    if (event.previousRefrigerantType && event.newRefrigerantType) {
+      details.push(`${event.previousRefrigerantType} → ${event.newRefrigerantType}`)
+    }
+    if (event.previousAmountKg != null && event.newAmountKg != null) {
+      details.push(
+        `${formatNumber(event.previousAmountKg)} kg → ${formatNumber(event.newAmountKg)} kg`
+      )
+    }
+    if (event.recoveredAmountKg != null) {
+      details.push(`Omhändertagen mängd: ${formatNumber(event.recoveredAmountKg)} kg`)
+    }
+  }
+
+  if (event.type === "RECOVERY" && event.recoveredAmountKg != null) {
+    details.push(`Omhändertagen mängd: ${formatNumber(event.recoveredAmountKg)} kg`)
+  }
+
+  return details
 }
 
 function TableHeader({ children }: { children: React.ReactNode }) {

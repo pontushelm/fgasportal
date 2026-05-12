@@ -130,6 +130,8 @@ export type AnnualFgasRefrigerantHandlingRow = {
   eventType: string
   previousRefrigerantType: string | null
   newRefrigerantType: string | null
+  previousAmountKg: number | null
+  newAmountKg: number | null
   addedKg: number | null
   recoveredKg: number | null
   regeneratedReusedKg: number | null

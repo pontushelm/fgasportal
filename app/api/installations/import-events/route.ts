@@ -85,6 +85,8 @@ export async function POST(request: NextRequest) {
               type: true,
               date: true,
               refrigerantAddedKg: true,
+              newAmountKg: true,
+              recoveredAmountKg: true,
               notes: true,
             },
           }),
@@ -336,6 +338,7 @@ async function createImportedEvent({
     const nextRefrigerantType =
       normalizeRefrigerantCode(event.newRefrigerantType) ?? event.newRefrigerantType
     const previousRefrigerantType = installation.refrigerantType
+    const previousAmountKg = installation.refrigerantAmount
     const recoveredRefrigerantKg = event.recoveredRefrigerantKg
     const addedRefrigerantKg = event.refrigerantAddedKg
     const changeNote = [
@@ -350,7 +353,7 @@ async function createImportedEvent({
     ].filter(Boolean).join(" ")
     const nextCompliance = calculateInstallationCompliance(
       nextRefrigerantType,
-      installation.refrigerantAmount,
+      addedRefrigerantKg ?? installation.refrigerantAmount,
       installation.hasLeakDetectionSystem,
       installation.lastInspection,
       installation.nextInspection
@@ -367,6 +370,11 @@ async function createImportedEvent({
           date: event.date,
           type: event.type,
           refrigerantAddedKg: addedRefrigerantKg,
+          previousRefrigerantType,
+          newRefrigerantType: nextRefrigerantType,
+          previousAmountKg,
+          newAmountKg: addedRefrigerantKg,
+          recoveredAmountKg: recoveredRefrigerantKg,
           notes: changeNote,
           createdById: userId,
         },
@@ -378,6 +386,7 @@ async function createImportedEvent({
         },
         data: {
           refrigerantType: nextRefrigerantType,
+          refrigerantAmount: addedRefrigerantKg ?? installation.refrigerantAmount,
           inspectionIntervalMonths: nextCompliance.inspectionIntervalMonths,
           nextInspection,
         },
@@ -404,6 +413,10 @@ async function createImportedEvent({
       date: event.date,
       type: event.type,
       refrigerantAddedKg: event.refrigerantAddedKg,
+      recoveredAmountKg:
+        event.type === "RECOVERY"
+          ? event.recoveredRefrigerantKg ?? event.refrigerantAddedKg
+          : null,
       notes: emptyToNull(event.notes),
       createdById: userId,
     },

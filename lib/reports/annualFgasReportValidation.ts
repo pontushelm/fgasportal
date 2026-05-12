@@ -33,6 +33,11 @@ export function buildRefrigerantHandlingRow({
     date: Date
     type: AnnualFgasEventType
     refrigerantAddedKg: number | null
+    previousRefrigerantType?: string | null
+    newRefrigerantType?: string | null
+    previousAmountKg?: number | null
+    newAmountKg?: number | null
+    recoveredAmountKg?: number | null
     notes: string | null
   }
   fallbackRefrigerantType: string
@@ -45,19 +50,26 @@ export function buildRefrigerantHandlingRow({
     date: event.date,
     equipmentName,
     equipmentId,
-    refrigerantType: parsedChange.newRefrigerantType ?? fallbackRefrigerantType,
+    refrigerantType:
+      event.newRefrigerantType ??
+      parsedChange.newRefrigerantType ??
+      fallbackRefrigerantType,
     eventType: ANNUAL_FGAS_EVENT_LABELS[event.type],
-    previousRefrigerantType: parsedChange.previousRefrigerantType,
-    newRefrigerantType: parsedChange.newRefrigerantType,
+    previousRefrigerantType:
+      event.previousRefrigerantType ?? parsedChange.previousRefrigerantType,
+    newRefrigerantType:
+      event.newRefrigerantType ?? parsedChange.newRefrigerantType,
+    previousAmountKg: event.previousAmountKg ?? null,
+    newAmountKg: event.newAmountKg ?? null,
     addedKg:
       event.type === "REFILL" || isRefrigerantChange
-        ? event.refrigerantAddedKg
+        ? event.newAmountKg ?? event.refrigerantAddedKg
         : null,
     recoveredKg:
       event.type === "RECOVERY"
-        ? event.refrigerantAddedKg
+        ? event.recoveredAmountKg ?? event.refrigerantAddedKg
         : isRefrigerantChange
-          ? parsedChange.recoveredKg
+          ? event.recoveredAmountKg ?? parsedChange.recoveredKg
           : null,
     regeneratedReusedKg: null,
     notes: event.notes,
@@ -93,6 +105,11 @@ export function buildAnnualFgasReportWarnings({
       id: string
       type: AnnualFgasEventType
       refrigerantAddedKg: number | null
+      previousRefrigerantType?: string | null
+      newRefrigerantType?: string | null
+      previousAmountKg?: number | null
+      newAmountKg?: number | null
+      recoveredAmountKg?: number | null
       notes: string | null
     }>
   }>
@@ -219,7 +236,11 @@ export function buildAnnualFgasReportWarnings({
           message: "Läckagehändelse saknar läckagemängd.",
         })
       }
-      if (event.type === "RECOVERY" && event.refrigerantAddedKg == null) {
+      if (
+        event.type === "RECOVERY" &&
+        event.recoveredAmountKg == null &&
+        event.refrigerantAddedKg == null
+      ) {
         warnings.push({
           id: `recovery-missing-amount-${event.id}`,
           severity: "review",
@@ -230,7 +251,7 @@ export function buildAnnualFgasReportWarnings({
       }
       if (event.type === "REFRIGERANT_CHANGE") {
         const parsedChange = parseRefrigerantChangeNotes(event.notes)
-        if (!parsedChange.newRefrigerantType) {
+        if (!event.newRefrigerantType && !parsedChange.newRefrigerantType) {
           warnings.push({
             id: `refrigerant-change-missing-new-refrigerant-${event.id}`,
             severity: "review",
@@ -239,7 +260,7 @@ export function buildAnnualFgasReportWarnings({
             message: "Köldmediebyte saknar tydligt nytt köldmedium i rapportunderlaget.",
           })
         }
-        if (event.refrigerantAddedKg == null) {
+        if (event.newAmountKg == null && event.refrigerantAddedKg == null) {
           warnings.push({
             id: `refrigerant-change-missing-amount-${event.id}`,
             severity: "review",

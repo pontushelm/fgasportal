@@ -74,6 +74,8 @@ export type EventImportExistingEventReference = {
   type: InstallationEventType
   date: string | Date
   refrigerantAddedKg: number | null
+  newAmountKg?: number | null
+  recoveredAmountKg?: number | null
   notes: string | null
 }
 
@@ -440,7 +442,7 @@ function getEventImportDuplicateErrors({
   const errors: string[] = []
   const hasExistingEventDuplicate = existingEvents.some((event) => {
     const eventKey = getEventImportIdentityKey({
-      amountKg: event.refrigerantAddedKg,
+      amountKg: getExistingEventImportIdentityAmount(event),
       date: event.date,
       installationId: event.installationId,
       notes: event.notes,
@@ -525,6 +527,19 @@ function getEventImportIdentityAmount(
 ) {
   if (type === "RECOVERY") return row.recoveredKg ?? row.amountKg
   return row.amountKg
+}
+
+function getExistingEventImportIdentityAmount(
+  event: EventImportExistingEventReference
+) {
+  if (event.type === "RECOVERY") {
+    return event.recoveredAmountKg ?? event.refrigerantAddedKg
+  }
+  if (event.type === "REFRIGERANT_CHANGE") {
+    return event.newAmountKg ?? event.refrigerantAddedKg
+  }
+
+  return event.refrigerantAddedKg
 }
 
 function normalizeEventImportNotesIdentity(notes: string | null) {
