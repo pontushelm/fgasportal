@@ -35,6 +35,8 @@ type ActionItem = {
   assignedServiceContactId: string | null
   assignedServiceContactName: string | null
   assignedServiceContactEmail: string | null
+  servicePartnerCompanyId: string | null
+  servicePartnerCompanyName: string | null
   href: string
   dueDate?: string | null
   createdAt?: string | null
@@ -118,6 +120,7 @@ export default function ActionsPageClient() {
   const activeDueDate = getDueDateFilter(searchParams.get("due"))
   const activeProperty = searchParams.get("property") ?? ""
   const activeServiceContact = searchParams.get("serviceContact") ?? ""
+  const activeServicePartnerCompany = searchParams.get("servicePartnerCompany") ?? ""
   const activeSearch = searchParams.get("q") ?? ""
 
   useEffect(() => {
@@ -179,6 +182,10 @@ export default function ActionsPageClient() {
     [actions]
   )
   const serviceContactOptions = useMemo(() => getServiceContactOptions(actions), [actions])
+  const servicePartnerCompanyOptions = useMemo(
+    () => getServicePartnerCompanyOptions(actions),
+    [actions]
+  )
   const visibleActions = useMemo(
     () =>
       filterActionWorkQueue(actions, {
@@ -186,6 +193,7 @@ export default function ActionsPageClient() {
         severity: activeSeverity,
         propertyId: activeProperty,
         serviceContactId: activeServiceContact,
+        servicePartnerCompanyId: activeServicePartnerCompany,
         dueDate: activeDueDate,
         search: activeSearch,
       }),
@@ -196,6 +204,7 @@ export default function ActionsPageClient() {
       activeProperty,
       activeSearch,
       activeServiceContact,
+      activeServicePartnerCompany,
       activeSeverity,
     ]
   )
@@ -351,7 +360,7 @@ export default function ActionsPageClient() {
             ))}
           </div>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
             <FilterField label="Prioritet">
               <select
                 className={filterControlClassName}
@@ -421,6 +430,23 @@ export default function ActionsPageClient() {
                 value={activeSearch}
                 onChange={(event) => updateParam("q", event.target.value, "")}
               />
+            </FilterField>
+          </div>
+
+          <div className="mt-3 max-w-sm">
+            <FilterField label="Servicepartnerföretag">
+              <select
+                className={filterControlClassName}
+                value={activeServicePartnerCompany}
+                onChange={(event) => updateParam("servicePartnerCompany", event.target.value, "")}
+              >
+                <option value="">Alla företag</option>
+                {servicePartnerCompanyOptions.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
+              </select>
             </FilterField>
           </div>
 
@@ -610,6 +636,7 @@ function ActionRow({ action }: { action: ActionItem }) {
         <div className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-2 lg:grid-cols-3">
           <span>Fastighet: {action.propertyName || "-"}</span>
           <span>Servicekontakt: {action.assignedServiceContactName || "-"}</span>
+          <span>Företag: {action.servicePartnerCompanyName || "-"}</span>
           <span>{getDateLabel(action)}: {formatActionDate(action)}</span>
         </div>
       </div>
@@ -654,6 +681,22 @@ function getServiceContactOptions(actions: ActionItem[]) {
   })
 
   return Array.from(contacts.values()).sort((first, second) =>
+    first.name.localeCompare(second.name, "sv")
+  )
+}
+
+function getServicePartnerCompanyOptions(actions: ActionItem[]) {
+  const companies = new Map<string, { id: string; name: string }>()
+
+  actions.forEach((action) => {
+    if (!action.servicePartnerCompanyId || !action.servicePartnerCompanyName) return
+    companies.set(action.servicePartnerCompanyId, {
+      id: action.servicePartnerCompanyId,
+      name: action.servicePartnerCompanyName,
+    })
+  })
+
+  return Array.from(companies.values()).sort((first, second) =>
     first.name.localeCompare(second.name, "sv")
   )
 }

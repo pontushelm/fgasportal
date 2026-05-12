@@ -134,6 +134,7 @@ export default function InstallationsPageClient() {
   const archivedValue = searchParams.get("archived") || ""
   const refrigerantValue = searchParams.get("refrigerantType") || ""
   const contractorFilterValue = searchParams.get("contractorId") || ""
+  const servicePartnerCompanyFilterValue = searchParams.get("servicePartnerCompanyId") || ""
   const propertyFilterValue = searchParams.get("propertyId") || ""
   const municipalityFilterValue = searchParams.get("municipality") || ""
   const statusValue = searchParams.get("status") || ""
@@ -329,11 +330,16 @@ export default function InstallationsPageClient() {
       ).sort((first, second) => first.localeCompare(second, "sv")),
     [filterSourceInstallations, properties]
   )
+  const servicePartnerCompanyOptions = useMemo(
+    () => deriveServicePartnerCompanies(contractors),
+    [contractors]
+  )
   const hasActiveFilters = Boolean(
     searchValue ||
       statusFilterValue ||
       refrigerantValue ||
       contractorFilterValue ||
+      servicePartnerCompanyFilterValue ||
       propertyFilterValue ||
       municipalityFilterValue ||
       statusValue ||
@@ -667,6 +673,19 @@ export default function InstallationsPageClient() {
                     {formatContractorOption(contractor)}
                   </option>
                 ))}
+          </FilterSelect>
+
+          <FilterSelect
+            label="Servicepartnerföretag"
+            value={servicePartnerCompanyFilterValue}
+            onChange={(value) => updateQueryParam("servicePartnerCompanyId", value)}
+          >
+            <option value="">Alla</option>
+            {servicePartnerCompanyOptions.map((company) => (
+              <option key={company.id} value={company.id}>
+                {company.name}
+              </option>
+            ))}
           </FilterSelect>
 
           <FilterSelect
@@ -1421,6 +1440,20 @@ function deriveContractors(installations: Installation[]) {
   }
 
   return Array.from(contractors.values()).sort((first, second) =>
+    first.name.localeCompare(second.name, "sv")
+  )
+}
+
+function deriveServicePartnerCompanies(contractors: Contractor[]) {
+  const companies = new Map<string, ServicePartnerCompanySummary>()
+
+  contractors.forEach((contractor) => {
+    if (contractor.servicePartnerCompany) {
+      companies.set(contractor.servicePartnerCompany.id, contractor.servicePartnerCompany)
+    }
+  })
+
+  return Array.from(companies.values()).sort((first, second) =>
     first.name.localeCompare(second.name, "sv")
   )
 }

@@ -22,6 +22,7 @@ export type ActionViewFilters = {
   severity?: ActionSeverityFilter
   propertyId?: string
   serviceContactId?: string
+  servicePartnerCompanyId?: string
   dueDate?: ActionDueDateFilter
   search?: string
   today?: Date
@@ -34,6 +35,7 @@ const ACTION_FILTER_QUERY_KEYS = [
   "severity",
   "property",
   "serviceContact",
+  "servicePartnerCompany",
   "due",
   "q",
 ] as const
@@ -89,6 +91,7 @@ export function validateActionFilterQueryParams(queryParams: Record<string, stri
   }
   if (sanitized.property && sanitized.property.length > 120) return null
   if (sanitized.serviceContact && sanitized.serviceContact.length > 120) return null
+  if (sanitized.servicePartnerCompany && sanitized.servicePartnerCompany.length > 120) return null
   if (sanitized.q && sanitized.q.length > 120) return null
 
   return sanitized
@@ -102,6 +105,7 @@ type FilterableAction = {
   propertyId: string | null
   propertyName: string | null
   assignedServiceContactId: string | null
+  servicePartnerCompanyId: string | null
   title: string
   dueDate?: Date | string | null
 }
@@ -162,6 +166,7 @@ export function filterActionWorkQueue<T extends FilterableAction>(
   const normalizedSearch = normalizeSearch(filters.search)
   const propertyId = normalizeFilterValue(filters.propertyId)
   const serviceContactId = normalizeFilterValue(filters.serviceContactId)
+  const servicePartnerCompanyId = normalizeFilterValue(filters.servicePartnerCompanyId)
   const category = filters.category ?? "ALL"
   const severity = filters.severity ?? "ALL"
   const dueDate = filters.dueDate ?? "ALL"
@@ -179,6 +184,12 @@ export function filterActionWorkQueue<T extends FilterableAction>(
     if (
       serviceContactId &&
       normalizeFilterValue(action.assignedServiceContactId) !== serviceContactId
+    ) {
+      return false
+    }
+    if (
+      servicePartnerCompanyId &&
+      normalizeFilterValue(action.servicePartnerCompanyId) !== servicePartnerCompanyId
     ) {
       return false
     }

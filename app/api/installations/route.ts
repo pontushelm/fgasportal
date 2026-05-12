@@ -223,6 +223,7 @@ export async function GET(request: NextRequest) {
     const archived = searchParams.get('archived') || 'all'
     const refrigerantType = normalizeRefrigerantCode(searchParams.get('refrigerantType')) ?? searchParams.get('refrigerantType')?.trim()
     const contractorId = searchParams.get('contractorId')?.trim()
+    const servicePartnerCompanyId = searchParams.get('servicePartnerCompanyId')?.trim()
     const propertyId = searchParams.get('propertyId')?.trim()
     const municipality = searchParams.get('municipality')?.trim()
     const statusFilter = searchParams.get('status')?.trim()
@@ -278,6 +279,20 @@ export async function GET(request: NextRequest) {
         ? contractorId === 'unassigned'
           ? { assignedContractorId: null }
           : { assignedContractorId: contractorId }
+        : {}),
+      ...(servicePartnerCompanyId
+        ? {
+            assignedContractor: {
+              memberships: {
+                some: {
+                  companyId,
+                  role: "CONTRACTOR",
+                  isActive: true,
+                  servicePartnerCompanyId,
+                },
+              },
+            },
+          }
         : {}),
       ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
     }

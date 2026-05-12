@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { Prisma } from "@prisma/client"
 import { z, ZodError } from "zod"
+import { generateDashboardActions } from "@/lib/actions/generate-actions"
 import { authenticateApiRequest, forbiddenResponse, isAdmin, isContractor } from "@/lib/auth"
 import { getCertificationStatus } from "@/lib/certification-status"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
@@ -89,6 +90,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                       },
                       select: {
                         id: true,
+                        date: true,
                       },
                     },
                     activityLogs: {
@@ -235,6 +237,63 @@ export async function GET(request: NextRequest, context: RouteContext) {
         })
       )
       .sort((first, second) => first.name.localeCompare(second.name, "sv"))
+    const actionInstallations = servicePartnerCompany.memberships.flatMap((membership) =>
+      membership.user.assignedInstallations.map((installation) => {
+        const compliance = calculateInstallationCompliance(
+          installation.refrigerantType,
+          installation.refrigerantAmount,
+          installation.hasLeakDetectionSystem,
+          installation.lastInspection,
+          installation.nextInspection
+        )
+        const risk = calculateInstallationRisk({
+          refrigerantType: installation.refrigerantType,
+          refrigerantAmount: installation.refrigerantAmount,
+          gwp: compliance.gwp,
+          hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
+          leakageEventsCount: installation.events.length,
+          isInspectionOverdue: compliance.status === "OVERDUE",
+        })
+
+        return {
+          id: installation.id,
+          name: installation.name,
+          equipmentId: installation.equipmentId,
+          propertyName: installation.property?.name ?? installation.propertyName,
+          nextInspection: installation.nextInspection,
+          inspectionInterval: compliance.inspectionIntervalMonths,
+          complianceStatus: compliance.status,
+          assignedContractorId: membership.user.id,
+          assignedServiceContactId: membership.user.id,
+          assignedServiceContactName: membership.user.name,
+          assignedServiceContactEmail: membership.user.email,
+          servicePartnerCompanyId: servicePartnerCompany.id,
+          servicePartnerCompanyName: servicePartnerCompany.name,
+          risk,
+        }
+      })
+    )
+    const actionLeakageEvents = servicePartnerCompany.memberships.flatMap((membership) =>
+      membership.user.assignedInstallations.flatMap((installation) =>
+        installation.events.map((event) => ({
+          id: event.id,
+          installationId: installation.id,
+          installationName: installation.name,
+          equipmentId: installation.equipmentId,
+          propertyName: installation.property?.name ?? installation.propertyName,
+          assignedServiceContactId: membership.user.id,
+          assignedServiceContactName: membership.user.name,
+          assignedServiceContactEmail: membership.user.email,
+          servicePartnerCompanyId: servicePartnerCompany.id,
+          servicePartnerCompanyName: servicePartnerCompany.name,
+          date: event.date,
+        }))
+      )
+    )
+    const actions = generateDashboardActions({
+      installations: actionInstallations,
+      leakageEvents: actionLeakageEvents,
+    })
 
     const [metrics] = buildServicePartnerCompanyMetrics({
       companies: [servicePartnerCompany],
@@ -256,6 +315,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         metrics,
         contractors,
         installations,
+        actions: actions.slice(0, 8),
       },
       { status: 200 }
     )

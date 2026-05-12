@@ -166,6 +166,8 @@ describe("dashboard action generation", () => {
           assignedContractorId: "contractor-1",
           assignedServiceContactId: "contractor-1",
           assignedServiceContactName: "Service Tekniker",
+          servicePartnerCompanyId: "service-company-1",
+          servicePartnerCompanyName: "Servicebolaget",
           risk: { level: "LOW", score: 1 },
         },
         {
@@ -188,6 +190,7 @@ describe("dashboard action generation", () => {
         propertyId: "property-1",
         severity: "HIGH",
         serviceContactId: "contractor-1",
+        servicePartnerCompanyId: "service-company-1",
         search: "ka-1",
         today: new Date("2026-05-08T12:00:00"),
       }).map((action) => action.id)
@@ -249,6 +252,7 @@ describe("dashboard action generation", () => {
       severity: "HIGH",
       property: "property-1",
       serviceContact: "contractor-1",
+      servicePartnerCompany: "service-company-1",
       due: "NEXT_30_DAYS",
       q: "  kylrum  ",
       unexpected: "ignored",
@@ -260,6 +264,7 @@ describe("dashboard action generation", () => {
       severity: "HIGH",
       property: "property-1",
       serviceContact: "contractor-1",
+      servicePartnerCompany: "service-company-1",
       due: "NEXT_30_DAYS",
       q: "kylrum",
     })

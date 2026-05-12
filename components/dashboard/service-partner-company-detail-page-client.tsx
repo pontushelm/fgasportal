@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Badge, buttonClassName, Card, EmptyState, PageHeader, SectionHeader } from "@/components/ui"
 import type { CertificationStatusResult } from "@/lib/certification-status"
+import type { DashboardActionSeverity, DashboardActionType } from "@/lib/actions/generate-actions"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 
 type ServicePartnerCompanyDetail = {
@@ -59,6 +60,20 @@ type ServicePartnerCompanyDetail = {
     leakageEventsCount: number
     latestActivityDate: string | null
   }>
+  actions: Array<{
+    id: string
+    type: DashboardActionType
+    severity: DashboardActionSeverity
+    title: string
+    description: string
+    installationName: string
+    equipmentId: string | null
+    propertyName: string | null
+    assignedServiceContactName: string | null
+    href: string
+    dueDate: string | null
+    createdAt: string | null
+  }>
 }
 
 const COMPLIANCE_LABELS: Record<ComplianceStatus, string> = {
@@ -74,6 +89,15 @@ const RISK_LABELS = {
   MEDIUM: "Medel",
   HIGH: "Hög",
 } as const
+
+const ACTION_TYPE_LABELS: Record<DashboardActionType, string> = {
+  OVERDUE_INSPECTION: "Försenad kontroll",
+  DUE_SOON_INSPECTION: "Kommande kontroll",
+  NOT_INSPECTED: "Saknar kontroll",
+  HIGH_RISK: "Hög risk",
+  NO_SERVICE_PARTNER: "Servicekontakt saknas",
+  RECENT_LEAKAGE: "Läckageuppföljning",
+}
 
 export default function ServicePartnerCompanyDetailPageClient({
   companyId,
@@ -154,6 +178,21 @@ export default function ServicePartnerCompanyDetailPageClient({
 
       {!isLoading && !error && data && (
         <>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <Link
+              className={buttonClassName({ variant: "secondary" })}
+              href={`/dashboard/actions?servicePartnerCompany=${data.company.id}`}
+            >
+              Visa relaterade åtgärder
+            </Link>
+            <Link
+              className={buttonClassName({ variant: "secondary" })}
+              href={`/dashboard/installations?servicePartnerCompanyId=${data.company.id}`}
+            >
+              Visa kopplade aggregat
+            </Link>
+          </div>
+
           <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-7">
             <MetricCard label="Kontakter" value={data.metrics.linkedContactsCount} />
             <MetricCard
@@ -204,6 +243,67 @@ export default function ServicePartnerCompanyDetailPageClient({
                 <DetailItem className="lg:col-span-4" label="Anteckningar" value={data.company.notes} />
               )}
             </dl>
+          </Card>
+
+          <Card className="mt-6 overflow-hidden">
+            <div className="border-b border-slate-200 p-5 dark:border-slate-800">
+              <SectionHeader
+                title="Relaterade åtgärder"
+                subtitle="Prioriterade åtgärder via företagets kopplade servicekontakter."
+              />
+            </div>
+            {data.actions.length === 0 ? (
+              <div className="p-5">
+                <EmptyState
+                  title="Inga aktuella åtgärder."
+                  description="När aggregat via företagets servicekontakter kräver uppföljning visas de här."
+                />
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-900">
+                {data.actions.map((action) => (
+                  <article
+                    className="grid gap-3 px-5 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
+                    key={action.id}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={actionSeverityVariant(action.severity)}>
+                          {actionSeverityLabel(action.severity)}
+                        </Badge>
+                        <Badge variant="neutral">{ACTION_TYPE_LABELS[action.type]}</Badge>
+                        <h3 className="text-sm font-semibold text-slate-950 dark:text-slate-100">
+                          {action.title}
+                        </h3>
+                      </div>
+                      <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        {action.installationName}
+                        {action.equipmentId ? (
+                          <span className="font-normal text-slate-600 dark:text-slate-400">
+                            {" "}
+                            · {action.equipmentId}
+                          </span>
+                        ) : null}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                        {action.description}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                        <span>Fastighet: {action.propertyName || "-"}</span>
+                        <span>Servicekontakt: {action.assignedServiceContactName || "-"}</span>
+                        <span>Datum: {formatActionDate(action)}</span>
+                      </div>
+                    </div>
+                    <Link
+                      className="inline-flex justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                      href={action.href}
+                    >
+                      Öppna aggregat
+                    </Link>
+                  </article>
+                ))}
+              </div>
+            )}
           </Card>
 
           <Card className="mt-6 overflow-hidden">
@@ -415,6 +515,25 @@ function riskVariant(status: "LOW" | "MEDIUM" | "HIGH") {
   if (status === "HIGH") return "danger"
   if (status === "MEDIUM") return "warning"
   return "success"
+}
+
+function actionSeverityVariant(severity: DashboardActionSeverity) {
+  if (severity === "HIGH") return "danger"
+  if (severity === "MEDIUM") return "warning"
+  return "neutral"
+}
+
+function actionSeverityLabel(severity: DashboardActionSeverity) {
+  if (severity === "HIGH") return "Hög"
+  if (severity === "MEDIUM") return "Medel"
+  return "Låg"
+}
+
+function formatActionDate(action: {
+  dueDate?: string | null
+  createdAt?: string | null
+}) {
+  return formatOptionalDate(action.dueDate ?? action.createdAt)
 }
 
 function formatOptionalDate(value?: string | null) {

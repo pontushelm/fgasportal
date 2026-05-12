@@ -33,6 +33,22 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
           id: true,
           name: true,
           email: true,
+          memberships: {
+            where: {
+              companyId: user.companyId,
+              role: "CONTRACTOR",
+              isActive: true,
+            },
+            select: {
+              servicePartnerCompany: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+            take: 1,
+          },
         },
       },
     },
@@ -54,6 +70,8 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
       leakageEventsCount: installation.events.length,
       isInspectionOverdue: compliance.status === "OVERDUE",
     })
+    const servicePartnerCompany =
+      installation.assignedContractor?.memberships[0]?.servicePartnerCompany ?? null
 
     return {
       id: installation.id,
@@ -68,6 +86,8 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
       assignedServiceContactId: installation.assignedContractor?.id ?? null,
       assignedServiceContactName: installation.assignedContractor?.name ?? null,
       assignedServiceContactEmail: installation.assignedContractor?.email ?? null,
+      servicePartnerCompanyId: servicePartnerCompany?.id ?? null,
+      servicePartnerCompanyName: servicePartnerCompany?.name ?? null,
       risk,
     }
   })
@@ -83,6 +103,10 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
       assignedServiceContactId: installation.assignedContractor?.id ?? null,
       assignedServiceContactName: installation.assignedContractor?.name ?? null,
       assignedServiceContactEmail: installation.assignedContractor?.email ?? null,
+      servicePartnerCompanyId:
+        installation.assignedContractor?.memberships[0]?.servicePartnerCompany?.id ?? null,
+      servicePartnerCompanyName:
+        installation.assignedContractor?.memberships[0]?.servicePartnerCompany?.name ?? null,
       date: event.date,
     }))
   )

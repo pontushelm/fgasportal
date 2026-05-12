@@ -32,6 +32,8 @@ export type DashboardAction = {
   assignedServiceContactId: string | null
   assignedServiceContactName: string | null
   assignedServiceContactEmail: string | null
+  servicePartnerCompanyId: string | null
+  servicePartnerCompanyName: string | null
   href: string
   dueDate: Date | null
   createdAt: Date | null
@@ -53,6 +55,8 @@ export type ActionInstallationInput = {
   assignedServiceContactId?: string | null
   assignedServiceContactName?: string | null
   assignedServiceContactEmail?: string | null
+  servicePartnerCompanyId?: string | null
+  servicePartnerCompanyName?: string | null
   risk: { level: InstallationRiskLevel; score: number }
 }
 
@@ -66,6 +70,8 @@ export type ActionLeakageEventInput = {
   assignedServiceContactId?: string | null
   assignedServiceContactName?: string | null
   assignedServiceContactEmail?: string | null
+  servicePartnerCompanyId?: string | null
+  servicePartnerCompanyName?: string | null
   date: Date
 }
 
@@ -193,6 +199,8 @@ export function generateDashboardActions({
       assignedServiceContactId: event.assignedServiceContactId ?? null,
       assignedServiceContactName: event.assignedServiceContactName ?? null,
       assignedServiceContactEmail: event.assignedServiceContactEmail ?? null,
+      servicePartnerCompanyId: event.servicePartnerCompanyId ?? null,
+      servicePartnerCompanyName: event.servicePartnerCompanyName ?? null,
       href: `/dashboard/installations/${event.installationId}`,
       dueDate: null,
       createdAt: event.date,
@@ -256,6 +264,8 @@ function createAction({
     assignedServiceContactId: installation.assignedServiceContactId ?? null,
     assignedServiceContactName: installation.assignedServiceContactName ?? null,
     assignedServiceContactEmail: installation.assignedServiceContactEmail ?? null,
+    servicePartnerCompanyId: installation.servicePartnerCompanyId ?? null,
+    servicePartnerCompanyName: installation.servicePartnerCompanyName ?? null,
     href,
     dueDate,
     createdAt,

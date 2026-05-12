@@ -64,6 +64,8 @@ function createAction(id: string, installationId: string): DashboardAction {
     assignedServiceContactId: null,
     assignedServiceContactName: null,
     assignedServiceContactEmail: null,
+    servicePartnerCompanyId: null,
+    servicePartnerCompanyName: null,
     href: `/dashboard/installations/${installationId}`,
     dueDate: null,
     createdAt: null,
