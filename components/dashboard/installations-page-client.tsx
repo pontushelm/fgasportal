@@ -37,6 +37,7 @@ type Installation = {
   archivedAt?: string | null
   scrappedAt?: string | null
   assignedContractor?: Contractor | null
+  assignedServicePartnerCompany?: ServicePartnerCompanySummary | null
 }
 
 type CurrentUser = {
@@ -163,9 +164,11 @@ export default function InstallationsPageClient() {
   const [installations, setInstallations] = useState<Installation[]>([])
   const [filterSourceInstallations, setFilterSourceInstallations] = useState<Installation[]>([])
   const [contractors, setContractors] = useState<Contractor[]>([])
+  const [servicePartnerCompanies, setServicePartnerCompanies] = useState<ServicePartnerCompanySummary[]>([])
   const [properties, setProperties] = useState<PropertyOption[]>([])
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [bulkServicePartnerCompanyId, setBulkServicePartnerCompanyId] = useState("")
   const [contractorId, setContractorId] = useState("")
   const [bulkPropertyId, setBulkPropertyId] = useState("")
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
@@ -206,7 +209,7 @@ export default function InstallationsPageClient() {
       setError("")
 
       const installationsUrl = `/api/installations${queryString ? `?${queryString}` : ""}`
-      const [installationsRes, userRes, filterSourceRes, savedFiltersRes, propertiesRes] = await Promise.all([
+      const [installationsRes, userRes, filterSourceRes, savedFiltersRes, propertiesRes, servicePartnerCompaniesRes] = await Promise.all([
         fetch(installationsUrl, {
           credentials: "include",
         }),
@@ -220,6 +223,9 @@ export default function InstallationsPageClient() {
           credentials: "include",
         }),
         fetch("/api/properties", {
+          credentials: "include",
+        }),
+        fetch("/api/service-partner-companies", {
           credentials: "include",
         }),
       ])
@@ -246,6 +252,8 @@ export default function InstallationsPageClient() {
       const filterSourceData: Installation[] = await filterSourceRes.json()
       const savedFiltersData: SavedFilter[] = await savedFiltersRes.json()
       const propertiesData: PropertyOption[] = await propertiesRes.json()
+      const servicePartnerCompaniesData: ServicePartnerCompanySummary[] =
+        servicePartnerCompaniesRes.ok ? await servicePartnerCompaniesRes.json() : []
       const contractorsData: Contractor[] =
         isAdminRole(userData.role)
           ? await fetch("/api/company/contractors", {
@@ -259,6 +267,7 @@ export default function InstallationsPageClient() {
       setFilterSourceInstallations(filterSourceData)
       setCurrentUser(userData)
       setContractors(contractorsData)
+      setServicePartnerCompanies(servicePartnerCompaniesData)
       setProperties(propertiesData)
       setSavedFilters(savedFiltersData)
       setSelectedIds([])
@@ -347,8 +356,23 @@ export default function InstallationsPageClient() {
     [filterSourceInstallations, properties]
   )
   const servicePartnerCompanyOptions = useMemo(
-    () => deriveServicePartnerCompanies(contractors),
-    [contractors]
+    () =>
+      deriveServicePartnerCompanies(
+        contractors,
+        filterSourceInstallations,
+        servicePartnerCompanies
+      ),
+    [contractors, filterSourceInstallations, servicePartnerCompanies]
+  )
+  const bulkContactOptions = useMemo(
+    () =>
+      bulkServicePartnerCompanyId
+        ? contractors.filter(
+            (contractor) =>
+              contractor.servicePartnerCompany?.id === bulkServicePartnerCompanyId
+          )
+        : contractors,
+    [bulkServicePartnerCompanyId, contractors]
   )
   const hasActiveFilters = Boolean(
     searchValue ||
@@ -499,8 +523,8 @@ export default function InstallationsPageClient() {
     setError("")
     setSuccess("")
 
-    if (!contractorId) {
-      setError("Välj servicekontakt")
+    if (!bulkServicePartnerCompanyId && !contractorId) {
+      setError("Välj servicepartnerföretag eller servicekontakt")
       return
     }
 
@@ -514,7 +538,8 @@ export default function InstallationsPageClient() {
       credentials: "include",
       body: JSON.stringify({
         installationIds: selectedIds,
-        contractorId,
+        servicePartnerCompanyId: bulkServicePartnerCompanyId || null,
+        contractorId: contractorId || null,
       }),
     })
     const result: { error?: string; updated?: number } = await res.json()
@@ -525,12 +550,13 @@ export default function InstallationsPageClient() {
     }
 
     if (!res.ok) {
-      setError(result.error || "Kunde inte tilldela servicekontakt")
+      setError(result.error || "Kunde inte tilldela servicepartner")
       setIsSubmitting(false)
       return
     }
 
     setSuccess(`${result.updated ?? selectedIds.length} aggregat uppdaterade`)
+    setBulkServicePartnerCompanyId("")
     setContractorId("")
     setIsAssignModalOpen(false)
     setIsSubmitting(false)
@@ -885,7 +911,7 @@ export default function InstallationsPageClient() {
               disabled={isSubmitting}
               onClick={() => setIsAssignModalOpen(true)}
             >
-              Tilldela servicekontakt
+              Tilldela servicepartner
             </button>
             <button
               className={bulkSecondaryButtonClassName}
@@ -1040,20 +1066,37 @@ export default function InstallationsPageClient() {
       {isAssignModalOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 px-4">
           <form className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-xl" onSubmit={handleAssignContractor}>
-            <h2 className="text-lg font-semibold text-slate-950">Tilldela servicekontakt</h2>
+            <h2 className="text-lg font-semibold text-slate-950">Tilldela servicepartner</h2>
             <p className="mt-1 text-sm text-slate-700">
-              Välj inbjuden servicekontakt för {selectedIds.length} valda aggregat.
+              Välj servicepartnerföretag och eventuell servicekontakt för {selectedIds.length} valda aggregat.
             </p>
             <label className="mt-4 grid gap-1 text-sm font-medium text-slate-700">
-              Servicekontakt
+              Servicepartnerföretag
+              <select
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900"
+                value={bulkServicePartnerCompanyId}
+                onChange={(event) => {
+                  setBulkServicePartnerCompanyId(event.target.value)
+                  setContractorId("")
+                }}
+              >
+                <option value="">Ingen vald</option>
+                {servicePartnerCompanyOptions.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="mt-4 grid gap-1 text-sm font-medium text-slate-700">
+              Valfri servicekontakt / tekniker
               <select
                 className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900"
                 value={contractorId}
                 onChange={(event) => setContractorId(event.target.value)}
-                required
               >
-                <option value="">Välj servicekontakt</option>
-                {contractors.map((contractor) => (
+                <option value="">Ingen vald</option>
+                {bulkContactOptions.map((contractor) => (
                   <option key={contractor.id} value={contractor.id}>
                     {formatContractorOption(contractor)} ({contractor.email})
                   </option>
@@ -1298,8 +1341,12 @@ function InstallationQuickView({
                 value={formatOptionalDate(installation.nextInspection)}
               />
               <QuickViewItem
+                label="Servicepartner"
+                value={formatAssignedServicePartner(installation)}
+              />
+              <QuickViewItem
                 label="Servicekontakt"
-                value={formatAssignedContractor(installation.assignedContractor)}
+                value={formatAssignedContractorName(installation.assignedContractor)}
               />
             </dl>
           </section>
@@ -1393,8 +1440,12 @@ function InstallationMobileCard({
       <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
         <QuickViewItem label="Fastighet" value={installation.property?.name || "-"} />
         <QuickViewItem
+          label="Servicepartner"
+          value={formatAssignedServicePartner(installation)}
+        />
+        <QuickViewItem
           label="Servicekontakt"
-          value={formatAssignedContractor(installation.assignedContractor)}
+          value={formatAssignedContractorName(installation.assignedContractor)}
         />
         <QuickViewItem
           label="Nästa kontroll"
@@ -1732,12 +1783,28 @@ function deriveContractors(installations: Installation[]) {
   )
 }
 
-function deriveServicePartnerCompanies(contractors: Contractor[]) {
+function deriveServicePartnerCompanies(
+  contractors: Contractor[],
+  installations: Installation[] = [],
+  registeredCompanies: ServicePartnerCompanySummary[] = []
+) {
   const companies = new Map<string, ServicePartnerCompanySummary>()
+
+  registeredCompanies.forEach((company) => {
+    companies.set(company.id, company)
+  })
 
   contractors.forEach((contractor) => {
     if (contractor.servicePartnerCompany) {
       companies.set(contractor.servicePartnerCompany.id, contractor.servicePartnerCompany)
+    }
+  })
+  installations.forEach((installation) => {
+    const company =
+      installation.assignedServicePartnerCompany ??
+      installation.assignedContractor?.servicePartnerCompany
+    if (company) {
+      companies.set(company.id, company)
     }
   })
 
@@ -1752,12 +1819,16 @@ function formatContractorOption(contractor: Contractor) {
     : contractor.name
 }
 
-function formatAssignedContractor(contractor?: Contractor | null) {
-  if (!contractor) return "-"
+function formatAssignedServicePartner(installation: Installation) {
+  return (
+    installation.assignedServicePartnerCompany?.name ??
+    installation.assignedContractor?.servicePartnerCompany?.name ??
+    "-"
+  )
+}
 
-  return contractor.servicePartnerCompany?.name
-    ? `${contractor.servicePartnerCompany.name} (${contractor.name})`
-    : contractor.name
+function formatAssignedContractorName(contractor?: Contractor | null) {
+  return contractor?.name ?? "-"
 }
 
 function formatOptionalDate(value?: string | null) {

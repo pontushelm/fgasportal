@@ -52,6 +52,12 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
           },
         },
       },
+      assignedServicePartnerCompany: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
     },
   })
 
@@ -72,7 +78,9 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
       isInspectionOverdue: compliance.status === "OVERDUE",
     })
     const servicePartnerCompany =
-      installation.assignedContractor?.memberships[0]?.servicePartnerCompany ?? null
+      installation.assignedServicePartnerCompany ??
+      installation.assignedContractor?.memberships[0]?.servicePartnerCompany ??
+      null
 
     return {
       id: installation.id,
@@ -93,8 +101,13 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
     }
   })
 
-  const leakageEvents = installations.flatMap((installation) =>
-    installation.events.map((event) => ({
+  const leakageEvents = installations.flatMap((installation) => {
+    const servicePartnerCompany =
+      installation.assignedServicePartnerCompany ??
+      installation.assignedContractor?.memberships[0]?.servicePartnerCompany ??
+      null
+
+    return installation.events.map((event) => ({
       id: event.id,
       installationId: installation.id,
       installationName: installation.name,
@@ -104,13 +117,11 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
       assignedServiceContactId: installation.assignedContractor?.id ?? null,
       assignedServiceContactName: installation.assignedContractor?.name ?? null,
       assignedServiceContactEmail: installation.assignedContractor?.email ?? null,
-      servicePartnerCompanyId:
-        installation.assignedContractor?.memberships[0]?.servicePartnerCompany?.id ?? null,
-      servicePartnerCompanyName:
-        installation.assignedContractor?.memberships[0]?.servicePartnerCompany?.name ?? null,
+      servicePartnerCompanyId: servicePartnerCompany?.id ?? null,
+      servicePartnerCompanyName: servicePartnerCompany?.name ?? null,
       date: event.date,
     }))
-  )
+  })
 
   return generateDashboardActions({
     installations: actionInstallations,

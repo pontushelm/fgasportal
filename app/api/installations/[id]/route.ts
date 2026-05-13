@@ -74,6 +74,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
             },
           },
         },
+        assignedServicePartnerCompany: {
+          select: {
+            id: true,
+            name: true,
+            organizationNumber: true,
+          },
+        },
       },
     })
 
@@ -84,7 +91,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       )
     }
 
-    const { assignedContractor, ...installationData } = installation
+    const { assignedContractor, assignedServicePartnerCompany, ...installationData } = installation
     const contractorMembership = assignedContractor?.memberships[0] ?? null
     const scrapServicePartner = installationData.scrapServicePartnerId
       ? await prisma.companyMembership.findFirst({
@@ -131,6 +138,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 contractorMembership?.servicePartnerCompany ?? null,
             }
           : null,
+        assignedServicePartnerCompany:
+          assignedServicePartnerCompany ??
+          contractorMembership?.servicePartnerCompany ??
+          null,
         scrapServicePartner: scrapServicePartner
           ? {
               id: scrapServicePartner.user.id,
@@ -166,18 +177,41 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const { companyId, userId } = auth.user
     const body = await request.json()
     const validatedData = editInstallationSchema.parse(body)
-    const assignedContractorId = await validateAssignedContractor(
+    const assignedServicePartnerCompanyId = await validateServicePartnerCompany(
+      validatedData.assignedServicePartnerCompanyId,
+      companyId
+    )
+    let assignedContractor = await validateAssignedContractor(
       validatedData.assignedContractorId,
       companyId
     )
     const propertyId = await validateProperty(validatedData.propertyId, companyId)
 
-    if (assignedContractorId === false) {
+    if (assignedServicePartnerCompanyId === false) {
+      return NextResponse.json(
+        { error: "Ogiltigt servicepartnerföretag" },
+        { status: 400 }
+      )
+    }
+
+    if (assignedContractor === false) {
       return NextResponse.json(
         { error: "Ogiltig servicepartner" },
         { status: 400 }
       )
     }
+    if (
+      assignedServicePartnerCompanyId &&
+      assignedContractor?.servicePartnerCompanyId &&
+      assignedContractor.servicePartnerCompanyId !== assignedServicePartnerCompanyId
+    ) {
+      assignedContractor = null
+    }
+    const inferredServicePartnerCompanyId =
+      assignedServicePartnerCompanyId ??
+      assignedContractor?.servicePartnerCompanyId ??
+      null
+    const assignedContractorId = assignedContractor?.userId ?? null
 
     if (propertyId === false) {
       return NextResponse.json(
@@ -216,10 +250,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       lastInspection,
       compliance.inspectionIntervalMonths
     )
+    const contractorWasProvided = assignedContractor !== undefined
     const assignedContractorUpdate =
-      assignedContractorId === undefined
+      !contractorWasProvided
         ? {}
         : { assignedContractorId }
+    const assignedServicePartnerCompanyUpdate =
+      assignedServicePartnerCompanyId === undefined && !contractorWasProvided
+        ? {}
+        : { assignedServicePartnerCompanyId: inferredServicePartnerCompanyId }
     const propertyUpdate =
       propertyId === undefined
         ? {}
@@ -239,6 +278,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         equipmentType: emptyToNull(validatedData.equipmentType),
         operatorName: emptyToNull(validatedData.operatorName),
         ...assignedContractorUpdate,
+        ...assignedServicePartnerCompanyUpdate,
         refrigerantType: installation.refrigerantType,
         refrigerantAmount: validatedData.refrigerantAmount,
         hasLeakDetectionSystem: validatedData.hasLeakDetectionSystem ?? false,
@@ -266,7 +306,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     })
 
     if (
-      assignedContractorId !== undefined &&
+      contractorWasProvided &&
       assignedContractorId !== installation.assignedContractorId
     ) {
       await logActivity({
@@ -279,6 +319,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         metadata: {
           previousAssignedContractorId: installation.assignedContractorId,
           assignedContractorId,
+          assignedServicePartnerCompanyId: inferredServicePartnerCompanyId,
         },
       })
 
@@ -358,10 +399,34 @@ async function validateAssignedContractor(
     },
     select: {
       userId: true,
+      servicePartnerCompanyId: true,
     },
   })
 
-  return contractor ? contractor.userId : false
+  return contractor ?? false
+}
+
+async function validateServicePartnerCompany(
+  value: string | null | undefined,
+  companyId: string
+) {
+  if (value === undefined) return undefined
+
+  const servicePartnerCompanyId = emptyToNull(value)
+
+  if (!servicePartnerCompanyId) return null
+
+  const servicePartnerCompany = await prisma.servicePartnerCompany.findFirst({
+    where: {
+      id: servicePartnerCompanyId,
+      companyId,
+    },
+    select: {
+      id: true,
+    },
+  })
+
+  return servicePartnerCompany ? servicePartnerCompany.id : false
 }
 
 async function validateProperty(

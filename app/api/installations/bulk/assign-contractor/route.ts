@@ -7,7 +7,8 @@ import { prisma } from "@/lib/db"
 
 const bulkAssignSchema = z.object({
   installationIds: z.array(z.string().min(1)).min(1).max(500),
-  contractorId: z.string().min(1),
+  servicePartnerCompanyId: z.string().optional().nullable(),
+  contractorId: z.string().optional().nullable(),
 })
 
 export async function POST(request: NextRequest) {
@@ -18,40 +19,76 @@ export async function POST(request: NextRequest) {
 
     const { companyId, userId } = auth.user
     const body = await request.json()
-    const { contractorId, installationIds } = bulkAssignSchema.parse(body)
+    const { contractorId, servicePartnerCompanyId, installationIds } = bulkAssignSchema.parse(body)
     const uniqueInstallationIds = Array.from(new Set(installationIds))
+    const normalizedCompanyId = servicePartnerCompanyId?.trim() || null
+    const normalizedContractorId = contractorId?.trim() || null
 
-    const contractorMembership = await prisma.companyMembership.findFirst({
-      where: {
-        OR: [
-          { userId: contractorId },
-          { id: contractorId },
-        ],
-        companyId,
-        role: "CONTRACTOR",
-        isActive: true,
-        user: {
-          isActive: true,
-        },
-      },
-      select: {
-        user: {
+    const servicePartnerCompany = normalizedCompanyId
+      ? await prisma.servicePartnerCompany.findFirst({
+          where: {
+            id: normalizedCompanyId,
+            companyId,
+          },
           select: {
             id: true,
             name: true,
-            email: true,
           },
-        },
-      },
-    })
+        })
+      : null
 
-    if (!contractorMembership) {
+    if (normalizedCompanyId && !servicePartnerCompany) {
       return NextResponse.json(
-        { error: "Ogiltig servicepartner" },
+        { error: "Ogiltigt servicepartnerföretag" },
         { status: 400 }
       )
     }
-    const contractor = contractorMembership.user
+
+    const contractorMembership = normalizedContractorId
+      ? await prisma.companyMembership.findFirst({
+          where: {
+            OR: [
+              { userId: normalizedContractorId },
+              { id: normalizedContractorId },
+            ],
+            companyId,
+            role: "CONTRACTOR",
+            isActive: true,
+            ...(normalizedCompanyId ? { servicePartnerCompanyId: normalizedCompanyId } : {}),
+            user: {
+              isActive: true,
+            },
+          },
+          select: {
+            servicePartnerCompanyId: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        })
+      : null
+
+    if (normalizedContractorId && !contractorMembership) {
+      return NextResponse.json(
+        { error: "Ogiltig servicekontakt" },
+        { status: 400 }
+      )
+    }
+
+    const contractor = contractorMembership?.user ?? null
+    const targetServicePartnerCompanyId =
+      servicePartnerCompany?.id ?? contractorMembership?.servicePartnerCompanyId ?? null
+
+    if (!targetServicePartnerCompanyId && !contractor) {
+      return NextResponse.json(
+        { error: "Välj servicepartnerföretag eller servicekontakt" },
+        { status: 400 }
+      )
+    }
 
     const installations = await prisma.installation.findMany({
       where: {
@@ -65,6 +102,7 @@ export async function POST(request: NextRequest) {
       select: {
         id: true,
         assignedContractorId: true,
+        assignedServicePartnerCompanyId: true,
       },
     })
 
@@ -76,7 +114,9 @@ export async function POST(request: NextRequest) {
     }
 
     const changedInstallations = installations.filter(
-      (installation) => installation.assignedContractorId !== contractor.id
+      (installation) =>
+        installation.assignedContractorId !== (contractor?.id ?? null) ||
+        installation.assignedServicePartnerCompanyId !== targetServicePartnerCompanyId
     )
     const changedInstallationIds = changedInstallations.map(
       (installation) => installation.id
@@ -93,7 +133,8 @@ export async function POST(request: NextRequest) {
           scrappedAt: null,
         },
         data: {
-          assignedContractorId: contractor.id,
+          assignedContractorId: contractor?.id ?? null,
+          assignedServicePartnerCompanyId: targetServicePartnerCompanyId,
         },
       })
     }
@@ -110,9 +151,13 @@ export async function POST(request: NextRequest) {
           metadata: {
             bulkAction: true,
             previousAssignedContractorId: installation.assignedContractorId,
-            contractorId: contractor.id,
-            contractorName: contractor.name,
-            contractorEmail: contractor.email,
+            previousAssignedServicePartnerCompanyId:
+              installation.assignedServicePartnerCompanyId,
+            assignedServicePartnerCompanyId: targetServicePartnerCompanyId,
+            servicePartnerCompanyName: servicePartnerCompany?.name,
+            contractorId: contractor?.id ?? null,
+            contractorName: contractor?.name ?? null,
+            contractorEmail: contractor?.email ?? null,
           },
         })
       )
@@ -120,7 +165,7 @@ export async function POST(request: NextRequest) {
 
     await notifyContractorsAboutNewAssignments(
       companyId,
-      changedInstallationIds.length > 0 ? [contractor.id] : []
+      changedInstallationIds.length > 0 && contractor ? [contractor.id] : []
     )
 
     return NextResponse.json(

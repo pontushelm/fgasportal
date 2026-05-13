@@ -23,6 +23,8 @@ type InstallationFormData = {
   installationDate: string
   isInstallationDateUnknown: boolean
   lastInspection: string
+  assignedServicePartnerCompanyId: string
+  assignedContractorId: string
   notes: string
 }
 
@@ -56,6 +58,8 @@ type CreatedInstallation = {
   complianceStatus: ComplianceStatus
   inspectionReminderStatus: InspectionReminderStatus | null
   daysUntilDue: number | null
+  assignedServicePartnerCompanyId?: string | null
+  assignedContractorId?: string | null
   notes?: string | null
 }
 
@@ -73,7 +77,21 @@ const initialFormData: InstallationFormData = {
   installationDate: "",
   isInstallationDateUnknown: false,
   lastInspection: "",
+  assignedServicePartnerCompanyId: "",
+  assignedContractorId: "",
   notes: "",
+}
+
+type ServicePartnerCompanySummary = {
+  id: string
+  name: string
+}
+
+type ContractorOption = {
+  id: string
+  name: string
+  email: string
+  servicePartnerCompany?: ServicePartnerCompanySummary | null
 }
 
 const inputClassName =
@@ -90,24 +108,29 @@ export default function CreateInstallationForm({
 }) {
   const [formData, setFormData] = useState<InstallationFormData>(initialFormData)
   const [properties, setProperties] = useState<PropertyOption[]>([])
+  const [contractors, setContractors] = useState<ContractorOption[]>([])
+  const [servicePartnerCompanies, setServicePartnerCompanies] = useState<ServicePartnerCompanySummary[]>([])
   const [error, setError] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     let isMounted = true
 
-    async function fetchProperties() {
-      const res = await fetch("/api/properties", {
-        credentials: "include",
-      })
+    async function fetchOptions() {
+      const [propertiesRes, contractorsRes, companiesRes] = await Promise.all([
+        fetch("/api/properties", { credentials: "include" }),
+        fetch("/api/company/contractors", { credentials: "include" }),
+        fetch("/api/service-partner-companies", { credentials: "include" }),
+      ])
 
-      if (!isMounted || !res.ok) return
+      if (!isMounted) return
 
-      const data: PropertyOption[] = await res.json()
-      setProperties(data)
+      if (propertiesRes.ok) setProperties(await propertiesRes.json())
+      if (contractorsRes.ok) setContractors(await contractorsRes.json())
+      if (companiesRes.ok) setServicePartnerCompanies(await companiesRes.json())
     }
 
-    void fetchProperties()
+    void fetchOptions()
 
     return () => {
       isMounted = false
@@ -122,13 +145,39 @@ export default function CreateInstallationForm({
         ? e.target.checked
         : e.target.value
 
-    setFormData((current) => ({
-      ...current,
-      [e.target.name]: value,
-      ...(e.target.name === "isInstallationDateUnknown" && value === true
-        ? { installationDate: "" }
-        : {}),
-    }))
+    setFormData((current) => {
+      const next = {
+        ...current,
+        [e.target.name]: value,
+        ...(e.target.name === "isInstallationDateUnknown" && value === true
+          ? { installationDate: "" }
+          : {}),
+      }
+
+      if (e.target.name === "assignedServicePartnerCompanyId") {
+        const selectedContractor = contractors.find(
+          (contractor) => contractor.id === current.assignedContractorId
+        )
+        if (
+          selectedContractor?.servicePartnerCompany?.id &&
+          selectedContractor.servicePartnerCompany.id !== value
+        ) {
+          next.assignedContractorId = ""
+        }
+      }
+
+      if (e.target.name === "assignedContractorId") {
+        const selectedContractor = contractors.find(
+          (contractor) => contractor.id === value
+        )
+        if (selectedContractor?.servicePartnerCompany?.id) {
+          next.assignedServicePartnerCompanyId =
+            selectedContractor.servicePartnerCompany.id
+        }
+      }
+
+      return next
+    })
   }
 
   const inspectionPreview = calculateInspectionPreview(
@@ -140,6 +189,12 @@ export default function CreateInstallationForm({
     formData.lastInspection,
     inspectionPreview.intervalMonths
   )
+  const contactOptions = formData.assignedServicePartnerCompanyId
+    ? contractors.filter(
+        (contractor) =>
+          contractor.servicePartnerCompany?.id === formData.assignedServicePartnerCompanyId
+      )
+    : contractors
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -205,6 +260,30 @@ export default function CreateInstallationForm({
       <input className={inputClassName} name="serialNumber" placeholder="Serienummer" value={formData.serialNumber} onChange={handleChange} />
       <input className={inputClassName} name="equipmentType" placeholder="Utrustningstyp" value={formData.equipmentType} onChange={handleChange} />
       <input className={inputClassName} name="operatorName" placeholder="Operatör" value={formData.operatorName} onChange={handleChange} />
+
+      <label className={labelClassName}>
+        Servicepartnerföretag
+        <select className={inputClassName} name="assignedServicePartnerCompanyId" value={formData.assignedServicePartnerCompanyId} onChange={handleChange}>
+          <option value="">Ingen vald</option>
+          {servicePartnerCompanies.map((company) => (
+            <option key={company.id} value={company.id}>
+              {company.name}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className={labelClassName}>
+        Valfri servicekontakt / tekniker
+        <select className={inputClassName} name="assignedContractorId" value={formData.assignedContractorId} onChange={handleChange}>
+          <option value="">Ingen vald</option>
+          {contactOptions.map((contractor) => (
+            <option key={contractor.id} value={contractor.id}>
+              {contractor.name} ({contractor.email})
+            </option>
+          ))}
+        </select>
+      </label>
 
       <label className={labelClassName}>
         <span>Köldmedium <RequiredMark /></span>

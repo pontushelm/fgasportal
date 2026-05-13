@@ -48,6 +48,50 @@ export async function GET(request: NextRequest, context: RouteContext) {
         notes: true,
         createdAt: true,
         updatedAt: true,
+        assignedInstallations: {
+          where: {
+            companyId: auth.user.companyId,
+            archivedAt: null,
+            scrappedAt: null,
+          },
+          include: {
+            assignedContractor: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            property: {
+              select: {
+                name: true,
+              },
+            },
+            events: {
+              where: {
+                type: "LEAK",
+                supersededAt: null,
+                date: {
+                  gte: yearStart,
+                  lt: nextYearStart,
+                },
+              },
+              select: {
+                id: true,
+                date: true,
+              },
+            },
+            activityLogs: {
+              orderBy: {
+                createdAt: "desc",
+              },
+              select: {
+                createdAt: true,
+              },
+              take: 1,
+            },
+          },
+        },
         memberships: {
           where: {
             companyId: auth.user.companyId,
@@ -198,9 +242,31 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
     })
 
-    const installations = servicePartnerCompany.memberships
-      .flatMap((membership) =>
-        membership.user.assignedInstallations.map((installation) => {
+    const directInstallationEntries = servicePartnerCompany.assignedInstallations.map(
+      (installation) => ({
+        installation,
+        contractor: installation.assignedContractor,
+      })
+    )
+    const fallbackInstallationEntries = servicePartnerCompany.memberships.flatMap((membership) =>
+      membership.user.assignedInstallations
+        .filter((installation) => !installation.assignedServicePartnerCompanyId)
+        .map((installation) => ({
+          installation,
+          contractor: membership.user,
+        }))
+    )
+    const companyInstallationEntries = Array.from(
+      new Map(
+        [...directInstallationEntries, ...fallbackInstallationEntries].map((entry) => [
+          entry.installation.id,
+          entry,
+        ])
+      ).values()
+    )
+
+    const installations = companyInstallationEntries
+      .map(({ contractor, installation }) => {
           const compliance = calculateInstallationCompliance(
             installation.refrigerantType,
             installation.refrigerantAmount,
@@ -228,18 +294,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
             complianceStatus: compliance.status,
             riskLevel: risk.level,
             assignedContractor: {
-              id: membership.user.id,
-              name: membership.user.name,
-              email: membership.user.email,
+              id: contractor?.id ?? "",
+              name: contractor?.name ?? "-",
+              email: contractor?.email ?? "",
             },
             leakageEventsCount: installation.events.length,
             latestActivityDate: installation.activityLogs[0]?.createdAt ?? null,
           }
         })
-      )
       .sort((first, second) => first.name.localeCompare(second.name, "sv"))
-    const actionInstallations = servicePartnerCompany.memberships.flatMap((membership) =>
-      membership.user.assignedInstallations.map((installation) => {
+    const actionInstallations = companyInstallationEntries.map(({ contractor, installation }) => {
         const compliance = calculateInstallationCompliance(
           installation.refrigerantType,
           installation.refrigerantAmount,
@@ -264,32 +328,29 @@ export async function GET(request: NextRequest, context: RouteContext) {
           nextInspection: installation.nextInspection,
           inspectionInterval: compliance.inspectionIntervalMonths,
           complianceStatus: compliance.status,
-          assignedContractorId: membership.user.id,
-          assignedServiceContactId: membership.user.id,
-          assignedServiceContactName: membership.user.name,
-          assignedServiceContactEmail: membership.user.email,
+          assignedContractorId: contractor?.id ?? null,
+          assignedServiceContactId: contractor?.id ?? null,
+          assignedServiceContactName: contractor?.name ?? null,
+          assignedServiceContactEmail: contractor?.email ?? null,
           servicePartnerCompanyId: servicePartnerCompany.id,
           servicePartnerCompanyName: servicePartnerCompany.name,
           risk,
         }
       })
-    )
-    const actionLeakageEvents = servicePartnerCompany.memberships.flatMap((membership) =>
-      membership.user.assignedInstallations.flatMap((installation) =>
+    const actionLeakageEvents = companyInstallationEntries.flatMap(({ contractor, installation }) =>
         installation.events.map((event) => ({
           id: event.id,
           installationId: installation.id,
           installationName: installation.name,
           equipmentId: installation.equipmentId,
           propertyName: installation.property?.name ?? installation.propertyName,
-          assignedServiceContactId: membership.user.id,
-          assignedServiceContactName: membership.user.name,
-          assignedServiceContactEmail: membership.user.email,
+          assignedServiceContactId: contractor?.id ?? null,
+          assignedServiceContactName: contractor?.name ?? null,
+          assignedServiceContactEmail: contractor?.email ?? null,
           servicePartnerCompanyId: servicePartnerCompany.id,
           servicePartnerCompanyName: servicePartnerCompany.name,
           date: event.date,
         }))
-      )
     )
     const actions = generateDashboardActions({
       installations: actionInstallations,
@@ -300,6 +361,30 @@ export async function GET(request: NextRequest, context: RouteContext) {
       companies: [servicePartnerCompany],
       contractors,
     })
+    const companyMetrics = metrics
+      ? {
+          ...metrics,
+          assignedInstallationsCount: installations.length,
+          overdueInspections: installations.filter(
+            (installation) => installation.complianceStatus === "OVERDUE"
+          ).length,
+          dueSoonInspections: installations.filter(
+            (installation) => installation.complianceStatus === "DUE_SOON"
+          ).length,
+          highRiskInstallations: installations.filter(
+            (installation) => installation.riskLevel === "HIGH"
+          ).length,
+          leakageEventsCount: installations.reduce(
+            (sum, installation) => sum + installation.leakageEventsCount,
+            0
+          ),
+          latestActivityDate: installations.reduce<Date | string | null>(
+            (latest, installation) =>
+              latestDate(latest, installation.latestActivityDate),
+            metrics.latestActivityDate
+          ),
+        }
+      : metrics
 
     return NextResponse.json(
       {
@@ -313,7 +398,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
           createdAt: servicePartnerCompany.createdAt,
           updatedAt: servicePartnerCompany.updatedAt,
         },
-        metrics,
+        metrics: companyMetrics,
         contractors,
         installations,
         actions: actions.slice(0, 8),
@@ -408,3 +493,13 @@ const servicePartnerCompanySelect = {
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.ServicePartnerCompanySelect
+
+function latestDate(
+  current: Date | string | null,
+  candidate: Date | string | null
+) {
+  if (!candidate) return current
+  if (!current) return candidate
+
+  return new Date(candidate) > new Date(current) ? candidate : current
+}

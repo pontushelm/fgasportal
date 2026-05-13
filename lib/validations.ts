@@ -134,6 +134,7 @@ const installationRegisterFieldsSchema = {
   operatorName: optionalRegisterField,
   hasLeakDetectionSystem: z.boolean().optional(),
   assignedContractorId: optionalContractorField,
+  assignedServicePartnerCompanyId: optionalContractorField,
 }
 
 export const createInstallationSchema = z.object({

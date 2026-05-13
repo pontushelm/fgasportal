@@ -68,7 +68,7 @@ const CATEGORY_FILTERS: Array<{ label: string; value: ActionFilter }> = [
   { label: "Kommande kontroller", value: "UPCOMING_INSPECTIONS" },
   { label: "Läckage", value: "LEAKAGE" },
   { label: "Riskbevakning", value: "HIGH_RISK" },
-  { label: "Saknar servicekontakt", value: "NO_SERVICE_PARTNER" },
+  { label: "Saknar servicepartner", value: "NO_SERVICE_PARTNER" },
   { label: "Köldmedium", value: "REFRIGERANT_REVIEW" },
 ]
 
@@ -109,7 +109,7 @@ const SUMMARY_CARD_TOOLTIPS = {
   overdue: "Aggregat där kontrollintervallet har passerats.",
   dueSoon: "Aggregat med kontroll inom kommande period.",
   leakageFollowUp: "Registrerade läckage som kan behöva följas upp.",
-  missingServiceContact: "Aggregat utan tilldelad servicekontakt.",
+  missingServiceContact: "Aggregat utan tilldelat servicepartnerföretag.",
   refrigerantReview:
     "Aggregat med köldmedium som bör kontrolleras mot gällande eller kommande krav.",
 } satisfies Record<string, string>
@@ -408,7 +408,7 @@ export default function ActionsPageClient() {
               value={summaryCounts.leakageFollowUp}
             />
             <SummaryCard
-              label="Saknar servicekontakt"
+              label="Saknar servicepartner"
               tooltip={SUMMARY_CARD_TOOLTIPS.missingServiceContact}
               value={summaryCounts.missingServiceContact}
             />

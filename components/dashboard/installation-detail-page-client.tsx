@@ -142,6 +142,8 @@ type InstallationDetail = {
   scrapCertificateFileName?: string | null
   scrapServicePartnerId?: string | null
   recoveredRefrigerantKg?: number | null
+  assignedServicePartnerCompanyId?: string | null
+  assignedServicePartnerCompany?: ServicePartnerCompanySummary | null
   assignedContractorId?: string | null
   assignedContractor?: {
     id: string
@@ -205,6 +207,7 @@ type InstallationEditFormData = {
   hasLeakDetectionSystem: boolean
   installationDate: string
   isInstallationDateUnknown: boolean
+  assignedServicePartnerCompanyId: string
   assignedContractorId: string
   notes: string
 }
@@ -274,6 +277,7 @@ const initialEditFormData: InstallationEditFormData = {
   hasLeakDetectionSystem: false,
   installationDate: "",
   isInstallationDateUnknown: false,
+  assignedServicePartnerCompanyId: "",
   assignedContractorId: "",
   notes: "",
 }
@@ -372,7 +376,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
   installation_created: "Aggregat skapat",
   installation_updated: "Aggregat uppdaterat",
   installation_scrapped: "Aggregat skrotat",
-  service_partner_assigned: "Servicekontakt tilldelad",
+  service_partner_assigned: "Servicepartner tilldelad",
   inspection_added: "Kontroll registrerad",
   leak_registered: "Läckage registrerat",
   refill_registered: "Påfyllning registrerad",
@@ -440,6 +444,7 @@ export default function InstallationDetailPage() {
   const [documents, setDocuments] = useState<InstallationDocument[]>([])
   const [activityLogs, setActivityLogs] = useState<ActivityLogEntry[]>([])
   const [contractors, setContractors] = useState<Contractor[]>([])
+  const [servicePartnerCompanies, setServicePartnerCompanies] = useState<ServicePartnerCompanySummary[]>([])
   const [properties, setProperties] = useState<PropertyOption[]>([])
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -560,6 +565,12 @@ export default function InstallationDetailPage() {
               credentials: "include",
             }).then((response) => (response.ok ? response.json() : []))
           : []
+      const servicePartnerCompaniesData: ServicePartnerCompanySummary[] =
+        isAdminRole(userData.role)
+          ? await fetch("/api/service-partner-companies", {
+              credentials: "include",
+            }).then((response) => (response.ok ? response.json() : []))
+          : []
 
       if (!isMounted) return
 
@@ -568,6 +579,7 @@ export default function InstallationDetailPage() {
       setDocuments(documentsData)
       setActivityLogs(activityData)
       setContractors(contractorsData)
+      setServicePartnerCompanies(servicePartnerCompaniesData)
       setProperties(propertiesData)
       setCurrentUser(userData)
       setEditForm({
@@ -584,6 +596,10 @@ export default function InstallationDetailPage() {
         hasLeakDetectionSystem: data.hasLeakDetectionSystem,
         installationDate: toDateInputValue(data.installationDate),
         isInstallationDateUnknown: !data.installationDate,
+        assignedServicePartnerCompanyId:
+          data.assignedServicePartnerCompany?.id ??
+          data.assignedContractor?.servicePartnerCompany?.id ??
+          "",
         assignedContractorId: data.assignedContractorId || "",
         notes: data.notes || "",
       })
@@ -676,13 +692,39 @@ export default function InstallationDetailPage() {
         ? event.target.checked
         : event.target.value
 
-    setEditForm((current) => ({
-      ...current,
-      [event.target.name]: value,
-      ...(event.target.name === "isInstallationDateUnknown" && value === true
-        ? { installationDate: "" }
-        : {}),
-    }))
+    setEditForm((current) => {
+      const next = {
+        ...current,
+        [event.target.name]: value,
+        ...(event.target.name === "isInstallationDateUnknown" && value === true
+          ? { installationDate: "" }
+          : {}),
+      }
+
+      if (event.target.name === "assignedServicePartnerCompanyId") {
+        const selectedContractor = contractors.find(
+          (contractor) => contractor.id === current.assignedContractorId
+        )
+        if (
+          selectedContractor?.servicePartnerCompany?.id &&
+          selectedContractor.servicePartnerCompany.id !== value
+        ) {
+          next.assignedContractorId = ""
+        }
+      }
+
+      if (event.target.name === "assignedContractorId") {
+        const selectedContractor = contractors.find(
+          (contractor) => contractor.id === value
+        )
+        if (selectedContractor?.servicePartnerCompany?.id) {
+          next.assignedServicePartnerCompanyId =
+            selectedContractor.servicePartnerCompany.id
+        }
+      }
+
+      return next
+    })
   }
 
   function openEventModal(type?: EventFormType) {
@@ -1227,6 +1269,18 @@ export default function InstallationDetailPage() {
   const selectedScrapContractor = contractors.find(
     (contractor) => contractor.id === scrapForm.servicePartnerId
   )
+  const servicePartnerCompanyOptions = deriveServicePartnerCompanies(
+    contractors,
+    servicePartnerCompanies,
+    installation.assignedServicePartnerCompany
+  )
+  const editContactOptions = editForm.assignedServicePartnerCompanyId
+    ? contractors.filter(
+        (contractor) =>
+          contractor.servicePartnerCompany?.id ===
+          editForm.assignedServicePartnerCompanyId
+      )
+    : contractors
   const scrapCertificationWarning = getCertificationWarning(
     selectedScrapContractor?.certificationStatus ?? null
   )
@@ -1365,6 +1419,13 @@ export default function InstallationDetailPage() {
             <DetailItem label="Serienummer" value={formatOptionalText(installation.serialNumber)} />
             <DetailItem label="Utrustningstyp" value={formatOptionalText(installation.equipmentType)} />
             <DetailItem label="Operatör" value={formatOptionalText(installation.operatorName)} />
+            <DetailItem
+              label="Servicepartnerföretag"
+              value={formatOptionalText(
+                installation.assignedServicePartnerCompany?.name ??
+                  installation.assignedContractor?.servicePartnerCompany?.name
+              )}
+            />
             {installation.assignedContractor && (
               <ServicepartnerDetailItem contractor={installation.assignedContractor} />
             )}
@@ -1717,10 +1778,31 @@ export default function InstallationDetailPage() {
                 Driftsättningsdatum okänt
               </label>
               <label className={fieldClassName}>
-                Servicekontakt
-                <select className={formControlClassName} name="assignedContractorId" value={editForm.assignedContractorId} onChange={handleEditChange}>
-                  <option value="">Ingen tilldelad</option>
-                  {contractors.map((contractor) => (
+                Servicepartnerföretag
+                <select
+                  className={formControlClassName}
+                  name="assignedServicePartnerCompanyId"
+                  value={editForm.assignedServicePartnerCompanyId}
+                  onChange={handleEditChange}
+                >
+                  <option value="">Ingen vald</option>
+                  {servicePartnerCompanyOptions.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={fieldClassName}>
+                Valfri servicekontakt / tekniker
+                <select
+                  className={formControlClassName}
+                  name="assignedContractorId"
+                  value={editForm.assignedContractorId}
+                  onChange={handleEditChange}
+                >
+                  <option value="">Ingen vald</option>
+                  {editContactOptions.map((contractor) => (
                     <option key={contractor.id} value={contractor.id}>
                       {formatContractorOption(contractor)} ({contractor.email})
                     </option>
@@ -2361,6 +2443,26 @@ function formatContractorOption(contractor: Contractor) {
   return contractor.servicePartnerCompany?.name
     ? `${contractor.name} - ${contractor.servicePartnerCompany.name}`
     : contractor.name
+}
+
+function deriveServicePartnerCompanies(
+  contractors: Contractor[],
+  companies: ServicePartnerCompanySummary[],
+  currentCompany?: ServicePartnerCompanySummary | null
+) {
+  const options = new Map<string, ServicePartnerCompanySummary>()
+
+  companies.forEach((company) => options.set(company.id, company))
+  contractors.forEach((contractor) => {
+    if (contractor.servicePartnerCompany) {
+      options.set(contractor.servicePartnerCompany.id, contractor.servicePartnerCompany)
+    }
+  })
+  if (currentCompany) options.set(currentCompany.id, currentCompany)
+
+  return Array.from(options.values()).sort((first, second) =>
+    first.name.localeCompare(second.name, "sv")
+  )
 }
 
 function formatAssignedContractor(

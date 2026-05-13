@@ -174,7 +174,7 @@ export function generateDashboardActions({
       )
     }
 
-    if (installation.inspectionInterval && !installation.assignedContractorId) {
+    if (installation.inspectionInterval && !installation.servicePartnerCompanyId) {
       actions.push(
         createAction({
           type: "NO_SERVICE_PARTNER",

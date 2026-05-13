@@ -76,6 +76,35 @@ export async function GET(request: NextRequest) {
             municipality: true,
           },
         },
+        assignedServicePartnerCompany: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        assignedContractor: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            memberships: {
+              where: {
+                companyId,
+                role: "CONTRACTOR",
+                isActive: true,
+              },
+              select: {
+                servicePartnerCompany: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+              take: 1,
+            },
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -115,6 +144,10 @@ export async function GET(request: NextRequest) {
         isInspectionOverdue: compliance.status === "OVERDUE",
       })
       incrementRiskSummary(riskSummary, risk.level)
+      const servicePartnerCompany =
+        installation.assignedServicePartnerCompany ??
+        installation.assignedContractor?.memberships[0]?.servicePartnerCompany ??
+        null
 
       const refrigerantType =
         installation.refrigerantType?.trim() || "Okänt köldmedium"
@@ -146,6 +179,11 @@ export async function GET(request: NextRequest) {
         nextInspection: installation.nextInspection,
         lastInspection: installation.lastInspection,
         assignedContractorId: installation.assignedContractorId,
+        assignedServiceContactId: installation.assignedContractor?.id ?? null,
+        assignedServiceContactName: installation.assignedContractor?.name ?? null,
+        assignedServiceContactEmail: installation.assignedContractor?.email ?? null,
+        servicePartnerCompanyId: servicePartnerCompany?.id ?? null,
+        servicePartnerCompanyName: servicePartnerCompany?.name ?? null,
         propertyId: installation.property?.id ?? null,
         propertyName: installation.property?.name ?? installation.propertyName,
         leakageEventsCount,

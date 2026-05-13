@@ -26,6 +26,7 @@ describe("dashboard action generation", () => {
           inspectionInterval: 12,
           complianceStatus: "DUE_SOON",
           assignedContractorId: "contractor-1",
+          servicePartnerCompanyId: "service-company-1",
           risk: { level: "LOW", score: 1 },
         },
         {
@@ -35,6 +36,7 @@ describe("dashboard action generation", () => {
           inspectionInterval: 12,
           complianceStatus: "OVERDUE",
           assignedContractorId: "contractor-1",
+          servicePartnerCompanyId: "service-company-1",
           risk: { level: "LOW", score: 1 },
         },
         {
@@ -255,6 +257,7 @@ describe("dashboard action generation", () => {
           inspectionInterval: 12,
           complianceStatus: "DUE_SOON",
           assignedContractorId: "contractor-1",
+          servicePartnerCompanyId: "service-company-1",
           risk: { level: "LOW", score: 1 },
         },
       ],

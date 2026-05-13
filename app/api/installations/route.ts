@@ -24,20 +24,42 @@ export async function POST(request: NextRequest) {
     const validatedData = createInstallationSchema.parse(body)
     const {
       assignedContractorId: rawAssignedContractorId,
+      assignedServicePartnerCompanyId: rawAssignedServicePartnerCompanyId,
       propertyId: rawPropertyId,
       ...installationData
     } = validatedData
-    const assignedContractorId = await validateAssignedContractor(
+    const assignedServicePartnerCompanyId = await validateServicePartnerCompany(
+      rawAssignedServicePartnerCompanyId,
+      companyId
+    )
+    let assignedContractor = await validateAssignedContractor(
       rawAssignedContractorId,
       companyId
     )
 
-    if (assignedContractorId === false) {
+    if (assignedServicePartnerCompanyId === false) {
+      return NextResponse.json(
+        { error: 'Ogiltigt servicepartnerföretag' },
+        { status: 400 }
+      )
+    }
+
+    if (assignedContractor === false) {
       return NextResponse.json(
         { error: 'Ogiltig servicepartner' },
         { status: 400 }
       )
     }
+    if (
+      assignedServicePartnerCompanyId &&
+      assignedContractor?.servicePartnerCompanyId &&
+      assignedContractor.servicePartnerCompanyId !== assignedServicePartnerCompanyId
+    ) {
+      assignedContractor = null
+    }
+    const inferredServicePartnerCompanyId =
+      assignedServicePartnerCompanyId ?? assignedContractor?.servicePartnerCompanyId ?? null
+    const assignedContractorId = assignedContractor?.userId ?? null
     const propertyId = await validateProperty(rawPropertyId, companyId)
 
     if (propertyId === false) {
@@ -80,6 +102,7 @@ export async function POST(request: NextRequest) {
         equipmentType: emptyToNull(validatedData.equipmentType),
         operatorName: emptyToNull(validatedData.operatorName),
         assignedContractorId: assignedContractorId ?? null,
+        assignedServicePartnerCompanyId: inferredServicePartnerCompanyId,
         hasLeakDetectionSystem: validatedData.hasLeakDetectionSystem ?? false,
         inspectionIntervalMonths: compliance.inspectionIntervalMonths,
         nextInspection,
@@ -113,6 +136,7 @@ export async function POST(request: NextRequest) {
         entityId: installation.id,
         metadata: {
           assignedContractorId,
+          assignedServicePartnerCompanyId: inferredServicePartnerCompanyId,
         },
       })
 
@@ -183,10 +207,34 @@ async function validateAssignedContractor(
     },
     select: {
       userId: true,
+      servicePartnerCompanyId: true,
     },
   })
 
-  return contractor ? contractor.userId : false
+  return contractor ?? false
+}
+
+async function validateServicePartnerCompany(
+  value: string | null | undefined,
+  companyId: string
+) {
+  if (value === undefined) return undefined
+
+  const servicePartnerCompanyId = emptyToNull(value)
+
+  if (!servicePartnerCompanyId) return null
+
+  const servicePartnerCompany = await prisma.servicePartnerCompany.findFirst({
+    where: {
+      id: servicePartnerCompanyId,
+      companyId,
+    },
+    select: {
+      id: true,
+    },
+  })
+
+  return servicePartnerCompany ? servicePartnerCompany.id : false
 }
 
 async function validateProperty(
@@ -282,16 +330,22 @@ export async function GET(request: NextRequest) {
         : {}),
       ...(servicePartnerCompanyId
         ? {
-            assignedContractor: {
-              memberships: {
-                some: {
-                  companyId,
-                  role: "CONTRACTOR",
-                  isActive: true,
-                  servicePartnerCompanyId,
+            OR: [
+              { assignedServicePartnerCompanyId: servicePartnerCompanyId },
+              {
+                assignedServicePartnerCompanyId: null,
+                assignedContractor: {
+                  memberships: {
+                    some: {
+                      companyId,
+                      role: "CONTRACTOR",
+                      isActive: true,
+                      servicePartnerCompanyId,
+                    },
+                  },
                 },
               },
-            },
+            ],
           }
         : {}),
       ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
@@ -334,6 +388,13 @@ export async function GET(request: NextRequest) {
             city: true,
           },
         },
+        assignedServicePartnerCompany: {
+          select: {
+            id: true,
+            name: true,
+            organizationNumber: true,
+          },
+        },
         events: {
           where: {
             type: "LEAK",
@@ -348,7 +409,7 @@ export async function GET(request: NextRequest) {
     })
 
     const installationsWithCompliance = installations.map((installation) => {
-      const { assignedContractor, events: leakEvents, ...installationData } = installation
+      const { assignedContractor, assignedServicePartnerCompany, events: leakEvents, ...installationData } = installation
       const compliance = calculateInstallationCompliance(
         installation.refrigerantType,
         installation.refrigerantAmount,
@@ -376,6 +437,10 @@ export async function GET(request: NextRequest) {
                 assignedContractor.memberships[0]?.servicePartnerCompany ?? null,
             }
           : null,
+        assignedServicePartnerCompany:
+          assignedServicePartnerCompany ??
+          assignedContractor?.memberships[0]?.servicePartnerCompany ??
+          null,
         gwp: compliance.gwp,
         co2eKg: compliance.co2eKg,
         co2eTon: compliance.co2eTon,

@@ -158,6 +158,7 @@ model ServicePartnerCompany {
 
   company     Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
   memberships CompanyMembership[]
+  assignedInstallations Installation[] @relation("AssignedServicePartnerCompany")
 
   @@unique([companyId, name])
   @@index([companyId])
@@ -227,12 +228,16 @@ model Installation {
   assignedContractorId String?
   assignedContractor   User?   @relation("AssignedContractor", fields: [assignedContractorId], references: [id], onDelete: SetNull)
 
+  assignedServicePartnerCompanyId String?
+  assignedServicePartnerCompany   ServicePartnerCompany? @relation("AssignedServicePartnerCompany", fields: [assignedServicePartnerCompanyId], references: [id], onDelete: SetNull)
+
   inspections  Inspection[]
   reminderLogs ReminderLog[]
   events       InstallationEvent[]
   documents    InstallationDocument[]
   activityLogs ActivityLog[]
 
+  @@index([assignedServicePartnerCompanyId])
   @@map("installations")
 }
 
