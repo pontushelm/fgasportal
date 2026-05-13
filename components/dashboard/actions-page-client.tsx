@@ -377,46 +377,46 @@ export default function ActionsPageClient() {
       </section>
 
       <div className="mx-auto mt-6 max-w-7xl">
-        <section className="grid gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-6">
-          <SummaryCard
-            label="Totalt"
-            tooltip={SUMMARY_CARD_TOOLTIPS.total}
-            value={summaryCounts.total}
-          />
-          <SummaryCard
-            label="Hög prio"
-            tone="red"
-            tooltip={SUMMARY_CARD_TOOLTIPS.highSeverity}
-            value={summaryCounts.highSeverity}
-          />
-          <SummaryCard
-            label="Försenade"
-            tone="red"
-            tooltip={SUMMARY_CARD_TOOLTIPS.overdue}
-            value={summaryCounts.overdue}
-          />
-          <SummaryCard
-            label="Kommande"
-            tone="amber"
-            tooltip={SUMMARY_CARD_TOOLTIPS.dueSoon}
-            value={summaryCounts.dueSoon}
-          />
-          <SummaryCard
-            label="Läckage"
-            tone="amber"
-            tooltip={SUMMARY_CARD_TOOLTIPS.leakageFollowUp}
-            value={summaryCounts.leakageFollowUp}
-          />
-          <SummaryCard
-            label="Saknar servicekontakt"
-            tooltip={SUMMARY_CARD_TOOLTIPS.missingServiceContact}
-            value={summaryCounts.missingServiceContact}
-          />
-          <SummaryCard
-            label="Köldmedium"
-            tooltip={SUMMARY_CARD_TOOLTIPS.refrigerantReview}
-            value={summaryCounts.refrigerantReview}
-          />
+        <section className="grid gap-2 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-7 xl:gap-3">
+            <SummaryCard
+              label="Totalt"
+              tooltip={SUMMARY_CARD_TOOLTIPS.total}
+              value={summaryCounts.total}
+            />
+            <SummaryCard
+              label="Hög prio"
+              tone="red"
+              tooltip={SUMMARY_CARD_TOOLTIPS.highSeverity}
+              value={summaryCounts.highSeverity}
+            />
+            <SummaryCard
+              label="Försenade"
+              tone="red"
+              tooltip={SUMMARY_CARD_TOOLTIPS.overdue}
+              value={summaryCounts.overdue}
+            />
+            <SummaryCard
+              label="Kommande"
+              tone="amber"
+              tooltip={SUMMARY_CARD_TOOLTIPS.dueSoon}
+              value={summaryCounts.dueSoon}
+            />
+            <SummaryCard
+              label="Läckage"
+              tone="amber"
+              tooltip={SUMMARY_CARD_TOOLTIPS.leakageFollowUp}
+              value={summaryCounts.leakageFollowUp}
+            />
+            <SummaryCard
+              label="Saknar servicekontakt"
+              tooltip={SUMMARY_CARD_TOOLTIPS.missingServiceContact}
+              value={summaryCounts.missingServiceContact}
+            />
+            <SummaryCard
+              label="Köldmedium"
+              tooltip={SUMMARY_CARD_TOOLTIPS.refrigerantReview}
+              value={summaryCounts.refrigerantReview}
+            />
         </section>
 
         <Card className="sticky top-0 z-20 mt-4 p-3 shadow-sm sm:static sm:p-4 sm:shadow-none">
@@ -678,13 +678,11 @@ export default function ActionsPageClient() {
 
         {!isLoading && !error && (
           <Card className="mt-4 overflow-hidden">
-            <div className="flex flex-col gap-1 border-b border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold text-slate-950">
-                  {visibleActions.length} åtgärder
-                </p>
-                <InfoTooltip text={SORT_TOOLTIP} />
-              </div>
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+              <p className="text-sm font-semibold text-slate-950">
+                {visibleActions.length} åtgärder
+              </p>
+              <InfoTooltip text={SORT_TOOLTIP} />
             </div>
             {visibleActions.length === 0 ? (
               <p className="px-4 py-8 text-sm text-slate-600">
@@ -723,14 +721,23 @@ function SummaryCard({
     red: "border-l-red-500",
     amber: "border-l-amber-500",
   }[tone]
+  const tooltipId = useId()
 
   return (
-    <Card className={`border-l-4 px-4 py-3 ${toneClass}`}>
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-        <InfoTooltip text={tooltip} />
-      </div>
+    <Card
+      aria-describedby={tooltipId}
+      className={`group relative border-l-4 px-3 py-3 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${toneClass}`}
+      tabIndex={0}
+    >
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
       <p className="mt-1 text-2xl font-bold text-slate-950">{value}</p>
+      <span
+        className="pointer-events-none absolute left-0 right-0 top-full z-30 mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs leading-5 text-slate-700 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus:opacity-100 group-focus-visible:opacity-100"
+        id={tooltipId}
+        role="tooltip"
+      >
+        {tooltip}
+      </span>
     </Card>
   )
 }
