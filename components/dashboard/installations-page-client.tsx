@@ -898,7 +898,22 @@ export default function InstallationsPageClient() {
       )}
 
       {!isLoading && installations.length > 0 && (
-        <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="mt-6 grid gap-3 lg:hidden">
+          {installations.map((installation) => (
+            <InstallationMobileCard
+              canManage={canManage}
+              installation={installation}
+              isSelected={selectedIds.includes(installation.id)}
+              key={installation.id}
+              onOpenQuickView={() => setSelectedInstallation(installation)}
+              onToggleSelected={() => toggleInstallation(installation.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      {!isLoading && installations.length > 0 && (
+        <div className="mt-6 hidden overflow-x-auto rounded-lg border border-slate-200 bg-white lg:block">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50">
               <tr>
@@ -1294,6 +1309,86 @@ function InstallationQuickView({
         </div>
       </aside>
     </div>
+  )
+}
+
+function InstallationMobileCard({
+  canManage,
+  installation,
+  isSelected,
+  onOpenQuickView,
+  onToggleSelected,
+}: {
+  canManage: boolean
+  installation: Installation
+  isSelected: boolean
+  onOpenQuickView: () => void
+  onToggleSelected: () => void
+}) {
+  return (
+    <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <button
+            className="text-left text-base font-semibold text-slate-950 underline-offset-4 hover:underline"
+            type="button"
+            onClick={onOpenQuickView}
+          >
+            {installation.name}
+          </button>
+          <p className="mt-1 text-sm text-slate-600">
+            {[installation.equipmentId, installation.location].filter(Boolean).join(" · ") || "-"}
+          </p>
+        </div>
+        {canManage && (
+          <input
+            aria-label={`Välj ${installation.name}`}
+            className="mt-1 h-5 w-5 rounded border-slate-300 text-blue-600"
+            checked={isSelected}
+            type="checkbox"
+            onChange={onToggleSelected}
+          />
+        )}
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <StatusBadge
+          archivedAt={installation.archivedAt}
+          scrappedAt={installation.scrappedAt}
+          status={installation.complianceStatus}
+        />
+        {!installation.scrappedAt && <RiskBadge level={installation.riskLevel} />}
+      </div>
+
+      <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+        <QuickViewItem label="Fastighet" value={installation.property?.name || "-"} />
+        <QuickViewItem
+          label="Servicekontakt"
+          value={formatAssignedContractor(installation.assignedContractor)}
+        />
+        <QuickViewItem
+          label="Nästa kontroll"
+          value={formatOptionalDate(installation.nextInspection)}
+        />
+        <QuickViewItem label="CO₂e" value={formatCo2eTon(installation.co2eTon)} />
+      </dl>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <button
+          className="min-h-11 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+          type="button"
+          onClick={onOpenQuickView}
+        >
+          Snabbvy
+        </button>
+        <Link
+          className="inline-flex min-h-11 items-center justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          href={`/dashboard/installations/${installation.id}`}
+        >
+          Öppna aggregat
+        </Link>
+      </div>
+    </article>
   )
 }
 

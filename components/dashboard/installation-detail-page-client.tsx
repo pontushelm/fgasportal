@@ -603,7 +603,8 @@ export default function InstallationDetailPage() {
     }))
   }
 
-  function openEventModal(type: EventFormType = "SERVICE") {
+  function openEventModal(type?: EventFormType) {
+    const nextType = type ?? eventForm.type
     setEventError("")
     setEventSuccess("")
     setArchiveError("")
@@ -611,14 +612,14 @@ export default function InstallationDetailPage() {
     setLifecycleConfirmed(false)
     setEventForm((current) => ({
       ...current,
-      type,
+      type: nextType,
       date: current.date || getTodayInputValue(),
       newRefrigerantType:
-        type === "REFRIGERANT_CHANGE" ? current.newRefrigerantType : "",
+        nextType === "REFRIGERANT_CHANGE" ? current.newRefrigerantType : "",
       recoveredRefrigerantKg:
-        type === "REFRIGERANT_CHANGE" ? current.recoveredRefrigerantKg : "",
+        nextType === "REFRIGERANT_CHANGE" ? current.recoveredRefrigerantKg : "",
     }))
-    if (type === "SCRAP") {
+    if (nextType === "SCRAP") {
       setScrapForm({
         ...initialScrapFormData,
         servicePartnerId: installation?.assignedContractorId || "",
@@ -1603,7 +1604,7 @@ export default function InstallationDetailPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <label className={fieldClassName}>
                 Datum
-                <input className={formControlClassName} name="date" type="date" value={eventForm.date} onChange={handleEventChange} required />
+                <input className={formControlClassName} name="date" type="date" value={eventForm.date} onChange={handleEventChange} required autoFocus />
               </label>
               <label className={fieldClassName}>
                 Typ

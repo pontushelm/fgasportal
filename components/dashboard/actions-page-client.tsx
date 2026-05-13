@@ -113,6 +113,7 @@ export default function ActionsPageClient() {
   const [isSavingView, setIsSavingView] = useState(false)
   const [savedViewMessage, setSavedViewMessage] = useState("")
   const [savedViewError, setSavedViewError] = useState("")
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
   const activeCategory = getActionFilter(searchParams.get("filter"))
@@ -206,6 +207,33 @@ export default function ActionsPageClient() {
       activeServiceContact,
       activeServicePartnerCompany,
       activeSeverity,
+    ]
+  )
+  const activeFilterLabels = useMemo(
+    () =>
+      getActiveFilterLabels({
+        activeCategory,
+        activeDueDate,
+        activeProperty,
+        activeSearch,
+        activeServiceContact,
+        activeServicePartnerCompany,
+        activeSeverity,
+        registeredProperties,
+        serviceContactOptions,
+        servicePartnerCompanyOptions,
+      }),
+    [
+      activeCategory,
+      activeDueDate,
+      activeProperty,
+      activeSearch,
+      activeServiceContact,
+      activeServicePartnerCompany,
+      activeSeverity,
+      registeredProperties,
+      serviceContactOptions,
+      servicePartnerCompanyOptions,
     ]
   )
 
@@ -324,7 +352,7 @@ export default function ActionsPageClient() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-slate-50 px-3 py-6 text-slate-900 sm:px-6 sm:py-8 lg:px-8">
       <section className="mx-auto max-w-7xl">
         <PageHeader
           title="Åtgärder"
@@ -333,7 +361,7 @@ export default function ActionsPageClient() {
       </section>
 
       <div className="mx-auto mt-6 max-w-7xl">
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        <section className="grid gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-6">
           <SummaryCard label="Totalt" value={summaryCounts.total} />
           <SummaryCard label="Hög prio" value={summaryCounts.highSeverity} tone="red" />
           <SummaryCard label="Försenade" value={summaryCounts.overdue} tone="red" />
@@ -342,11 +370,43 @@ export default function ActionsPageClient() {
           <SummaryCard label="Saknar servicekontakt" value={summaryCounts.missingServiceContact} />
         </section>
 
-        <Card className="mt-4 p-4">
-          <div className="flex flex-wrap gap-2">
+        <Card className="sticky top-0 z-20 mt-4 p-3 shadow-sm sm:static sm:p-4 sm:shadow-none">
+          <div className="flex items-center justify-between gap-3 sm:hidden">
+            <div>
+              <p className="text-sm font-semibold text-slate-950">Filter</p>
+              <p className="text-xs text-slate-500">
+                {activeFilterLabels.length > 0
+                  ? `${activeFilterLabels.length} aktiva`
+                  : "Alla åtgärder"}
+              </p>
+            </div>
+            <button
+              className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800"
+              type="button"
+              onClick={() => setIsFilterPanelOpen((current) => !current)}
+            >
+              {isFilterPanelOpen ? "Dölj filter" : "Visa filter"}
+            </button>
+          </div>
+
+          {activeFilterLabels.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2 sm:mt-0 sm:mb-3">
+              {activeFilterLabels.map((label) => (
+                <span
+                  className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-800"
+                  key={label}
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className={`${isFilterPanelOpen ? "block" : "hidden"} sm:block`}>
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1 sm:mt-0 sm:flex-wrap sm:overflow-visible sm:pb-0">
             {CATEGORY_FILTERS.map((filter) => (
               <button
-                className={`rounded-md border px-3 py-2 text-sm font-semibold ${
+                className={`min-h-10 shrink-0 rounded-md border px-3 py-2 text-sm font-semibold ${
                   activeCategory === filter.value
                     ? "border-blue-600 bg-blue-50 text-blue-800"
                     : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
@@ -545,6 +605,7 @@ export default function ActionsPageClient() {
               Rensa filter
             </button>
           </div>
+          </div>
         </Card>
 
         {isLoading && <p className="mt-6 text-slate-700">Laddar åtgärder...</p>}
@@ -560,7 +621,7 @@ export default function ActionsPageClient() {
             </div>
             {visibleActions.length === 0 ? (
               <p className="px-4 py-8 text-sm text-slate-600">
-                Inga åtgärder matchar filtret.
+                Inga åtgärder matchar filtret. Prova att rensa filter eller visa alla åtgärder.
               </p>
             ) : (
               <div className="divide-y divide-slate-200">
@@ -619,9 +680,9 @@ function FilterField({
 
 function ActionRow({ action }: { action: ActionItem }) {
   return (
-    <article className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+    <article className="grid gap-3 px-3 py-3 sm:px-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
       <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           <SeverityBadge severity={action.severity} />
           <Badge variant="neutral">{ACTION_TYPE_LABELS[action.type]}</Badge>
           <h2 className="text-sm font-semibold text-slate-950">{action.title}</h2>
@@ -633,7 +694,7 @@ function ActionRow({ action }: { action: ActionItem }) {
           ) : null}
         </p>
         <p className="mt-1 text-sm text-slate-600">{action.description}</p>
-        <div className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
           <span>Fastighet: {action.propertyName || "-"}</span>
           <span>Servicekontakt: {action.assignedServiceContactName || "-"}</span>
           <span>Företag: {action.servicePartnerCompanyName || "-"}</span>
@@ -641,7 +702,7 @@ function ActionRow({ action }: { action: ActionItem }) {
         </div>
       </div>
       <Link
-        className="inline-flex justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+        className="inline-flex min-h-11 justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 md:min-h-0"
         href={action.href}
       >
         Öppna aggregat
@@ -699,6 +760,63 @@ function getServicePartnerCompanyOptions(actions: ActionItem[]) {
   return Array.from(companies.values()).sort((first, second) =>
     first.name.localeCompare(second.name, "sv")
   )
+}
+
+function getActiveFilterLabels({
+  activeCategory,
+  activeDueDate,
+  activeProperty,
+  activeSearch,
+  activeServiceContact,
+  activeServicePartnerCompany,
+  activeSeverity,
+  registeredProperties,
+  serviceContactOptions,
+  servicePartnerCompanyOptions,
+}: {
+  activeCategory: ActionFilter
+  activeDueDate: ActionDueDateFilter
+  activeProperty: string
+  activeSearch: string
+  activeServiceContact: string
+  activeServicePartnerCompany: string
+  activeSeverity: ActionSeverityFilter
+  registeredProperties: RegisteredProperty[]
+  serviceContactOptions: Array<{ id: string; name: string }>
+  servicePartnerCompanyOptions: Array<{ id: string; name: string }>
+}) {
+  const labels: string[] = []
+  const category = CATEGORY_FILTERS.find((filter) => filter.value === activeCategory)
+  const severity = SEVERITY_FILTERS.find((filter) => filter.value === activeSeverity)
+  const dueDate = DUE_DATE_FILTERS.find((filter) => filter.value === activeDueDate)
+
+  if (category && category.value !== "ALL") labels.push(category.label)
+  if (severity && severity.value !== "ALL") labels.push(severity.label)
+  if (dueDate && dueDate.value !== "ALL") labels.push(dueDate.label)
+  if (activeProperty === "none") {
+    labels.push("Ingen registrerad fastighet")
+  } else if (activeProperty) {
+    labels.push(
+      registeredProperties.find((property) => property.id === activeProperty)?.name ??
+        "Vald fastighet"
+    )
+  }
+  if (activeServiceContact) {
+    labels.push(
+      serviceContactOptions.find((contact) => contact.id === activeServiceContact)?.name ??
+        "Vald servicekontakt"
+    )
+  }
+  if (activeServicePartnerCompany) {
+    labels.push(
+      servicePartnerCompanyOptions.find(
+        (company) => company.id === activeServicePartnerCompany
+      )?.name ?? "Valt servicepartnerföretag"
+    )
+  }
+  if (activeSearch) labels.push(`Sök: ${activeSearch}`)
+
+  return labels
 }
 
 function getActionFilter(value: string | null): ActionFilter {
