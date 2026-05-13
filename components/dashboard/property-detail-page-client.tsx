@@ -42,6 +42,16 @@ type PropertyDetail = {
       knownCo2eTon: number
       unknownCo2eInstallations: number
     }
+    annualReportStatus: {
+      requirementStatus: "REQUIRED" | "NOT_REQUIRED" | "UNCERTAIN"
+      signedStatus: "SIGNED" | "NOT_SIGNED" | "HAS_WARNINGS" | "MISSING_REQUIRED_DATA" | null
+      signedAt: string | null
+      blockingIssueCount: number
+      reviewWarningCount: number
+      installedCo2eTon: number
+      co2eIsComplete: boolean
+      href: string
+    }
   }
   installations: Array<{
     id: string
@@ -104,12 +114,15 @@ const RISK_LABELS: Record<InstallationRiskLevel, string> = {
   LOW: "Låg",
 }
 
+const installationPreviewLimit = 5
+
 export default function PropertyDetailPageClient() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const [data, setData] = useState<PropertyDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
+  const [isInstallationListExpanded, setIsInstallationListExpanded] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -148,6 +161,12 @@ export default function PropertyDetailPageClient() {
     }
   }, [params.id, router])
 
+  const visibleInstallations = data
+    ? isInstallationListExpanded
+      ? data.installations
+      : data.installations.slice(0, installationPreviewLimit)
+    : []
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
       <PageHeader
@@ -178,7 +197,7 @@ export default function PropertyDetailPageClient() {
         backHref="/dashboard/properties"
         backLabel="Tillbaka till fastigheter"
         title={data?.property.name ?? "Fastighet"}
-        subtitle="Compliance, risk och klimatpåverkan för fastigheten."
+        subtitle="Efterlevnad, risk och klimatpåverkan för fastigheten."
       />
 
       {isLoading && <p className="mt-8 text-sm text-slate-700">Laddar fastighet...</p>}
@@ -227,8 +246,54 @@ export default function PropertyDetailPageClient() {
             <Card className="p-5">
               <SectionHeader
                 title="Rapportöversikt"
-                subtitle="Samlad bild av rapportunderlag och klimatdata för fastigheten."
+                subtitle="Visar om fastighetens aggregat har tillräckliga uppgifter för årsrapport och uppföljning."
               />
+              <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Årsrapport enligt 14 ton CO₂e
+                    </p>
+                    <p className="mt-1 text-lg font-bold text-slate-950">
+                      {formatAnnualReportRequirementStatus(
+                        data.summary.annualReportStatus.requirementStatus
+                      )}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Installerad CO₂e för kontrollpliktiga aggregat:{" "}
+                      {formatWholeTonnes(
+                        data.summary.annualReportStatus.installedCo2eTon
+                      )}
+                    </p>
+                  </div>
+                  <AnnualReportRequirementBadge
+                    status={data.summary.annualReportStatus.requirementStatus}
+                  />
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-slate-600">
+                  <span>
+                    Signering:{" "}
+                    {formatSignedReportStatus(
+                      data.summary.annualReportStatus.signedStatus
+                    )}
+                  </span>
+                  {data.summary.annualReportStatus.signedAt && (
+                    <span>
+                      Senast signerad:{" "}
+                      {formatOptionalDate(data.summary.annualReportStatus.signedAt)}
+                    </span>
+                  )}
+                  {(data.summary.annualReportStatus.blockingIssueCount > 0 ||
+                    data.summary.annualReportStatus.reviewWarningCount > 0) && (
+                    <span>
+                      {data.summary.annualReportStatus.blockingIssueCount} kräver
+                      komplettering,{" "}
+                      {data.summary.annualReportStatus.reviewWarningCount} bör
+                      granskas
+                    </span>
+                  )}
+                </div>
+              </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <ReportMetric
                   label="Kontrollpliktiga aggregat"
@@ -270,6 +335,11 @@ export default function PropertyDetailPageClient() {
                   }
                 />
               </div>
+              <p className="mt-3 text-xs leading-5 text-slate-600">
+                Rapportunderlag klart betyder att obligatoriska uppgifter verkar
+                finnas. Bör kontrolleras visar aggregat där uppgifter saknas
+                eller bör granskas innan rapporten används.
+              </p>
               {data.summary.reportOverview.unknownCo2eInstallations > 0 && (
                 <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                   {data.summary.reportOverview.unknownCo2eInstallations} aggregat
@@ -316,7 +386,7 @@ export default function PropertyDetailPageClient() {
             </Card>
           </section>
 
-          <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+          <section className="mt-6 grid items-stretch gap-6 lg:grid-cols-2">
             <Card className="p-5">
               <SectionHeader title="Fastighetsinformation" />
               <dl className="mt-5 grid gap-3 text-sm">
@@ -327,7 +397,7 @@ export default function PropertyDetailPageClient() {
               </dl>
             </Card>
 
-            <Card className="self-start p-4">
+            <Card className="p-5">
               <SectionHeader
                 title="Riskfördelning"
                 subtitle="Fördelning mellan hög, medel och låg risk."
@@ -440,7 +510,7 @@ export default function PropertyDetailPageClient() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 bg-white">
-                    {data.installations.map((installation) => (
+                    {visibleInstallations.map((installation) => (
                       <tr className="hover:bg-slate-50" key={installation.id}>
                         <TableCell>
                           <Link
@@ -465,6 +535,14 @@ export default function PropertyDetailPageClient() {
                     ))}
                   </tbody>
                 </table>
+                <ShowMoreButton
+                  isExpanded={isInstallationListExpanded}
+                  itemCount={data.installations.length}
+                  limit={installationPreviewLimit}
+                  onClick={() =>
+                    setIsInstallationListExpanded((current) => !current)
+                  }
+                />
               </div>
             )}
           </Card>
@@ -571,6 +649,43 @@ function ReportMetric({
   )
 }
 
+function AnnualReportRequirementBadge({
+  status,
+}: {
+  status: PropertyDetail["summary"]["annualReportStatus"]["requirementStatus"]
+}) {
+  const variant =
+    status === "REQUIRED" ? "warning" : status === "UNCERTAIN" ? "info" : "success"
+
+  return <Badge variant={variant}>{formatAnnualReportRequirementStatus(status)}</Badge>
+}
+
+function ShowMoreButton({
+  isExpanded,
+  itemCount,
+  limit,
+  onClick,
+}: {
+  isExpanded: boolean
+  itemCount: number
+  limit: number
+  onClick: () => void
+}) {
+  if (itemCount <= limit) return null
+
+  return (
+    <div className="border-t border-slate-200 bg-white px-5 py-4 text-center">
+      <button
+        className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        type="button"
+        onClick={onClick}
+      >
+        {isExpanded ? "Visa mindre" : `Visa mer (${itemCount - limit})`}
+      </button>
+    </div>
+  )
+}
+
 function StatusBadge({ status }: { status: ComplianceStatus }) {
   const variant =
     status === "OVERDUE"
@@ -642,6 +757,30 @@ function formatNumber(value: number) {
 
 function formatCo2eTon(value: number | null) {
   return value === null ? "Okänt GWP-värde" : `${formatNumber(value)} ton`
+}
+
+function formatWholeTonnes(value: number) {
+  return `${new Intl.NumberFormat("sv-SE", {
+    maximumFractionDigits: 0,
+  }).format(Math.round(value))} ton`
+}
+
+function formatAnnualReportRequirementStatus(
+  status: PropertyDetail["summary"]["annualReportStatus"]["requirementStatus"]
+) {
+  if (status === "REQUIRED") return "Årsrapport krävs"
+  if (status === "UNCERTAIN") return "Kräver kontroll av underlag"
+  return "Årsrapport krävs inte"
+}
+
+function formatSignedReportStatus(
+  status: PropertyDetail["summary"]["annualReportStatus"]["signedStatus"]
+) {
+  if (status === "SIGNED") return "Signerad"
+  if (status === "HAS_WARNINGS") return "Signerad med varningar"
+  if (status === "MISSING_REQUIRED_DATA") return "Signerad, kräver komplettering"
+  if (status === "NOT_SIGNED") return "Ej signerad"
+  return "Ej relevant"
 }
 
 function formatReportCo2e(

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { generateDashboardActions } from "@/lib/actions/generate-actions"
 import { authenticateApiRequest, isContractor } from "@/lib/auth"
+import { buildDashboardAnnualReportStatus } from "@/lib/dashboard/annual-report-status"
 import { prisma } from "@/lib/db"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import {
@@ -178,6 +179,51 @@ export async function GET(request: NextRequest, context: RouteContext) {
       propertyHasMunicipality: Boolean(property.municipality?.trim()),
       propertyHasDesignation: Boolean(property.propertyDesignation?.trim()),
     })
+    const currentYear = new Date().getFullYear()
+    const controlRequiredInstallations = installations.filter(
+      (installation) => installation.inspectionIntervalMonths !== null
+    )
+    const annualReportInstalledCo2eTon = controlRequiredInstallations.reduce(
+      (sum, installation) => sum + (installation.co2eTon ?? 0),
+      0
+    )
+    const annualReportCo2eIsComplete = controlRequiredInstallations.every(
+      (installation) => installation.co2eTon !== null
+    )
+    const signedReportRecords = await prisma.signedAnnualFgasReport.findMany({
+      where: {
+        companyId,
+        reportYear: currentYear,
+        OR: [
+          { propertyId: property.id },
+          { propertyId: null },
+        ],
+        ...(isContractor(auth.user) ? { userId } : {}),
+      },
+      select: {
+        propertyId: true,
+        readinessStatus: true,
+        blockingIssueCount: true,
+        reviewWarningCount: true,
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    })
+    const annualReportStatus = buildDashboardAnnualReportStatus({
+      properties: [
+        {
+          id: property.id,
+          name: property.name,
+          municipality: property.municipality,
+          installedCo2eTon: annualReportInstalledCo2eTon,
+          co2eIsComplete: annualReportCo2eIsComplete,
+        },
+      ],
+      records: signedReportRecords,
+      year: currentYear,
+    }).properties[0]
     const historicalMetrics = buildPropertyHistoricalMetrics(installations)
     const actions = filterPropertyActions(
       generateDashboardActions({
@@ -256,6 +302,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
           riskDistribution,
           leakageClimateImpact,
           reportOverview,
+          annualReportStatus,
         },
         installations: publicInstallations,
         actions: actions.slice(0, 8),
