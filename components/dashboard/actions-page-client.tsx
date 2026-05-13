@@ -98,7 +98,7 @@ const ACTION_TYPE_LABELS: Record<DashboardActionType, string> = {
   DUE_SOON_INSPECTION: "Kommande kontroll",
   NOT_INSPECTED: "Saknar kontroll",
   HIGH_RISK: "Riskbevakning",
-  NO_SERVICE_PARTNER: "Servicekontakt saknas",
+  NO_SERVICE_PARTNER: "Servicepartner saknas",
   RECENT_LEAKAGE: "Läckage att följa upp",
   REFRIGERANT_REVIEW: "Köldmedium bör granskas",
 }

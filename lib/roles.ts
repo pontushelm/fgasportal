@@ -4,7 +4,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   OWNER: "Ägare",
   ADMIN: "Ansvarig",
   MEMBER: "Medlem",
-  CONTRACTOR: "Servicekontakt",
+  CONTRACTOR: "Servicepartner",
 }
 
 export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
@@ -15,7 +15,7 @@ export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   MEMBER:
     "Kan arbeta med företagets data men har begränsad åtkomst till inställningar.",
   CONTRACTOR:
-    "Extern kontakt eller tekniker med åtkomst till tilldelade aggregat och serviceuppgifter.",
+    "Extern servicepartner eller primär kontakt med åtkomst till tilldelade aggregat och serviceuppgifter.",
 }
 
 export function formatRoleLabel(role: UserRole | string) {

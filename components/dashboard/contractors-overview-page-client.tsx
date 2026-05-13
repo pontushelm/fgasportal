@@ -133,14 +133,14 @@ export default function ContractorsOverviewPageClient() {
 
       if (response.status === 403) {
         if (!isMounted) return
-        setError("Du har inte behörighet att se servicekontaktöversikten.")
+      setError("Du har inte behörighet att se servicepartneröversikten.")
         setIsLoading(false)
         return
       }
 
       if (!response.ok) {
         if (!isMounted) return
-        setError("Kunde inte hämta servicekontakter.")
+        setError("Kunde inte hämta servicepartners.")
         setIsLoading(false)
         return
       }
@@ -216,7 +216,7 @@ export default function ContractorsOverviewPageClient() {
     setInviteSuccess(
       result.inviteLink
         ? "Inbjudan har skickats."
-        : result.message || "Servicekontakten har lagts till."
+        : result.message || "Servicepartnern har lagts till."
     )
     setInviteLink(result.inviteLink || "")
     setInviteEmail("")
@@ -280,15 +280,15 @@ export default function ContractorsOverviewPageClient() {
     }
 
     if (!response.ok) {
-      setCompanyError(result.error || "Kunde inte spara serviceföretaget.")
+      setCompanyError(result.error || "Kunde inte spara servicepartnerföretaget.")
       setIsSavingCompany(false)
       return
     }
 
     setCompanySuccess(
       editingCompanyId
-        ? "Serviceföretaget har uppdaterats."
-        : "Serviceföretaget har lagts till."
+        ? "Servicepartnerföretaget har uppdaterats."
+        : "Servicepartnerföretaget har lagts till."
     )
     setIsSavingCompany(false)
     resetCompanyForm()
@@ -324,12 +324,12 @@ export default function ContractorsOverviewPageClient() {
     }
 
     if (!response.ok) {
-      setCompanyError(result.error || "Kunde inte koppla servicekontakten.")
+      setCompanyError(result.error || "Kunde inte koppla servicekontakten till företaget.")
       setLinkingContractorId("")
       return
     }
 
-    setCompanySuccess("Servicekontakten har uppdaterats.")
+    setCompanySuccess("Servicekontakten har kopplats till servicepartnerföretaget.")
     setLinkingContractorId("")
     await refreshOverview()
   }
@@ -337,27 +337,27 @@ export default function ContractorsOverviewPageClient() {
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 dark:text-slate-100 sm:px-6 lg:px-8">
       <PageHeader
-        title="Inbjudna servicekontakter"
-        subtitle="Följ tilldelade aggregat, försenade kontroller och risk per inbjuden kontakt/tekniker."
+        title="Servicepartners"
+        subtitle="Hantera servicepartnerföretag först och koppla valfria servicekontakter eller tekniker vid behov."
         actions={
           <button
             className={buttonClassName({ variant: "secondary" })}
             type="button"
             onClick={openInviteModal}
           >
-            Bjud in servicekontakt
+            Bjud in servicepartner
           </button>
         }
       />
 
       <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-100">
-        I dagsläget kopplas aggregat till en inbjuden servicekontakt. Stöd för
-        full servicepartnerorganisation med flera tekniker kan byggas ut senare.
+        Tilldela aggregat till servicepartnerföretag. Servicekontakt eller tekniker är valfri
+        operativ information och kan kopplas när den är känd.
       </div>
 
       {isLoading && (
         <p className="mt-8 text-sm text-slate-700 dark:text-slate-300">
-          Laddar servicekontakter...
+          Laddar servicepartners...
         </p>
       )}
       {error && <p className="mt-8 text-sm font-semibold text-red-700">{error}</p>}
@@ -366,7 +366,7 @@ export default function ContractorsOverviewPageClient() {
         <>
           <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <MetricCard
-              label="Inbjudna servicekontakter"
+              label="Servicekontakter / tekniker"
               value={data.summary.totalContractors}
             />
             <MetricCard
@@ -394,13 +394,13 @@ export default function ContractorsOverviewPageClient() {
             <div className="grid gap-5 lg:grid-cols-[1fr_1.1fr]">
               <div>
                 <SectionHeader
-                  title="Serviceföretag"
-                  subtitle="Skapa enkla företagsgrupper och koppla inbjudna servicekontakter till dem."
+                  title="Servicepartnerföretag"
+                  subtitle="Lägg till de servicepartnerföretag ni samarbetar med. Kontakter och tekniker kan kopplas under respektive företag."
                 />
                 {data.servicePartnerCompanies.length === 0 ? (
                   <p className="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
-                    Inga serviceföretag har lagts till ännu. Servicekontakter
-                    fungerar fortsatt utan företagskoppling.
+                    Inga servicepartnerföretag har lagts till ännu. Lägg till företaget först
+                    och bjud sedan in en primär kontakt vid behov.
                   </p>
                 ) : (
                   <div className="mt-4 grid gap-2">
@@ -441,7 +441,7 @@ export default function ContractorsOverviewPageClient() {
 
               <form className="grid gap-3" onSubmit={handleCompanySubmit}>
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  {editingCompanyId ? "Redigera serviceföretag" : "Nytt serviceföretag"}
+                  {editingCompanyId ? "Redigera servicepartnerföretag" : "Nytt servicepartnerföretag"}
                 </h3>
                 <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
                   Företag
@@ -519,7 +519,7 @@ export default function ContractorsOverviewPageClient() {
                       ? "Sparar..."
                       : editingCompanyId
                         ? "Spara ändringar"
-                        : "Lägg till serviceföretag"}
+                        : "Lägg till servicepartnerföretag"}
                   </button>
                 </div>
               </form>
@@ -528,8 +528,8 @@ export default function ContractorsOverviewPageClient() {
 
           <Card className="mt-6 p-5">
             <SectionHeader
-              title="Serviceföretag - operativ översikt"
-              subtitle="Aggregat visas via kopplade servicekontakter. Full företagstilldelning kan byggas ut senare."
+              title="Servicepartnerföretag - operativ översikt"
+              subtitle="Aggregat räknas per servicepartnerföretag. Servicekontakter visas som valfri operativ detalj."
             />
             <div className="mt-4 grid gap-3 lg:grid-cols-2">
               {data.servicePartnerCompanyMetrics.map((company) => (
@@ -553,8 +553,8 @@ export default function ContractorsOverviewPageClient() {
                       )}
                       <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                         {company.id
-                          ? "Aggregat via kopplade servicekontakter"
-                          : "Servicekontakter som inte är kopplade till ett serviceföretag"}
+                          ? "Aggregat tilldelade servicepartnerföretaget"
+                          : "Servicekontakter som inte är kopplade till ett servicepartnerföretag"}
                       </p>
                     </div>
                     {company.certificationWarnings > 0 ? (
@@ -604,8 +604,8 @@ export default function ContractorsOverviewPageClient() {
           <Card className="mt-6 overflow-hidden">
             <div className="border-b border-slate-200 p-5 dark:border-slate-800">
               <SectionHeader
-                title="Servicekontakter"
-                subtitle="Klicka på en kontakt/tekniker för att se filtrerade aggregat."
+                title="Servicekontakter / tekniker"
+                subtitle="Valfria kontakter som kan användas för operativ uppföljning inom ett servicepartnerföretag."
               />
             </div>
 
@@ -613,14 +613,14 @@ export default function ContractorsOverviewPageClient() {
               <div className="p-5">
                 <EmptyState
                   title="Inga servicekontakter har lagts till ännu."
-                  description="Bjud in en servicekontakt när ni vill tilldela aggregat till en extern kontakt/tekniker."
+                  description="Bjud in en primär kontakt när servicepartnerföretaget ska kunna logga in och se sina tilldelade aggregat."
                   action={
                     <button
                       className={buttonClassName({ variant: "primary" })}
                       type="button"
                       onClick={openInviteModal}
                     >
-                      Bjud in servicekontakt
+                      Bjud in servicepartner
                     </button>
                   }
                 />
@@ -631,7 +631,7 @@ export default function ContractorsOverviewPageClient() {
                   <thead className="bg-slate-50 dark:bg-slate-950">
                     <tr>
                       <TableHeader>Kontakt/tekniker</TableHeader>
-                      <TableHeader>Serviceföretag</TableHeader>
+                      <TableHeader>Servicepartnerföretag</TableHeader>
                       <TableHeader>Status</TableHeader>
                       <TableHeader>Tilldelade aggregat</TableHeader>
                       <TableHeader>Försenade kontroller</TableHeader>
@@ -661,7 +661,7 @@ export default function ContractorsOverviewPageClient() {
                                   <div className="flex flex-wrap items-center gap-2">
                                     <span>{company.name}</span>
                                     <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
-                                      {company.assignedInstallationsCount} aggregat via kopplade servicekontakter
+                                      {company.assignedInstallationsCount} aggregat via servicepartnerföretaget
                                     </span>
                                   </div>
                                 </td>
@@ -748,10 +748,10 @@ export default function ContractorsOverviewPageClient() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-100">
-                  Bjud in servicekontakt
+                  Bjud in servicepartnerföretag
                 </h2>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                  Bjud in en extern kontakt/tekniker som kan hantera tilldelade aggregat, kontroller och servicehändelser.
+                  Ange e-post till företagets primära kontakt. Servicepartnern kan senare lägga till egna tekniker och servicekontakter.
                 </p>
               </div>
               <button
@@ -765,8 +765,11 @@ export default function ContractorsOverviewPageClient() {
             </div>
 
             <form className="mt-5 grid gap-4" onSubmit={handleInviteSubmit}>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
+                Lägg gärna till servicepartnerföretaget i översikten först. Inbjudan skapar en primär kontakt med befintliga servicepartnerbehörigheter.
+              </div>
               <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
-                E-post
+                E-post till primär kontakt
                 <input
                   className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                   type="email"

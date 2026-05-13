@@ -34,12 +34,12 @@ const helpSections: HelpSection[] = [
       "Skapa aggregat manuellt när registret är litet eller uppgifterna behöver kontrolleras direkt.",
       "Importera befintliga Excel- eller CSV-register och granska mappning, varningar och förhandsvisning före import.",
       "Lägg upp fastigheter först om aggregat ska kopplas automatiskt via fastighetsnamn i importfilen.",
-      "Bjud in servicekontakter och koppla dem till aggregat när de ska hjälpa till med kontroll- och serviceuppföljning.",
+      "Lägg till servicepartnerföretag och koppla valfri servicekontakt eller tekniker när den är känd.",
     ],
     links: [
       { href: "/dashboard/installations", label: "Aggregat" },
       { href: "/dashboard/properties", label: "Fastigheter" },
-      { href: "/dashboard/contractors", label: "Servicekontakter" },
+      { href: "/dashboard/contractors", label: "Servicepartners" },
     ],
   },
   {
@@ -84,16 +84,16 @@ const helpSections: HelpSection[] = [
   },
   {
     id: "contacts",
-    title: "Servicekontakter",
-    summary: "Roller, företag, certifikat och tilldelning av aggregat.",
+    title: "Servicepartners",
+    summary: "Servicepartnerföretag, valfria kontakter, certifikat och tilldelning av aggregat.",
     icon: Users,
     items: [
-      "En servicekontakt är en inbjuden person som kan kopplas till aggregat och operativa uppföljningar.",
-      "Servicepartnerföretag används för att gruppera kontakter som tillhör samma externa partner eller leverantör.",
+      "Ett servicepartnerföretag är den primära externa parten som aggregat tilldelas till.",
+      "Servicekontakt eller tekniker är valfri operativ metadata och kan kopplas när en primär kontakt behövs.",
       "Certifikatuppgifter hjälper organisationen att följa behörighet och kommande certifikatslutdatum.",
-      "Tilldelning av aggregat gör det tydligare vem som ansvarar för uppföljning och servicearbete.",
+      "Tilldelning av aggregat görs i första hand till servicepartnerföretag och kan kompletteras med ansvarig tekniker.",
     ],
-    links: [{ href: "/dashboard/contractors", label: "Servicekontakter" }],
+    links: [{ href: "/dashboard/contractors", label: "Servicepartners" }],
   },
   {
     id: "actions",
@@ -102,7 +102,7 @@ const helpSections: HelpSection[] = [
     icon: ListChecks,
     items: [
       "Dashboarden visar översikt, nyckeltal och ett kort urval av de mest akuta åtgärderna.",
-      "Åtgärdssidan är den operativa arbetskön för försenade kontroller, kommande kontroller, läckage, hög risk och saknad servicekontakt.",
+      "Åtgärdssidan är den operativa arbetskön för försenade kontroller, kommande kontroller, läckage, riskbevakning och saknad servicepartner.",
       "Prioriteringen sätts av systemet utifrån typ, allvarlighet och datum så att kritiska uppgifter hamnar högst.",
       "Åtgärder är inte en separat ärendemodell ännu, utan genereras från aktuell aggregat-, kontroll- och händelsedata.",
     ],

@@ -9,12 +9,12 @@ const previewStats = [
   { label: "Hög risk", value: "18", tone: "border-l-amber-500" },
 ]
 
-const previewTags = ["Årsrapport", "Fastigheter", "Dokument", "Servicekontakter"]
+const previewTags = ["Årsrapport", "Fastigheter", "Dokument", "Servicepartners"]
 
 const valueCards = [
   {
     title: "Samlat F-gasregister",
-    text: "Samla aggregat, köldmedium, mängder, fastigheter och servicekontakter i ett strukturerat register.",
+    text: "Samla aggregat, köldmedium, mängder, fastigheter och servicepartners i ett strukturerat register.",
   },
   {
     title: "Kontroll på intervall och status",
@@ -32,7 +32,7 @@ const valueCards = [
 
 const workflowSteps = [
   "Registrera eller importera aggregat",
-  "Koppla till fastigheter och servicekontakter",
+  "Koppla till fastigheter och servicepartners",
   "Följ kontrollintervall, läckage och risk",
   "Samla dokument och historik",
   "Exportera årsrapport och klimatunderlag",
@@ -44,7 +44,7 @@ const audiences = [
   "Regioner och sjukhus",
   "Industriella verksamheter",
   "Driftorganisationer",
-  "Servicekontakter",
+  "Servicepartners",
 ]
 
 const riskPoints = [
@@ -94,7 +94,7 @@ export default function Home() {
           </h1>
           <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-700">
             FgasPortal samlar register, kontroller, dokumentation,
-            servicekontakter och rapportunderlag i ett webbaserat system för
+            servicepartners och rapportunderlag i ett webbaserat system för
             verksamheter som omfattas av F-gasförordningen.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
@@ -162,21 +162,21 @@ export default function Home() {
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:px-8">
           <div>
             <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
-              Servicekontakter
+              Servicepartners
             </p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
-              Samarbeta med servicekontakter direkt i systemet
+              Samarbeta med servicepartnerföretag direkt i systemet
             </h2>
             <p className="mt-4 text-sm leading-6 text-slate-600">
-              Bjud in servicekontakter så att de kan se tilldelade aggregat,
+              Bjud in servicepartnerföretag så att de kan se tilldelade aggregat,
               registrera kontroller, läckage, service och ladda upp dokument
               direkt på rätt installation.
             </p>
           </div>
           <div className="grid gap-3">
             <ServicePoint>Operatören behåller ägarskapet över registret</ServicePoint>
-            <ServicePoint>Servicekontakter ser endast tilldelade aggregat</ServicePoint>
-            <ServicePoint>Stöd för organisationer med många fastigheter och inbjudna servicekontakter</ServicePoint>
+            <ServicePoint>Servicepartners ser endast tilldelade aggregat</ServicePoint>
+            <ServicePoint>Stöd för organisationer med många fastigheter och inbjudna servicepartners</ServicePoint>
           </div>
         </div>
       </section>

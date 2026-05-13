@@ -47,7 +47,7 @@ export function AuthShell({
             <AuthBenefit>Digital registerhållning enligt F-gasförordningen</AuthBenefit>
             <AuthBenefit>Automatiserade rapporter och årsrapportering</AuthBenefit>
             <AuthBenefit>Uppföljning av CO₂e och klimatpåverkan</AuthBenefit>
-            <AuthBenefit>Samarbete med servicekontakter i systemet</AuthBenefit>
+            <AuthBenefit>Samarbete med servicepartners i systemet</AuthBenefit>
           </div>
         </section>
 

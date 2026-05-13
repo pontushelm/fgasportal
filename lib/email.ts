@@ -42,6 +42,7 @@ type SendInvitationEmailInput = {
   to: string
   inviteUrl: string
   companyName: string
+  role?: "ADMIN" | "MEMBER" | "CONTRACTOR"
 }
 
 let resend: Resend | null = null
@@ -263,13 +264,23 @@ export async function sendInvitationEmail({
   to,
   inviteUrl,
   companyName,
+  role,
 }: SendInvitationEmailInput) {
   const apiKey = requireEnv("RESEND_API_KEY")
   const from = requireEnv("REMINDER_FROM_EMAIL")
+  const isServicePartnerInvite = role === "CONTRACTOR"
   const text = [
     "Hej,",
     "",
-    `Du har blivit inbjuden till ${companyName} i FgasPortal.`,
+    isServicePartnerInvite
+      ? `${companyName} har bjudit in ert servicepartnerföretag till FgasPortal.`
+      : `Du har blivit inbjuden till ${companyName} i FgasPortal.`,
+    ...(isServicePartnerInvite
+      ? [
+          "",
+          "Skapa ett konto som primär kontakt. Tekniker och servicekontakter kan hanteras mer detaljerat senare.",
+        ]
+      : []),
     "",
     "Skapa ditt konto via länken nedan:",
     "",
@@ -284,7 +295,9 @@ export async function sendInvitationEmail({
   const result = await resend.emails.send({
     from,
     to,
-    subject: `Inbjudan till ${companyName} i FgasPortal`,
+    subject: isServicePartnerInvite
+      ? `Inbjudan som servicepartner till ${companyName}`
+      : `Inbjudan till ${companyName} i FgasPortal`,
     text,
   })
 

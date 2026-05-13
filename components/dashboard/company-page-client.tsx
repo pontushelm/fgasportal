@@ -444,7 +444,7 @@ export default function CompanySettingsPage() {
     if (isTransferringOwnership) return
     if (role === "OWNER") return
     if (role === "CONTRACTOR") {
-      setUserManagementError("Servicekontakter hanteras från sidan Servicekontakter.")
+      setUserManagementError("Servicepartners och servicekontakter hanteras från sidan Servicepartners.")
       return
     }
     if (user.id === currentUser?.userId) return
@@ -700,10 +700,10 @@ export default function CompanySettingsPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-slate-950">
-                  Kontrollpåminnelser till servicekontakter
+                  Kontrollpåminnelser till servicepartners
                 </h2>
                 <p className="mt-1 max-w-3xl text-sm text-slate-700">
-                  Ägare och administratörer får alltid kontrollpåminnelser enligt sina personliga notifieringsinställningar. Tilldelade servicekontakter kan också få påminnelser om detta är aktiverat.
+                  Ägare och administratörer får alltid kontrollpåminnelser enligt sina personliga notifieringsinställningar. Tilldelade servicepartnerkontakter kan också få påminnelser om detta är aktiverat.
                 </p>
               </div>
               <label className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800">
@@ -716,7 +716,7 @@ export default function CompanySettingsPage() {
                     void handleContractorReminderSettingChange(event.target.checked)
                   }
                 />
-                Servicekontakter får kontrollpåminnelser
+                Servicepartnerkontakter får kontrollpåminnelser
               </label>
             </div>
             {reminderSettingsError && (
@@ -852,7 +852,7 @@ export default function CompanySettingsPage() {
                 Bjud in användare till organisationen
               </h2>
               <p className="mt-1 text-sm text-slate-600">
-                Används för interna användare. Servicekontakter bjuds in från servicekontaktsidan.
+                Används för interna användare. Servicepartners bjuds in från servicepartnersidan.
               </p>
               <form className="mt-5 grid max-w-md gap-4" onSubmit={handleInviteSubmit}>
                 <label className={fieldClassName}>

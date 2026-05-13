@@ -169,7 +169,9 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json(
           {
-            message: "Användaren har lagts till i företaget",
+            message: isServicePartnerInvite
+              ? "Servicepartnern har lagts till."
+              : "Användaren har lagts till i företaget",
             membership,
           },
           { status: 201 }
@@ -216,6 +218,7 @@ export async function POST(request: NextRequest) {
         to: invitation.email,
         inviteUrl: inviteLink,
         companyName: company?.name || "FgasPortal",
+        role: validatedData.role,
       })
       emailSent = true
     } catch (error) {

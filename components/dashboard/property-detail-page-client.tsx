@@ -440,9 +440,9 @@ export default function PropertyDetailPageClient() {
             </Card>
 
             <Card className="p-5">
-              <SectionHeader title="Servicekontakter" />
+              <SectionHeader title="Servicepartners" />
               {data.serviceContacts.length === 0 ? (
-                <p className="mt-4 text-sm text-slate-600">Inga servicekontakter tilldelade.</p>
+                <p className="mt-4 text-sm text-slate-600">Inga servicepartners tilldelade.</p>
               ) : (
                 <ul className="mt-4 grid gap-2 text-sm">
                   {data.serviceContacts.map((contact) => (

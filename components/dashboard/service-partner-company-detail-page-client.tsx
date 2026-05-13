@@ -95,7 +95,7 @@ const ACTION_TYPE_LABELS: Record<DashboardActionType, string> = {
   DUE_SOON_INSPECTION: "Kommande kontroll",
   NOT_INSPECTED: "Saknar kontroll",
   HIGH_RISK: "Hög risk",
-  NO_SERVICE_PARTNER: "Servicekontakt saknas",
+  NO_SERVICE_PARTNER: "Servicepartner saknas",
   RECENT_LEAKAGE: "Läckageuppföljning",
   REFRIGERANT_REVIEW: "Köldmedium bör granskas",
 }
@@ -130,8 +130,8 @@ export default function ServicePartnerCompanyDetailPageClient({
         if (!isMounted) return
         setError(
           response.status === 403
-            ? "Du har inte behörighet att se serviceföretaget."
-            : "Kunde inte hämta serviceföretaget."
+            ? "Du har inte behörighet att se servicepartnerföretaget."
+            : "Kunde inte hämta servicepartnerföretaget."
         )
         setIsLoading(false)
         return
@@ -153,26 +153,26 @@ export default function ServicePartnerCompanyDetailPageClient({
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 dark:text-slate-100 sm:px-6 lg:px-8">
       <PageHeader
-        title={data?.company.name ?? "Serviceföretag"}
-        subtitle="Operativ översikt över aggregat via kopplade servicekontakter."
+        title={data?.company.name ?? "Servicepartnerföretag"}
+        subtitle="Operativ översikt över aggregat kopplade till servicepartnerföretaget."
         actions={
           <Link
             className={buttonClassName({ variant: "secondary" })}
             href="/dashboard/contractors"
           >
-            Till servicekontakter
+            Till servicepartners
           </Link>
         }
       />
 
       <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-100">
-        Denna vy sammanställer aggregat som är tilldelade servicekontakter
-        kopplade till företaget. Full företagstilldelning kan byggas ut senare.
+        Denna vy sammanställer aggregat som är tilldelade servicepartnerföretaget.
+        Servicekontakt eller tekniker visas när en sådan är kopplad.
       </div>
 
       {isLoading && (
         <p className="mt-8 text-sm text-slate-700 dark:text-slate-300">
-          Laddar serviceföretag...
+          Laddar servicepartnerföretag...
         </p>
       )}
       {error && <p className="mt-8 text-sm font-semibold text-red-700">{error}</p>}
@@ -197,7 +197,7 @@ export default function ServicePartnerCompanyDetailPageClient({
           <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-7">
             <MetricCard label="Kontakter" value={data.metrics.linkedContactsCount} />
             <MetricCard
-              label="Aggregat via kontakter"
+              label="Kopplade aggregat"
               value={data.metrics.assignedInstallationsCount}
             />
             <MetricCard
@@ -230,7 +230,7 @@ export default function ServicePartnerCompanyDetailPageClient({
           <Card className="mt-6 p-5">
             <SectionHeader
               title="Företagsuppgifter"
-              subtitle="Kontaktuppgifter för serviceföretaget."
+              subtitle="Kontaktuppgifter för servicepartnerföretaget."
             />
             <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <DetailItem label="Organisationsnummer" value={data.company.organizationNumber} />
@@ -250,14 +250,14 @@ export default function ServicePartnerCompanyDetailPageClient({
             <div className="border-b border-slate-200 p-5 dark:border-slate-800">
               <SectionHeader
                 title="Relaterade åtgärder"
-                subtitle="Prioriterade åtgärder via företagets kopplade servicekontakter."
+                subtitle="Prioriterade åtgärder för aggregat kopplade till servicepartnerföretaget."
               />
             </div>
             {data.actions.length === 0 ? (
               <div className="p-5">
                 <EmptyState
                   title="Inga aktuella åtgärder."
-                  description="När aggregat via företagets servicekontakter kräver uppföljning visas de här."
+                  description="När företagets kopplade aggregat kräver uppföljning visas de här."
                 />
               </div>
             ) : (
@@ -310,15 +310,15 @@ export default function ServicePartnerCompanyDetailPageClient({
           <Card className="mt-6 overflow-hidden">
             <div className="border-b border-slate-200 p-5 dark:border-slate-800">
               <SectionHeader
-                title="Kopplade servicekontakter"
-                subtitle="Certifiering och arbetsläge per kontakt."
+                title="Servicekontakter / tekniker"
+                subtitle="Valfria kontakter som kan användas för operativ uppföljning."
               />
             </div>
             {data.contractors.length === 0 ? (
               <div className="p-5">
                 <EmptyState
                   title="Inga servicekontakter är kopplade till företaget."
-                  description="Koppla servicekontakter från servicekontaktsidan för att bygga upp företagets översikt."
+                  description="Koppla en primär kontakt eller tekniker när det behövs för operativ uppföljning."
                 />
               </div>
             ) : (
@@ -372,15 +372,15 @@ export default function ServicePartnerCompanyDetailPageClient({
           <Card className="mt-6 overflow-hidden">
             <div className="border-b border-slate-200 p-5 dark:border-slate-800">
               <SectionHeader
-                title="Aggregat via kopplade servicekontakter"
-                subtitle="Listan bygger på befintlig tilldelning till enskilda servicekontakter."
+                title="Kopplade aggregat"
+                subtitle="Aggregat som är tilldelade servicepartnerföretaget. Servicekontakt är valfri metadata."
               />
             </div>
             {data.installations.length === 0 ? (
               <div className="p-5">
                 <EmptyState
                   title="Inga aggregat visas för företaget."
-                  description="Aggregat visas här när de är tilldelade servicekontakter som är kopplade till serviceföretaget."
+                  description="Aggregat visas här när de är tilldelade servicepartnerföretaget."
                 />
               </div>
             ) : (

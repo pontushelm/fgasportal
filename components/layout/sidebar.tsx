@@ -52,7 +52,7 @@ const primaryNavigation: NavigationItem[] = [
   },
   {
     href: "/dashboard/contractors",
-    label: "Servicekontakter",
+    label: "Servicepartners",
     roles: ["OWNER", "ADMIN", "MEMBER"],
   },
   {
