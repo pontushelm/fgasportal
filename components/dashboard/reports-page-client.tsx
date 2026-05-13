@@ -5,6 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useId, useMemo, useState } from "react"
 import { Badge, Card, EmptyState as UiEmptyState, PageHeader, SectionHeader } from "@/components/ui"
 import { getInstallationEventAmountLabel } from "@/lib/installation-events"
+import {
+  getReportTypeMetadata,
+  isReportExportAvailable,
+  REPORT_TYPE_OPTIONS,
+  type ReportType,
+  type ReportTypeMetadata,
+} from "@/lib/reports/reportTypeMetadata"
 
 type EventType =
   | "INSPECTION"
@@ -14,13 +21,6 @@ type EventType =
   | "REPAIR"
   | "RECOVERY"
   | "REFRIGERANT_CHANGE"
-type ReportType =
-  | "annual"
-  | "climate"
-  | "compliance"
-  | "risk"
-  | "refrigerants"
-
 type ReportData = {
   year: number
   metrics: {
@@ -119,55 +119,6 @@ const EVENT_TONE: Record<EventType, string> = {
   REFRIGERANT_CHANGE: "border-cyan-200 bg-cyan-50 text-cyan-800",
 }
 
-const REPORT_TYPE_OPTIONS: Array<{
-  value: ReportType
-  label: string
-  title: string
-  subtitle: string
-  contextTitle: string
-}> = [
-  {
-    value: "annual",
-    label: "Årsrapport enligt F-gasförordningen",
-    title: "F-gas årsrapport",
-    subtitle:
-      "Årssammanställning av aggregat, kontrollhändelser, läckagehändelser, påfyllningar och klimatpåverkan.",
-    contextTitle: "Rapportunderlag",
-  },
-  {
-    value: "climate",
-    label: "Klimatpåverkan",
-    title: "Klimatpåverkan",
-    subtitle:
-      "Översikt över CO₂e, köldmedier, läckage och påfyllningar för valt urval.",
-    contextTitle: "Klimat- och läckageunderlag",
-  },
-  {
-    value: "compliance",
-    label: "Kontrollstatus",
-    title: "Kontrollstatus",
-    subtitle:
-      "Underlag för uppföljning av kontrollplikt, utförda kontroller och status.",
-    contextTitle: "Kontroll- och serviceunderlag",
-  },
-  {
-    value: "risk",
-    label: "Högriskaggregat",
-    title: "Högriskaggregat",
-    subtitle:
-      "Rapportvy för prioritering av aggregat med hög risk och försenade kontroller.",
-    contextTitle: "Prioriteringsunderlag",
-  },
-  {
-    value: "refrigerants",
-    label: "Köldmediesammanställning",
-    title: "Köldmediesammanställning",
-    subtitle:
-      "Summering per köldmedium med mängder, CO₂e, påfyllningar och läckage.",
-    contextTitle: "Köldmedieunderlag",
-  },
-]
-
 const METRIC_HELP = {
   totalInstallations: "Antal aktiva aggregat som ingår i rapporten.",
   totalCo2eTon: "Samlad klimatpåverkan från aggregaten i rapporten.",
@@ -236,6 +187,10 @@ export default function ReportsPage() {
     return params.toString()
   }, [selectedMunicipality, selectedPropertyId, selectedReportType, selectedYear])
   const pdfExportHref = useMemo(() => {
+    if (!isReportExportAvailable(selectedReportType)) {
+      return null
+    }
+
     if (selectedReportType !== "annual") {
       return `/api/reports/fgas/export?${reportQuery}&format=pdf`
     }
@@ -250,17 +205,18 @@ export default function ReportsPage() {
     return `/api/reports/annual-fgas?${params.toString()}`
   }, [reportQuery, selectedMunicipality, selectedPropertyId, selectedReportType, selectedYear])
   const selectedReport = useMemo(
-    () =>
-      REPORT_TYPE_OPTIONS.find((option) => option.value === selectedReportType) ??
-      REPORT_TYPE_OPTIONS[0],
+    () => getReportTypeMetadata(selectedReportType),
     [selectedReportType]
   )
+  const canExportSelectedReport = pdfExportHref !== null
   const signedPdfExportHref = useMemo(
     () =>
-      buildSignedAnnualPdfHref({
-        baseHref: pdfExportHref,
-        signingForm,
-      }),
+      pdfExportHref === null
+        ? ""
+        : buildSignedAnnualPdfHref({
+            baseHref: pdfExportHref,
+            signingForm,
+          }),
     [pdfExportHref, signingForm]
   )
   const canExportSigned =
@@ -409,24 +365,36 @@ export default function ReportsPage() {
               </label>
             </div>
             <div className="flex flex-wrap justify-start gap-2 border-t border-slate-200 pt-3 lg:justify-end">
-              <a
-                className={exportButtonClassName}
-                href={`/api/reports/fgas/export?${reportQuery}&format=csv`}
-              >
-                Exportera Excel
-              </a>
-              <a
-                className={exportButtonClassName}
-                href={pdfExportHref}
-              >
-                Exportera PDF
-              </a>
+              {canExportSelectedReport ? (
+                <>
+                  <a
+                    className={exportButtonClassName}
+                    href={`/api/reports/fgas/export?${reportQuery}&format=csv`}
+                  >
+                    Exportera Excel
+                  </a>
+                  <a
+                    className={exportButtonClassName}
+                    href={pdfExportHref}
+                  >
+                    Exportera PDF
+                  </a>
+                </>
+              ) : (
+                <span
+                  aria-disabled="true"
+                  className={`${exportButtonClassName} cursor-not-allowed opacity-60`}
+                >
+                  Export planeras
+                </span>
+              )}
             </div>
           </div>
         }
         title={selectedReport.title}
         subtitle={selectedReport.subtitle}
       />
+      <ReportModuleStatusPanel report={selectedReport} />
 
       {isLoading && <p className="mt-8 text-neutral-600">Laddar rapport...</p>}
       {error && <p className="mt-8 text-red-700">{error}</p>}
@@ -445,6 +413,12 @@ export default function ReportsPage() {
               />
               <SignedReportsHistory reports={signedReports} />
             </>
+          )}
+          {selectedReportType !== "annual" && (
+            <PlannedReportPreview
+              report={selectedReport}
+              reportData={reportData}
+            />
           )}
 
           <section className="mt-8 grid gap-4 md:grid-cols-3">
@@ -586,6 +560,74 @@ export default function ReportsPage() {
         </>
       )}
     </main>
+  )
+}
+
+function ReportModuleStatusPanel({ report }: { report: ReportTypeMetadata }) {
+  const toneClass = {
+    FULL: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    PREVIEW: "border-sky-200 bg-sky-50 text-sky-800",
+    PLANNED: "border-slate-200 bg-slate-50 text-slate-700",
+  }[report.supportStatus]
+  const description =
+    report.supportStatus === "FULL"
+      ? "Den här rapporttypen har färdigt rapportunderlag, export och signeringsstöd."
+      : "Den här vyn visar befintliga nyckeltal som operativt underlag. Färdig rapportexport byggs ut i senare version."
+
+  return (
+    <section className="mt-4 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p>{description}</p>
+        <Badge className={toneClass} variant="neutral">
+          {report.supportLabel}
+        </Badge>
+      </div>
+    </section>
+  )
+}
+
+function PlannedReportPreview({
+  report,
+  reportData,
+}: {
+  report: ReportTypeMetadata
+  reportData: ReportData
+}) {
+  const previewMetrics = getPreviewMetrics(report.value, reportData)
+
+  return (
+    <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-800">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="font-semibold text-slate-950">
+            {report.placeholderTitle ?? `${report.title} utökas i senare version`}
+          </h2>
+          <p className="mt-1 max-w-3xl text-slate-600">
+            {report.placeholderDescription}
+          </p>
+        </div>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
+          PDF-export planeras
+        </span>
+      </div>
+      {previewMetrics.length > 0 && (
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {previewMetrics.map((metric) => (
+            <div
+              className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2"
+              key={metric.label}
+            >
+              <div className="text-xs font-medium text-slate-500">
+                {metric.label}
+              </div>
+              <div className="mt-1 font-semibold text-slate-950">
+                {metric.value}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -909,6 +951,53 @@ function TableCell({ children }: { children: React.ReactNode }) {
 
 function EmptyState({ text }: { text: string }) {
   return <UiEmptyState className="mt-5" description={text} />
+}
+
+function getPreviewMetrics(reportType: ReportType, reportData: ReportData) {
+  const metrics = reportData.metrics
+
+  switch (reportType) {
+    case "climate":
+      return [
+        { label: "Installerad CO₂e", value: formatTotalCo2eTon(metrics) },
+        { label: "Läckagehändelser i år", value: metrics.leakageEvents },
+        {
+          label: "Påfylld mängd i år",
+          value: `${formatNumber(metrics.refilledAmountKg)} kg`,
+        },
+        {
+          label: "Okända CO₂e-värden",
+          value: metrics.unknownCo2eInstallations,
+        },
+      ]
+    case "compliance":
+      return [
+        { label: "Kontrollpliktiga aggregat", value: metrics.requiringInspection },
+        { label: "Utförda kontroller i år", value: metrics.inspectionsPerformed },
+        { label: "Servicehändelser i år", value: metrics.serviceEvents },
+      ]
+    case "risk":
+      return [
+        { label: "Aggregat i urvalet", value: metrics.totalInstallations },
+        { label: "Kontrollpliktiga aggregat", value: metrics.requiringInspection },
+        {
+          label: "Läckagehändelser i år",
+          value: metrics.leakageEvents,
+        },
+      ]
+    case "refrigerants":
+      return [
+        { label: "Köldmedier i urvalet", value: reportData.refrigerants.length },
+        {
+          label: "Total köldmediemängd",
+          value: `${formatNumber(metrics.totalRefrigerantAmountKg)} kg`,
+        },
+        { label: "Installerad CO₂e", value: formatTotalCo2eTon(metrics) },
+      ]
+    case "annual":
+    default:
+      return []
+  }
 }
 
 function formatDate(value: string) {
