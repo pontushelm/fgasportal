@@ -443,11 +443,11 @@ describe("annual F-gas report warnings", () => {
       scrappedEquipment: [],
     })
 
-    expect(warnings).toEqual([
+    expect(warnings).toContainEqual(
       expect.objectContaining({
         id: "missing-property-designation-installation-a",
         severity: "review",
-      }),
-    ])
+      })
+    )
   })
 })

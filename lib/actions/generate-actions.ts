@@ -1,4 +1,8 @@
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
+import {
+  getRefrigerantRegulatoryStatus,
+  isRefrigerantRegulatoryFollowUpStatus,
+} from "@/lib/refrigerant-regulatory-status"
 import type { InstallationRiskLevel } from "@/lib/risk-classification"
 
 export type DashboardActionType =
@@ -8,6 +12,7 @@ export type DashboardActionType =
   | "HIGH_RISK"
   | "NO_SERVICE_PARTNER"
   | "RECENT_LEAKAGE"
+  | "REFRIGERANT_REVIEW"
 
 export type DashboardActionSeverity = "HIGH" | "MEDIUM" | "LOW"
 
@@ -16,6 +21,7 @@ export type DashboardActionSource =
   | "risk"
   | "service_contact"
   | "leakage"
+  | "refrigerant"
 
 export type DashboardAction = {
   id: string
@@ -51,6 +57,8 @@ export type ActionInstallationInput = {
   nextInspection: Date | null
   inspectionInterval: number | null
   complianceStatus: ComplianceStatus
+  refrigerantType?: string | null
+  refrigerantAmount?: number | null
   assignedContractorId: string | null
   assignedServiceContactId?: string | null
   assignedServiceContactName?: string | null
@@ -90,6 +98,7 @@ const TYPE_ORDER: Record<DashboardActionType, number> = {
   HIGH_RISK: 4,
   DUE_SOON_INSPECTION: 5,
   NO_SERVICE_PARTNER: 6,
+  REFRIGERANT_REVIEW: 7,
 }
 
 export function generateDashboardActions({
@@ -175,6 +184,31 @@ export function generateDashboardActions({
           installation,
           href,
           createdFrom: "service_contact",
+        })
+      )
+    }
+
+    const refrigerantStatus = getRefrigerantRegulatoryStatus({
+      refrigerantType: installation.refrigerantType,
+      refrigerantAmountKg: installation.refrigerantAmount,
+    })
+    if (
+      installation.propertyId &&
+      isRefrigerantRegulatoryFollowUpStatus(refrigerantStatus.status)
+    ) {
+      actions.push(
+        createAction({
+          type: "REFRIGERANT_REVIEW",
+          severity: "LOW",
+          title:
+            refrigerantStatus.actionTitle ??
+            "Kontrollera framtida krav för köldmedium",
+          description:
+            refrigerantStatus.actionDescription ??
+            `${installation.name}: ${refrigerantStatus.label}`,
+          installation,
+          href,
+          createdFrom: "refrigerant",
         })
       )
     }
@@ -281,6 +315,7 @@ function getActionId(type: DashboardActionType, installationId: string) {
   if (type === "NOT_INSPECTED") return `not-inspected-${installationId}`
   if (type === "HIGH_RISK") return `high-risk-${installationId}`
   if (type === "NO_SERVICE_PARTNER") return `no-service-partner-${installationId}`
+  if (type === "REFRIGERANT_REVIEW") return `refrigerant-review-${installationId}`
   return `${type.toLowerCase()}-${installationId}`
 }
 

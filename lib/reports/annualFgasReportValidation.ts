@@ -7,6 +7,10 @@ import type {
   AnnualFgasReportWarning,
   AnnualFgasScrappedEquipmentRow,
 } from "@/lib/reports/annualFgasReportTypes"
+import {
+  getRefrigerantRegulatoryStatus,
+  isRefrigerantRegulatoryFollowUpStatus,
+} from "@/lib/refrigerant-regulatory-status"
 
 export const ANNUAL_FGAS_EVENT_LABELS = {
   INSPECTION: "Läckagekontroll",
@@ -204,6 +208,20 @@ export function buildAnnualFgasReportWarnings({
           equipmentName: installation.name,
           equipmentId: installation.equipmentId,
           message: "Aggregatet saknar tydlig köldmediemängd.",
+        })
+      }
+
+      const regulatoryStatus = getRefrigerantRegulatoryStatus({
+        refrigerantType: equipmentRow.refrigerantType,
+        refrigerantAmountKg: equipmentRow.refrigerantAmountKg,
+      })
+      if (isRefrigerantRegulatoryFollowUpStatus(regulatoryStatus.status)) {
+        warnings.push({
+          id: `refrigerant-regulatory-review-${installation.id}`,
+          severity: "review",
+          equipmentName: installation.name,
+          equipmentId: installation.equipmentId,
+          message: `${regulatoryStatus.label}. Kontrollera gällande krav innan rapporten skickas.`,
         })
       }
     }

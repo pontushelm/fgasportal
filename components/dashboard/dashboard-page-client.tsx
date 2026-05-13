@@ -22,6 +22,7 @@ type ActionItem = {
     | "HIGH_RISK"
     | "NO_SERVICE_PARTNER"
     | "RECENT_LEAKAGE"
+    | "REFRIGERANT_REVIEW"
   severity: "HIGH" | "MEDIUM" | "LOW"
   title: string
   description: string
@@ -33,8 +34,8 @@ type ActionItem = {
   href: string
   dueDate?: string | null
   createdAt?: string | null
-  createdFrom: "inspection" | "risk" | "service_contact" | "leakage"
-  source: "inspection" | "risk" | "service_contact" | "leakage"
+  createdFrom: "inspection" | "risk" | "service_contact" | "leakage" | "refrigerant"
+  source: "inspection" | "risk" | "service_contact" | "leakage" | "refrigerant"
   sortPriority: number
 }
 
@@ -81,6 +82,14 @@ type DashboardData = {
       reviewWarningCount: number
       href: string
     }>
+  }
+  refrigerantRegulatorySummary: {
+    OK: number
+    REVIEW: number
+    RESTRICTED: number
+    PHASE_OUT_RISK: number
+    UNKNOWN: number
+    followUp: number
   }
   riskSummary: {
     high: number
@@ -342,6 +351,28 @@ export default function DashboardPage() {
                     label: item.label,
                     value: item.count,
                   }))}
+                />
+              </VisualCard>
+
+              <VisualCard
+                title="Köldmediestatus"
+                description="Operativa signaler för köldmedier som kan behöva följas upp."
+              >
+                <DistributionList
+                  items={[
+                    {
+                      label: "Kan omfattas av begränsningar",
+                      value: dashboardData.refrigerantRegulatorySummary.RESTRICTED,
+                    },
+                    {
+                      label: "Bör planeras för utfasning",
+                      value: dashboardData.refrigerantRegulatorySummary.PHASE_OUT_RISK,
+                    },
+                    {
+                      label: "Okänt köldmedium",
+                      value: dashboardData.refrigerantRegulatorySummary.UNKNOWN,
+                    },
+                  ]}
                 />
               </VisualCard>
 

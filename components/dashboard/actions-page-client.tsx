@@ -69,6 +69,7 @@ const CATEGORY_FILTERS: Array<{ label: string; value: ActionFilter }> = [
   { label: "Läckage", value: "LEAKAGE" },
   { label: "Hög risk", value: "HIGH_RISK" },
   { label: "Saknar servicekontakt", value: "NO_SERVICE_PARTNER" },
+  { label: "Köldmedium", value: "REFRIGERANT_REVIEW" },
 ]
 
 const SEVERITY_FILTERS: Array<{ label: string; value: ActionSeverityFilter }> = [
@@ -99,6 +100,7 @@ const ACTION_TYPE_LABELS: Record<DashboardActionType, string> = {
   HIGH_RISK: "Hög risk",
   NO_SERVICE_PARTNER: "Servicekontakt saknas",
   RECENT_LEAKAGE: "Läckageuppföljning",
+  REFRIGERANT_REVIEW: "Köldmedium bör granskas",
 }
 
 export default function ActionsPageClient() {
@@ -368,6 +370,7 @@ export default function ActionsPageClient() {
           <SummaryCard label="Kommande" value={summaryCounts.dueSoon} tone="amber" />
           <SummaryCard label="Läckage" value={summaryCounts.leakageFollowUp} tone="red" />
           <SummaryCard label="Saknar servicekontakt" value={summaryCounts.missingServiceContact} />
+          <SummaryCard label="Köldmedium" value={summaryCounts.refrigerantReview} />
         </section>
 
         <Card className="sticky top-0 z-20 mt-4 p-3 shadow-sm sm:static sm:p-4 sm:shadow-none">

@@ -97,6 +97,7 @@ const ACTION_TYPE_LABELS: Record<DashboardActionType, string> = {
   HIGH_RISK: "Hög risk",
   NO_SERVICE_PARTNER: "Servicekontakt saknas",
   RECENT_LEAKAGE: "Läckageuppföljning",
+  REFRIGERANT_REVIEW: "Köldmedium bör granskas",
 }
 
 export default function ServicePartnerCompanyDetailPageClient({

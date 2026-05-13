@@ -17,6 +17,10 @@ import {
   calculateInstallationRisk,
   type InstallationRiskLevel,
 } from "@/lib/risk-classification"
+import {
+  getRefrigerantRegulatoryStatus,
+  isRefrigerantRegulatoryFollowUpStatus,
+} from "@/lib/refrigerant-regulatory-status"
 
 type DistributionItem = {
   label: string
@@ -147,6 +151,29 @@ export async function GET(request: NextRequest) {
         risk,
       }
     })
+    const refrigerantRegulatorySummary = installationRows.reduce(
+      (summary, installation) => {
+        const status = getRefrigerantRegulatoryStatus({
+          refrigerantType: installation.refrigerantType,
+          refrigerantAmountKg: installation.refrigerantAmount,
+        }).status
+
+        summary[status] += 1
+        if (isRefrigerantRegulatoryFollowUpStatus(status)) {
+          summary.followUp += 1
+        }
+
+        return summary
+      },
+      {
+        OK: 0,
+        REVIEW: 0,
+        RESTRICTED: 0,
+        PHASE_OUT_RISK: 0,
+        UNKNOWN: 0,
+        followUp: 0,
+      }
+    )
 
     const leakageEvents = installations.flatMap((installation) =>
       installation.events.map((event) => ({
@@ -262,6 +289,7 @@ export async function GET(request: NextRequest) {
           unknownLeakageCo2eEvents: leakageClimateImpact.unknownEvents,
         },
         annualReportStatus,
+        refrigerantRegulatorySummary,
         riskSummary,
         statusDistribution: statusCounts,
         refrigerantDistribution: Array.from(refrigerantMap.values()).sort(

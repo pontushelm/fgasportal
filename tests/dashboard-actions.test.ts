@@ -243,6 +243,7 @@ describe("dashboard action generation", () => {
       dueSoon: 1,
       leakageFollowUp: 1,
       missingServiceContact: 1,
+      refrigerantReview: 0,
     })
   })
 

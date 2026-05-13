@@ -8,6 +8,10 @@ import CreateInstallationForm from "@/components/installations/create-installati
 import { Button, Card, PageHeader } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
+import {
+  getRefrigerantRegulatoryStatus,
+  type RefrigerantRegulatoryStatus,
+} from "@/lib/refrigerant-regulatory-status"
 import { REFRIGERANT_GWP } from "@/lib/refrigerants"
 import type { InstallationRiskLevel } from "@/lib/risk-classification"
 import { isAdminRole } from "@/lib/roles"
@@ -112,6 +116,14 @@ const RISK_TONE: Record<InstallationRiskLevel, string> = {
   LOW: "border-emerald-300 bg-emerald-50 text-emerald-900",
   MEDIUM: "border-amber-300 bg-amber-50 text-amber-900",
   HIGH: "border-red-300 bg-red-50 text-red-900",
+}
+
+const REGULATORY_STATUS_TONE: Record<RefrigerantRegulatoryStatus, string> = {
+  OK: "border-emerald-300 bg-emerald-50 text-emerald-900",
+  REVIEW: "border-sky-300 bg-sky-50 text-sky-900",
+  RESTRICTED: "border-red-300 bg-red-50 text-red-900",
+  PHASE_OUT_RISK: "border-amber-300 bg-amber-50 text-amber-900",
+  UNKNOWN: "border-slate-300 bg-slate-50 text-slate-800",
 }
 
 const SORT_OPTIONS = [
@@ -976,7 +988,15 @@ export default function InstallationsPageClient() {
                       </p>
                     </div>
                   </TableCell>
-                  <TableCell>{installation.refrigerantType}</TableCell>
+                  <TableCell>
+                    <div className="grid gap-1">
+                      <span>{installation.refrigerantType}</span>
+                      <RefrigerantRegulatoryBadge
+                        amountKg={installation.refrigerantAmount}
+                        refrigerantType={installation.refrigerantType}
+                      />
+                    </div>
+                  </TableCell>
                   <TableCell>{formatNumber(installation.refrigerantAmount)} kg</TableCell>
                   <TableCell>{formatCo2eTon(installation.co2eTon)}</TableCell>
                   <TableCell>{formatOptionalDate(installation.nextInspection)}</TableCell>
@@ -1358,6 +1378,10 @@ function InstallationMobileCard({
           status={installation.complianceStatus}
         />
         {!installation.scrappedAt && <RiskBadge level={installation.riskLevel} />}
+        <RefrigerantRegulatoryBadge
+          amountKg={installation.refrigerantAmount}
+          refrigerantType={installation.refrigerantType}
+        />
       </div>
 
       <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
@@ -1475,6 +1499,30 @@ function RiskBadge({ level }: { level: InstallationRiskLevel }) {
   return (
     <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${RISK_TONE[level]}`}>
       Risk: {RISK_LABELS[level]}
+    </span>
+  )
+}
+
+function RefrigerantRegulatoryBadge({
+  amountKg,
+  refrigerantType,
+}: {
+  amountKg: number
+  refrigerantType: string
+}) {
+  const status = getRefrigerantRegulatoryStatus({
+    refrigerantType,
+    refrigerantAmountKg: amountKg,
+  })
+
+  if (status.status === "OK") return null
+
+  return (
+    <span
+      className={`inline-flex w-fit rounded-full border px-2.5 py-1 text-xs font-semibold ${REGULATORY_STATUS_TONE[status.status]}`}
+      title={`${status.label}. ${status.description}`}
+    >
+      {status.shortLabel}
     </span>
   )
 }

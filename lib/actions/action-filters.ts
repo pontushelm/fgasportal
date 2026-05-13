@@ -7,6 +7,7 @@ export type ActionFilter =
   | "LEAKAGE"
   | "HIGH_RISK"
   | "NO_SERVICE_PARTNER"
+  | "REFRIGERANT_REVIEW"
 
 export type ActionSeverityFilter = "ALL" | "HIGH" | "MEDIUM" | "LOW"
 
@@ -49,6 +50,7 @@ export type ActionSummaryCounts = {
   dueSoon: number
   leakageFollowUp: number
   missingServiceContact: number
+  refrigerantReview: number
 }
 
 export function sanitizeActionFilterQueryParams(
@@ -122,6 +124,7 @@ const ACTION_FILTER_TYPES: Record<Exclude<ActionFilter, "ALL">, DashboardActionT
   LEAKAGE: ["RECENT_LEAKAGE"],
   HIGH_RISK: ["HIGH_RISK"],
   NO_SERVICE_PARTNER: ["NO_SERVICE_PARTNER"],
+  REFRIGERANT_REVIEW: ["REFRIGERANT_REVIEW"],
 }
 
 const ACTION_FILTER_VALUES: ActionFilter[] = [
@@ -131,6 +134,7 @@ const ACTION_FILTER_VALUES: ActionFilter[] = [
   "LEAKAGE",
   "HIGH_RISK",
   "NO_SERVICE_PARTNER",
+  "REFRIGERANT_REVIEW",
 ]
 
 const ACTION_SEVERITY_FILTER_VALUES: ActionSeverityFilter[] = [
@@ -227,6 +231,7 @@ export function getActionSummaryCounts<T extends SummaryAction>(
       if (isDueWithinDays(action.dueDate, 30, currentDate)) summary.dueSoon += 1
       if (action.type === "RECENT_LEAKAGE") summary.leakageFollowUp += 1
       if (action.type === "NO_SERVICE_PARTNER") summary.missingServiceContact += 1
+      if (action.type === "REFRIGERANT_REVIEW") summary.refrigerantReview += 1
       return summary
     },
     {
@@ -236,6 +241,7 @@ export function getActionSummaryCounts<T extends SummaryAction>(
       dueSoon: 0,
       leakageFollowUp: 0,
       missingServiceContact: 0,
+      refrigerantReview: 0,
     }
   )
 }
