@@ -428,6 +428,7 @@ const COMPLIANCE_TONE: Record<ComplianceStatus, string> = {
 const fieldClassName = "grid gap-1 text-sm font-medium text-slate-700"
 const formControlClassName =
   "rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-slate-950 shadow-sm outline-none placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-600"
+const historyPreviewLimit = 5
 const minInstallationDate = "1950-01-01"
 const maxInstallationDate = `${new Date().getFullYear() + 1}-12-31`
 
@@ -477,6 +478,9 @@ export default function InstallationDetailPage() {
   const [scrapError, setScrapError] = useState("")
   const [isScrapping, setIsScrapping] = useState(false)
   const [lifecycleConfirmed, setLifecycleConfirmed] = useState(false)
+  const [isInspectionHistoryExpanded, setIsInspectionHistoryExpanded] = useState(false)
+  const [isEventTimelineExpanded, setIsEventTimelineExpanded] = useState(false)
+  const [isActivityLogExpanded, setIsActivityLogExpanded] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
@@ -1211,6 +1215,15 @@ export default function InstallationDetailPage() {
   const eventCertificationWarning = getCertificationWarning(
     installation.assignedContractor?.certificationStatus ?? null
   )
+  const visibleInspections = isInspectionHistoryExpanded
+    ? installation.inspections
+    : installation.inspections.slice(0, historyPreviewLimit)
+  const visibleEvents = isEventTimelineExpanded
+    ? events
+    : events.slice(0, historyPreviewLimit)
+  const visibleActivityLogs = isActivityLogExpanded
+    ? activityLogs
+    : activityLogs.slice(0, historyPreviewLimit)
   const selectedScrapContractor = contractors.find(
     (contractor) => contractor.id === scrapForm.servicePartnerId
   )
@@ -1487,7 +1500,7 @@ export default function InstallationDetailPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {installation.inspections.map((inspection) => (
+                {visibleInspections.map((inspection) => (
                   <tr key={inspection.id}>
                     <TableCell>{formatDate(inspection.inspectionDate)}</TableCell>
                     <TableCell>{inspection.inspectorName}</TableCell>
@@ -1499,6 +1512,14 @@ export default function InstallationDetailPage() {
                 ))}
               </tbody>
             </table>
+            <HistoryToggleButton
+              isExpanded={isInspectionHistoryExpanded}
+              itemCount={installation.inspections.length}
+              limit={historyPreviewLimit}
+              onClick={() =>
+                setIsInspectionHistoryExpanded((current) => !current)
+              }
+            />
           </div>
         )}
       </section>
@@ -1509,7 +1530,7 @@ export default function InstallationDetailPage() {
           <p className="mt-4 text-sm text-slate-600">Inga händelser registrerade ännu.</p>
         ) : (
           <div className="mt-5 grid gap-4">
-            {events.map((event) => (
+            {visibleEvents.map((event) => (
               <EventTimelineItem
                 documentCount={documentsByEventId[event.id] ?? 0}
                 event={event}
@@ -1522,6 +1543,12 @@ export default function InstallationDetailPage() {
                 }
               />
             ))}
+            <HistoryToggleButton
+              isExpanded={isEventTimelineExpanded}
+              itemCount={events.length}
+              limit={historyPreviewLimit}
+              onClick={() => setIsEventTimelineExpanded((current) => !current)}
+            />
           </div>
         )}
       </section>
@@ -1532,7 +1559,7 @@ export default function InstallationDetailPage() {
           <p className="mt-4 text-sm text-slate-600">Ingen aktivitet registrerad ännu.</p>
         ) : (
           <div className="mt-5 grid gap-3">
-            {activityLogs.map((entry) => (
+            {visibleActivityLogs.map((entry) => (
               <article
                 className="rounded-lg border border-slate-200 bg-slate-50 p-4"
                 key={entry.id}
@@ -1553,6 +1580,12 @@ export default function InstallationDetailPage() {
                 </div>
               </article>
             ))}
+            <HistoryToggleButton
+              isExpanded={isActivityLogExpanded}
+              itemCount={activityLogs.length}
+              limit={historyPreviewLimit}
+              onClick={() => setIsActivityLogExpanded((current) => !current)}
+            />
           </div>
         )}
       </section>
@@ -2269,6 +2302,32 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
     <div className="rounded-md bg-slate-50 p-4">
       <dt className="text-sm font-medium text-slate-600">{label}</dt>
       <dd className="mt-1 font-semibold text-slate-950">{value}</dd>
+    </div>
+  )
+}
+
+function HistoryToggleButton({
+  isExpanded,
+  itemCount,
+  limit,
+  onClick,
+}: {
+  isExpanded: boolean
+  itemCount: number
+  limit: number
+  onClick: () => void
+}) {
+  if (itemCount <= limit) return null
+
+  return (
+    <div className="mt-4 flex justify-center">
+      <button
+        className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        type="button"
+        onClick={onClick}
+      >
+        {isExpanded ? "Visa mindre" : `Visa mer (${itemCount - limit})`}
+      </button>
     </div>
   )
 }

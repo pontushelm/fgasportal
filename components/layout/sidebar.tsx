@@ -85,6 +85,7 @@ export function Sidebar() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const [isSwitchingCompany, setIsSwitchingCompany] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -155,6 +156,22 @@ export function Sidebar() {
     setIsSwitchingCompany(false)
   }
 
+  async function handleLogout() {
+    setIsLoggingOut(true)
+    const response = await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "include",
+    })
+
+    if (response.ok || response.status === 401) {
+      router.refresh()
+      router.push("/login")
+      return
+    }
+
+    setIsLoggingOut(false)
+  }
+
   return (
     <>
       <div className="sticky top-0 z-40 border-b border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:hidden">
@@ -196,6 +213,13 @@ export function Sidebar() {
               primaryItems={visiblePrimaryItems}
               secondaryItems={visibleSecondaryItems}
             />
+            <div className="mt-3 border-t border-slate-200 pt-3 dark:border-slate-800">
+              <SidebarUserInfo
+                currentUser={currentUser}
+                isLoggingOut={isLoggingOut}
+                onLogout={handleLogout}
+              />
+            </div>
           </nav>
         )}
       </div>
@@ -239,14 +263,26 @@ export function Sidebar() {
             />
           </nav>
 
-          <SidebarUserInfo currentUser={currentUser} />
+          <SidebarUserInfo
+            currentUser={currentUser}
+            isLoggingOut={isLoggingOut}
+            onLogout={handleLogout}
+          />
         </div>
       </aside>
     </>
   )
 }
 
-function SidebarUserInfo({ currentUser }: { currentUser: CurrentUser | null }) {
+function SidebarUserInfo({
+  currentUser,
+  isLoggingOut,
+  onLogout,
+}: {
+  currentUser: CurrentUser | null
+  isLoggingOut: boolean
+  onLogout: () => void
+}) {
   return (
     <div className="mt-auto border-t border-slate-200 px-2 pt-4 text-sm dark:border-slate-800">
       {currentUser ? (
@@ -257,6 +293,14 @@ function SidebarUserInfo({ currentUser }: { currentUser: CurrentUser | null }) {
           <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
             {currentUser.email || ""}
           </p>
+          <button
+            className="mt-3 inline-flex w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            type="button"
+            onClick={onLogout}
+            disabled={isLoggingOut}
+          >
+            {isLoggingOut ? "Loggar ut..." : "Logga ut"}
+          </button>
         </>
       ) : (
         <div className="grid gap-2">
