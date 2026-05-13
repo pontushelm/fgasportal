@@ -246,7 +246,7 @@ export default function PropertyDetailPageClient() {
             <Card className="p-5">
               <SectionHeader
                 title="Rapportöversikt"
-                subtitle="Visar om fastighetens aggregat har tillräckliga uppgifter för årsrapport och uppföljning."
+                subtitle="Status för årsrapport och rapportunderlag för fastigheten."
               />
               <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -336,9 +336,8 @@ export default function PropertyDetailPageClient() {
                 />
               </div>
               <p className="mt-3 text-xs leading-5 text-slate-600">
-                Rapportunderlag klart betyder att obligatoriska uppgifter verkar
-                finnas. Bör kontrolleras visar aggregat där uppgifter saknas
-                eller bör granskas innan rapporten används.
+                Rapportunderlag klart visar aggregat med tillräckliga uppgifter.
+                Bör kontrolleras betyder att uppgifter behöver granskas.
               </p>
               {data.summary.reportOverview.unknownCo2eInstallations > 0 && (
                 <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -402,7 +401,7 @@ export default function PropertyDetailPageClient() {
                 title="Riskfördelning"
                 subtitle="Fördelning mellan hög, medel och låg risk."
               />
-              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <RiskBox label="Hög" value={data.summary.riskDistribution.HIGH} tone="red" />
                 <RiskBox label="Medel" value={data.summary.riskDistribution.MEDIUM} tone="amber" />
                 <RiskBox label="Låg" value={data.summary.riskDistribution.LOW} tone="green" />
@@ -414,7 +413,7 @@ export default function PropertyDetailPageClient() {
             <Card className="p-5">
               <SectionHeader
                 title="Åtgärder"
-                subtitle="Fastighetsrelevanta uppföljningar från åtgärdslogiken."
+                subtitle="Åtgärder som rör aggregat på den här fastigheten."
               />
               {data.actions.length === 0 ? (
                 <p className="mt-4 text-sm text-slate-600">Inga aktuella åtgärder.</p>
@@ -616,9 +615,9 @@ function RiskBox({
   }[tone]
 
   return (
-    <div className={`rounded-lg border px-3 py-2.5 ${toneClass}`}>
+    <div className={`flex min-h-24 flex-col justify-center rounded-lg border px-4 py-3 text-center ${toneClass}`}>
       <p className="text-xs font-semibold uppercase tracking-wide">{label}</p>
-      <p className="mt-1 text-xl font-bold">{value}</p>
+      <p className="mt-2 text-3xl font-bold">{value}</p>
     </div>
   )
 }
