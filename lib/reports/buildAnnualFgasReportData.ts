@@ -106,6 +106,7 @@ export async function buildAnnualFgasReportData({
       },
       events: {
         where: {
+          supersededAt: null,
           date: {
             gte: startDate,
             lt: endDate,

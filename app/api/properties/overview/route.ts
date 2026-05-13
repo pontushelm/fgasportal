@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
           events: {
             where: {
               type: "LEAK",
+              supersededAt: null,
             },
             select: {
               id: true,
@@ -82,6 +83,7 @@ export async function GET(request: NextRequest) {
             events: {
               where: {
                 type: "LEAK",
+                supersededAt: null,
               },
               select: {
                 id: true,

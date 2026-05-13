@@ -57,6 +57,10 @@ type InstallationEvent = {
   newAmountKg?: number | null
   recoveredAmountKg?: number | null
   notes?: string | null
+  supersededAt?: string | null
+  supersededByEventId?: string | null
+  supersededReason?: string | null
+  supersededByUserId?: string | null
   createdBy?: {
     name: string
     email: string
@@ -177,6 +181,7 @@ type EventFormData = {
   performedAction: string
   recoveryReason: string
   recoveryHandledBy: string
+  supersededReason: string
   notes: string
 }
 
@@ -245,6 +250,7 @@ const initialEventFormData: EventFormData = {
   performedAction: "",
   recoveryReason: "UNKNOWN",
   recoveryHandledBy: "",
+  supersededReason: "",
   notes: "",
 }
 
@@ -374,6 +380,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
   repair_registered: "Reparation registrerad",
   recovery_registered: "Tömning/återvinning registrerad",
   refrigerant_change_registered: "Byte av köldmedium registrerat",
+  event_corrected: "Händelse korrigerad",
   document_uploaded: "Dokument uppladdat",
   document_deleted: "Dokument borttaget",
   report_exported: "Rapport exporterad",
@@ -443,6 +450,7 @@ export default function InstallationDetailPage() {
   const [documentFile, setDocumentFile] = useState<File | null>(null)
   const [eventError, setEventError] = useState("")
   const [eventSuccess, setEventSuccess] = useState("")
+  const [correctingEvent, setCorrectingEvent] = useState<InstallationEvent | null>(null)
   const [documentError, setDocumentError] = useState("")
   const [documentSuccess, setDocumentSuccess] = useState("")
   const [isSubmittingEvent, setIsSubmittingEvent] = useState(false)
@@ -675,6 +683,7 @@ export default function InstallationDetailPage() {
 
   function openEventModal(type?: EventFormType) {
     const nextType = type ?? eventForm.type
+    setCorrectingEvent(null)
     setEventError("")
     setEventSuccess("")
     setArchiveError("")
@@ -705,12 +714,58 @@ export default function InstallationDetailPage() {
     setIsEventModalOpen(true)
   }
 
+  function openCorrectionModal(event: InstallationEvent) {
+    if (event.type === "REFRIGERANT_CHANGE") {
+      setEventError(
+        "Byte av köldmedium behöver korrigeras genom en ny köldmediehändelse så att aggregatets aktuella köldmedium inte ändras fel."
+      )
+      return
+    }
+
+    const noteDetails = parseEventNoteDetails(event.notes)
+    const formType: EventFormType = event.type === "REPAIR" ? "SERVICE" : event.type
+
+    setCorrectingEvent(event)
+    setEventError("")
+    setEventSuccess("")
+    setArchiveError("")
+    setScrapError("")
+    setLifecycleConfirmed(false)
+    setEventForm({
+      ...initialEventFormData,
+      date: toDateInputValue(event.date),
+      type: formType,
+      refrigerantAddedKg:
+        event.refrigerantAddedKg !== null && event.refrigerantAddedKg !== undefined
+          ? String(event.refrigerantAddedKg)
+          : "",
+      newRefrigerantType: event.newRefrigerantType || "",
+      recoveredRefrigerantKg:
+        event.recoveredAmountKg !== null && event.recoveredAmountKg !== undefined
+          ? String(event.recoveredAmountKg)
+          : "",
+      inspectionResult: noteDetails.result === "Anmärkning" ? "REMARK" : "OK",
+      leakSource: getOptionValue(LEAK_SOURCE_OPTIONS, noteDetails.source) ?? "UNKNOWN",
+      leakRepairedStatus:
+        getOptionValue(LEAK_REPAIRED_OPTIONS, noteDetails.repaired) ?? "UNKNOWN",
+      refillRefrigerantType: noteDetails.refrigerant || installation?.refrigerantType || "",
+      refillReason: getOptionValue(REFILL_REASON_OPTIONS, noteDetails.reason) ?? "UNKNOWN",
+      performedAction: noteDetails.action || "",
+      recoveryReason: getOptionValue(RECOVERY_REASON_OPTIONS, noteDetails.reason) ?? "UNKNOWN",
+      recoveryHandledBy: noteDetails.handledBy || "",
+      supersededReason: "Korrigerad felregistrering",
+      notes: event.notes || "",
+    })
+    setIsEventModalOpen(true)
+  }
+
   function closeEventModal() {
     if (isSubmittingEvent || isArchiving || isScrapping) return
     setIsEventModalOpen(false)
     setEventError("")
     setArchiveError("")
     setScrapError("")
+    setCorrectingEvent(null)
     setLifecycleConfirmed(false)
   }
 
@@ -925,6 +980,8 @@ export default function InstallationDetailPage() {
             ? eventForm.recoveredRefrigerantKg
             : "",
         notes: buildEventNotes(eventForm),
+        correctingEventId: correctingEvent?.id,
+        supersededReason: correctingEvent ? eventForm.supersededReason : undefined,
       }),
     })
 
@@ -948,7 +1005,22 @@ export default function InstallationDetailPage() {
     }
 
     const createdEvent = result.event
-    setEvents((current) => [createdEvent, ...current].sort(compareEventsByDateDesc))
+    setEvents((current) =>
+      [
+        createdEvent,
+        ...current.map((existingEvent) =>
+          correctingEvent && existingEvent.id === correctingEvent.id
+            ? {
+                ...existingEvent,
+                supersededAt: new Date().toISOString(),
+                supersededByEventId: createdEvent.id,
+                supersededReason:
+                  eventForm.supersededReason.trim() || "Korrigerad händelse",
+              }
+            : existingEvent
+        ),
+      ].sort(compareEventsByDateDesc)
+    )
 
     if (result.inspectionSchedule) {
       setInstallation((current) =>
@@ -963,7 +1035,10 @@ export default function InstallationDetailPage() {
     }
 
     setEventForm(initialEventFormData)
-    setEventSuccess("Händelsen har lagts till")
+    setEventSuccess(
+      correctingEvent ? "Händelsen har korrigerats" : "Händelsen har lagts till"
+    )
+    setCorrectingEvent(null)
     setIsEventModalOpen(false)
     setRefreshKey((current) => current + 1)
     setIsSubmittingEvent(false)
@@ -1169,9 +1244,6 @@ export default function InstallationDetailPage() {
         {canManageActiveInstallation && (
           <div className="mt-5 grid gap-2 border-t border-slate-200 pt-4 sm:flex sm:flex-wrap">
             <ActionButton label="Ny händelse" onClick={() => openEventModal()} primary />
-            <ActionButton label="Registrera kontroll" onClick={() => openEventModal("INSPECTION")} />
-            <ActionButton label="Registrera läckage" onClick={() => openEventModal("LEAK")} tone="danger" />
-            <ActionButton label="Registrera service" onClick={() => openEventModal("SERVICE")} />
             <ActionButton label="Redigera aggregat" onClick={openEditModal} />
           </div>
         )}
@@ -1442,6 +1514,12 @@ export default function InstallationDetailPage() {
                 documentCount={documentsByEventId[event.id] ?? 0}
                 event={event}
                 key={event.id}
+                onCorrect={openCorrectionModal}
+                canCorrect={
+                  canManageActiveInstallation &&
+                  isAdminRole(currentUser?.role) &&
+                  event.type !== "REFRIGERANT_CHANGE"
+                }
               />
             ))}
           </div>
@@ -1672,12 +1750,38 @@ export default function InstallationDetailPage() {
 
       {isEventModalOpen && canManageActiveInstallation && (
         <ModalFrame
-          title={`Ny händelse: ${EVENT_FORM_LABELS[eventForm.type]}`}
-          description={EVENT_HELP_TEXT[eventForm.type]}
+          title={
+            correctingEvent
+              ? `Korrigera händelse: ${EVENT_FORM_LABELS[eventForm.type]}`
+              : `Ny händelse: ${EVENT_FORM_LABELS[eventForm.type]}`
+          }
+          description={
+            correctingEvent
+              ? "En korrigering skapar en ny ersättande händelse. Den ursprungliga händelsen sparas i historiken men används inte i beräkningar."
+              : EVENT_HELP_TEXT[eventForm.type]
+          }
           onClose={closeEventModal}
           closeDisabled={isSubmittingEvent || isArchiving || isScrapping}
         >
           <form className="grid gap-4" onSubmit={handleEventSubmit}>
+            {correctingEvent && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                <p className="font-semibold">Korrigering av tidigare händelse</p>
+                <p className="mt-1">
+                  En ny händelse skapas och den tidigare markeras som ersatt. Den ersatta
+                  händelsen finns kvar i historiken men används inte i beräkningar.
+                </p>
+                <label className={`${fieldClassName} mt-3`}>
+                  Orsak till korrigering
+                  <input
+                    className={formControlClassName}
+                    name="supersededReason"
+                    value={eventForm.supersededReason}
+                    onChange={handleEventChange}
+                  />
+                </label>
+              </div>
+            )}
             <div className="grid gap-3 sm:grid-cols-2">
               <label className={fieldClassName}>
                 Datum
@@ -1685,7 +1789,7 @@ export default function InstallationDetailPage() {
               </label>
               <label className={fieldClassName}>
                 Typ
-                <select className={formControlClassName} name="type" value={eventForm.type} onChange={handleEventChange} required>
+                <select className={formControlClassName} name="type" value={eventForm.type} onChange={handleEventChange} required disabled={Boolean(correctingEvent)}>
                   <option value="INSPECTION">Kontroll</option>
                   <option value="LEAK">Läckage</option>
                   <option value="REFILL">Påfyllning</option>
@@ -2432,6 +2536,15 @@ function getOptionLabel(options: Array<{ value: string; label: string }>, value:
   return options.find((option) => option.value === value)?.label ?? value
 }
 
+function getOptionValue(
+  options: Array<{ value: string; label: string }>,
+  label: string | null
+) {
+  if (!label) return null
+
+  return options.find((option) => option.label.toLowerCase() === label.toLowerCase())?.value ?? null
+}
+
 function ComplianceBadge({ status }: { status: ComplianceStatus }) {
   return (
     <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${COMPLIANCE_TONE[status]}`}>
@@ -2441,28 +2554,56 @@ function ComplianceBadge({ status }: { status: ComplianceStatus }) {
 }
 
 function EventTimelineItem({
+  canCorrect = false,
   event,
   documentCount,
+  onCorrect,
 }: {
+  canCorrect?: boolean
   event: InstallationEvent
   documentCount: number
+  onCorrect?: (event: InstallationEvent) => void
 }) {
   const structuredDetails = formatEventStructuredDetails(event)
+  const isSuperseded = Boolean(event.supersededAt)
 
   return (
-    <article className={`rounded-lg border p-4 ${EVENT_TONE[event.type]}`}>
+    <article
+      className={`rounded-lg border p-4 ${
+        isSuperseded ? "border-slate-200 bg-slate-50 text-slate-500" : EVENT_TONE[event.type]
+      }`}
+    >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div className="text-sm font-semibold">{formatDate(event.date)}</div>
-          <h3 className="mt-1 text-base font-bold">{EVENT_LABELS[event.type]}</h3>
+          <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+            <span>{formatDate(event.date)}</span>
+            {isSuperseded && (
+              <span className="rounded-full border border-slate-300 bg-white px-2 py-0.5 text-xs font-semibold text-slate-600">
+                Ersatt
+              </span>
+            )}
+          </div>
+          <h3 className={`mt-1 text-base font-bold ${isSuperseded ? "line-through" : ""}`}>
+            {EVENT_LABELS[event.type]}
+          </h3>
         </div>
-        {structuredDetails.length === 0 &&
+        {!isSuperseded &&
+          structuredDetails.length === 0 &&
           event.refrigerantAddedKg !== null &&
           event.refrigerantAddedKg !== undefined && (
           <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold">
             {getInstallationEventAmountLabel(event.type) ?? "Mängd"}:{" "}
             {formatNumber(event.refrigerantAddedKg)} kg
           </span>
+        )}
+        {canCorrect && !isSuperseded && onCorrect && (
+          <button
+            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            type="button"
+            onClick={() => onCorrect(event)}
+          >
+            Korrigera
+          </button>
         )}
       </div>
       {structuredDetails.length > 0 && (
@@ -2475,6 +2616,12 @@ function EventTimelineItem({
         </div>
       )}
       <p className="mt-3 text-sm">{event.notes || "Ingen anteckning"}</p>
+      {isSuperseded && (
+        <p className="mt-2 text-xs font-semibold text-slate-600">
+          Denna händelse är ersatt och används inte i beräkningar.
+          {event.supersededReason ? ` Orsak: ${event.supersededReason}.` : ""}
+        </p>
+      )}
       <div className="mt-2 flex flex-wrap gap-3 text-xs opacity-80">
         <span>Skapad av: {formatCreatedBy(event.createdBy)}</span>
         {documentCount > 0 && (

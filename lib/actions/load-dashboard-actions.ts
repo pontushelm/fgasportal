@@ -17,6 +17,7 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
       events: {
         where: {
           type: "LEAK",
+          supersededAt: null,
         },
         orderBy: {
           date: "desc",

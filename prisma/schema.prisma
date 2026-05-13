@@ -304,12 +304,17 @@ model InstallationEvent {
   newAmountKg             Float?
   recoveredAmountKg       Float?
   notes                   String?
+  supersededAt            DateTime?
+  supersededByEventId     String?
+  supersededReason        String?
+  supersededByUserId      String?
   createdById             String?
   createdBy               User?                  @relation(fields: [createdById], references: [id])
   createdAt               DateTime               @default(now())
   documents               InstallationDocument[]
 
   @@index([installationId])
+  @@index([supersededAt])
   @@map("installation_events")
 }
 

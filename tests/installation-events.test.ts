@@ -98,4 +98,19 @@ describe("installation event validation", () => {
     if (!result.success) return
     expect(result.data.recoveredRefrigerantKg).toBe(12.25)
   })
+
+  it("accepts correction metadata without changing event validation", () => {
+    const result = createInstallationEventSchema.safeParse({
+      date: "2026-05-08",
+      type: "LEAK",
+      refrigerantAddedKg: "1.5",
+      correctingEventId: "event_123",
+      supersededReason: "Fel mängd registrerad",
+    })
+
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.data.correctingEventId).toBe("event_123")
+    expect(result.data.supersededReason).toBe("Fel mängd registrerad")
+  })
 })

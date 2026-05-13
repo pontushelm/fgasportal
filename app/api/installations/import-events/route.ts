@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
                   "REFRIGERANT_CHANGE",
                 ],
               },
+              supersededAt: null,
             },
             select: {
               installationId: true,

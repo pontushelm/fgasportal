@@ -201,6 +201,8 @@ export const createInstallationEventSchema = z.object({
   recoveredRefrigerantKg: z.string()
     .optional()
     .transform((val) => parseOptionalDecimal(val)),
+  correctingEventId: z.string().optional(),
+  supersededReason: z.string().optional(),
   notes: z.string().optional(),
 }).refine((data) => data.type !== "REFILL" || data.refrigerantAddedKg !== null, {
   message: "Påfylld mängd krävs för påfyllning",

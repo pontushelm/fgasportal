@@ -17,6 +17,7 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   repair_registered: "Reparation registrerad",
   recovery_registered: "Tömning/återvinning registrerad",
   refrigerant_change_registered: "Byte av köldmedium registrerat",
+  event_corrected: "Händelse korrigerad",
   document_uploaded: "Dokument uppladdat",
   document_deleted: "Dokument borttaget",
   report_exported: "Rapport exporterad",

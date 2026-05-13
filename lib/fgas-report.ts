@@ -110,6 +110,7 @@ export async function getFgasAnnualReport({
     include: {
       events: {
         where: {
+          supersededAt: null,
           date: {
             gte: startDate,
             lt: endDate,

@@ -55,6 +55,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
               },
             },
             events: {
+              where: {
+                supersededAt: null,
+              },
               select: {
                 id: true,
                 date: true,

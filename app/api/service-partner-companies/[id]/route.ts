@@ -83,6 +83,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                     events: {
                       where: {
                         type: "LEAK",
+                        supersededAt: null,
                         date: {
                           gte: yearStart,
                           lt: nextYearStart,
