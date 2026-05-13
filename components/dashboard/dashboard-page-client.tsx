@@ -182,6 +182,9 @@ const KPI_CARDS = [
   tone: "neutral" | "emerald" | "red" | "amber" | "sky"
 }>
 
+const PRIMARY_KPI_KEYS = ["overdue", "dueSoon", "leakage"] as const
+const SECONDARY_KPI_KEYS = ["total", "ok", "co2e"] as const
+
 export default function DashboardPage() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -245,43 +248,49 @@ export default function DashboardPage() {
 
       {dashboardData && (
         <div className="mx-auto max-w-7xl">
-          <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            {KPI_CARDS.map((card) => (
-              <MetricCard
-                description={getKpiDescription(card.key, dashboardData, card.description)}
-                key={card.key}
-                label={card.label}
-                tone={card.tone}
-                tooltip={card.tooltip}
-                value={getKpiValue(card.key, dashboardData)}
-              />
-            ))}
+          <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {PRIMARY_KPI_KEYS.map((key) => {
+              const card = getKpiCard(key)
+              return (
+                <MetricCard
+                  description={getKpiDescription(card.key, dashboardData, card.description)}
+                  key={card.key}
+                  label={card.label}
+                  tone={card.tone}
+                  tooltip={card.tooltip}
+                  value={getKpiValue(card.key, dashboardData)}
+                />
+              )
+            })}
+            <MetricCard
+              description="Signerade årsrapporter som saknas för kravställda fastigheter"
+              label="Årsrapporter återstår"
+              tone={dashboardData.annualReportStatus.remainingRequiredReports > 0 ? "amber" : "emerald"}
+              tooltip="Antal fastigheter där årsrapport bedöms krävas men signerad rapport saknas i FgasPortal."
+              value={dashboardData.annualReportStatus.remainingRequiredReports}
+            />
           </section>
-          {!dashboardData.environmental.co2eIsComplete && (
-            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              {"Installerad CO\u2082e \u00e4r ofullst\u00e4ndig eftersom "}
-              {dashboardData.environmental.unknownCo2eInstallations}
-              {" aggregat saknar k\u00e4nt GWP-v\u00e4rde."}
-            </p>
-          )}
-          {!dashboardData.environmental.leakageCo2eIsComplete && (
-            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              {"L\u00e4ckage-CO\u2082e f\u00f6r "}
-              {dashboardData.environmental.leakageYear}
-              {" \u00e4r ofullst\u00e4ndig eftersom "}
-              {dashboardData.environmental.unknownLeakageCo2eEvents}
-              {" l\u00e4ckageh\u00e4ndelser saknar m\u00e4ngd eller k\u00e4nt GWP-v\u00e4rde."}
-            </p>
-          )}
 
-          <AnnualReportsOverview status={dashboardData.annualReportStatus} />
+          <section className="mt-4 grid gap-3 sm:grid-cols-3">
+            {SECONDARY_KPI_KEYS.map((key) => {
+              const card = getKpiCard(key)
+              return (
+                <SecondaryMetric
+                  description={getKpiDescription(card.key, dashboardData, card.description)}
+                  key={card.key}
+                  label={card.label}
+                  value={getKpiValue(card.key, dashboardData)}
+                />
+              )
+            })}
+          </section>
 
-          <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.85fr)]">
-            <Card className="p-5 sm:p-6">
+          <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(380px,0.8fr)]">
+            <Card className="border-blue-100 bg-white p-5 shadow-sm sm:p-6">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Prioritering
+                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                    Operativt fokus
                   </p>
                   <h2 className="mt-1 text-xl font-semibold text-slate-950">Att göra</h2>
                   <p className="mt-1 text-sm text-slate-700">
@@ -289,7 +298,7 @@ export default function DashboardPage() {
                   </p>
                 </div>
                 <Link
-                  className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                  className="rounded-lg border border-blue-200 bg-blue-600 px-3.5 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
                   href="/dashboard/actions"
                 >
                   Visa alla åtgärder
@@ -314,38 +323,59 @@ export default function DashboardPage() {
               )}
             </Card>
 
-            <div className="grid gap-4">
-              <VisualCard
-                title="Aggregat per riskklass"
-                description="Fördelning av aggregat utifrån aktuell riskklassning."
-                tooltip="Riskklassning baseras på köldmediemängd, GWP/CO₂e, läckagehistorik och om läckagevarningssystem finns."
-              >
-                <div className="grid grid-cols-3 gap-2">
-                  <MiniMetric label="Hög" value={dashboardData.riskSummary.high} tone="red" />
-                  <MiniMetric label="Medel" value={dashboardData.riskSummary.medium} tone="amber" />
-                  <MiniMetric label="Låg" value={dashboardData.riskSummary.low} tone="emerald" />
-                </div>
-              </VisualCard>
+            <AnnualReportsOverview
+              className="xl:mt-0"
+              status={dashboardData.annualReportStatus}
+            />
+          </section>
 
-              <VisualCard
-                title="Kontrollstatus"
-                description="Fördelning av aggregat utifrån kontrollplikt och kontrollstatus."
-              >
-                <SegmentedStatusBar
-                  distribution={dashboardData.statusDistribution}
-                  total={dashboardData.metrics.totalInstallations}
-                />
-                <DistributionList
-                  items={Object.entries(dashboardData.statusDistribution).map(
-                    ([status, count]) => ({
-                      label: STATUS_LABELS[status as ComplianceStatus],
-                      value: count,
-                    })
-                  )}
-                />
-              </VisualCard>
+          <section className="mt-6 grid gap-4 lg:grid-cols-2">
+            <VisualCard
+              title="Aggregat per riskklass"
+              description="Fördelning av aggregat utifrån aktuell riskklassning."
+              tooltip="Riskklassning baseras på köldmediemängd, GWP/CO₂e, läckagehistorik och om läckagevarningssystem finns."
+            >
+              <div className="grid grid-cols-3 gap-2">
+                <MiniMetric label="Hög" value={dashboardData.riskSummary.high} tone="red" />
+                <MiniMetric label="Medel" value={dashboardData.riskSummary.medium} tone="amber" />
+                <MiniMetric label="Låg" value={dashboardData.riskSummary.low} tone="emerald" />
+              </div>
+            </VisualCard>
 
-              <VisualCard title="Köldmedier">
+            <VisualCard
+              title="Kontrollstatus"
+              description="Fördelning av aggregat utifrån kontrollplikt och kontrollstatus."
+            >
+              <SegmentedStatusBar
+                distribution={dashboardData.statusDistribution}
+                total={dashboardData.metrics.totalInstallations}
+              />
+              <DistributionList
+                items={Object.entries(dashboardData.statusDistribution).map(
+                  ([status, count]) => ({
+                    label: STATUS_LABELS[status as ComplianceStatus],
+                    value: count,
+                  })
+                )}
+              />
+            </VisualCard>
+          </section>
+
+          <section className="mt-6 rounded-xl border border-slate-200 bg-white/70 p-4 sm:p-5">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Portföljanalys
+              </p>
+              <h2 className="mt-1 text-lg font-semibold text-slate-950">
+                Köldmedier och klimatpåverkan
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Fördjupande översikt för planering, rapportunderlag och långsiktig uppföljning.
+              </p>
+            </div>
+
+            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+              <VisualCard title="Köldmedier" subdued>
                 <DistributionBars
                   items={dashboardData.refrigerantDistribution.slice(0, 5).map((item) => ({
                     label: item.label,
@@ -357,6 +387,7 @@ export default function DashboardPage() {
               <VisualCard
                 title="Köldmediestatus"
                 description="Operativa signaler för köldmedier som kan behöva följas upp."
+                subdued
               >
                 <DistributionList
                   items={[
@@ -376,7 +407,7 @@ export default function DashboardPage() {
                 />
               </VisualCard>
 
-              <VisualCard title="CO₂e per köldmedium">
+              <VisualCard title="CO₂e per köldmedium" subdued>
                 <DistributionBars
                   items={dashboardData.refrigerantDistribution.slice(0, 5).map((item) => ({
                     label: item.label,
@@ -388,6 +419,24 @@ export default function DashboardPage() {
               </VisualCard>
             </div>
           </section>
+
+
+          {!dashboardData.environmental.co2eIsComplete && (
+            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              {"Installerad CO\u2082e \u00e4r ofullst\u00e4ndig eftersom "}
+              {dashboardData.environmental.unknownCo2eInstallations}
+              {" aggregat saknar k\u00e4nt GWP-v\u00e4rde."}
+            </p>
+          )}
+          {!dashboardData.environmental.leakageCo2eIsComplete && (
+            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              {"L\u00e4ckage-CO\u2082e f\u00f6r "}
+              {dashboardData.environmental.leakageYear}
+              {" \u00e4r ofullst\u00e4ndig eftersom "}
+              {dashboardData.environmental.unknownLeakageCo2eEvents}
+              {" l\u00e4ckageh\u00e4ndelser saknar m\u00e4ngd eller k\u00e4nt GWP-v\u00e4rde."}
+            </p>
+          )}
 
         </div>
       )}
@@ -437,16 +486,40 @@ function MetricCard({
   )
 }
 
+function SecondaryMetric({
+  description,
+  label,
+  value,
+}: {
+  description: string
+  label: string
+  value: number | string
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white/70 px-3 py-2.5 shadow-sm">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          {label}
+        </span>
+        <span className="text-base font-semibold text-slate-950">{value}</span>
+      </div>
+      <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
+    </div>
+  )
+}
+
 function AnnualReportsOverview({
+  className = "",
   status,
 }: {
+  className?: string
   status: DashboardData["annualReportStatus"]
 }) {
   const visibleProperties = status.properties.slice(0, 4)
   const hasMoreProperties = status.properties.length > visibleProperties.length
 
   return (
-    <Card className="mt-6 p-5 sm:p-6">
+    <Card className={`p-4 sm:p-5 ${className}`}>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -497,11 +570,13 @@ function AnnualReportsOverview({
                   {formatWholeNumber(property.installedCo2eTon)} t installerad CO₂e
                 </span>
               </span>
-              <span className="flex flex-wrap items-center gap-2">
-                <AnnualReportRequirementBadge status={property.requirementStatus} />
-                {property.signedStatus ? (
-                  <AnnualReportSignedStatusBadge status={property.signedStatus} />
-                ) : null}
+              <span className="flex flex-col gap-1 text-left sm:items-end sm:text-right">
+                <span className="flex flex-wrap items-center gap-2 sm:justify-end">
+                  <AnnualReportRequirementBadge status={property.requirementStatus} />
+                  {property.signedStatus ? (
+                    <AnnualReportSignedStatusText status={property.signedStatus} />
+                  ) : null}
+                </span>
                 {property.signedStatus &&
                 property.blockingIssueCount + property.reviewWarningCount > 0 ? (
                   <span className="text-xs font-medium text-slate-600">
@@ -566,7 +641,7 @@ function AnnualReportRequirementBadge({
   return <Badge variant={variants[status]}>{labels[status]}</Badge>
 }
 
-function AnnualReportSignedStatusBadge({
+function AnnualReportSignedStatusText({
   status,
 }: {
   status: NonNullable<DashboardData["annualReportStatus"]["properties"][number]["signedStatus"]>
@@ -577,14 +652,14 @@ function AnnualReportSignedStatusBadge({
     HAS_WARNINGS: "Signerad - bör granskas",
     MISSING_REQUIRED_DATA: "Signerad - kräver komplettering",
   } satisfies Record<typeof status, string>
-  const variants = {
-    SIGNED: "success",
-    NOT_SIGNED: "neutral",
-    HAS_WARNINGS: "warning",
-    MISSING_REQUIRED_DATA: "danger",
-  } satisfies Record<typeof status, React.ComponentProps<typeof Badge>["variant"]>
+  const toneClass = {
+    SIGNED: "text-emerald-700",
+    NOT_SIGNED: "text-slate-600",
+    HAS_WARNINGS: "text-amber-700",
+    MISSING_REQUIRED_DATA: "text-red-700",
+  } satisfies Record<typeof status, string>
 
-  return <Badge variant={variants[status]}>{labels[status]}</Badge>
+  return <span className={`text-xs font-semibold ${toneClass[status]}`}>{labels[status]}</span>
 }
 
 function MiniMetric({
@@ -643,17 +718,22 @@ function VisualCard({
   title,
   description,
   tooltip,
+  subdued = false,
   children,
 }: {
   title: string
   description?: string
   tooltip?: string
+  subdued?: boolean
   children: React.ReactNode
 }) {
   const tooltipId = useId()
+  const cardClass = subdued
+    ? "relative border-slate-200 bg-white/70 p-4 shadow-none"
+    : "relative p-4"
 
   return (
-    <Card className="relative p-4">
+    <Card className={cardClass}>
       <div className="flex items-start justify-between gap-3">
         <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
         {tooltip ? (
@@ -768,6 +848,17 @@ function PriorityBadge({ priority }: { priority: ActionItem["priority"] }) {
       {ACTION_PRIORITY_LABELS[priority]}
     </Badge>
   )
+}
+
+type KpiCardConfig = (typeof KPI_CARDS)[number]
+
+function getKpiCard(key: KpiCardConfig["key"]): KpiCardConfig {
+  const card = KPI_CARDS.find((item) => item.key === key)
+  if (!card) {
+    throw new Error(`Unknown dashboard KPI: ${key}`)
+  }
+
+  return card
 }
 
 function getKpiValue(
