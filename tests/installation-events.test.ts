@@ -74,16 +74,28 @@ describe("installation event validation", () => {
     expect(result.success).toBe(false)
   })
 
-  it("allows leakage amount while keeping leakage notes required", () => {
+  it("allows leakage amount without requiring notes", () => {
     const result = createInstallationEventSchema.safeParse({
       date: "2026-05-08",
       type: "LEAK",
       refrigerantAddedKg: "1.5",
-      notes: "Läckage upptäckt vid kontroll",
     })
 
     expect(result.success).toBe(true)
     if (!result.success) return
     expect(result.data.refrigerantAddedKg).toBe(1.5)
+  })
+
+  it("accepts recovery amount in the dedicated recovered amount field", () => {
+    const result = createInstallationEventSchema.safeParse({
+      date: "2026-05-08",
+      type: "RECOVERY",
+      recoveredRefrigerantKg: "12,25",
+      notes: "Tömning inför service",
+    })
+
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.data.recoveredRefrigerantKg).toBe(12.25)
   })
 })

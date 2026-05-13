@@ -203,7 +203,7 @@ export async function getFgasAnnualReport({
         refilledAmountKg += addedAmount
         summary.refilledAmountKg += addedAmount
       }
-      if (event.type === "SERVICE") serviceEvents += 1
+      if (event.type === "SERVICE" || event.type === "REPAIR") serviceEvents += 1
       if (
         event.type === "RECOVERY" &&
         event.recoveredAmountKg == null &&

@@ -169,6 +169,14 @@ type EventFormData = {
   refrigerantAddedKg: string
   newRefrigerantType: string
   recoveredRefrigerantKg: string
+  inspectionResult: string
+  leakSource: string
+  leakRepairedStatus: string
+  refillRefrigerantType: string
+  refillReason: string
+  performedAction: string
+  recoveryReason: string
+  recoveryHandledBy: string
   notes: string
 }
 
@@ -229,6 +237,14 @@ const initialEventFormData: EventFormData = {
   refrigerantAddedKg: "",
   newRefrigerantType: "",
   recoveredRefrigerantKg: "",
+  inspectionResult: "OK",
+  leakSource: "UNKNOWN",
+  leakRepairedStatus: "UNKNOWN",
+  refillRefrigerantType: "",
+  refillReason: "UNKNOWN",
+  performedAction: "",
+  recoveryReason: "UNKNOWN",
+  recoveryHandledBy: "",
   notes: "",
 }
 
@@ -267,16 +283,16 @@ const EVENT_LABELS: Record<InstallationEventType, string> = {
   INSPECTION: "Kontroll",
   LEAK: "Läckage",
   REFILL: "Påfyllning",
-  SERVICE: "Service",
-  REPAIR: "Reparation",
+  SERVICE: "Service / Reparation",
+  REPAIR: "Service / Reparation",
   RECOVERY: "Tömning / Återvinning",
   REFRIGERANT_CHANGE: "Byte av köldmedium",
 }
 
 const EVENT_FORM_LABELS: Record<EventFormType, string> = {
   ...EVENT_LABELS,
-  ARCHIVE: "Arkivering",
   SCRAP: "Skrotning",
+  ARCHIVE: "Arkivering",
 }
 
 const EVENT_TONE: Record<InstallationEventType, string> = {
@@ -291,15 +307,51 @@ const EVENT_TONE: Record<InstallationEventType, string> = {
 
 const EVENT_HELP_TEXT: Record<EventFormType, string> = {
   INSPECTION: "Uppdaterar senaste och nästa kontroll automatiskt.",
-  LEAK: "Ange uppskattad eller konstaterad läckagemängd om den är känd.",
-  REFILL: "Ange mängd påfyllt köldmedium.",
-  SERVICE: "Beskriv utförd åtgärd kort.",
+  LEAK: "Registrera läckage och eventuell uppföljning utan att låsa ett helt arbetsflöde.",
+  REFILL: "Ange mängd påfyllt köldmedium och kort orsak.",
+  SERVICE: "En enkel journalanteckning för service eller reparation.",
   REPAIR: "Beskriv utförd åtgärd kort.",
-  RECOVERY: "Ange återvunnen eller borttagen mängd.",
+  RECOVERY: "Ange återvunnen eller borttagen mängd om den är känd.",
   REFRIGERANT_CHANGE: "Används när aggregatet byter köldmedium.",
   ARCHIVE: "Arkivering tar bort aggregatet från aktiva vyer men sparar historiken.",
   SCRAP: "Skrotning markerar aggregatet som permanent taget ur drift.",
 }
+
+const INSPECTION_RESULT_OPTIONS = [
+  { value: "OK", label: "OK" },
+  { value: "REMARK", label: "Anmärkning" },
+]
+
+const LEAK_SOURCE_OPTIONS = [
+  { value: "INSPECTION", label: "Kontroll" },
+  { value: "ALARM", label: "Larm" },
+  { value: "OPERATIONS", label: "Drift" },
+  { value: "SERVICE", label: "Service" },
+  { value: "OTHER", label: "Annat" },
+  { value: "UNKNOWN", label: "Okänt" },
+]
+
+const LEAK_REPAIRED_OPTIONS = [
+  { value: "YES", label: "Ja" },
+  { value: "NO", label: "Nej" },
+  { value: "UNKNOWN", label: "Okänt" },
+]
+
+const REFILL_REASON_OPTIONS = [
+  { value: "LEAK", label: "Läckage" },
+  { value: "SERVICE", label: "Service" },
+  { value: "REFRIGERANT_CHANGE", label: "Byte av köldmedium" },
+  { value: "OTHER", label: "Annat" },
+  { value: "UNKNOWN", label: "Okänt" },
+]
+
+const RECOVERY_REASON_OPTIONS = [
+  { value: "SERVICE", label: "Service" },
+  { value: "REFRIGERANT_CHANGE", label: "Byte av köldmedium" },
+  { value: "SCRAP", label: "Skrotning" },
+  { value: "OTHER", label: "Annat" },
+  { value: "UNKNOWN", label: "Okänt" },
+]
 
 const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   INSPECTION_REPORT: "Kontrollrapport",
@@ -552,7 +604,13 @@ export default function InstallationDetailPage() {
         newRefrigerantType:
           nextType === "REFRIGERANT_CHANGE" ? current.newRefrigerantType : "",
         recoveredRefrigerantKg:
-          nextType === "REFRIGERANT_CHANGE" ? current.recoveredRefrigerantKg : "",
+          nextType === "REFRIGERANT_CHANGE" || nextType === "RECOVERY"
+            ? current.recoveredRefrigerantKg
+            : "",
+        refillRefrigerantType:
+          nextType === "REFILL"
+            ? current.refillRefrigerantType || installation?.refrigerantType || ""
+            : "",
       }))
       if (nextType === "SCRAP") {
         setScrapError("")
@@ -629,7 +687,13 @@ export default function InstallationDetailPage() {
       newRefrigerantType:
         nextType === "REFRIGERANT_CHANGE" ? current.newRefrigerantType : "",
       recoveredRefrigerantKg:
-        nextType === "REFRIGERANT_CHANGE" ? current.recoveredRefrigerantKg : "",
+        nextType === "REFRIGERANT_CHANGE" || nextType === "RECOVERY"
+          ? current.recoveredRefrigerantKg
+          : "",
+      refillRefrigerantType:
+        nextType === "REFILL"
+          ? current.refillRefrigerantType || installation?.refrigerantType || ""
+          : "",
     }))
     if (nextType === "SCRAP") {
       setScrapForm({
@@ -827,11 +891,6 @@ export default function InstallationDetailPage() {
       return
     }
 
-    if (eventForm.type === "LEAK" && !eventForm.notes.trim()) {
-      setEventError("Anteckningar krävs för läckagehändelser")
-      return
-    }
-
     if (
       eventForm.type === "REFRIGERANT_CHANGE" &&
       !eventForm.newRefrigerantType.trim()
@@ -852,8 +911,9 @@ export default function InstallationDetailPage() {
         date: eventForm.date,
         type: eventForm.type,
         refrigerantAddedKg:
-          isInstallationEventType(eventForm.type) &&
-          hasInstallationEventAmount(eventForm.type)
+          (eventForm.type === "LEAK" ||
+            eventForm.type === "REFILL" ||
+            eventForm.type === "REFRIGERANT_CHANGE")
             ? eventForm.refrigerantAddedKg
             : "",
         newRefrigerantType:
@@ -861,10 +921,10 @@ export default function InstallationDetailPage() {
             ? eventForm.newRefrigerantType
             : "",
         recoveredRefrigerantKg:
-          eventForm.type === "REFRIGERANT_CHANGE"
+          eventForm.type === "REFRIGERANT_CHANGE" || eventForm.type === "RECOVERY"
             ? eventForm.recoveredRefrigerantKg
             : "",
-        notes: eventForm.notes,
+        notes: buildEventNotes(eventForm),
       }),
     })
 
@@ -1629,28 +1689,169 @@ export default function InstallationDetailPage() {
                   <option value="INSPECTION">Kontroll</option>
                   <option value="LEAK">Läckage</option>
                   <option value="REFILL">Påfyllning</option>
-                  <option value="SERVICE">Service</option>
-                  <option value="REPAIR">Reparation</option>
+                  <option value="SERVICE">Service / Reparation</option>
                   <option value="RECOVERY">Tömning / Återvinning</option>
                   <option value="REFRIGERANT_CHANGE">Byte av köldmedium</option>
-                  <option value="ARCHIVE">Arkivering</option>
                   <option value="SCRAP">Skrotning</option>
                 </select>
               </label>
             </div>
-            {isInstallationEventType(eventForm.type) &&
-              hasInstallationEventAmount(eventForm.type) &&
-              eventForm.type !== "REFRIGERANT_CHANGE" && (
+            {eventForm.type === "INSPECTION" && (
+              <div className="grid gap-3 rounded-md border border-blue-100 bg-blue-50 p-3">
+                <label className={fieldClassName}>
+                  Resultat
+                  <select
+                    className={formControlClassName}
+                    name="inspectionResult"
+                    value={eventForm.inspectionResult}
+                    onChange={handleEventChange}
+                  >
+                    {INSPECTION_RESULT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <p className="text-xs text-blue-900">
+                  Kontrollrapport kan laddas upp som dokument efter att händelsen sparats.
+                </p>
+              </div>
+            )}
+            {eventForm.type === "LEAK" && (
+              <div className="grid gap-3 rounded-md border border-red-100 bg-red-50 p-3 sm:grid-cols-2">
+                <label className={fieldClassName}>
+                  Läckagemängd (kg)
+                  <input
+                    className={formControlClassName}
+                    name="refrigerantAddedKg"
+                    value={eventForm.refrigerantAddedKg}
+                    onChange={handleEventChange}
+                    inputMode="decimal"
+                  />
+                </label>
+                <label className={fieldClassName}>
+                  Upptäckt via
+                  <select
+                    className={formControlClassName}
+                    name="leakSource"
+                    value={eventForm.leakSource}
+                    onChange={handleEventChange}
+                  >
+                    {LEAK_SOURCE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={fieldClassName}>
+                  Åtgärdat
+                  <select
+                    className={formControlClassName}
+                    name="leakRepairedStatus"
+                    value={eventForm.leakRepairedStatus}
+                    onChange={handleEventChange}
+                  >
+                    {LEAK_REPAIRED_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
+            {eventForm.type === "REFILL" && (
+              <div className="grid gap-3 rounded-md border border-amber-100 bg-amber-50 p-3 sm:grid-cols-2">
+                <label className={fieldClassName}>
+                  <span>Påfylld mängd (kg) <RequiredMark /></span>
+                  <input
+                    className={formControlClassName}
+                    name="refrigerantAddedKg"
+                    value={eventForm.refrigerantAddedKg}
+                    onChange={handleEventChange}
+                    inputMode="decimal"
+                    required
+                  />
+                </label>
+                <label className={fieldClassName}>
+                  Köldmedium
+                  <input
+                    className={formControlClassName}
+                    name="refillRefrigerantType"
+                    value={eventForm.refillRefrigerantType}
+                    onChange={handleEventChange}
+                    placeholder={installation.refrigerantType}
+                  />
+                </label>
+                <label className={fieldClassName}>
+                  Orsak
+                  <select
+                    className={formControlClassName}
+                    name="refillReason"
+                    value={eventForm.refillReason}
+                    onChange={handleEventChange}
+                  >
+                    {REFILL_REASON_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
+            {eventForm.type === "SERVICE" && (
               <label className={fieldClassName}>
-                {getInstallationEventAmountLabel(eventForm.type, { includeUnit: true })}
+                Utförd åtgärd
                 <input
                   className={formControlClassName}
-                  name="refrigerantAddedKg"
-                  value={eventForm.refrigerantAddedKg}
+                  name="performedAction"
+                  value={eventForm.performedAction}
                   onChange={handleEventChange}
-                  inputMode="decimal"
+                  placeholder="Kort beskrivning av service eller reparation"
                 />
+              </label>
+            )}
+            {eventForm.type === "RECOVERY" && (
+              <div className="grid gap-3 rounded-md border border-emerald-100 bg-emerald-50 p-3 sm:grid-cols-2">
+                <label className={fieldClassName}>
+                  Omhändertagen mängd (kg)
+                  <input
+                    className={formControlClassName}
+                    name="recoveredRefrigerantKg"
+                    value={eventForm.recoveredRefrigerantKg}
+                    onChange={handleEventChange}
+                    inputMode="decimal"
+                  />
                 </label>
+                <label className={fieldClassName}>
+                  Orsak
+                  <select
+                    className={formControlClassName}
+                    name="recoveryReason"
+                    value={eventForm.recoveryReason}
+                    onChange={handleEventChange}
+                  >
+                    {RECOVERY_REASON_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={fieldClassName}>
+                  Omhändertaget av
+                  <input
+                    className={formControlClassName}
+                    name="recoveryHandledBy"
+                    value={eventForm.recoveryHandledBy}
+                    onChange={handleEventChange}
+                    placeholder="Företag, tekniker eller mottagare"
+                  />
+                </label>
+              </div>
             )}
             {eventForm.type === "REFRIGERANT_CHANGE" && (
               <div className="grid gap-3 rounded-md border border-amber-200 bg-amber-50 p-3">
@@ -1723,7 +1924,6 @@ export default function InstallationDetailPage() {
                 name="notes"
                 value={eventForm.notes}
                 onChange={handleEventChange}
-                required={eventForm.type === "LEAK"}
               />
             </label>
             {eventForm.type === "SCRAP" && (
@@ -2191,6 +2391,47 @@ function RequiredMark() {
   return <span aria-hidden="true" className="text-xs text-red-500">*</span>
 }
 
+function buildEventNotes(form: EventFormData) {
+  const details: string[] = []
+  const freeText = form.notes.trim()
+
+  if (form.type === "INSPECTION") {
+    details.push(`Resultat: ${getOptionLabel(INSPECTION_RESULT_OPTIONS, form.inspectionResult)}.`)
+  }
+
+  if (form.type === "LEAK") {
+    details.push(`Upptäckt via: ${getOptionLabel(LEAK_SOURCE_OPTIONS, form.leakSource)}.`)
+    details.push(
+      `Åtgärdat: ${getOptionLabel(LEAK_REPAIRED_OPTIONS, form.leakRepairedStatus)}.`
+    )
+  }
+
+  if (form.type === "REFILL") {
+    const refrigerant = form.refillRefrigerantType.trim()
+    if (refrigerant) details.push(`Köldmedium: ${refrigerant}.`)
+    details.push(`Orsak: ${getOptionLabel(REFILL_REASON_OPTIONS, form.refillReason)}.`)
+  }
+
+  if (form.type === "SERVICE") {
+    const performedAction = form.performedAction.trim()
+    if (performedAction) details.push(`Utförd åtgärd: ${performedAction}.`)
+  }
+
+  if (form.type === "RECOVERY") {
+    details.push(`Orsak: ${getOptionLabel(RECOVERY_REASON_OPTIONS, form.recoveryReason)}.`)
+    const handledBy = form.recoveryHandledBy.trim()
+    if (handledBy) details.push(`Omhändertaget av: ${handledBy}.`)
+  }
+
+  if (freeText) details.push(freeText)
+
+  return details.join(" ").trim()
+}
+
+function getOptionLabel(options: Array<{ value: string; label: string }>, value: string) {
+  return options.find((option) => option.value === value)?.label ?? value
+}
+
 function ComplianceBadge({ status }: { status: ComplianceStatus }) {
   return (
     <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${COMPLIANCE_TONE[status]}`}>
@@ -2248,6 +2489,34 @@ function EventTimelineItem({
 
 function formatEventStructuredDetails(event: InstallationEvent) {
   const details: string[] = []
+  const noteDetails = parseEventNoteDetails(event.notes)
+
+  if (event.type === "INSPECTION" && noteDetails.result) {
+    details.push(`Resultat: ${noteDetails.result}`)
+  }
+
+  if (event.type === "LEAK") {
+    if (event.refrigerantAddedKg != null) {
+      details.push(`Läckagemängd: ${formatNumber(event.refrigerantAddedKg)} kg`)
+    }
+    if (noteDetails.source) details.push(`Upptäckt via ${noteDetails.source.toLowerCase()}`)
+    if (noteDetails.repaired) details.push(`Åtgärdat: ${noteDetails.repaired}`)
+  }
+
+  if (event.type === "REFILL") {
+    if (event.refrigerantAddedKg != null) {
+      details.push(
+        `Påfyllt: ${formatNumber(event.refrigerantAddedKg)} kg${
+          noteDetails.refrigerant ? ` ${noteDetails.refrigerant}` : ""
+        }`
+      )
+    }
+    if (noteDetails.reason) details.push(`Orsak: ${noteDetails.reason}`)
+  }
+
+  if ((event.type === "SERVICE" || event.type === "REPAIR") && noteDetails.action) {
+    details.push(`Åtgärd: ${noteDetails.action}`)
+  }
 
   if (event.type === "REFRIGERANT_CHANGE") {
     if (event.previousRefrigerantType && event.newRefrigerantType) {
@@ -2266,8 +2535,32 @@ function formatEventStructuredDetails(event: InstallationEvent) {
   if (event.type === "RECOVERY" && event.recoveredAmountKg != null) {
     details.push(`Omhändertagen mängd: ${formatNumber(event.recoveredAmountKg)} kg`)
   }
+  if (event.type === "RECOVERY") {
+    if (noteDetails.reason) details.push(`Orsak: ${noteDetails.reason}`)
+    if (noteDetails.handledBy) details.push(`Omhändertaget av: ${noteDetails.handledBy}`)
+  }
 
   return details
+}
+
+function parseEventNoteDetails(notes?: string | null) {
+  return {
+    action: matchNoteValue(notes, "Utförd åtgärd"),
+    handledBy: matchNoteValue(notes, "Omhändertaget av"),
+    reason: matchNoteValue(notes, "Orsak"),
+    refrigerant: matchNoteValue(notes, "Köldmedium"),
+    repaired: matchNoteValue(notes, "Åtgärdat"),
+    result: matchNoteValue(notes, "Resultat"),
+    source: matchNoteValue(notes, "Upptäckt via"),
+  }
+}
+
+function matchNoteValue(notes: string | null | undefined, label: string) {
+  if (!notes) return null
+
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const match = notes.match(new RegExp(`${escapedLabel}:\\s*([^\\.]+)\\.`))
+  return match?.[1]?.trim() || null
 }
 
 function TableHeader({ children }: { children: React.ReactNode }) {

@@ -202,9 +202,6 @@ export const createInstallationEventSchema = z.object({
     .optional()
     .transform((val) => parseOptionalDecimal(val)),
   notes: z.string().optional(),
-}).refine((data) => data.type !== "LEAK" || Boolean(data.notes?.trim()), {
-  message: "Anteckningar krävs för läckagehändelser",
-  path: ["notes"],
 }).refine((data) => data.type !== "REFILL" || data.refrigerantAddedKg !== null, {
   message: "Påfylld mängd krävs för påfyllning",
   path: ["refrigerantAddedKg"],

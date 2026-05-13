@@ -150,7 +150,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             inspectionDate: validatedData.date,
             inspectorName:
               createdBy?.name || createdBy?.email || "Okänd användare",
-            status: "Registrerad",
+            status: getInspectionStatusFromNotes(validatedData.notes),
             notes: emptyToNull(validatedData.notes),
             nextDueDate: nextInspection,
             installationId: installation.id,
@@ -371,4 +371,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
 function emptyToNull(value?: string) {
   const trimmedValue = value?.trim()
   return trimmedValue ? trimmedValue : null
+}
+
+function getInspectionStatusFromNotes(notes?: string) {
+  if (notes?.includes("Resultat: Anmärkning")) return "Anmärkning"
+  if (notes?.includes("Resultat: OK")) return "OK"
+
+  return "Registrerad"
 }
