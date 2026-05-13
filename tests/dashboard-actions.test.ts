@@ -119,6 +119,38 @@ describe("dashboard action generation", () => {
     ])
   })
 
+  it("uses follow-up wording for risk and leakage actions", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-05-08T12:00:00"),
+      installations: [
+        {
+          id: "risk",
+          name: "Risk aggregat",
+          nextInspection: null,
+          inspectionInterval: null,
+          complianceStatus: "OK",
+          assignedContractorId: "contractor-1",
+          risk: { level: "HIGH", score: 9 },
+        },
+      ],
+      leakageEvents: [
+        {
+          id: "leak-1",
+          installationId: "leaky",
+          installationName: "Leaky aggregat",
+          date: new Date("2026-05-05"),
+        },
+      ],
+    })
+
+    expect(actions.find((action) => action.type === "HIGH_RISK")?.title).toBe(
+      "Risk att följa upp"
+    )
+    expect(actions.find((action) => action.type === "RECENT_LEAKAGE")?.title).toBe(
+      "Följ upp registrerat läckage"
+    )
+  })
+
   it("keeps deterministic action keys for future workflow state overlays", () => {
     const actions = generateDashboardActions({
       today: new Date("2026-05-08T12:00:00"),

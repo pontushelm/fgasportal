@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useId, useMemo, useState } from "react"
 import { Badge, Card, PageHeader } from "@/components/ui"
 import {
   ACTION_SAVED_FILTER_PAGE,
@@ -67,7 +67,7 @@ const CATEGORY_FILTERS: Array<{ label: string; value: ActionFilter }> = [
   { label: "Försenade kontroller", value: "OVERDUE_INSPECTIONS" },
   { label: "Kommande kontroller", value: "UPCOMING_INSPECTIONS" },
   { label: "Läckage", value: "LEAKAGE" },
-  { label: "Hög risk", value: "HIGH_RISK" },
+  { label: "Riskbevakning", value: "HIGH_RISK" },
   { label: "Saknar servicekontakt", value: "NO_SERVICE_PARTNER" },
   { label: "Köldmedium", value: "REFRIGERANT_REVIEW" },
 ]
@@ -97,11 +97,25 @@ const ACTION_TYPE_LABELS: Record<DashboardActionType, string> = {
   OVERDUE_INSPECTION: "Försenad kontroll",
   DUE_SOON_INSPECTION: "Kommande kontroll",
   NOT_INSPECTED: "Saknar kontroll",
-  HIGH_RISK: "Hög risk",
+  HIGH_RISK: "Riskbevakning",
   NO_SERVICE_PARTNER: "Servicekontakt saknas",
-  RECENT_LEAKAGE: "Läckageuppföljning",
+  RECENT_LEAKAGE: "Läckage att följa upp",
   REFRIGERANT_REVIEW: "Köldmedium bör granskas",
 }
+
+const SUMMARY_CARD_TOOLTIPS = {
+  total: "Alla framräknade uppföljningspunkter utifrån registrerade aggregat och händelser.",
+  highSeverity: "Punkter som bör prioriteras först, exempelvis försenade kontroller.",
+  overdue: "Aggregat där kontrollintervallet har passerats.",
+  dueSoon: "Aggregat med kontroll inom kommande period.",
+  leakageFollowUp: "Registrerade läckage som kan behöva följas upp.",
+  missingServiceContact: "Aggregat utan tilldelad servicekontakt.",
+  refrigerantReview:
+    "Aggregat med köldmedium som bör kontrolleras mot gällande eller kommande krav.",
+} satisfies Record<string, string>
+
+const SORT_TOOLTIP =
+  "Listan sorteras automatiskt efter systemets prioritering. Försenade kontroller och viktiga uppföljningar visas före lägre prioriterade bevakningspunkter."
 
 export default function ActionsPageClient() {
   const router = useRouter()
@@ -364,13 +378,45 @@ export default function ActionsPageClient() {
 
       <div className="mx-auto mt-6 max-w-7xl">
         <section className="grid gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-6">
-          <SummaryCard label="Totalt" value={summaryCounts.total} />
-          <SummaryCard label="Hög prio" value={summaryCounts.highSeverity} tone="red" />
-          <SummaryCard label="Försenade" value={summaryCounts.overdue} tone="red" />
-          <SummaryCard label="Kommande" value={summaryCounts.dueSoon} tone="amber" />
-          <SummaryCard label="Läckage" value={summaryCounts.leakageFollowUp} tone="red" />
-          <SummaryCard label="Saknar servicekontakt" value={summaryCounts.missingServiceContact} />
-          <SummaryCard label="Köldmedium" value={summaryCounts.refrigerantReview} />
+          <SummaryCard
+            label="Totalt"
+            tooltip={SUMMARY_CARD_TOOLTIPS.total}
+            value={summaryCounts.total}
+          />
+          <SummaryCard
+            label="Hög prio"
+            tone="red"
+            tooltip={SUMMARY_CARD_TOOLTIPS.highSeverity}
+            value={summaryCounts.highSeverity}
+          />
+          <SummaryCard
+            label="Försenade"
+            tone="red"
+            tooltip={SUMMARY_CARD_TOOLTIPS.overdue}
+            value={summaryCounts.overdue}
+          />
+          <SummaryCard
+            label="Kommande"
+            tone="amber"
+            tooltip={SUMMARY_CARD_TOOLTIPS.dueSoon}
+            value={summaryCounts.dueSoon}
+          />
+          <SummaryCard
+            label="Läckage"
+            tone="amber"
+            tooltip={SUMMARY_CARD_TOOLTIPS.leakageFollowUp}
+            value={summaryCounts.leakageFollowUp}
+          />
+          <SummaryCard
+            label="Saknar servicekontakt"
+            tooltip={SUMMARY_CARD_TOOLTIPS.missingServiceContact}
+            value={summaryCounts.missingServiceContact}
+          />
+          <SummaryCard
+            label="Köldmedium"
+            tooltip={SUMMARY_CARD_TOOLTIPS.refrigerantReview}
+            value={summaryCounts.refrigerantReview}
+          />
         </section>
 
         <Card className="sticky top-0 z-20 mt-4 p-3 shadow-sm sm:static sm:p-4 sm:shadow-none">
@@ -392,8 +438,26 @@ export default function ActionsPageClient() {
             </button>
           </div>
 
+          <div className="hidden items-center justify-between gap-3 sm:flex">
+            <div>
+              <p className="text-sm font-semibold text-slate-950">Filter</p>
+              <p className="text-xs text-slate-500">
+                {activeFilterLabels.length > 0
+                  ? `${activeFilterLabels.length} aktiva filter`
+                  : "Alla åtgärder visas"}
+              </p>
+            </div>
+            <button
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              type="button"
+              onClick={clearFilters}
+            >
+              Rensa filter
+            </button>
+          </div>
+
           {activeFilterLabels.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2 sm:mt-0 sm:mb-3">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               {activeFilterLabels.map((label) => (
                 <span
                   className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-800"
@@ -402,6 +466,13 @@ export default function ActionsPageClient() {
                   {label}
                 </span>
               ))}
+              <button
+                className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 sm:hidden"
+                type="button"
+                onClick={clearFilters}
+              >
+                Rensa filter
+              </button>
             </div>
           )}
 
@@ -599,15 +670,6 @@ export default function ActionsPageClient() {
             <p className="mt-3 text-sm font-semibold text-green-700">{savedViewMessage}</p>
           ) : null}
 
-          <div className="mt-3 flex justify-end text-xs text-slate-500">
-            <button
-              className="font-semibold text-blue-700 underline-offset-4 hover:underline"
-              type="button"
-              onClick={clearFilters}
-            >
-              Rensa filter
-            </button>
-          </div>
           </div>
         </Card>
 
@@ -617,10 +679,12 @@ export default function ActionsPageClient() {
         {!isLoading && !error && (
           <Card className="mt-4 overflow-hidden">
             <div className="flex flex-col gap-1 border-b border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm font-semibold text-slate-950">
-                {visibleActions.length} åtgärder
-              </p>
-              <p className="text-xs text-slate-500">Sorteras efter serverns prioritering.</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-slate-950">
+                  {visibleActions.length} åtgärder
+                </p>
+                <InfoTooltip text={SORT_TOOLTIP} />
+              </div>
             </div>
             {visibleActions.length === 0 ? (
               <p className="px-4 py-8 text-sm text-slate-600">
@@ -646,10 +710,12 @@ const filterControlClassName =
 function SummaryCard({
   label,
   tone = "slate",
+  tooltip,
   value,
 }: {
   label: string
   tone?: "slate" | "red" | "amber"
+  tooltip: string
   value: number
 }) {
   const toneClass = {
@@ -660,9 +726,36 @@ function SummaryCard({
 
   return (
     <Card className={`border-l-4 px-4 py-3 ${toneClass}`}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+        <InfoTooltip text={tooltip} />
+      </div>
       <p className="mt-1 text-2xl font-bold text-slate-950">{value}</p>
     </Card>
+  )
+}
+
+function InfoTooltip({ text }: { text: string }) {
+  const tooltipId = useId()
+
+  return (
+    <span className="group/help relative inline-flex">
+      <button
+        aria-describedby={tooltipId}
+        aria-label="Visa hjälptext"
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 bg-white text-xs font-semibold text-slate-600 outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+        type="button"
+      >
+        i
+      </button>
+      <span
+        className="pointer-events-none absolute right-0 top-full z-30 mt-2 w-64 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs leading-5 text-slate-700 opacity-0 shadow-lg transition-opacity group-hover/help:opacity-100 group-focus-within/help:opacity-100"
+        id={tooltipId}
+        role="tooltip"
+      >
+        {text}
+      </span>
+    </span>
   )
 }
 
@@ -686,7 +779,7 @@ function ActionRow({ action }: { action: ActionItem }) {
     <article className="grid gap-3 px-3 py-3 sm:px-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-          <SeverityBadge severity={action.severity} />
+          <ActionPriorityBadge action={action} />
           <Badge variant="neutral">{ACTION_TYPE_LABELS[action.type]}</Badge>
           <h2 className="text-sm font-semibold text-slate-950">{action.title}</h2>
         </div>
@@ -712,6 +805,14 @@ function ActionRow({ action }: { action: ActionItem }) {
       </Link>
     </article>
   )
+}
+
+function ActionPriorityBadge({ action }: { action: ActionItem }) {
+  if (action.type === "HIGH_RISK") {
+    return <Badge variant="neutral">Bevakning</Badge>
+  }
+
+  return <SeverityBadge severity={action.severity} />
 }
 
 function SeverityBadge({ severity }: { severity: DashboardActionSeverity }) {
