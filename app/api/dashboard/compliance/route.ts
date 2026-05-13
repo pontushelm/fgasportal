@@ -182,20 +182,39 @@ export async function GET(request: NextRequest) {
     const requiringInspection = installationRows.filter(
       (installation) => installation.inspectionInterval !== null
     ).length
-    const reportProperties = Array.from(
-      new Map(
-        installations
-          .filter((installation) => installation.property)
-          .map((installation) => [
-            installation.property!.id,
-            {
-              id: installation.property!.id,
-              name: installation.property!.name,
-              municipality: installation.property!.municipality,
-            },
-          ])
-      ).values()
+    const propertyMetadata = new Map(
+      installations
+        .filter((installation) => installation.property)
+        .map((installation) => [
+          installation.property!.id,
+          {
+            id: installation.property!.id,
+            name: installation.property!.name,
+            municipality: installation.property!.municipality,
+          },
+        ])
     )
+    const reportProperties = Array.from(propertyMetadata.values()).map((property) => {
+      const propertyInstallations = installationRows.filter(
+        (installation) => installation.propertyId === property.id
+      )
+      const hasUnknownCo2e = propertyInstallations.some(
+        (installation) => installation.co2eTon === null
+      )
+      const installedCo2eTon = propertyInstallations.reduce(
+        (sum, installation) =>
+          installation.inspectionInterval !== null && installation.co2eTon !== null
+            ? sum + installation.co2eTon
+            : sum,
+        0
+      )
+
+      return {
+        ...property,
+        installedCo2eTon,
+        co2eIsComplete: !hasUnknownCo2e,
+      }
+    })
     const signedReportRecords = await prisma.signedAnnualFgasReport.findMany({
       where: {
         companyId,

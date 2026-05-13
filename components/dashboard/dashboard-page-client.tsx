@@ -62,16 +62,20 @@ type DashboardData = {
   }
   annualReportStatus: {
     year: number
-    expectedReports: number
-    signedReports: number
-    remainingReports: number
-    reportsWithWarnings: number
-    reportsRequiringCompletion: number
+    requiredReports: number
+    signedRequiredReports: number
+    remainingRequiredReports: number
+    uncertainProperties: number
+    requiredReportsWithWarnings: number
+    requiredReportsRequiringCompletion: number
     properties: Array<{
       id: string
       name: string
       municipality: string | null
-      status: "SIGNED" | "NOT_SIGNED" | "HAS_WARNINGS" | "MISSING_REQUIRED_DATA"
+      installedCo2eTon: number
+      co2eIsComplete: boolean
+      requirementStatus: "REQUIRED" | "NOT_REQUIRED" | "UNCERTAIN"
+      signedStatus: "SIGNED" | "NOT_SIGNED" | "HAS_WARNINGS" | "MISSING_REQUIRED_DATA" | null
       signedAt: string | null
       blockingIssueCount: number
       reviewWarningCount: number
@@ -156,7 +160,7 @@ const KPI_CARDS = [
   {
     key: "co2e",
     label: "Installerad CO₂e",
-    description: "Total köldmediemängd uttryckt i CO₂e",
+    description: "Total köldmediemängd",
     tooltip:
       "Installerad köldmediemängd omräknad till CO₂e utifrån registrerat köldmedium och fyllnadsmängd.",
     tone: "neutral",
@@ -419,7 +423,7 @@ function AnnualReportsOverview({
           </p>
           <h2 className="mt-1 text-xl font-semibold text-slate-950">Årsrapporter</h2>
           <p className="mt-1 max-w-3xl text-sm text-slate-700">
-            Översikt över signerade årsrapporter per registrerad fastighet med aktiva aggregat. FgasPortal spårar signering, inte inskick till kommunen.
+            Kravbedömning per registrerad fastighet baserat på stationära aggregat och installerad CO₂e. FgasPortal spårar signering, inte inskick till kommunen.
           </p>
         </div>
         <Link
@@ -431,13 +435,13 @@ function AnnualReportsOverview({
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <MiniSummary label="Förväntade" value={status.expectedReports} />
-        <MiniSummary label="Signerade rapporter" value={status.signedReports} tone="emerald" />
-        <MiniSummary label="Återstår" value={status.remainingReports} tone="amber" />
+        <MiniSummary label="Årsrapport krävs" value={status.requiredReports} />
+        <MiniSummary label="Signerade" value={status.signedRequiredReports} tone="emerald" />
+        <MiniSummary label="Återstår" value={status.remainingRequiredReports} tone="amber" />
         <MiniSummary
-          label="Rapporter att granska"
-          value={status.reportsWithWarnings + status.reportsRequiringCompletion}
-          tone={status.reportsRequiringCompletion > 0 ? "red" : "amber"}
+          label="Kräver kontroll"
+          value={status.uncertainProperties}
+          tone={status.uncertainProperties > 0 ? "red" : "neutral"}
         />
       </div>
 
@@ -458,12 +462,17 @@ function AnnualReportsOverview({
                   {property.name}
                 </span>
                 <span className="text-xs text-slate-600">
-                  {property.municipality || "Kommun saknas"}
+                  {property.municipality || "Kommun saknas"} ·{" "}
+                  {formatWholeNumber(property.installedCo2eTon)} t installerad CO₂e
                 </span>
               </span>
               <span className="flex flex-wrap items-center gap-2">
-                <AnnualReportStatusBadge status={property.status} />
-                {property.blockingIssueCount + property.reviewWarningCount > 0 ? (
+                <AnnualReportRequirementBadge status={property.requirementStatus} />
+                {property.signedStatus ? (
+                  <AnnualReportSignedStatusBadge status={property.signedStatus} />
+                ) : null}
+                {property.signedStatus &&
+                property.blockingIssueCount + property.reviewWarningCount > 0 ? (
                   <span className="text-xs font-medium text-slate-600">
                     {property.blockingIssueCount} kräver komplettering,{" "}
                     {property.reviewWarningCount} bör granskas
@@ -507,16 +516,35 @@ function MiniSummary({
   )
 }
 
-function AnnualReportStatusBadge({
+function AnnualReportRequirementBadge({
   status,
 }: {
-  status: DashboardData["annualReportStatus"]["properties"][number]["status"]
+  status: DashboardData["annualReportStatus"]["properties"][number]["requirementStatus"]
+}) {
+  const labels = {
+    REQUIRED: "Årsrapport krävs",
+    NOT_REQUIRED: "Årsrapport krävs inte",
+    UNCERTAIN: "Kräver kontroll av underlag",
+  } satisfies Record<typeof status, string>
+  const variants = {
+    REQUIRED: "warning",
+    NOT_REQUIRED: "success",
+    UNCERTAIN: "danger",
+  } satisfies Record<typeof status, React.ComponentProps<typeof Badge>["variant"]>
+
+  return <Badge variant={variants[status]}>{labels[status]}</Badge>
+}
+
+function AnnualReportSignedStatusBadge({
+  status,
+}: {
+  status: NonNullable<DashboardData["annualReportStatus"]["properties"][number]["signedStatus"]>
 }) {
   const labels = {
     SIGNED: "Signerad",
     NOT_SIGNED: "Ej signerad",
-    HAS_WARNINGS: "Bör granskas",
-    MISSING_REQUIRED_DATA: "Kräver komplettering",
+    HAS_WARNINGS: "Signerad - bör granskas",
+    MISSING_REQUIRED_DATA: "Signerad - kräver komplettering",
   } satisfies Record<typeof status, string>
   const variants = {
     SIGNED: "success",
@@ -594,30 +622,30 @@ function VisualCard({
   const tooltipId = useId()
 
   return (
-    <Card
-      aria-describedby={tooltip ? tooltipId : undefined}
-      className="group relative p-4 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-      tabIndex={tooltip ? 0 : undefined}
-    >
+    <Card className="relative p-4">
       <div className="flex items-start justify-between gap-3">
         <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
         {tooltip ? (
-          <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 bg-white text-xs font-semibold text-slate-600">
-            i
+          <span className="group/help relative mt-0.5 inline-flex">
+            <button
+              aria-describedby={tooltipId}
+              className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 bg-white text-xs font-semibold text-slate-600 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              type="button"
+            >
+              i
+            </button>
+            <span
+              className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-72 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs leading-5 text-slate-700 opacity-0 shadow-lg transition-opacity group-hover/help:opacity-100 group-focus-within/help:opacity-100"
+              id={tooltipId}
+              role="tooltip"
+            >
+              {tooltip}
+            </span>
           </span>
         ) : null}
       </div>
       {description ? <p className="mt-1 text-sm text-slate-600">{description}</p> : null}
       <div className="mt-4">{children}</div>
-      {tooltip ? (
-        <div
-          className="pointer-events-none absolute left-3 right-3 top-full z-20 mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-700 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus:opacity-100 group-focus-visible:opacity-100"
-          id={tooltipId}
-          role="tooltip"
-        >
-          {tooltip}
-        </div>
-      ) : null}
     </Card>
   )
 }
