@@ -32,6 +32,16 @@ type PropertyDetail = {
       unknownLeakageCo2eCount: number
       isLeakageCo2eIncomplete: boolean
     }
+    reportOverview: {
+      controlRequiredInstallations: number
+      completeReportDataInstallations: number
+      installationsWithReportWarnings: number
+      leakageEventsThisYear: number
+      recoveredAmountKgThisYear: number
+      totalCo2eTon: number | null
+      knownCo2eTon: number
+      unknownCo2eInstallations: number
+    }
   }
   installations: Array<{
     id: string
@@ -70,6 +80,13 @@ type PropertyDetail = {
     notes: string | null
     installationId: string
     installationName: string
+  }>
+  historicalMetrics: Array<{
+    year: number
+    leakageEventsCount: number
+    leakedAmountKg: number
+    recoveredAmountKg: number
+    controlsPerformed: number
   }>
 }
 
@@ -136,12 +153,26 @@ export default function PropertyDetailPageClient() {
       <PageHeader
         actions={
           data ? (
-            <Link
-              className={buttonClassName({ variant: "secondary" })}
-              href={`/dashboard/installations?propertyId=${data.property.id}`}
-            >
-              Visa filtrerad aggregatlista
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                className={buttonClassName({ variant: "primary" })}
+                href={`/dashboard/reports?propertyId=${data.property.id}`}
+              >
+                Skapa årsrapport för fastigheten
+              </Link>
+              <Link
+                className={buttonClassName({ variant: "secondary" })}
+                href={`/dashboard/actions?property=${data.property.id}`}
+              >
+                Visa åtgärder för fastigheten
+              </Link>
+              <Link
+                className={buttonClassName({ variant: "secondary" })}
+                href={`/dashboard/installations?propertyId=${data.property.id}`}
+              >
+                Visa aggregat
+              </Link>
+            </div>
           ) : null
         }
         backHref="/dashboard/properties"
@@ -190,6 +221,99 @@ export default function PropertyDetailPageClient() {
               value={data.summary.highRiskInstallations}
               tone="amber"
             />
+          </section>
+
+          <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+            <Card className="p-5">
+              <SectionHeader
+                title="Rapportöversikt"
+                subtitle="Samlad bild av rapportunderlag och klimatdata för fastigheten."
+              />
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <ReportMetric
+                  label="Kontrollpliktiga aggregat"
+                  value={data.summary.reportOverview.controlRequiredInstallations}
+                />
+                <ReportMetric
+                  label="Rapportunderlag klart"
+                  value={`${data.summary.reportOverview.completeReportDataInstallations}/${data.summary.reportOverview.controlRequiredInstallations}`}
+                />
+                <ReportMetric
+                  label="Bör kontrolleras"
+                  value={data.summary.reportOverview.installationsWithReportWarnings}
+                  tone={
+                    data.summary.reportOverview.installationsWithReportWarnings > 0
+                      ? "amber"
+                      : "green"
+                  }
+                />
+                <ReportMetric
+                  label="Läckage i år"
+                  value={data.summary.reportOverview.leakageEventsThisYear}
+                  tone={
+                    data.summary.reportOverview.leakageEventsThisYear > 0
+                      ? "red"
+                      : "slate"
+                  }
+                />
+                <ReportMetric
+                  label="Omhändertaget köldmedium"
+                  value={`${formatNumber(data.summary.reportOverview.recoveredAmountKgThisYear)} kg`}
+                />
+                <ReportMetric
+                  label="Total CO₂e"
+                  value={formatReportCo2e(data.summary.reportOverview)}
+                  tone={
+                    data.summary.reportOverview.unknownCo2eInstallations > 0
+                      ? "amber"
+                      : "slate"
+                  }
+                />
+              </div>
+              {data.summary.reportOverview.unknownCo2eInstallations > 0 && (
+                <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  {data.summary.reportOverview.unknownCo2eInstallations} aggregat
+                  saknar känt GWP/CO₂e-värde. Totalen visas därför som ofullständig.
+                </p>
+              )}
+            </Card>
+
+            <Card className="p-5">
+              <SectionHeader
+                title="Historik per år"
+                subtitle="Läckage, omhändertagen mängd och utförda kontroller."
+              />
+              {data.historicalMetrics.length === 0 ? (
+                <p className="mt-4 text-sm text-slate-600">
+                  Ingen historik finns registrerad för fastighetens aggregat.
+                </p>
+              ) : (
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-200 text-sm">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <TableHeader>År</TableHeader>
+                        <TableHeader>Läckage</TableHeader>
+                        <TableHeader>Läckt mängd</TableHeader>
+                        <TableHeader>Omhändertaget</TableHeader>
+                        <TableHeader>Kontroller</TableHeader>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {data.historicalMetrics.slice(0, 5).map((metric) => (
+                        <tr key={metric.year}>
+                          <TableCell>{metric.year}</TableCell>
+                          <TableCell>{metric.leakageEventsCount}</TableCell>
+                          <TableCell>{formatNumber(metric.leakedAmountKg)} kg</TableCell>
+                          <TableCell>{formatNumber(metric.recoveredAmountKg)} kg</TableCell>
+                          <TableCell>{metric.controlsPerformed}</TableCell>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
           </section>
 
           <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
@@ -421,6 +545,32 @@ function RiskBox({
   )
 }
 
+function ReportMetric({
+  label,
+  tone = "slate",
+  value,
+}: {
+  label: string
+  tone?: "slate" | "amber" | "red" | "green"
+  value: number | string
+}) {
+  const toneClass = {
+    slate: "bg-slate-50 text-slate-950",
+    amber: "bg-amber-50 text-amber-800",
+    red: "bg-red-50 text-red-700",
+    green: "bg-emerald-50 text-emerald-700",
+  }[tone]
+
+  return (
+    <div className={`rounded-lg px-3 py-2.5 ${toneClass}`}>
+      <p className="text-xs font-semibold uppercase tracking-wide opacity-75">
+        {label}
+      </p>
+      <p className="mt-1 text-lg font-bold">{value}</p>
+    </div>
+  )
+}
+
 function StatusBadge({ status }: { status: ComplianceStatus }) {
   const variant =
     status === "OVERDUE"
@@ -492,4 +642,14 @@ function formatNumber(value: number) {
 
 function formatCo2eTon(value: number | null) {
   return value === null ? "Okänt GWP-värde" : `${formatNumber(value)} ton`
+}
+
+function formatReportCo2e(
+  reportOverview: PropertyDetail["summary"]["reportOverview"]
+) {
+  if (reportOverview.totalCo2eTon !== null) {
+    return `${formatNumber(reportOverview.totalCo2eTon)} ton`
+  }
+
+  return `Ofullständig (${formatNumber(reportOverview.knownCo2eTon)} ton känt)`
 }

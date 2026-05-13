@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import type { DashboardAction } from "@/lib/actions/generate-actions"
 import {
+  buildPropertyHistoricalMetrics,
+  buildPropertyReportOverview,
   calculatePropertyLeakageClimateImpact,
   filterPropertyActions,
 } from "@/lib/property-overview"
@@ -45,6 +47,105 @@ describe("property overview helpers", () => {
 
     expect(filterPropertyActions(actions, ["installation-b"]).map((action) => action.id))
       .toEqual(["action-b"])
+  })
+
+  it("builds property report overview with unknown CO2e marked as incomplete", () => {
+    const overview = buildPropertyReportOverview({
+      year: 2026,
+      propertyHasMunicipality: true,
+      propertyHasDesignation: true,
+      installations: [
+        {
+          refrigerantType: "R404A",
+          refrigerantAmount: 10,
+          hasLeakDetectionSystem: false,
+          lastInspection: new Date("2026-01-10"),
+          nextInspection: new Date("2026-07-10"),
+          inspections: [{ inspectionDate: new Date("2026-01-10") }],
+          events: [
+            {
+              date: new Date("2026-02-01"),
+              type: "LEAK",
+              refrigerantAddedKg: 1,
+            },
+            {
+              date: new Date("2026-03-01"),
+              type: "RECOVERY",
+              refrigerantAddedKg: null,
+              recoveredAmountKg: 2,
+            },
+          ],
+        },
+        {
+          refrigerantType: "UNKNOWN-GAS",
+          refrigerantAmount: 5,
+          hasLeakDetectionSystem: false,
+          lastInspection: null,
+          nextInspection: null,
+          inspections: [],
+          events: [],
+        },
+      ],
+    })
+
+    expect(overview.controlRequiredInstallations).toBe(1)
+    expect(overview.completeReportDataInstallations).toBe(1)
+    expect(overview.installationsWithReportWarnings).toBe(1)
+    expect(overview.leakageEventsThisYear).toBe(1)
+    expect(overview.recoveredAmountKgThisYear).toBe(2)
+    expect(overview.totalCo2eTon).toBeNull()
+    expect(overview.unknownCo2eInstallations).toBe(1)
+  })
+
+  it("builds compact historical metrics per year", () => {
+    const metrics = buildPropertyHistoricalMetrics([
+      {
+        refrigerantType: "R404A",
+        refrigerantAmount: 10,
+        hasLeakDetectionSystem: false,
+        lastInspection: null,
+        nextInspection: null,
+        inspections: [
+          { inspectionDate: new Date("2026-01-10") },
+          { inspectionDate: new Date("2025-01-10") },
+        ],
+        events: [
+          {
+            date: new Date("2026-02-01"),
+            type: "LEAK",
+            refrigerantAddedKg: 1.5,
+          },
+          {
+            date: new Date("2026-03-01"),
+            type: "REFRIGERANT_CHANGE",
+            refrigerantAddedKg: 8,
+            recoveredAmountKg: 2.5,
+          },
+          {
+            date: new Date("2025-03-01"),
+            type: "RECOVERY",
+            refrigerantAddedKg: 4,
+          },
+        ],
+      },
+    ])
+
+    expect(metrics).toEqual([
+      {
+        year: 2026,
+        leakageEventsCount: 1,
+        leakedAmountKg: 1.5,
+        recoveredAmountKg: 2.5,
+        controlsPerformed: 1,
+      },
+      {
+        year: 2025,
+        leakageEventsCount: 0,
+        leakedAmountKg: 0,
+        recoveredAmountKg: 4,
+        controlsPerformed: 1,
+      },
+    ])
   })
 })
 

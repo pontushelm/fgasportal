@@ -4,6 +4,8 @@ import { authenticateApiRequest, isContractor } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import {
+  buildPropertyHistoricalMetrics,
+  buildPropertyReportOverview,
   calculatePropertyLeakageClimateImpact,
   createEmptyPropertyLeakageClimateImpact,
   filterPropertyActions,
@@ -58,10 +60,20 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 date: true,
                 type: true,
                 refrigerantAddedKg: true,
+                recoveredAmountKg: true,
                 notes: true,
               },
               orderBy: {
                 date: "desc",
+              },
+            },
+            inspections: {
+              select: {
+                id: true,
+                inspectionDate: true,
+              },
+              orderBy: {
+                inspectionDate: "desc",
               },
             },
           },
@@ -100,7 +112,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }> = []
 
     const installations = property.installations.map((installation) => {
-      const { events, ...installationData } = installation
+      const { events, inspections, ...installationData } = installation
       const leakEvents = events.filter((event) => event.type === "LEAK")
       const compliance = calculateInstallationCompliance(
         installation.refrigerantType,
@@ -154,8 +166,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
         riskLevel: risk.level,
         riskScore: risk.score,
         recentEvents: events.slice(0, 5),
+        events,
+        inspections,
       }
     })
+    const reportOverview = buildPropertyReportOverview({
+      installations,
+      propertyHasMunicipality: Boolean(property.municipality?.trim()),
+      propertyHasDesignation: Boolean(property.propertyDesignation?.trim()),
+    })
+    const historicalMetrics = buildPropertyHistoricalMetrics(installations)
     const actions = filterPropertyActions(
       generateDashboardActions({
         installations: installations.map((installation) => ({
@@ -198,6 +218,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
       )
       .sort((first, second) => second.date.getTime() - first.date.getTime())
       .slice(0, 8)
+    const publicInstallations = installations.map((installation) => ({
+      id: installation.id,
+      name: installation.name,
+      equipmentId: installation.equipmentId,
+      location: installation.location,
+      refrigerantType: installation.refrigerantType,
+      refrigerantAmount: installation.refrigerantAmount,
+      assignedContractorId: installation.assignedContractorId,
+      nextInspection: installation.nextInspection,
+      co2eTon: installation.co2eTon,
+      complianceStatus: installation.complianceStatus,
+      riskLevel: installation.riskLevel,
+    }))
 
     return NextResponse.json(
       {
@@ -219,11 +252,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
           highRiskInstallations: riskDistribution.HIGH,
           riskDistribution,
           leakageClimateImpact,
+          reportOverview,
         },
-        installations,
+        installations: publicInstallations,
         actions: actions.slice(0, 8),
         serviceContacts,
         recentEvents,
+        historicalMetrics,
       },
       { status: 200 }
     )

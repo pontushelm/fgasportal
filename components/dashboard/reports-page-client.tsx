@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useId, useMemo, useState } from "react"
 import { Badge, Card, EmptyState as UiEmptyState, PageHeader, SectionHeader } from "@/components/ui"
 import { getInstallationEventAmountLabel } from "@/lib/installation-events"
@@ -192,11 +192,14 @@ const signingTextareaClassName =
 
 export default function ReportsPage() {
   const currentYear = new Date().getFullYear()
+  const searchParams = useSearchParams()
   const [selectedYear, setSelectedYear] = useState(currentYear)
   const [selectedReportType, setSelectedReportType] =
     useState<ReportType>("annual")
   const [selectedMunicipality, setSelectedMunicipality] = useState("")
-  const [selectedPropertyId, setSelectedPropertyId] = useState("")
+  const [selectedPropertyId, setSelectedPropertyId] = useState(
+    searchParams.get("propertyId") ?? ""
+  )
   const [properties, setProperties] = useState<PropertyOption[]>([])
   const [signedReports, setSignedReports] = useState<SignedReportHistoryItem[]>([])
   const [reportData, setReportData] = useState<ReportData | null>(null)
