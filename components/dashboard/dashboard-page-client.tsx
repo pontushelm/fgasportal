@@ -123,7 +123,7 @@ const ACTION_PRIORITY_LABELS: Record<ActionItem["priority"], string> = {
   LOW: "Låg",
 }
 
-const ACTION_PREVIEW_LIMIT = 7
+const ACTION_PREVIEW_LIMIT = 3
 
 const KPI_CARDS = [
   {
@@ -231,7 +231,6 @@ export default function DashboardPage() {
 
   const sortedActionItems = dashboardData?.actionItems ?? []
   const visibleActionItems = sortedActionItems.slice(0, ACTION_PREVIEW_LIMIT)
-  const hasMoreActions = sortedActionItems.length > ACTION_PREVIEW_LIMIT
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
@@ -285,8 +284,8 @@ export default function DashboardPage() {
             })}
           </section>
 
-          <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(380px,0.8fr)]">
-            <Card className="border-blue-100 bg-white p-5 shadow-sm sm:p-6">
+          <section className="mt-6 grid gap-6 xl:grid-cols-2">
+            <Card className="border-blue-100 bg-white p-4 shadow-sm sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
@@ -316,9 +315,9 @@ export default function DashboardPage() {
                   ))}
                 </div>
               )}
-              {hasMoreActions && (
+              {visibleActionItems.length > 0 && (
                 <p className="mt-3 text-xs text-slate-500">
-                  Visar de sju mest prioriterade åtgärderna.
+                  Visar upp till tre prioriterade åtgärder.
                 </p>
               )}
             </Card>
@@ -387,24 +386,10 @@ export default function DashboardPage() {
               <VisualCard
                 title="Köldmediestatus"
                 description="Operativa signaler för köldmedier som kan behöva följas upp."
+                tooltip="Visar aggregat med köldmedier som kan behöva kontrolleras mot gällande eller kommande F-gaskrav. Bedömningen är en operativ signal, inte ett juridiskt beslut."
                 subdued
               >
-                <DistributionList
-                  items={[
-                    {
-                      label: "Kan omfattas av begränsningar",
-                      value: dashboardData.refrigerantRegulatorySummary.RESTRICTED,
-                    },
-                    {
-                      label: "Bör planeras för utfasning",
-                      value: dashboardData.refrigerantRegulatorySummary.PHASE_OUT_RISK,
-                    },
-                    {
-                      label: "Okänt köldmedium",
-                      value: dashboardData.refrigerantRegulatorySummary.UNKNOWN,
-                    },
-                  ]}
-                />
+                <RefrigerantStatusSummary summary={dashboardData.refrigerantRegulatorySummary} />
               </VisualCard>
 
               <VisualCard title="CO₂e per köldmedium" subdued>
@@ -681,6 +666,71 @@ function MiniMetric({
     <div className={`rounded-xl border p-3 text-center ${toneClass}`}>
       <div className="text-xs font-semibold uppercase tracking-wide">{label}</div>
       <div className="mt-1 text-xl font-bold">{value}</div>
+    </div>
+  )
+}
+
+function RefrigerantStatusSummary({
+  summary,
+}: {
+  summary: DashboardData["refrigerantRegulatorySummary"]
+}) {
+  const items = [
+    {
+      label: "Kan omfattas av begränsningar",
+      value: summary.RESTRICTED,
+      badge: "Begränsning",
+      variant: "warning",
+      barClass: "bg-amber-500",
+    },
+    {
+      label: "Bör planeras för utfasning",
+      value: summary.PHASE_OUT_RISK,
+      badge: "Utfasning",
+      variant: "info",
+      barClass: "bg-sky-500",
+    },
+    {
+      label: "Okänt köldmedium",
+      value: summary.UNKNOWN,
+      badge: "Okänt",
+      variant: "neutral",
+      barClass: "bg-slate-400",
+    },
+  ] satisfies Array<{
+    label: string
+    value: number
+    badge: string
+    variant: React.ComponentProps<typeof Badge>["variant"]
+    barClass: string
+  }>
+  const maxValue = Math.max(...items.map((item) => item.value), 1)
+
+  return (
+    <div className="grid gap-3">
+      <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2">
+        <span className="text-sm font-semibold text-slate-800">Att följa upp</span>
+        <span className="text-lg font-bold text-slate-950">{summary.followUp}</span>
+      </div>
+      {items.map((item) => (
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5" key={item.label}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-slate-800">{item.label}</p>
+              <Badge className="mt-1" variant={item.variant}>
+                {item.badge}
+              </Badge>
+            </div>
+            <span className="shrink-0 text-lg font-bold text-slate-950">{item.value}</span>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className={`h-full rounded-full ${item.barClass}`}
+              style={{ width: `${(item.value / maxValue) * 100}%` }}
+            />
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

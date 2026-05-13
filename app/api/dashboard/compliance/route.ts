@@ -43,7 +43,7 @@ const STATUS_SORT_ORDER: Record<ComplianceStatus, number> = {
   NOT_REQUIRED: 5,
 }
 
-const ACTION_PREVIEW_LIMIT = 7
+const ACTION_PREVIEW_LIMIT = 3
 
 export async function GET(request: NextRequest) {
   try {
