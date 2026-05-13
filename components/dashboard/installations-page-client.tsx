@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useId, useMemo, useState } from "react"
 import ImportInstallationsPage from "@/components/dashboard/installations-import-page-client"
 import CreateInstallationForm from "@/components/installations/create-installation-form"
 import { Button, Card, PageHeader } from "@/components/ui"
@@ -137,6 +137,10 @@ const SORT_OPTIONS = [
 const SAVED_FILTER_PAGE = "installations"
 const filterControlClassName =
   "h-10 w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400"
+const bulkSecondaryButtonClassName =
+  "inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+const bulkDestructiveButtonClassName =
+  "inline-flex min-h-10 items-center justify-center rounded-md border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-700 shadow-sm hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
 
 export default function InstallationsPageClient() {
   const router = useRouter()
@@ -660,18 +664,12 @@ export default function InstallationsPageClient() {
             />
           </label>
 
-          <FilterSelect
+          <SearchableFilterSelect
             label="Köldmedium"
+            options={refrigerantOptions}
             value={refrigerantValue}
             onChange={(value) => updateQueryParam("refrigerantType", value)}
-          >
-            <option value="">Alla</option>
-            {refrigerantOptions.map((refrigerant) => (
-              <option key={refrigerant} value={refrigerant}>
-                {refrigerant}
-              </option>
-            ))}
-          </FilterSelect>
+          />
 
           <FilterSelect
             label="Servicekontakt"
@@ -882,7 +880,7 @@ export default function InstallationsPageClient() {
           </div>
           <div className="flex flex-wrap gap-2">
             <button
-              className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
+              className={bulkSecondaryButtonClassName}
               type="button"
               disabled={isSubmitting}
               onClick={() => setIsAssignModalOpen(true)}
@@ -890,7 +888,7 @@ export default function InstallationsPageClient() {
               Tilldela servicekontakt
             </button>
             <button
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:text-slate-400"
+              className={bulkSecondaryButtonClassName}
               type="button"
               disabled={isSubmitting}
               onClick={() => setIsPropertyModalOpen(true)}
@@ -898,7 +896,7 @@ export default function InstallationsPageClient() {
               Tilldela fastighet
             </button>
             <button
-              className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:text-slate-400"
+              className={bulkDestructiveButtonClassName}
               type="button"
               disabled={isSubmitting}
               onClick={() => void handleArchiveSelected()}
@@ -931,12 +929,15 @@ export default function InstallationsPageClient() {
               <tr>
                 {canManage && (
                   <th className="w-12 px-4 py-3 text-left">
-                    <input
-                      aria-label="Välj alla aggregat"
-                      checked={allSelected}
-                      onChange={toggleAll}
-                      type="checkbox"
-                    />
+                    <label className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-md border border-transparent hover:border-slate-300 hover:bg-white">
+                      <input
+                        aria-label="Välj alla aggregat"
+                        checked={allSelected}
+                        className="h-5 w-5 rounded border-slate-300 text-blue-600"
+                        onChange={toggleAll}
+                        type="checkbox"
+                      />
+                    </label>
                   </th>
                 )}
                 <TableHeader>Aggregat</TableHeader>
@@ -958,12 +959,15 @@ export default function InstallationsPageClient() {
                 >
                   {canManage && (
                     <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
-                      <input
-                        aria-label={`Välj ${installation.name}`}
-                        checked={selectedIds.includes(installation.id)}
-                        onChange={() => toggleInstallation(installation.id)}
-                        type="checkbox"
-                      />
+                      <label className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-md border border-transparent hover:border-slate-300 hover:bg-slate-50">
+                        <input
+                          aria-label={`Välj ${installation.name}`}
+                          checked={selectedIds.includes(installation.id)}
+                          className="h-5 w-5 rounded border-slate-300 text-blue-600"
+                          onChange={() => toggleInstallation(installation.id)}
+                          type="checkbox"
+                        />
+                      </label>
                     </td>
                   )}
                   <TableCell>
@@ -1361,13 +1365,15 @@ function InstallationMobileCard({
           </p>
         </div>
         {canManage && (
-          <input
-            aria-label={`Välj ${installation.name}`}
-            className="mt-1 h-5 w-5 rounded border-slate-300 text-blue-600"
-            checked={isSelected}
-            type="checkbox"
-            onChange={onToggleSelected}
-          />
+          <label className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-md border border-slate-200 bg-slate-50 hover:bg-white">
+            <input
+              aria-label={`Välj ${installation.name}`}
+              className="h-5 w-5 rounded border-slate-300 text-blue-600"
+              checked={isSelected}
+              type="checkbox"
+              onChange={onToggleSelected}
+            />
+          </label>
         )}
       </div>
 
@@ -1438,6 +1444,145 @@ function FilterSelect({
         {children}
       </select>
     </label>
+  )
+}
+
+function SearchableFilterSelect({
+  label,
+  onChange,
+  options,
+  value,
+}: {
+  label: string
+  onChange: (value: string) => void
+  options: string[]
+  value: string
+}) {
+  const inputId = useId()
+  const listboxId = useId()
+  const [isOpen, setIsOpen] = useState(false)
+  const [searchState, setSearchState] = useState({
+    sourceValue: value,
+    value,
+  })
+  const search = searchState.sourceValue === value ? searchState.value : value
+
+  const filteredOptions = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase()
+    if (!normalizedSearch) return options
+
+    return options.filter((option) =>
+      option.toLowerCase().includes(normalizedSearch)
+    )
+  }, [options, search])
+
+  function selectValue(nextValue: string) {
+    onChange(nextValue)
+    setSearchState({
+      sourceValue: nextValue,
+      value: nextValue,
+    })
+    setIsOpen(false)
+  }
+
+  return (
+    <div
+      className="relative grid gap-1 text-sm font-medium text-slate-700"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setIsOpen(false)
+          setSearchState({
+            sourceValue: value,
+            value,
+          })
+        }
+      }}
+    >
+      <label htmlFor={inputId}>{label}</label>
+      <div className="relative">
+        <input
+          aria-autocomplete="list"
+          aria-controls={listboxId}
+          aria-expanded={isOpen}
+          autoComplete="off"
+          className={`${filterControlClassName} pr-20`}
+          id={inputId}
+          placeholder="Alla"
+          role="combobox"
+          value={search}
+          onChange={(event) => {
+            setSearchState({
+              sourceValue: value,
+              value: event.target.value,
+            })
+            setIsOpen(true)
+          }}
+          onFocus={() => setIsOpen(true)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              setIsOpen(false)
+              setSearchState({
+                sourceValue: value,
+                value,
+              })
+            }
+            if (event.key === "Enter" && filteredOptions.length === 1) {
+              event.preventDefault()
+              selectValue(filteredOptions[0])
+            }
+          }}
+        />
+        {value ? (
+          <button
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+            type="button"
+            onClick={() => selectValue("")}
+          >
+            Alla
+          </button>
+        ) : null}
+      </div>
+
+      {isOpen ? (
+        <div
+          className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg"
+          id={listboxId}
+          role="listbox"
+        >
+          <button
+            className={`block w-full px-3 py-2 text-left text-sm hover:bg-blue-50 ${
+              value ? "text-slate-700" : "bg-blue-50 font-semibold text-blue-800"
+            }`}
+            type="button"
+            role="option"
+            aria-selected={!value}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => selectValue("")}
+          >
+            Alla
+          </button>
+          {filteredOptions.length === 0 ? (
+            <p className="px-3 py-2 text-sm text-slate-500">Inga träffar</p>
+          ) : (
+            filteredOptions.map((option) => (
+              <button
+                className={`block w-full px-3 py-2 text-left text-sm hover:bg-blue-50 ${
+                  value === option ? "bg-blue-50 font-semibold text-blue-800" : "text-slate-700"
+                }`}
+                key={option}
+                type="button"
+                role="option"
+                aria-selected={value === option}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => selectValue(option)}
+              >
+                {option}
+              </button>
+            ))
+          )}
+        </div>
+      ) : null}
+    </div>
   )
 }
 
