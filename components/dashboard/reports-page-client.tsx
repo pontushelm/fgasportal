@@ -144,7 +144,9 @@ const signingTextareaClassName =
 export default function ReportsPage() {
   const currentYear = new Date().getFullYear()
   const searchParams = useSearchParams()
-  const [selectedYear, setSelectedYear] = useState(currentYear)
+  const [selectedYear, setSelectedYear] = useState(() =>
+    parseInitialReportYear(searchParams.get("year"), currentYear)
+  )
   const [selectedReportType, setSelectedReportType] =
     useState<ReportType>("annual")
   const [selectedMunicipality, setSelectedMunicipality] = useState("")
@@ -1049,6 +1051,16 @@ function buildSignedAnnualPdfHref({
 
 function formatDateInputValue(date: Date) {
   return date.toISOString().slice(0, 10)
+}
+
+function parseInitialReportYear(value: string | null, currentYear: number) {
+  const year = value ? Number(value) : currentYear
+
+  if (!Number.isInteger(year) || year < 2000 || year > currentYear + 1) {
+    return currentYear
+  }
+
+  return year
 }
 
 function buildClientQualitySummary(warnings: NonNullable<ReportData["warnings"]>) {

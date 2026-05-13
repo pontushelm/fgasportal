@@ -56,6 +56,27 @@ type DashboardData = {
     leakageInstallationCount: number
     leakageEvents: number
     leakageYear: number
+    leakageCo2eTon: number
+    leakageCo2eIsComplete: boolean
+    unknownLeakageCo2eEvents: number
+  }
+  annualReportStatus: {
+    year: number
+    expectedReports: number
+    signedReports: number
+    remainingReports: number
+    reportsWithWarnings: number
+    reportsRequiringCompletion: number
+    properties: Array<{
+      id: string
+      name: string
+      municipality: string | null
+      status: "SIGNED" | "NOT_SIGNED" | "HAS_WARNINGS" | "MISSING_REQUIRED_DATA"
+      signedAt: string | null
+      blockingIssueCount: number
+      reviewWarningCount: number
+      href: string
+    }>
   }
   riskSummary: {
     high: number
@@ -126,18 +147,18 @@ const KPI_CARDS = [
   },
   {
     key: "leakage",
-    label: "Läckage",
-    description: "Registrerade läckage i år",
+    label: "Läckage CO₂e i år",
+    description: "Klimatpåverkan från registrerade läckage",
     tooltip:
-      "Antal registrerade läckagehändelser i det aktuella företaget.",
+      "Beräknad klimatpåverkan från årets registrerade läckagehändelser. Händelser med okänd mängd eller okänt GWP räknas inte som noll.",
     tone: "red",
   },
   {
     key: "co2e",
-    label: "Total CO₂e",
-    description: "Beräknad klimatpåverkan",
+    label: "Installerad CO₂e",
+    description: "Total köldmediemängd uttryckt i CO₂e",
     tooltip:
-      "Beräknad klimatpåverkan baserat på köldmedium och fyllnadsmängd.",
+      "Installerad köldmediemängd omräknad till CO₂e utifrån registrerat köldmedium och fyllnadsmängd.",
     tone: "neutral",
   },
 ] satisfies Array<{
@@ -201,7 +222,7 @@ export default function DashboardPage() {
       <section className="mx-auto max-w-7xl">
         <PageHeader
           title="F-gasöversikt"
-          subtitle="Se compliance-läget, prioriterade åtgärder och risker för era köldmedieaggregat."
+          subtitle="Se efterlevnadsläget, prioriterade åtgärder och risker för era köldmedieaggregat."
         />
 
       </section>
@@ -214,7 +235,7 @@ export default function DashboardPage() {
           <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             {KPI_CARDS.map((card) => (
               <MetricCard
-                description={card.description}
+                description={getKpiDescription(card.key, dashboardData, card.description)}
                 key={card.key}
                 label={card.label}
                 tone={card.tone}
@@ -225,11 +246,22 @@ export default function DashboardPage() {
           </section>
           {!dashboardData.environmental.co2eIsComplete && (
             <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              {"Total CO\u2082e \u00e4r ofullst\u00e4ndig eftersom "}
+              {"Installerad CO\u2082e \u00e4r ofullst\u00e4ndig eftersom "}
               {dashboardData.environmental.unknownCo2eInstallations}
               {" aggregat saknar k\u00e4nt GWP-v\u00e4rde."}
             </p>
           )}
+          {!dashboardData.environmental.leakageCo2eIsComplete && (
+            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              {"L\u00e4ckage-CO\u2082e f\u00f6r "}
+              {dashboardData.environmental.leakageYear}
+              {" \u00e4r ofullst\u00e4ndig eftersom "}
+              {dashboardData.environmental.unknownLeakageCo2eEvents}
+              {" l\u00e4ckageh\u00e4ndelser saknar m\u00e4ngd eller k\u00e4nt GWP-v\u00e4rde."}
+            </p>
+          )}
+
+          <AnnualReportsOverview status={dashboardData.annualReportStatus} />
 
           <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.85fr)]">
             <Card className="p-5 sm:p-6">
@@ -270,7 +302,11 @@ export default function DashboardPage() {
             </Card>
 
             <div className="grid gap-4">
-              <VisualCard title="Riskklassning">
+              <VisualCard
+                title="Aggregat per riskklass"
+                description="Fördelning av aggregat utifrån aktuell riskklassning."
+                tooltip="Riskklassning baseras på köldmediemängd, GWP/CO₂e, läckagehistorik och om läckagevarningssystem finns."
+              >
                 <div className="grid grid-cols-3 gap-2">
                   <MiniMetric label="Hög" value={dashboardData.riskSummary.high} tone="red" />
                   <MiniMetric label="Medel" value={dashboardData.riskSummary.medium} tone="amber" />
@@ -366,6 +402,132 @@ function MetricCard({
   )
 }
 
+function AnnualReportsOverview({
+  status,
+}: {
+  status: DashboardData["annualReportStatus"]
+}) {
+  const visibleProperties = status.properties.slice(0, 4)
+  const hasMoreProperties = status.properties.length > visibleProperties.length
+
+  return (
+    <Card className="mt-6 p-5 sm:p-6">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Rapportering {status.year}
+          </p>
+          <h2 className="mt-1 text-xl font-semibold text-slate-950">Årsrapporter</h2>
+          <p className="mt-1 max-w-3xl text-sm text-slate-700">
+            Översikt över signerade årsrapporter per registrerad fastighet med aktiva aggregat. FgasPortal spårar signering, inte inskick till kommunen.
+          </p>
+        </div>
+        <Link
+          className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-center text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+          href={`/dashboard/reports?year=${status.year}`}
+        >
+          Öppna rapporter
+        </Link>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <MiniSummary label="Förväntade" value={status.expectedReports} />
+        <MiniSummary label="Signerade rapporter" value={status.signedReports} tone="emerald" />
+        <MiniSummary label="Återstår" value={status.remainingReports} tone="amber" />
+        <MiniSummary
+          label="Rapporter att granska"
+          value={status.reportsWithWarnings + status.reportsRequiringCompletion}
+          tone={status.reportsRequiringCompletion > 0 ? "red" : "amber"}
+        />
+      </div>
+
+      {status.properties.length === 0 ? (
+        <p className="mt-4 rounded-lg border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-600">
+          Inga registrerade fastigheter med aktiva aggregat hittades.
+        </p>
+      ) : (
+        <div className="mt-4 grid gap-2">
+          {visibleProperties.map((property) => (
+            <Link
+              className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm hover:bg-white sm:flex-row sm:items-center sm:justify-between"
+              href={`${property.href}&year=${status.year}`}
+              key={property.id}
+            >
+              <span className="min-w-0">
+                <span className="block truncate font-semibold text-slate-950">
+                  {property.name}
+                </span>
+                <span className="text-xs text-slate-600">
+                  {property.municipality || "Kommun saknas"}
+                </span>
+              </span>
+              <span className="flex flex-wrap items-center gap-2">
+                <AnnualReportStatusBadge status={property.status} />
+                {property.blockingIssueCount + property.reviewWarningCount > 0 ? (
+                  <span className="text-xs font-medium text-slate-600">
+                    {property.blockingIssueCount} kräver komplettering,{" "}
+                    {property.reviewWarningCount} bör granskas
+                  </span>
+                ) : null}
+              </span>
+            </Link>
+          ))}
+          {hasMoreProperties ? (
+            <p className="text-xs text-slate-500">
+              +{status.properties.length - visibleProperties.length} fler fastigheter visas på rapportsidan.
+            </p>
+          ) : null}
+        </div>
+      )}
+    </Card>
+  )
+}
+
+function MiniSummary({
+  label,
+  value,
+  tone = "neutral",
+}: {
+  label: string
+  value: number
+  tone?: "neutral" | "emerald" | "amber" | "red"
+}) {
+  const toneClass = {
+    neutral: "border-slate-200 bg-slate-50 text-slate-800",
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    amber: "border-amber-200 bg-amber-50 text-amber-800",
+    red: "border-red-200 bg-red-50 text-red-800",
+  }[tone]
+
+  return (
+    <div className={`rounded-lg border px-3 py-3 ${toneClass}`}>
+      <div className="text-xs font-semibold uppercase tracking-wide">{label}</div>
+      <div className="mt-1 text-2xl font-bold">{value}</div>
+    </div>
+  )
+}
+
+function AnnualReportStatusBadge({
+  status,
+}: {
+  status: DashboardData["annualReportStatus"]["properties"][number]["status"]
+}) {
+  const labels = {
+    SIGNED: "Signerad",
+    NOT_SIGNED: "Ej signerad",
+    HAS_WARNINGS: "Bör granskas",
+    MISSING_REQUIRED_DATA: "Kräver komplettering",
+  } satisfies Record<typeof status, string>
+  const variants = {
+    SIGNED: "success",
+    NOT_SIGNED: "neutral",
+    HAS_WARNINGS: "warning",
+    MISSING_REQUIRED_DATA: "danger",
+  } satisfies Record<typeof status, React.ComponentProps<typeof Badge>["variant"]>
+
+  return <Badge variant={variants[status]}>{labels[status]}</Badge>
+}
+
 function MiniMetric({
   label,
   value,
@@ -421,17 +583,41 @@ function ActionRow({ item }: { item: ActionItem }) {
 function VisualCard({
   title,
   description,
+  tooltip,
   children,
 }: {
   title: string
   description?: string
+  tooltip?: string
   children: React.ReactNode
 }) {
+  const tooltipId = useId()
+
   return (
-    <Card className="p-4">
-      <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
+    <Card
+      aria-describedby={tooltip ? tooltipId : undefined}
+      className="group relative p-4 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+      tabIndex={tooltip ? 0 : undefined}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
+        {tooltip ? (
+          <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 bg-white text-xs font-semibold text-slate-600">
+            i
+          </span>
+        ) : null}
+      </div>
       {description ? <p className="mt-1 text-sm text-slate-600">{description}</p> : null}
       <div className="mt-4">{children}</div>
+      {tooltip ? (
+        <div
+          className="pointer-events-none absolute left-3 right-3 top-full z-20 mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-700 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus:opacity-100 group-focus-visible:opacity-100"
+          id={tooltipId}
+          role="tooltip"
+        >
+          {tooltip}
+        </div>
+      ) : null}
     </Card>
   )
 }
@@ -533,14 +719,37 @@ function getKpiValue(
   if (key === "ok") return dashboardData.metrics.ok
   if (key === "overdue") return dashboardData.metrics.overdue
   if (key === "dueSoon") return dashboardData.metrics.dueSoon
-  if (key === "leakage") return dashboardData.environmental.leakageEvents
+  if (key === "leakage") {
+    const prefix = dashboardData.environmental.leakageCo2eIsComplete ? "" : "Minst "
+    return `${prefix}${formatWholeNumber(dashboardData.environmental.leakageCo2eTon)} t`
+  }
 
   const prefix = dashboardData.environmental.co2eIsComplete ? "" : "Minst "
-  return `${prefix}${formatNumber(dashboardData.environmental.totalCo2eTon)} t`
+  return `${prefix}${formatWholeNumber(dashboardData.environmental.totalCo2eTon)} t`
+}
+
+function getKpiDescription(
+  key: (typeof KPI_CARDS)[number]["key"],
+  dashboardData: DashboardData,
+  fallback: string
+) {
+  if (key !== "leakage") return fallback
+
+  const eventCount = dashboardData.environmental.leakageEvents
+  if (eventCount === 0) return "Inga registrerade läckage i år"
+  if (eventCount === 1) return "1 registrerat läckage i år"
+
+  return `${eventCount} registrerade läckage i år`
 }
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("sv-SE", {
     maximumFractionDigits: 2,
   }).format(value)
+}
+
+function formatWholeNumber(value: number) {
+  return new Intl.NumberFormat("sv-SE", {
+    maximumFractionDigits: 0,
+  }).format(Math.round(value))
 }

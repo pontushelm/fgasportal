@@ -1,3 +1,5 @@
+import { calculateCO2e } from "@/lib/fgas-calculations"
+
 export type Co2eCompletenessSummary = {
   totalCo2eTon: number
   isComplete: boolean
@@ -35,4 +37,33 @@ export function summarizeCo2eCompleteness(
     isComplete: unknownCo2eInstallations === 0,
     unknownCo2eInstallations,
   }
+}
+
+export function summarizeLeakageClimateImpact(
+  events: Array<{ leakageKg: number | null; refrigerantType: string | null }>
+) {
+  return events.reduce(
+    (summary, event) => {
+      if (event.leakageKg === null) {
+        summary.unknownEvents += 1
+        summary.isComplete = false
+        return summary
+      }
+
+      const co2e = calculateCO2e(event.refrigerantType ?? "", event.leakageKg).co2eTon
+      if (co2e === null) {
+        summary.unknownEvents += 1
+        summary.isComplete = false
+        return summary
+      }
+
+      summary.totalCo2eTon += co2e
+      return summary
+    },
+    {
+      totalCo2eTon: 0,
+      isComplete: true,
+      unknownEvents: 0,
+    }
+  )
 }

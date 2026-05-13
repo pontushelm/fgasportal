@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { generateDashboardActions } from "@/lib/actions/generate-actions"
 import { authenticateApiRequest, isContractor } from "@/lib/auth"
+import { buildDashboardAnnualReportStatus } from "@/lib/dashboard/annual-report-status"
 import {
   getCurrentYearRange,
   isDateInRange,
   summarizeCo2eCompleteness,
+  summarizeLeakageClimateImpact,
 } from "@/lib/dashboard/compliance-metrics"
 import { prisma } from "@/lib/db"
 import {
@@ -66,6 +68,7 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             name: true,
+            municipality: true,
           },
         },
       },
@@ -151,11 +154,18 @@ export async function GET(request: NextRequest) {
         installationName: installation.name,
         equipmentId: installation.equipmentId,
         installationLocation: installation.location,
+        refrigerantType: installation.refrigerantType,
         propertyName: installation.property?.name ?? installation.propertyName,
       }))
     )
     const currentYearLeakageEvents = leakageEvents.filter((event) =>
       isDateInRange(event.date, currentYearRange)
+    )
+    const leakageClimateImpact = summarizeLeakageClimateImpact(
+      currentYearLeakageEvents.map((event) => ({
+        leakageKg: event.refrigerantAddedKg,
+        refrigerantType: event.refrigerantType,
+      }))
     )
     const leakageInstallationCount = new Set(
       currentYearLeakageEvents.map((event) => event.installationId)
@@ -172,6 +182,42 @@ export async function GET(request: NextRequest) {
     const requiringInspection = installationRows.filter(
       (installation) => installation.inspectionInterval !== null
     ).length
+    const reportProperties = Array.from(
+      new Map(
+        installations
+          .filter((installation) => installation.property)
+          .map((installation) => [
+            installation.property!.id,
+            {
+              id: installation.property!.id,
+              name: installation.property!.name,
+              municipality: installation.property!.municipality,
+            },
+          ])
+      ).values()
+    )
+    const signedReportRecords = await prisma.signedAnnualFgasReport.findMany({
+      where: {
+        companyId,
+        reportYear: currentYearRange.startDate.getFullYear(),
+        ...(isContractor(auth.user) ? { userId } : {}),
+      },
+      select: {
+        propertyId: true,
+        readinessStatus: true,
+        blockingIssueCount: true,
+        reviewWarningCount: true,
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    })
+    const annualReportStatus = buildDashboardAnnualReportStatus({
+      properties: reportProperties,
+      records: signedReportRecords,
+      year: currentYearRange.startDate.getFullYear(),
+    })
 
     return NextResponse.json(
       {
@@ -192,7 +238,11 @@ export async function GET(request: NextRequest) {
           leakageInstallationCount,
           leakageEvents: currentYearLeakageEvents.length,
           leakageYear: currentYearRange.startDate.getFullYear(),
+          leakageCo2eTon: leakageClimateImpact.totalCo2eTon,
+          leakageCo2eIsComplete: leakageClimateImpact.isComplete,
+          unknownLeakageCo2eEvents: leakageClimateImpact.unknownEvents,
         },
+        annualReportStatus,
         riskSummary,
         statusDistribution: statusCounts,
         refrigerantDistribution: Array.from(refrigerantMap.values()).sort(
@@ -212,6 +262,7 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+
 
 function compareInstallations(
   first: { complianceStatus: ComplianceStatus; nextInspection?: Date | null },
