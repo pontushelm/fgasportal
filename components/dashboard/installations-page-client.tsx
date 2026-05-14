@@ -592,6 +592,50 @@ export default function InstallationsPageClient() {
     )
   }
 
+  function updateInstallationRows(
+    installationIds: string[],
+    updater: (installation: Installation) => Installation
+  ) {
+    const ids = new Set(installationIds)
+    const updateList = (current: Installation[]) =>
+      current.map((installation) =>
+        ids.has(installation.id) ? updater(installation) : installation
+      )
+
+    setInstallations(updateList)
+    setFilterSourceInstallations(updateList)
+    setSelectedInstallation((current) =>
+      current && ids.has(current.id) ? updater(current) : current
+    )
+  }
+
+  function archiveInstallationRows(installationIds: string[]) {
+    const ids = new Set(installationIds)
+    const archivedAt = new Date().toISOString()
+    const updateArchived = (installation: Installation): Installation =>
+      ids.has(installation.id)
+        ? {
+            ...installation,
+            archivedAt,
+            isActive: false,
+          }
+        : installation
+
+    setFilterSourceInstallations((current) => current.map(updateArchived))
+    setSelectedInstallation((current) =>
+      current && ids.has(current.id) ? updateArchived(current) : current
+    )
+
+    if (archivedValue === "all") {
+      setInstallations((current) => current.map(updateArchived))
+      return
+    }
+
+    setInstallations((current) =>
+      current.filter((installation) => !ids.has(installation.id))
+    )
+  }
+
   async function handleAssignContractor(event: React.FormEvent) {
     event.preventDefault()
     setError("")
@@ -605,9 +649,17 @@ export default function InstallationsPageClient() {
       return
     }
 
+    const targetInstallationIds = selectedIds
+    const selectedContractor =
+      contractors.find((contractor) => contractor.id === contractorId) ?? null
+    const selectedServicePartnerCompany =
+      servicePartnerCompanyOptions.find(
+        (company) => company.id === bulkServicePartnerCompanyId
+      ) ??
+      selectedContractor?.servicePartnerCompany ??
+      null
     const selectedCompanyName =
-      servicePartnerCompanyOptions.find((company) => company.id === bulkServicePartnerCompanyId)
-        ?.name ?? "vald servicepartner"
+      selectedServicePartnerCompany?.name ?? "vald servicepartner"
 
     setIsSubmitting(true)
     setPendingBulkAction("servicepartner")
@@ -619,7 +671,7 @@ export default function InstallationsPageClient() {
       },
       credentials: "include",
       body: JSON.stringify({
-        installationIds: selectedIds,
+        installationIds: targetInstallationIds,
         servicePartnerCompanyId: bulkServicePartnerCompanyId || null,
         contractorId: contractorId || null,
       }),
@@ -648,23 +700,28 @@ export default function InstallationsPageClient() {
 
     showFeedback({
       type: "success",
-      message: `${result.updated ?? selectedIds.length} aggregat tilldelades ${selectedCompanyName}.`,
+      message: `${result.updated ?? targetInstallationIds.length} aggregat tilldelades ${selectedCompanyName}.`,
     })
+    updateInstallationRows(targetInstallationIds, (installation) => ({
+      ...installation,
+      assignedContractor: selectedContractor,
+      assignedServicePartnerCompany: selectedServicePartnerCompany,
+    }))
     setBulkServicePartnerCompanyId("")
     setContractorId("")
     setIsAssignModalOpen(false)
     setSelectedIds([])
     setIsSubmitting(false)
     setPendingBulkAction(null)
-    setRefreshKey((current) => current + 1)
   }
 
   async function handleArchiveSelected() {
     setError("")
     setFeedback(null)
 
+    const targetInstallationIds = selectedIds
     const confirmed = window.confirm(
-      `Arkivera ${selectedIds.length} valda aggregat?`
+      `Arkivera ${targetInstallationIds.length} valda aggregat?`
     )
 
     if (!confirmed) return
@@ -679,7 +736,7 @@ export default function InstallationsPageClient() {
       },
       credentials: "include",
       body: JSON.stringify({
-        installationIds: selectedIds,
+        installationIds: targetInstallationIds,
       }),
     })
     const result: { error?: string; archived?: number } = await res.json()
@@ -704,21 +761,22 @@ export default function InstallationsPageClient() {
 
     showFeedback({
       type: "success",
-      message: `${result.archived ?? selectedIds.length} aggregat arkiverades.`,
+      message: `${result.archived ?? targetInstallationIds.length} aggregat arkiverades.`,
     })
+    archiveInstallationRows(targetInstallationIds)
     setSelectedIds([])
     setIsSubmitting(false)
     setPendingBulkAction(null)
-    setRefreshKey((current) => current + 1)
   }
 
   async function handleAssignProperty(event: React.FormEvent) {
     event.preventDefault()
     setError("")
     setFeedback(null)
-    const selectedPropertyName =
-      properties.find((property) => property.id === bulkPropertyId)?.name ??
-      "vald fastighet"
+    const targetInstallationIds = selectedIds
+    const selectedProperty =
+      properties.find((property) => property.id === bulkPropertyId) ?? null
+    const selectedPropertyName = selectedProperty?.name ?? "vald fastighet"
     setIsSubmitting(true)
     setPendingBulkAction("property")
 
@@ -729,7 +787,7 @@ export default function InstallationsPageClient() {
       },
       credentials: "include",
       body: JSON.stringify({
-        installationIds: selectedIds,
+        installationIds: targetInstallationIds,
         propertyId: bulkPropertyId || null,
       }),
     })
@@ -757,15 +815,19 @@ export default function InstallationsPageClient() {
     showFeedback({
       type: "success",
       message: bulkPropertyId
-        ? `${result.updated ?? selectedIds.length} aggregat kopplades till ${selectedPropertyName}.`
-        : `${result.updated ?? selectedIds.length} aggregat fick fastighetskopplingen borttagen.`,
+        ? `${result.updated ?? targetInstallationIds.length} aggregat kopplades till ${selectedPropertyName}.`
+        : `${result.updated ?? targetInstallationIds.length} aggregat fick fastighetskopplingen borttagen.`,
     })
+    updateInstallationRows(targetInstallationIds, (installation) => ({
+      ...installation,
+      propertyId: selectedProperty?.id ?? null,
+      property: selectedProperty,
+    }))
     setBulkPropertyId("")
     setIsPropertyModalOpen(false)
     setSelectedIds([])
     setIsSubmitting(false)
     setPendingBulkAction(null)
-    setRefreshKey((current) => current + 1)
   }
 
   return (
