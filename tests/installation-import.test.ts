@@ -153,6 +153,7 @@ describe("installation import parsing", () => {
 
   it("maps common Swedish Aggregat-ID aliases to equipmentId", () => {
     expect(getSuggestedImportField("Aggregat-ID")).toBe("equipmentId")
+    expect(getSuggestedImportField("Aggregat-ID / märkning")).toBe("equipmentId")
     expect(getSuggestedImportField("Aggregat ID")).toBe("equipmentId")
     expect(getSuggestedImportField("Aggregatnummer")).toBe("equipmentId")
     expect(getSuggestedImportField("Aggregatnr")).toBe("equipmentId")
@@ -163,6 +164,10 @@ describe("installation import parsing", () => {
     expect(getSuggestedImportField("Utrustnings-ID")).toBe("equipmentId")
     expect(getSuggestedImportField("Inventarienummer")).toBe("equipmentId")
     expect(getSuggestedImportField("Anläggnings-ID")).toBe("equipmentId")
+  })
+
+  it("maps FgasPortal template name column to name", () => {
+    expect(getSuggestedImportField("Aggregatnamn / benämning")).toBe("name")
   })
 
   it("detects likely event-history columns", () => {

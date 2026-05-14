@@ -1164,7 +1164,7 @@ export default function InstallationsPageClient() {
       <div ref={bulkPanelSentinelRef} className="h-px" />
 
       {!isLoading && canManage && isBulkPanelFloating && (
-        <div className="fixed right-4 top-28 z-30 hidden w-56 rounded-lg border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur lg:block">
+        <div className="fixed right-4 top-28 z-30 hidden w-52 rounded-lg border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur lg:block">
           <p className="text-sm font-semibold text-slate-950">
             {selectedIds.length} aggregat valda
           </p>
@@ -1502,18 +1502,7 @@ export default function InstallationsPageClient() {
       {isImportModalOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/40 px-4 py-8">
           <div className="w-full max-w-5xl rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Import
-                </p>
-                <h2 className="mt-1 text-lg font-semibold text-slate-950">
-                  Importera aggregat
-                </h2>
-                <p className="mt-1 text-sm text-slate-600">
-                  Importera flera aggregat från ett befintligt Excel-register.
-                </p>
-              </div>
+            <div className="mb-2 flex justify-end">
               <button
                 className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 type="button"

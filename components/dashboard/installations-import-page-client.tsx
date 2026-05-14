@@ -106,7 +106,6 @@ const TEMPLATE_ROWS = [
 
 export default function ImportInstallationsPage({
   embedded = false,
-  onClose,
   onImported,
 }: ImportInstallationsPageProps = {}) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -281,8 +280,7 @@ export default function ImportInstallationsPage({
           Importera aggregat
         </h1>
         <p className="mt-2 text-sm text-slate-700">
-          Ladda upp Excel/CSV, kontrollera kopplingarna och förhandsgranska innan
-          import.
+          Ladda upp Excel/CSV och koppla aggregatdata till portalen.
         </p>
         <p className="mt-2 text-sm text-slate-600">
           Ska du importera historiska kontroller, läckage, service eller
@@ -354,17 +352,8 @@ export default function ImportInstallationsPage({
               onClick={handlePreviewFile}
               disabled={!selectedFile || isParsing}
             >
-              {isParsing ? "Förhandsgranskar..." : "Förhandsgranska fil"}
+              {isParsing ? "Läser in..." : "Läs in fil"}
             </button>
-            {onClose && (
-              <button
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                type="button"
-                onClick={onClose}
-              >
-                Stäng
-              </button>
-            )}
           </div>
         </div>
         {worksheets.length > 0 && (
@@ -382,8 +371,7 @@ export default function ImportInstallationsPage({
               ))}
             </select>
             <p className="text-xs font-normal text-slate-500">
-              När du byter arbetsblad byggs kolumner, föreslagna kopplingar och
-              förhandsgranskning om från det valda bladet.
+              Välj vilket blad i filen som ska läsas in.
             </p>
           </div>
         )}
@@ -395,7 +383,7 @@ export default function ImportInstallationsPage({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold text-slate-950">
-                Kolumnkoppling
+                Koppla fält
               </h2>
               <p className="mt-1 text-sm text-slate-600">
                 FgasPortal föreslår matchningar baserat på kolumnnamn. Ändra vid
@@ -403,7 +391,7 @@ export default function ImportInstallationsPage({
               </p>
             </div>
             <div className="text-sm text-slate-600">
-              {detectedColumns.length} kolumner hittades
+              {detectedColumns.length} kolumner i filen
             </div>
           </div>
 
@@ -411,8 +399,8 @@ export default function ImportInstallationsPage({
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50">
                 <tr>
-                  <th className={tableHeaderClassName}>Filkolumn</th>
-                  <th className={tableHeaderClassName}>FgasPortal-fält</th>
+                  <th className={tableHeaderClassName}>Kolumn i filen</th>
+                  <th className={tableHeaderClassName}>Fält i FgasPortal</th>
                   <th className={tableHeaderClassName}>Status</th>
                 </tr>
               </thead>
@@ -464,7 +452,7 @@ export default function ImportInstallationsPage({
                             OK
                           </span>
                         ) : (
-                          <span className="text-slate-500">Ej kopplad</span>
+                          <span className="text-slate-500">Inte kopplad</span>
                         )}
                       </td>
                     </tr>
@@ -493,7 +481,7 @@ export default function ImportInstallationsPage({
               )}
               {duplicatedFields.length > 0 && (
                 <p className="mt-1">
-                  Samma FgasPortal-fält är valt flera gånger:{" "}
+                  Samma fält i FgasPortal är valt flera gånger:{" "}
                   {[...new Set(duplicatedFields)].map(getImportFieldLabel).join(", ")}.
                   Välj ett unikt fält per kolumn eller lämna extra kolumner
                   utan koppling.

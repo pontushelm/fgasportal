@@ -97,6 +97,8 @@ export const IMPORT_FIELD_DEFINITIONS: ImportFieldDefinition[] = [
     aliases: [
       "aggregat-id",
       "aggregat id",
+      "aggregat id märkning",
+      "aggregat id markning",
       "aggregatid",
       "aggregatnummer",
       "aggregatnr",
@@ -131,6 +133,8 @@ export const IMPORT_FIELD_DEFINITIONS: ImportFieldDefinition[] = [
       "namn",
       "aggregat",
       "aggregatnamn",
+      "aggregatnamn benämning",
+      "aggregatnamn benamning",
       "benämning",
       "benamning",
       "equipment",
