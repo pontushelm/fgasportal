@@ -52,7 +52,6 @@ type CompanyProfile = {
   vatNumber?: string | null
   eInvoiceId?: string | null
   phone?: string | null
-  sendInspectionRemindersToContractors: boolean
 }
 
 type CompanyProfileFormData = {
@@ -63,7 +62,6 @@ type CompanyProfileFormData = {
   address: string
   postalCode: string
   city: string
-  sendInspectionRemindersToContractors: boolean
 }
 
 type BillingFormData = {
@@ -98,7 +96,6 @@ const initialProfileFormData: CompanyProfileFormData = {
   address: "",
   postalCode: "",
   city: "",
-  sendInspectionRemindersToContractors: false,
 }
 
 const initialBillingFormData: BillingFormData = {
@@ -134,15 +131,12 @@ export default function CompanySettingsPage() {
   const [isEditingBilling, setIsEditingBilling] = useState(false)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [isSavingBilling, setIsSavingBilling] = useState(false)
-  const [isSavingReminderSettings, setIsSavingReminderSettings] = useState(false)
   const [isSubmittingInvite, setIsSubmittingInvite] = useState(false)
   const [error, setError] = useState("")
   const [profileError, setProfileError] = useState("")
   const [profileSuccess, setProfileSuccess] = useState("")
   const [billingError, setBillingError] = useState("")
   const [billingSuccess, setBillingSuccess] = useState("")
-  const [reminderSettingsError, setReminderSettingsError] = useState("")
-  const [reminderSettingsSuccess, setReminderSettingsSuccess] = useState("")
   const [inviteError, setInviteError] = useState("")
   const [inviteSuccess, setInviteSuccess] = useState("")
   const [inviteWarning, setInviteWarning] = useState("")
@@ -235,6 +229,14 @@ export default function CompanySettingsPage() {
   const canViewBilling = isAdminRole(currentUser?.role)
   const canEditBilling = currentUser?.role === "OWNER"
   const canManageUsers = currentUser?.role === "OWNER"
+  const internalInviteRoleOptions: UserRole[] =
+    currentUser?.role === "OWNER" ? ["OWNER", "ADMIN", "MEMBER"] : ["MEMBER"]
+  const selectedInvitationRole = internalInviteRoleOptions.includes(invitationForm.role)
+    ? invitationForm.role
+    : "MEMBER"
+  const visiblePendingInvitations = data.invitations.filter(
+    (invitation) => new Date(invitation.expiresAt) > new Date()
+  )
 
   function handleProfileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const value =
@@ -256,9 +258,15 @@ export default function CompanySettingsPage() {
   function handleInvitationChange(
     event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) {
+    const nextValue =
+      event.target.name === "role" &&
+      !internalInviteRoleOptions.includes(event.target.value as UserRole)
+        ? "MEMBER"
+        : event.target.value
+
     setInvitationForm({
       ...invitationForm,
-      [event.target.name]: event.target.value,
+      [event.target.name]: nextValue,
     })
   }
 
@@ -334,55 +342,6 @@ export default function CompanySettingsPage() {
     setIsSavingBilling(false)
   }
 
-  async function handleContractorReminderSettingChange(enabled: boolean) {
-    if (!companyProfile) return
-
-    setReminderSettingsError("")
-    setReminderSettingsSuccess("")
-    setIsSavingReminderSettings(true)
-
-    const res = await fetch("/api/company/inspection-reminders", {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify({
-        sendInspectionRemindersToContractors: enabled,
-      }),
-    })
-    const result: {
-      error?: string
-      sendInspectionRemindersToContractors?: boolean
-    } = await res.json()
-
-    if (res.status === 401) {
-      router.push("/login")
-      return
-    }
-
-    if (!res.ok || typeof result.sendInspectionRemindersToContractors !== "boolean") {
-      setReminderSettingsError(
-        result.error || "Kunde inte spara påminnelseinställningen"
-      )
-      setIsSavingReminderSettings(false)
-      return
-    }
-
-    setCompanyProfile({
-      ...companyProfile,
-      sendInspectionRemindersToContractors:
-        result.sendInspectionRemindersToContractors,
-    })
-    setProfileForm((current) => ({
-      ...current,
-      sendInspectionRemindersToContractors:
-        result.sendInspectionRemindersToContractors ?? false,
-    }))
-    setReminderSettingsSuccess("Påminnelseinställningen har sparats")
-    setIsSavingReminderSettings(false)
-  }
-
   async function handleInviteSubmit(event: React.FormEvent) {
     event.preventDefault()
     setInviteError("")
@@ -397,7 +356,10 @@ export default function CompanySettingsPage() {
         "Content-Type": "application/json",
       },
       credentials: "include",
-      body: JSON.stringify(invitationForm),
+      body: JSON.stringify({
+        ...invitationForm,
+        role: selectedInvitationRole,
+      }),
     })
     const result: {
       error?: string
@@ -695,43 +657,6 @@ export default function CompanySettingsPage() {
             )}
           </Card>
 
-          {canAdminister && (
-          <Card className="mt-8 p-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-slate-950">
-                  Kontrollpåminnelser till servicepartners
-                </h2>
-                <p className="mt-1 max-w-3xl text-sm text-slate-700">
-                  Ägare och administratörer får alltid kontrollpåminnelser enligt sina personliga notifieringsinställningar. Tilldelade servicepartnerkontakter kan också få påminnelser om detta är aktiverat.
-                </p>
-              </div>
-              <label className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800">
-                <input
-                  checked={companyProfile.sendInspectionRemindersToContractors}
-                  className="h-4 w-4 rounded border-slate-300 text-blue-600"
-                  disabled={isSavingReminderSettings}
-                  type="checkbox"
-                  onChange={(event) =>
-                    void handleContractorReminderSettingChange(event.target.checked)
-                  }
-                />
-                Servicepartnerkontakter får kontrollpåminnelser
-              </label>
-            </div>
-            {reminderSettingsError && (
-              <p className="mt-4 font-semibold text-red-700">
-                {reminderSettingsError}
-              </p>
-            )}
-            {reminderSettingsSuccess && (
-              <p className="mt-4 font-semibold text-green-700">
-                {reminderSettingsSuccess}
-              </p>
-            )}
-          </Card>
-          )}
-
           {canViewBilling && (
           <Card className="mt-8 p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -872,14 +797,17 @@ export default function CompanySettingsPage() {
                   <select
                     className={inputClassName}
                     name="role"
-                    value={invitationForm.role}
+                    value={selectedInvitationRole}
                     onChange={handleInvitationChange}
                   >
-                    <option value="MEMBER">{formatRoleLabel("MEMBER")}</option>
-                    <option value="ADMIN">{formatRoleLabel("ADMIN")}</option>
+                    {internalInviteRoleOptions.map((role) => (
+                      <option key={role} value={role}>
+                        {formatRoleLabel(role)}
+                      </option>
+                    ))}
                   </select>
                   <span className="text-sm font-normal text-slate-600">
-                    {formatRoleDescription(invitationForm.role)}
+                    {formatRoleDescription(selectedInvitationRole)}
                   </span>
                 </label>
 
@@ -906,12 +834,12 @@ export default function CompanySettingsPage() {
           {canAdminister && (
           <Card className="mt-8 p-5">
             <h2 className="text-xl font-semibold text-slate-950">Väntande inbjudningar</h2>
-            {data.invitations.length === 0 ? (
+            {visiblePendingInvitations.length === 0 ? (
               <p className="mt-4 text-sm text-slate-700">Inga väntande inbjudningar.</p>
             ) : (
               <CompanyTable
                 headers={["E-post", "Roll", "Inbjuden av", "Går ut"]}
-                rows={data.invitations.map((invitation) => [
+                rows={visiblePendingInvitations.map((invitation) => [
                   invitation.email,
                   formatRoleLabel(invitation.role),
                   invitation.invitedByUser.email,
@@ -1086,7 +1014,7 @@ function ManagedUsersTable({
                     </button>
                   )}
                   <button
-                    className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                     type="button"
                     disabled={isCurrentUser || isUpdating || isTransferPending || !user.isActive}
                     onClick={() => onRemoveUser(user)}
@@ -1185,8 +1113,6 @@ function toProfileFormData(company: CompanyProfile): CompanyProfileFormData {
     address: company.address || "",
     postalCode: company.postalCode || "",
     city: company.city || "",
-    sendInspectionRemindersToContractors:
-      company.sendInspectionRemindersToContractors,
   }
 }
 

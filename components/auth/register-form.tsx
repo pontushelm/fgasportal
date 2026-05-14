@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { PasswordInput } from "@/components/ui"
@@ -23,6 +24,7 @@ type InviteContext = {
 }
 
 export default function RegisterForm({ inviteToken }: { inviteToken?: string }) {
+  const router = useRouter()
   const [inviteContext, setInviteContext] = useState<InviteContext | null>(null)
   const [inviteError, setInviteError] = useState("")
   const [submitMessage, setSubmitMessage] = useState("")
@@ -95,7 +97,10 @@ export default function RegisterForm({ inviteToken }: { inviteToken?: string }) 
       return
     }
 
-    setSubmitMessage(result.message || "Registrering klar")
+    setSubmitMessage(result.message || "Konto skapat. Du kan nu logga in.")
+    window.setTimeout(() => {
+      router.push("/login?registered=1")
+    }, 600)
   }
 
   if (isInviteMode && inviteError) {

@@ -8,6 +8,7 @@ import { COMPANY_SETTINGS_USER_ROLES } from "@/lib/company-settings-users"
 import { prisma } from "@/lib/db"
 import { sendInvitationEmail } from "@/lib/email"
 import {
+  canInviteInternalRole,
   canInviteInternalUsers,
   canInviteServicePartners,
 } from "@/lib/roles"
@@ -54,6 +55,9 @@ export async function GET(request: NextRequest) {
         where: {
           companyId,
           acceptedAt: null,
+          expiresAt: {
+            gt: new Date(),
+          },
           role: {
             not: "CONTRACTOR",
           },
@@ -112,6 +116,10 @@ export async function POST(request: NextRequest) {
         ? !canInviteServicePartners(auth.user.role)
         : !canInviteInternalUsers(auth.user.role)
     ) {
+      return forbiddenResponse()
+    }
+
+    if (!isServicePartnerInvite && !canInviteInternalRole(auth.user.role, validatedData.role)) {
       return forbiddenResponse()
     }
     const existingUser = await prisma.user.findUnique({

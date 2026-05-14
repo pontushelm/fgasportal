@@ -42,7 +42,7 @@ type SendInvitationEmailInput = {
   to: string
   inviteUrl: string
   companyName: string
-  role?: "ADMIN" | "MEMBER" | "CONTRACTOR"
+  role?: "OWNER" | "ADMIN" | "MEMBER" | "CONTRACTOR"
 }
 
 let resend: Resend | null = null

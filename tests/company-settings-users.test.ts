@@ -4,6 +4,7 @@ import {
   COMPANY_SETTINGS_USER_ROLES,
   isCompanySettingsUserRole,
 } from "@/lib/company-settings-users"
+import { canInviteInternalRole } from "@/lib/roles"
 
 describe("company settings user roles", () => {
   it("keeps service contacts out of the regular company settings users list", () => {
@@ -17,5 +18,15 @@ describe("company settings user roles", () => {
   it("does not allow assigning service contact role from company settings", () => {
     expect(COMPANY_SETTINGS_ASSIGNABLE_ROLES).toEqual(["ADMIN", "MEMBER"])
     expect(COMPANY_SETTINGS_ASSIGNABLE_ROLES).not.toContain("CONTRACTOR")
+  })
+
+  it("restricts internal invitation roles by inviter role", () => {
+    expect(canInviteInternalRole("OWNER", "OWNER")).toBe(true)
+    expect(canInviteInternalRole("OWNER", "ADMIN")).toBe(true)
+    expect(canInviteInternalRole("OWNER", "MEMBER")).toBe(true)
+    expect(canInviteInternalRole("ADMIN", "MEMBER")).toBe(true)
+    expect(canInviteInternalRole("ADMIN", "ADMIN")).toBe(false)
+    expect(canInviteInternalRole("ADMIN", "OWNER")).toBe(false)
+    expect(canInviteInternalRole("MEMBER", "MEMBER")).toBe(false)
   })
 })

@@ -34,6 +34,21 @@ export function canInviteInternalUsers(role: UserRole | string | undefined) {
   return role === "OWNER" || role === "ADMIN"
 }
 
+export function canInviteInternalRole(
+  inviterRole: UserRole | string | undefined,
+  invitedRole: UserRole | string | undefined
+) {
+  if (inviterRole === "OWNER") {
+    return invitedRole === "OWNER" || invitedRole === "ADMIN" || invitedRole === "MEMBER"
+  }
+
+  if (inviterRole === "ADMIN") {
+    return invitedRole === "MEMBER"
+  }
+
+  return false
+}
+
 export function canInviteServicePartners(role: UserRole | string | undefined) {
   return role === "OWNER" || role === "ADMIN" || role === "MEMBER"
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { PasswordInput } from "@/components/ui"
@@ -11,6 +11,8 @@ import { loginSchema, type LoginFormData } from "@/lib/validations"
 export default function LoginForm() {
   const [error, setError] = useState("")
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const registrationSuccess = searchParams.get("registered") === "1"
 
   const {
     register,
@@ -83,6 +85,11 @@ export default function LoginForm() {
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
           {error}
+        </p>
+      )}
+      {registrationSuccess && !error && (
+        <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">
+          Konto skapat. Du kan nu logga in.
         </p>
       )}
 

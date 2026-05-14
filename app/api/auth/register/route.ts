@@ -199,7 +199,7 @@ async function registerInvitedUser(data: InvitedRegisterData) {
 }
 
 function normalizeInvitedUserRole(role: string): UserRole {
-  if (role === "ADMIN" || role === "MEMBER" || role === "CONTRACTOR") {
+  if (role === "OWNER" || role === "ADMIN" || role === "MEMBER" || role === "CONTRACTOR") {
     return role
   }
 
