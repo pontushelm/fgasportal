@@ -142,10 +142,13 @@ export default function InstallationEventImportPageClient() {
         rows: readWorksheetRows(workbook.Sheets[name]),
       }))
       const firstWorksheet = parsedWorksheets[0]
+      const firstWorksheetRows = firstWorksheet?.rows ?? []
+      const firstWorksheetState = buildWorksheetState(firstWorksheetRows)
 
       setWorksheets(parsedWorksheets)
       setSelectedWorksheetName(firstWorksheet?.name ?? "")
-      applyWorksheetRows(firstWorksheet?.rows ?? [])
+      applyWorksheetRows(firstWorksheetRows, firstWorksheetState)
+      await submitRows("preview", firstWorksheetRows, firstWorksheetState.mapping)
     } catch (err) {
       console.error("Parse event import file error:", err)
       resetPreviewState()
@@ -155,43 +158,56 @@ export default function InstallationEventImportPageClient() {
     }
   }
 
-  function handleWorksheetChange(event: React.ChangeEvent<HTMLSelectElement>) {
+  async function handleWorksheetChange(event: React.ChangeEvent<HTMLSelectElement>) {
     const worksheetName = event.target.value
     const worksheet = worksheets.find((item) => item.name === worksheetName)
+    const worksheetRows = worksheet?.rows ?? []
+    const worksheetState = buildWorksheetState(worksheetRows)
 
     setSelectedWorksheetName(worksheetName)
-    applyWorksheetRows(worksheet?.rows ?? [])
+    applyWorksheetRows(worksheetRows, worksheetState)
+    await submitRows("preview", worksheetRows, worksheetState.mapping)
   }
 
   function handleMappingChange(column: string, field: EventImportFieldKey | "") {
-    setColumnMapping((current) => ({
-      ...current,
+    const nextMapping = {
+      ...columnMapping,
       [column]: field,
-    }))
+    }
+    setColumnMapping(nextMapping)
     setPreviewRows([])
     setPreviewFilter("all")
     setPreviewSummary(null)
     setImportSummary(null)
-  }
-
-  async function handlePreview() {
-    await submitRows("preview")
+    void submitRows("preview", rawRows, nextMapping)
   }
 
   async function handleImport() {
     await submitRows("import")
   }
 
-  async function submitRows(mode: "preview" | "import") {
+  async function submitRows(
+    mode: "preview" | "import",
+    sourceRows = rawRows,
+    sourceMapping = columnMapping
+  ) {
     setError("")
     setImportSummary(null)
 
-    if (hasBlockingMappingIssue) {
-      setError("Kontrollera kolumnkopplingen innan du fortsätter.")
+    const sourceMappedFields = Object.values(sourceMapping).filter(
+      Boolean
+    ) as EventImportFieldKey[]
+    const sourceMissingRequiredFields =
+      getMissingRequiredEventImportFields(sourceMappedFields)
+    const sourceDuplicatedFields =
+      getDuplicateEventImportMappedFields(sourceMapping)
+
+    if (sourceMissingRequiredFields.length > 0 || sourceDuplicatedFields.length > 0) {
+      setError("Kontrollera fältkopplingen innan du fortsätter.")
       return
     }
 
-    const rows = mapEventImportRowsWithMapping(rawRows, columnMapping)
+    const rows = mapEventImportRowsWithMapping(sourceRows, sourceMapping)
       .filter((row) => !isEmptyEventImportRow(row))
       .slice(0, getMaxEventImportRows())
 
@@ -244,15 +260,27 @@ export default function InstallationEventImportPageClient() {
     XLSX.writeFile(workbook, "fgasportal-importmall-handelser.xlsx")
   }
 
-  function applyWorksheetRows(worksheetRows: Record<string, unknown>[]) {
+  function buildWorksheetState(worksheetRows: Record<string, unknown>[]) {
     const columns = getDetectedColumns(worksheetRows)
     const suggestedMapping = Object.fromEntries(
       columns.map((column) => [column, getSuggestedEventImportField(column) ?? ""])
     ) as EventImportColumnMapping
 
+    return {
+      columns,
+      mapping: suggestedMapping,
+    }
+  }
+
+  function applyWorksheetRows(
+    worksheetRows: Record<string, unknown>[],
+    worksheetState = buildWorksheetState(worksheetRows)
+  ) {
+    const { columns, mapping } = worksheetState
+
     setRawRows(worksheetRows)
     setDetectedColumns(columns)
-    setColumnMapping(suggestedMapping)
+    setColumnMapping(mapping)
     setPreviewRows([])
     setPreviewFilter("all")
     setPreviewSummary(null)
@@ -300,10 +328,10 @@ export default function InstallationEventImportPageClient() {
         <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
             <ul className="grid gap-1.5">
-              <li>Kontroll, läckage, påfyllning, service, reparation, tömning/återvinning och köldmediebyte stöds.</li>
-              <li>Aggregat-ID / märkning är primär matchningsnyckel.</li>
-              <li>Fastighet hjälper till att särskilja återkommande ID:n som VP1 eller Kyl 01.</li>
-              <li>Importen skapar inte aggregat automatiskt.</li>
+              <li>Inläsning av kontroll, läckage, påfyllning, service, reparation, tömning/återvinning och köldmediebyte stöds.</li>
+              <li>Händelser kopplas till befintliga aggregat via aggregat-ID eller märkning.</li>
+              <li>Om samma aggregat-ID finns på flera platser kan fastighet användas för att hitta rätt aggregat.</li>
+              <li>Aggregatet måste redan finnas i FgasPortal för att händelsen ska kunna kopplas. Nya aggregat skapas inte i den här importen.</li>
             </ul>
           </div>
           <button
@@ -326,22 +354,12 @@ export default function InstallationEventImportPageClient() {
           <div className="flex flex-wrap gap-2">
             <button
               className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
-              disabled={!selectedFile || isParsing}
+              disabled={!selectedFile || isParsing || isPreviewing}
               type="button"
               onClick={handleReadFile}
             >
-              {isParsing ? "Läser fil..." : "Läs fil"}
+              {isParsing || isPreviewing ? "Läser in..." : "Läs in fil"}
             </button>
-            {detectedColumns.length > 0 && (
-              <button
-                className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
-                disabled={isPreviewing || hasBlockingMappingIssue}
-                type="button"
-                onClick={handlePreview}
-              >
-                {isPreviewing ? "Förhandsgranskar..." : "Förhandsgranska"}
-              </button>
-            )}
           </div>
         </div>
 
@@ -369,7 +387,7 @@ export default function InstallationEventImportPageClient() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold text-slate-950">
-                Kolumnkoppling
+                Koppla fält
               </h2>
               <p className="mt-1 text-sm text-slate-600">
                 Koppla filens kolumner till händelsefält. Lämna irrelevanta
@@ -377,7 +395,7 @@ export default function InstallationEventImportPageClient() {
               </p>
             </div>
             <div className="text-sm text-slate-600">
-              {detectedColumns.length} kolumner hittades
+              {detectedColumns.length} kolumner i filen
             </div>
           </div>
 
@@ -385,8 +403,8 @@ export default function InstallationEventImportPageClient() {
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50">
                 <tr>
-                  <th className={tableHeaderClassName}>Filkolumn</th>
-                  <th className={tableHeaderClassName}>FgasPortal-fält</th>
+                  <th className={tableHeaderClassName}>Kolumn i filen</th>
+                  <th className={tableHeaderClassName}>Fält i FgasPortal</th>
                   <th className={tableHeaderClassName}>Status</th>
                 </tr>
               </thead>
@@ -429,7 +447,7 @@ export default function InstallationEventImportPageClient() {
                         {mappedField ? (
                           <span className="font-medium text-emerald-700">OK</span>
                         ) : (
-                          <span className="text-slate-500">Ej kopplad</span>
+                          <span className="text-slate-500">Inte kopplad</span>
                         )}
                       </td>
                     </tr>
@@ -449,7 +467,7 @@ export default function InstallationEventImportPageClient() {
               )}
               {duplicatedFields.length > 0 && (
                 <p className="mt-1">
-                  Samma FgasPortal-fält är valt flera gånger:{" "}
+                  Samma fält i FgasPortal är valt flera gånger:{" "}
                   {[...new Set(duplicatedFields)].map(getEventImportFieldLabel).join(", ")}.
                 </p>
               )}
