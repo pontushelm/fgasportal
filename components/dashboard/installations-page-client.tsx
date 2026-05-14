@@ -164,13 +164,22 @@ export default function InstallationsPageClient() {
   const statusFilterValue =
     statusValue ||
     (archivedValue === "archived" ? "archived" : archivedValue === "active" ? "active" : "")
-  const sortFieldValue = normalizeInstallationSortKey(searchParams.get("sort"))
-  const sortDirectionValue: SortDirection | "" =
+  const initialSortFieldValue = normalizeInstallationSortKey(searchParams.get("sort"))
+  const initialSortDirectionValue: SortDirection | "" =
     searchParams.get("direction") === "asc"
       ? "asc"
       : searchParams.get("direction") === "desc"
       ? "desc"
       : ""
+  const [columnSort, setColumnSort] = useState<{
+    key: InstallationSortKey | ""
+    direction: SortDirection | ""
+  }>(() => ({
+    key: initialSortFieldValue && initialSortDirectionValue ? initialSortFieldValue : "",
+    direction: initialSortFieldValue ? initialSortDirectionValue : "",
+  }))
+  const sortFieldValue = columnSort.key
+  const sortDirectionValue = columnSort.direction
   const [installations, setInstallations] = useState<Installation[]>([])
   const [filterSourceInstallations, setFilterSourceInstallations] = useState<Installation[]>([])
   const [contractors, setContractors] = useState<Contractor[]>([])
@@ -477,7 +486,7 @@ export default function InstallationsPageClient() {
   )
 
   const updateQueryParam = useCallback((name: string, value: string) => {
-    const params = new URLSearchParams(searchParams.toString())
+    const params = getFilterParamsWithoutColumnSort(searchParams)
     setSelectedSavedFilterId("")
     setSavedFilterSuccess("")
 
@@ -502,26 +511,24 @@ export default function InstallationsPageClient() {
   }, [searchInputValue, searchValue, updateQueryParam])
 
   function updateColumnSort(sortKey: InstallationSortKey) {
-    const params = new URLSearchParams(searchParams.toString())
     setSelectedSavedFilterId("")
     setSavedFilterSuccess("")
 
-    if (sortFieldValue !== sortKey) {
-      params.set("sort", sortKey)
-      params.set("direction", "asc")
-    } else if (sortDirectionValue === "asc") {
-      params.set("sort", sortKey)
-      params.set("direction", "desc")
-    } else {
-      params.delete("sort")
-      params.delete("direction")
-    }
+    setColumnSort((current) => {
+      if (current.key !== sortKey || !current.direction) {
+        return { key: sortKey, direction: "asc" }
+      }
 
-    router.replace(`/dashboard/installations${params.toString() ? `?${params.toString()}` : ""}`)
+      if (current.direction === "asc") {
+        return { key: sortKey, direction: "desc" }
+      }
+
+      return { key: "", direction: "" }
+    })
   }
 
   function updateStatusFilter(value: string) {
-    const params = new URLSearchParams(searchParams.toString())
+    const params = getFilterParamsWithoutColumnSort(searchParams)
     setSelectedSavedFilterId("")
     setSavedFilterSuccess("")
 
@@ -542,6 +549,7 @@ export default function InstallationsPageClient() {
   function clearFilters() {
     router.replace("/dashboard/installations")
     setSelectedSavedFilterId("")
+    setColumnSort({ key: "", direction: "" })
   }
 
   function applySavedFilter(savedFilterId: string) {
@@ -552,7 +560,18 @@ export default function InstallationsPageClient() {
     const savedFilter = savedFilters.find((filter) => filter.id === savedFilterId)
     if (!savedFilter) return
 
+    const savedSortKey = normalizeInstallationSortKey(savedFilter.queryParams.sort ?? null)
+    const savedSortDirection =
+      savedFilter.queryParams.direction === "asc" || savedFilter.queryParams.direction === "desc"
+        ? savedFilter.queryParams.direction
+        : ""
     const params = new URLSearchParams(savedFilter.queryParams)
+    params.delete("sort")
+    params.delete("direction")
+    setColumnSort({
+      key: savedSortKey,
+      direction: savedSortKey ? savedSortDirection : "",
+    })
     router.replace(`/dashboard/installations${params.toString() ? `?${params.toString()}` : ""}`)
   }
 
@@ -579,7 +598,11 @@ export default function InstallationsPageClient() {
       body: JSON.stringify({
         name: trimmedName,
         page: SAVED_FILTER_PAGE,
-        queryParams: Object.fromEntries(searchParams.entries()),
+        queryParams: buildSavedFilterQueryParams(
+          searchParams,
+          sortFieldValue,
+          sortDirectionValue
+        ),
       }),
     })
     const result: SavedFilter & { error?: string } = await res.json()
@@ -2225,6 +2248,31 @@ function normalizeInstallationSortKey(value: string | null): InstallationSortKey
   return allowedSortKeys.includes(value as InstallationSortKey)
     ? (value as InstallationSortKey)
     : ""
+}
+
+function getFilterParamsWithoutColumnSort(searchParams: { toString: () => string }) {
+  const params = new URLSearchParams(searchParams.toString())
+  params.delete("sort")
+  params.delete("direction")
+  return params
+}
+
+function buildSavedFilterQueryParams(
+  searchParams: { entries: () => IterableIterator<[string, string]> },
+  sortKey: InstallationSortKey | "",
+  direction: SortDirection | ""
+) {
+  const queryParams = Object.fromEntries(searchParams.entries())
+
+  if (sortKey && direction) {
+    queryParams.sort = sortKey
+    queryParams.direction = direction
+  } else {
+    delete queryParams.sort
+    delete queryParams.direction
+  }
+
+  return queryParams
 }
 
 function sortInstallations(
