@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import {
   calculateCO2e,
   calculateInspectionObligation,
@@ -102,8 +102,10 @@ const minInstallationDate = "1950-01-01"
 const maxInstallationDate = `${new Date().getFullYear() + 1}-12-31`
 
 export default function CreateInstallationForm({
+  headerAction,
   onInstallationCreated,
 }: {
+  headerAction?: ReactNode
   onInstallationCreated: (installation: CreatedInstallation) => void
 }) {
   const [formData, setFormData] = useState<InstallationFormData>(initialFormData)
@@ -231,7 +233,10 @@ export default function CreateInstallationForm({
       className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 text-slate-900"
       onSubmit={handleSubmit}
     >
-      <h2 className="text-lg font-semibold text-slate-900">Lägg till aggregat</h2>
+      <div className="flex items-start justify-between gap-4">
+        <h2 className="text-lg font-semibold text-slate-900">Lägg till aggregat</h2>
+        {headerAction}
+      </div>
 
       <p className="text-xs text-slate-500">* Obligatoriskt</p>
 
