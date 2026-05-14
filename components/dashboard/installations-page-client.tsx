@@ -141,7 +141,7 @@ const filterControlClassName =
 const bulkSecondaryButtonClassName =
   "inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
 const bulkDestructiveButtonClassName =
-  "inline-flex min-h-10 items-center justify-center rounded-md border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-700 shadow-sm hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+  "inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
 
 export default function InstallationsPageClient() {
   const router = useRouter()
@@ -181,7 +181,10 @@ export default function InstallationsPageClient() {
     "servicepartner" | "property" | "archive" | null
   >(null)
   const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
+  const [feedback, setFeedback] = useState<{
+    type: "success" | "error"
+    message: string
+  } | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [selectedInstallation, setSelectedInstallation] =
     useState<Installation | null>(null)
@@ -525,10 +528,13 @@ export default function InstallationsPageClient() {
   async function handleAssignContractor(event: React.FormEvent) {
     event.preventDefault()
     setError("")
-    setSuccess("")
+    setFeedback(null)
 
     if (!bulkServicePartnerCompanyId && !contractorId) {
-      setError("Välj servicepartnerföretag eller servicekontakt")
+      setFeedback({
+        type: "error",
+        message: "Välj servicepartnerföretag eller servicekontakt.",
+      })
       return
     }
 
@@ -561,13 +567,19 @@ export default function InstallationsPageClient() {
     }
 
     if (!res.ok) {
-      setError(result.error || "Kunde inte tilldela servicepartner")
+      setFeedback({
+        type: "error",
+        message: result.error || "Kunde inte tilldela servicepartner.",
+      })
       setIsSubmitting(false)
       setPendingBulkAction(null)
       return
     }
 
-    setSuccess(`${result.updated ?? selectedIds.length} aggregat tilldelades ${selectedCompanyName}.`)
+    setFeedback({
+      type: "success",
+      message: `${result.updated ?? selectedIds.length} aggregat tilldelades ${selectedCompanyName}.`,
+    })
     setBulkServicePartnerCompanyId("")
     setContractorId("")
     setIsAssignModalOpen(false)
@@ -578,7 +590,7 @@ export default function InstallationsPageClient() {
 
   async function handleArchiveSelected() {
     setError("")
-    setSuccess("")
+    setFeedback(null)
 
     const confirmed = window.confirm(
       `Arkivera ${selectedIds.length} valda aggregat?`
@@ -609,13 +621,19 @@ export default function InstallationsPageClient() {
     }
 
     if (!res.ok) {
-      setError(result.error || "Kunde inte arkivera aggregat")
+      setFeedback({
+        type: "error",
+        message: result.error || "Kunde inte arkivera aggregat.",
+      })
       setIsSubmitting(false)
       setPendingBulkAction(null)
       return
     }
 
-    setSuccess(`${result.archived ?? selectedIds.length} aggregat arkiverades.`)
+    setFeedback({
+      type: "success",
+      message: `${result.archived ?? selectedIds.length} aggregat arkiverades.`,
+    })
     setIsSubmitting(false)
     setPendingBulkAction(null)
     setRefreshKey((current) => current + 1)
@@ -624,7 +642,7 @@ export default function InstallationsPageClient() {
   async function handleAssignProperty(event: React.FormEvent) {
     event.preventDefault()
     setError("")
-    setSuccess("")
+    setFeedback(null)
     const selectedPropertyName =
       properties.find((property) => property.id === bulkPropertyId)?.name ??
       "vald fastighet"
@@ -652,17 +670,21 @@ export default function InstallationsPageClient() {
     }
 
     if (!res.ok) {
-      setError(result.error || "Kunde inte tilldela fastighet")
+      setFeedback({
+        type: "error",
+        message: result.error || "Kunde inte tilldela fastighet.",
+      })
       setIsSubmitting(false)
       setPendingBulkAction(null)
       return
     }
 
-    setSuccess(
-      bulkPropertyId
+    setFeedback({
+      type: "success",
+      message: bulkPropertyId
         ? `${result.updated ?? selectedIds.length} aggregat kopplades till ${selectedPropertyName}.`
-        : `${result.updated ?? selectedIds.length} aggregat fick fastighetskopplingen borttagen.`
-    )
+        : `${result.updated ?? selectedIds.length} aggregat fick fastighetskopplingen borttagen.`,
+    })
     setBulkPropertyId("")
     setIsPropertyModalOpen(false)
     setIsSubmitting(false)
@@ -921,17 +943,28 @@ export default function InstallationsPageClient() {
 
       {isLoading && <p className="mt-8 text-slate-700">Laddar...</p>}
       {error && <p className="mt-8 font-semibold text-red-700">{error}</p>}
-      {success && (
-        <div className="fixed bottom-4 right-4 z-50 w-[calc(100%-2rem)] max-w-sm rounded-lg border border-emerald-200 bg-white p-4 text-sm shadow-xl sm:bottom-6 sm:right-6">
+      {feedback && (
+        <div
+          className={`fixed bottom-4 right-4 z-50 w-[calc(100%-2rem)] max-w-sm rounded-lg border bg-white p-4 text-sm shadow-xl sm:bottom-6 sm:right-6 ${
+            feedback.type === "success" ? "border-emerald-200" : "border-red-200"
+          }`}
+          role="status"
+        >
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="font-semibold text-emerald-900">Klart</p>
-              <p className="mt-1 text-slate-700">{success}</p>
+              <p
+                className={`font-semibold ${
+                  feedback.type === "success" ? "text-emerald-900" : "text-red-900"
+                }`}
+              >
+                {feedback.type === "success" ? "Klart" : "Kunde inte utföra åtgärden"}
+              </p>
+              <p className="mt-1 text-slate-700">{feedback.message}</p>
             </div>
             <button
               className="rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800"
               type="button"
-              onClick={() => setSuccess("")}
+              onClick={() => setFeedback(null)}
             >
               Stäng
             </button>
@@ -946,7 +979,7 @@ export default function InstallationsPageClient() {
       )}
 
       {!isLoading && canManage && (
-        <div className="sticky top-3 z-20 mt-6 flex flex-col gap-3 rounded-lg border border-slate-200 bg-white/95 p-4 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+        <div className="sticky top-4 z-10 mt-5 flex flex-col gap-3 rounded-lg border border-slate-200 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-semibold text-slate-950">
               {selectedIds.length} aggregat valda
@@ -1002,12 +1035,12 @@ export default function InstallationsPageClient() {
       )}
 
       {!isLoading && installations.length > 0 && (
-        <div className="mt-6 hidden overflow-x-auto rounded-lg border border-slate-200 bg-white lg:block">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
+        <div className="mt-4 hidden overflow-x-auto rounded-lg border border-slate-200 bg-white lg:block">
+          <table className="min-w-full table-fixed divide-y divide-slate-200 text-[13px]">
             <thead className="bg-slate-50">
               <tr>
                 {canManage && (
-                  <th className="w-12 px-4 py-3 text-left">
+                  <th className="w-10 px-2 py-2 text-left">
                     <label className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-md border border-transparent hover:border-slate-300 hover:bg-white">
                       <input
                         aria-label="Välj alla aggregat"
@@ -1026,7 +1059,7 @@ export default function InstallationsPageClient() {
                 <TableHeader>Mängd</TableHeader>
                 <TableHeader>CO₂e</TableHeader>
                 <TableHeader>Nästa kontroll</TableHeader>
-                <TableHeader>Kontrollintervall</TableHeader>
+                <TableHeader>Intervall</TableHeader>
                 <TableHeader>Status</TableHeader>
               </tr>
             </thead>
@@ -1038,7 +1071,7 @@ export default function InstallationsPageClient() {
                   onClick={() => setSelectedInstallation(installation)}
                 >
                   {canManage && (
-                    <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
+                    <td className="px-2 py-2" onClick={(event) => event.stopPropagation()}>
                       <label className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-md border border-transparent hover:border-slate-300 hover:bg-slate-50">
                         <input
                           aria-label={`Välj ${installation.name}`}
@@ -1065,7 +1098,7 @@ export default function InstallationsPageClient() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <div className="max-w-[220px]">
+                    <div className="max-w-[170px]">
                       <p className="truncate font-medium text-slate-900">{installation.location}</p>
                       <p className="mt-1 truncate text-xs text-slate-500">
                         {formatPlacementMeta(installation)}
@@ -1073,7 +1106,7 @@ export default function InstallationsPageClient() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="max-w-[220px]">
+                    <div className="max-w-[170px]">
                       <p className="truncate font-medium text-slate-900">
                         {formatAssignedServicePartner(installation)}
                       </p>
@@ -1252,15 +1285,9 @@ export default function InstallationsPageClient() {
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/40 px-4 py-8">
           <div className="w-full max-w-2xl rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-950">Skapa aggregat</h2>
-                <p className="mt-1 text-sm text-slate-700">
-                  Lägg till ett nytt aggregat i registret.
-                </p>
-              </div>
+            <div className="mb-3 flex justify-end">
               <button
-                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
                 type="button"
                 onClick={() => setIsCreateModalOpen(false)}
               >
@@ -1713,14 +1740,14 @@ function SearchableFilterSelect({
 
 function TableHeader({ children }: { children: React.ReactNode }) {
   return (
-    <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+    <th className="px-2 py-2 text-left text-[11px] font-semibold uppercase text-slate-600">
       {children}
     </th>
   )
 }
 
 function TableCell({ children }: { children: React.ReactNode }) {
-  return <td className="whitespace-nowrap px-3 py-3 align-top text-slate-800">{children}</td>
+  return <td className="whitespace-nowrap px-2 py-2 align-top text-slate-800">{children}</td>
 }
 
 function StatusBadge({
