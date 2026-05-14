@@ -177,6 +177,9 @@ export default function InstallationsPageClient() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [pendingBulkAction, setPendingBulkAction] = useState<
+    "servicepartner" | "property" | "archive" | null
+  >(null)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [refreshKey, setRefreshKey] = useState(0)
@@ -325,6 +328,7 @@ export default function InstallationsPageClient() {
   }, [router, selectedInstallation])
 
   const canManage = isAdminRole(currentUser?.role)
+  const hasSelectedInstallations = selectedIds.length > 0
   const allSelected = useMemo(
     () => installations.length > 0 && selectedIds.length === installations.length,
     [installations.length, selectedIds.length]
@@ -528,7 +532,12 @@ export default function InstallationsPageClient() {
       return
     }
 
+    const selectedCompanyName =
+      servicePartnerCompanyOptions.find((company) => company.id === bulkServicePartnerCompanyId)
+        ?.name ?? "vald servicepartner"
+
     setIsSubmitting(true)
+    setPendingBulkAction("servicepartner")
 
     const res = await fetch("/api/installations/bulk/assign-contractor", {
       method: "POST",
@@ -545,6 +554,8 @@ export default function InstallationsPageClient() {
     const result: { error?: string; updated?: number } = await res.json()
 
     if (res.status === 401) {
+      setIsSubmitting(false)
+      setPendingBulkAction(null)
       router.push("/login")
       return
     }
@@ -552,14 +563,16 @@ export default function InstallationsPageClient() {
     if (!res.ok) {
       setError(result.error || "Kunde inte tilldela servicepartner")
       setIsSubmitting(false)
+      setPendingBulkAction(null)
       return
     }
 
-    setSuccess(`${result.updated ?? selectedIds.length} aggregat uppdaterade`)
+    setSuccess(`${result.updated ?? selectedIds.length} aggregat tilldelades ${selectedCompanyName}.`)
     setBulkServicePartnerCompanyId("")
     setContractorId("")
     setIsAssignModalOpen(false)
     setIsSubmitting(false)
+    setPendingBulkAction(null)
     setRefreshKey((current) => current + 1)
   }
 
@@ -574,6 +587,7 @@ export default function InstallationsPageClient() {
     if (!confirmed) return
 
     setIsSubmitting(true)
+    setPendingBulkAction("archive")
 
     const res = await fetch("/api/installations/bulk/archive", {
       method: "POST",
@@ -588,6 +602,8 @@ export default function InstallationsPageClient() {
     const result: { error?: string; archived?: number } = await res.json()
 
     if (res.status === 401) {
+      setIsSubmitting(false)
+      setPendingBulkAction(null)
       router.push("/login")
       return
     }
@@ -595,11 +611,13 @@ export default function InstallationsPageClient() {
     if (!res.ok) {
       setError(result.error || "Kunde inte arkivera aggregat")
       setIsSubmitting(false)
+      setPendingBulkAction(null)
       return
     }
 
-    setSuccess(`${result.archived ?? selectedIds.length} aggregat arkiverade`)
+    setSuccess(`${result.archived ?? selectedIds.length} aggregat arkiverades.`)
     setIsSubmitting(false)
+    setPendingBulkAction(null)
     setRefreshKey((current) => current + 1)
   }
 
@@ -607,7 +625,11 @@ export default function InstallationsPageClient() {
     event.preventDefault()
     setError("")
     setSuccess("")
+    const selectedPropertyName =
+      properties.find((property) => property.id === bulkPropertyId)?.name ??
+      "vald fastighet"
     setIsSubmitting(true)
+    setPendingBulkAction("property")
 
     const res = await fetch("/api/installations/bulk/assign-property", {
       method: "POST",
@@ -623,6 +645,8 @@ export default function InstallationsPageClient() {
     const result: { error?: string; updated?: number } = await res.json()
 
     if (res.status === 401) {
+      setIsSubmitting(false)
+      setPendingBulkAction(null)
       router.push("/login")
       return
     }
@@ -630,13 +654,19 @@ export default function InstallationsPageClient() {
     if (!res.ok) {
       setError(result.error || "Kunde inte tilldela fastighet")
       setIsSubmitting(false)
+      setPendingBulkAction(null)
       return
     }
 
-    setSuccess(`${result.updated ?? selectedIds.length} aggregat uppdaterade`)
+    setSuccess(
+      bulkPropertyId
+        ? `${result.updated ?? selectedIds.length} aggregat kopplades till ${selectedPropertyName}.`
+        : `${result.updated ?? selectedIds.length} aggregat fick fastighetskopplingen borttagen.`
+    )
     setBulkPropertyId("")
     setIsPropertyModalOpen(false)
     setIsSubmitting(false)
+    setPendingBulkAction(null)
     setRefreshKey((current) => current + 1)
   }
 
@@ -891,7 +921,23 @@ export default function InstallationsPageClient() {
 
       {isLoading && <p className="mt-8 text-slate-700">Laddar...</p>}
       {error && <p className="mt-8 font-semibold text-red-700">{error}</p>}
-      {success && <p className="mt-8 font-semibold text-green-700">{success}</p>}
+      {success && (
+        <div className="fixed bottom-4 right-4 z-50 w-[calc(100%-2rem)] max-w-sm rounded-lg border border-emerald-200 bg-white p-4 text-sm shadow-xl sm:bottom-6 sm:right-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-semibold text-emerald-900">Klart</p>
+              <p className="mt-1 text-slate-700">{success}</p>
+            </div>
+            <button
+              className="rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+              type="button"
+              onClick={() => setSuccess("")}
+            >
+              Stäng
+            </button>
+          </div>
+        </div>
+      )}
 
       {!isLoading && !canManage && (
         <p className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
@@ -899,35 +945,42 @@ export default function InstallationsPageClient() {
         </p>
       )}
 
-      {!isLoading && canManage && selectedIds.length > 0 && (
-        <div className="mt-6 flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="font-semibold text-slate-950">
-            {selectedIds.length} aggregat valda
+      {!isLoading && canManage && (
+        <div className="sticky top-3 z-20 mt-6 flex flex-col gap-3 rounded-lg border border-slate-200 bg-white/95 p-4 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-semibold text-slate-950">
+              {selectedIds.length} aggregat valda
+            </p>
+            {!hasSelectedInstallations && (
+              <p className="mt-1 text-sm text-slate-600">
+                Markera aggregat för att använda åtgärderna.
+              </p>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             <button
               className={bulkSecondaryButtonClassName}
               type="button"
-              disabled={isSubmitting}
+              disabled={!hasSelectedInstallations || isSubmitting}
               onClick={() => setIsAssignModalOpen(true)}
             >
-              Tilldela servicepartner
+              {pendingBulkAction === "servicepartner" ? "Tilldelar..." : "Tilldela servicepartner"}
             </button>
             <button
               className={bulkSecondaryButtonClassName}
               type="button"
-              disabled={isSubmitting}
+              disabled={!hasSelectedInstallations || isSubmitting}
               onClick={() => setIsPropertyModalOpen(true)}
             >
-              Tilldela fastighet
+              {pendingBulkAction === "property" ? "Kopplar..." : "Tilldela fastighet"}
             </button>
             <button
               className={bulkDestructiveButtonClassName}
               type="button"
-              disabled={isSubmitting}
+              disabled={!hasSelectedInstallations || isSubmitting}
               onClick={() => void handleArchiveSelected()}
             >
-              Arkivera aggregat
+              {pendingBulkAction === "archive" ? "Arkiverar..." : "Arkivera aggregat"}
             </button>
           </div>
         </div>
@@ -968,6 +1021,7 @@ export default function InstallationsPageClient() {
                 )}
                 <TableHeader>Aggregat</TableHeader>
                 <TableHeader>Placering</TableHeader>
+                <TableHeader>Servicepartner</TableHeader>
                 <TableHeader>Köldmedium</TableHeader>
                 <TableHeader>Mängd</TableHeader>
                 <TableHeader>CO₂e</TableHeader>
@@ -1016,6 +1070,18 @@ export default function InstallationsPageClient() {
                       <p className="mt-1 truncate text-xs text-slate-500">
                         {formatPlacementMeta(installation)}
                       </p>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="max-w-[220px]">
+                      <p className="truncate font-medium text-slate-900">
+                        {formatAssignedServicePartner(installation)}
+                      </p>
+                      {installation.assignedContractor && (
+                        <p className="mt-1 truncate text-xs text-slate-500">
+                          {formatAssignedContractorName(installation.assignedContractor)}
+                        </p>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -1068,7 +1134,7 @@ export default function InstallationsPageClient() {
           <form className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-xl" onSubmit={handleAssignContractor}>
             <h2 className="text-lg font-semibold text-slate-950">Tilldela servicepartner</h2>
             <p className="mt-1 text-sm text-slate-700">
-              Välj servicepartnerföretag och eventuell servicekontakt för {selectedIds.length} valda aggregat.
+              Välj servicepartnerföretag för {selectedIds.length} valda aggregat.
             </p>
             <label className="mt-4 grid gap-1 text-sm font-medium text-slate-700">
               Servicepartnerföretag
@@ -1088,21 +1154,29 @@ export default function InstallationsPageClient() {
                 ))}
               </select>
             </label>
-            <label className="mt-4 grid gap-1 text-sm font-medium text-slate-700">
-              Valfri servicekontakt / tekniker
-              <select
-                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900"
-                value={contractorId}
-                onChange={(event) => setContractorId(event.target.value)}
-              >
-                <option value="">Ingen vald</option>
-                {bulkContactOptions.map((contractor) => (
-                  <option key={contractor.id} value={contractor.id}>
-                    {formatContractorOption(contractor)} ({contractor.email})
-                  </option>
-                ))}
-              </select>
-            </label>
+            <details className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <summary className="cursor-pointer text-sm font-semibold text-slate-800">
+                Valfri kontaktperson
+              </summary>
+              <label className="mt-3 grid gap-1 text-sm font-medium text-slate-700">
+                Servicekontakt / tekniker
+                <select
+                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900"
+                  value={contractorId}
+                  onChange={(event) => setContractorId(event.target.value)}
+                >
+                  <option value="">Ingen vald</option>
+                  {bulkContactOptions.map((contractor) => (
+                    <option key={contractor.id} value={contractor.id}>
+                      {formatContractorOption(contractor)} ({contractor.email})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="mt-2 text-xs text-slate-600">
+                Valfritt – används bara om en särskild kontaktperson är känd.
+              </p>
+            </details>
             <div className="mt-5 flex flex-wrap justify-end gap-2">
               <button
                 className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
@@ -1823,7 +1897,7 @@ function formatAssignedServicePartner(installation: Installation) {
   return (
     installation.assignedServicePartnerCompany?.name ??
     installation.assignedContractor?.servicePartnerCompany?.name ??
-    "-"
+    "Saknar servicepartner"
   )
 }
 

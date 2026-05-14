@@ -58,8 +58,28 @@ export async function POST(request: NextRequest) {
     })
 
     if (installations.length !== uniqueInstallationIds.length) {
+      const selectedInstallations = await prisma.installation.findMany({
+        where: {
+          id: {
+            in: uniqueInstallationIds,
+          },
+          companyId,
+        },
+        select: {
+          archivedAt: true,
+          scrappedAt: true,
+        },
+      })
+      const hasInactiveInstallations = selectedInstallations.some(
+        (installation) => installation.archivedAt || installation.scrappedAt
+      )
+
       return NextResponse.json(
-        { error: "Ett eller flera aggregat hittades inte" },
+        {
+          error: hasInactiveInstallations
+            ? "Arkiverade eller skrotade aggregat kan inte kopplas till fastighet. Välj aktiva aggregat och försök igen."
+            : "Ett eller flera aggregat hittades inte. Välj aktiva aggregat och försök igen.",
+        },
         { status: 400 }
       )
     }
