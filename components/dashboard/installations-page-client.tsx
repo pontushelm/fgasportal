@@ -91,6 +91,19 @@ type SavedFilter = {
   createdAt: string
 }
 
+type InstallationSortKey =
+  | "name"
+  | "location"
+  | "servicePartner"
+  | "refrigerantType"
+  | "refrigerantAmount"
+  | "co2e"
+  | "nextInspection"
+  | "inspectionInterval"
+  | "status"
+
+type SortDirection = "asc" | "desc"
+
 const STATUS_LABELS: Record<ComplianceStatus, string> = {
   OK: "OK",
   DUE_SOON: "Kontroll inom 30 dagar",
@@ -127,14 +140,6 @@ const REGULATORY_STATUS_TONE: Record<RefrigerantRegulatoryStatus, string> = {
   UNKNOWN: "border-slate-300 bg-slate-50 text-slate-800",
 }
 
-const SORT_OPTIONS = [
-  { value: "updatedAt:desc", label: "Senast uppdaterad" },
-  { value: "updatedAt:asc", label: "Äldst uppdaterad" },
-  { value: "nextInspectionDate:asc", label: "Nästa kontroll, tidigast först" },
-  { value: "nextInspectionDate:desc", label: "Nästa kontroll, senast först" },
-  { value: "co2e:desc", label: "CO₂e, högst först" },
-  { value: "co2e:asc", label: "CO₂e, lägst först" },
-]
 const SAVED_FILTER_PAGE = "installations"
 const filterControlClassName =
   "h-10 w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400"
@@ -150,7 +155,6 @@ export default function InstallationsPageClient() {
   const searchValue = searchParams.get("q") || ""
   const archivedValue = searchParams.get("archived") || ""
   const refrigerantValue = searchParams.get("refrigerantType") || ""
-  const contractorFilterValue = searchParams.get("contractorId") || ""
   const servicePartnerCompanyFilterValue = searchParams.get("servicePartnerCompanyId") || ""
   const propertyFilterValue = searchParams.get("propertyId") || ""
   const municipalityFilterValue = searchParams.get("municipality") || ""
@@ -160,7 +164,13 @@ export default function InstallationsPageClient() {
   const statusFilterValue =
     statusValue ||
     (archivedValue === "archived" ? "archived" : archivedValue === "active" ? "active" : "")
-  const sortValue = `${searchParams.get("sort") || "updatedAt"}:${searchParams.get("direction") || "desc"}`
+  const sortFieldValue = normalizeInstallationSortKey(searchParams.get("sort"))
+  const sortDirectionValue: SortDirection | "" =
+    searchParams.get("direction") === "asc"
+      ? "asc"
+      : searchParams.get("direction") === "desc"
+      ? "desc"
+      : ""
   const [installations, setInstallations] = useState<Installation[]>([])
   const [filterSourceInstallations, setFilterSourceInstallations] = useState<Installation[]>([])
   const [contractors, setContractors] = useState<Contractor[]>([])
@@ -399,9 +409,15 @@ export default function InstallationsPageClient() {
   }
 
   const hasSelectedInstallations = selectedIds.length > 0
+  const displayedInstallations = useMemo(
+    () => sortInstallations(installations, sortFieldValue, sortDirectionValue),
+    [installations, sortDirectionValue, sortFieldValue]
+  )
   const allSelected = useMemo(
-    () => installations.length > 0 && selectedIds.length === installations.length,
-    [installations.length, selectedIds.length]
+    () =>
+      displayedInstallations.length > 0 &&
+      selectedIds.length === displayedInstallations.length,
+    [displayedInstallations.length, selectedIds.length]
   )
   const refrigerantOptions = useMemo(
     () =>
@@ -452,7 +468,6 @@ export default function InstallationsPageClient() {
     searchValue ||
       statusFilterValue ||
       refrigerantValue ||
-      contractorFilterValue ||
       servicePartnerCompanyFilterValue ||
       propertyFilterValue ||
       municipalityFilterValue ||
@@ -486,15 +501,23 @@ export default function InstallationsPageClient() {
     return () => window.clearTimeout(timeoutId)
   }, [searchInputValue, searchValue, updateQueryParam])
 
-  function updateSort(value: string) {
-    const [sort, direction] = value.split(":")
+  function updateColumnSort(sortKey: InstallationSortKey) {
     const params = new URLSearchParams(searchParams.toString())
     setSelectedSavedFilterId("")
     setSavedFilterSuccess("")
 
-    params.set("sort", sort)
-    params.set("direction", direction)
-    router.replace(`/dashboard/installations?${params.toString()}`)
+    if (sortFieldValue !== sortKey) {
+      params.set("sort", sortKey)
+      params.set("direction", "asc")
+    } else if (sortDirectionValue === "asc") {
+      params.set("sort", sortKey)
+      params.set("direction", "desc")
+    } else {
+      params.delete("sort")
+      params.delete("direction")
+    }
+
+    router.replace(`/dashboard/installations${params.toString() ? `?${params.toString()}` : ""}`)
   }
 
   function updateStatusFilter(value: string) {
@@ -581,7 +604,9 @@ export default function InstallationsPageClient() {
   }
 
   function toggleAll() {
-    setSelectedIds(allSelected ? [] : installations.map((installation) => installation.id))
+    setSelectedIds(
+      allSelected ? [] : displayedInstallations.map((installation) => installation.id)
+    )
   }
 
   function toggleInstallation(id: string) {
@@ -888,21 +913,7 @@ export default function InstallationsPageClient() {
           />
 
           <FilterSelect
-            label="Servicekontakt"
-            value={contractorFilterValue}
-            onChange={(value) => updateQueryParam("contractorId", value)}
-          >
-            <option value="">Alla</option>
-            <option value="unassigned">Ingen servicekontakt</option>
-                {contractors.map((contractor) => (
-                  <option key={contractor.id} value={contractor.id}>
-                    {formatContractorOption(contractor)}
-                  </option>
-                ))}
-          </FilterSelect>
-
-          <FilterSelect
-            label="Servicepartnerföretag"
+            label="Servicepartner"
             value={servicePartnerCompanyFilterValue}
             onChange={(value) => updateQueryParam("servicePartnerCompanyId", value)}
           >
@@ -979,7 +990,7 @@ export default function InstallationsPageClient() {
           </FilterSelect>
         </div>
 
-        <div className="mt-4 grid gap-3 border-t border-slate-200 pt-4 lg:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)] lg:items-end">
+        <div className="mt-4 border-t border-slate-200 pt-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
             <label className="grid gap-1 text-sm font-medium text-slate-700 lg:min-w-72">
               Mina sparade filter
@@ -1050,15 +1061,6 @@ export default function InstallationsPageClient() {
             </div>
           </div>
 
-          <div className="lg:justify-self-end lg:min-w-56">
-            <FilterSelect label="Sortering" value={sortValue} onChange={updateSort}>
-              {SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </FilterSelect>
-          </div>
         </div>
 
         {savedFilterError && (
@@ -1202,9 +1204,9 @@ export default function InstallationsPageClient() {
         </div>
       )}
 
-      {!isLoading && installations.length > 0 && (
+      {!isLoading && displayedInstallations.length > 0 && (
         <div className="mt-6 grid gap-3 lg:hidden">
-          {installations.map((installation) => (
+          {displayedInstallations.map((installation) => (
             <InstallationMobileCard
               canManage={canManage}
               installation={installation}
@@ -1217,7 +1219,7 @@ export default function InstallationsPageClient() {
         </div>
       )}
 
-      {!isLoading && installations.length > 0 && (
+      {!isLoading && displayedInstallations.length > 0 && (
         <div className="mt-4 hidden overflow-x-auto rounded-lg border border-slate-200 bg-white lg:block">
           <table className="min-w-full table-fixed divide-y divide-slate-200 text-[13px]">
             <colgroup>
@@ -1247,19 +1249,82 @@ export default function InstallationsPageClient() {
                     </label>
                   </th>
                 )}
-                <TableHeader>Aggregat</TableHeader>
-                <TableHeader>Placering</TableHeader>
-                <TableHeader>Servicepartner</TableHeader>
-                <TableHeader>Köldmedium</TableHeader>
-                <TableHeader>Mängd</TableHeader>
-                <TableHeader>CO₂e</TableHeader>
-                <TableHeader>Nästa kontroll</TableHeader>
-                <TableHeader>Intervall</TableHeader>
-                <TableHeader>Status</TableHeader>
+                <TableHeader
+                  sortKey="name"
+                  activeSortKey={sortFieldValue}
+                  direction={sortDirectionValue}
+                  onSort={updateColumnSort}
+                >
+                  Aggregat
+                </TableHeader>
+                <TableHeader
+                  sortKey="location"
+                  activeSortKey={sortFieldValue}
+                  direction={sortDirectionValue}
+                  onSort={updateColumnSort}
+                >
+                  Placering
+                </TableHeader>
+                <TableHeader
+                  sortKey="servicePartner"
+                  activeSortKey={sortFieldValue}
+                  direction={sortDirectionValue}
+                  onSort={updateColumnSort}
+                >
+                  Servicepartner
+                </TableHeader>
+                <TableHeader
+                  sortKey="refrigerantType"
+                  activeSortKey={sortFieldValue}
+                  direction={sortDirectionValue}
+                  onSort={updateColumnSort}
+                >
+                  Köldmedium
+                </TableHeader>
+                <TableHeader
+                  sortKey="refrigerantAmount"
+                  activeSortKey={sortFieldValue}
+                  direction={sortDirectionValue}
+                  onSort={updateColumnSort}
+                >
+                  Mängd
+                </TableHeader>
+                <TableHeader
+                  sortKey="co2e"
+                  activeSortKey={sortFieldValue}
+                  direction={sortDirectionValue}
+                  onSort={updateColumnSort}
+                >
+                  CO₂e
+                </TableHeader>
+                <TableHeader
+                  sortKey="nextInspection"
+                  activeSortKey={sortFieldValue}
+                  direction={sortDirectionValue}
+                  onSort={updateColumnSort}
+                >
+                  Nästa kontroll
+                </TableHeader>
+                <TableHeader
+                  sortKey="inspectionInterval"
+                  activeSortKey={sortFieldValue}
+                  direction={sortDirectionValue}
+                  onSort={updateColumnSort}
+                >
+                  Intervall
+                </TableHeader>
+                <TableHeader
+                  sortKey="status"
+                  activeSortKey={sortFieldValue}
+                  direction={sortDirectionValue}
+                  onSort={updateColumnSort}
+                >
+                  Status
+                </TableHeader>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {installations.map((installation) => (
+              {displayedInstallations.map((installation) => (
                 <tr
                   className="cursor-pointer hover:bg-slate-50"
                   key={installation.id}
@@ -1339,7 +1404,7 @@ export default function InstallationsPageClient() {
         </div>
       )}
 
-      {!isLoading && installations.length === 0 && (
+      {!isLoading && displayedInstallations.length === 0 && (
         <div className="mt-6 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
           <h2 className="text-lg font-semibold text-slate-950">Inga aggregat matchar filtret</h2>
           <p className="mt-2 text-sm text-slate-700">
@@ -1922,10 +1987,35 @@ function SearchableFilterSelect({
   )
 }
 
-function TableHeader({ children }: { children: React.ReactNode }) {
+function TableHeader({
+  activeSortKey,
+  children,
+  direction,
+  onSort,
+  sortKey,
+}: {
+  activeSortKey: InstallationSortKey | ""
+  children: React.ReactNode
+  direction: SortDirection | ""
+  onSort: (sortKey: InstallationSortKey) => void
+  sortKey: InstallationSortKey
+}) {
+  const isActive = activeSortKey === sortKey
+
   return (
     <th className="px-2 py-2 text-left text-[11px] font-semibold uppercase text-slate-600">
-      {children}
+      <button
+        className="inline-flex items-center gap-1 rounded-sm text-left hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-100"
+        type="button"
+        onClick={() => onSort(sortKey)}
+      >
+        <span>{children}</span>
+        {isActive && direction && (
+          <span aria-hidden="true" className="text-slate-900">
+            {direction === "asc" ? "↑" : "↓"}
+          </span>
+        )}
+      </button>
     </th>
   )
 }
@@ -2114,6 +2204,85 @@ function formatAssignedServicePartner(installation: Installation) {
 
 function formatAssignedContractorName(contractor?: Contractor | null) {
   return contractor?.name ?? "-"
+}
+
+function normalizeInstallationSortKey(value: string | null): InstallationSortKey | "" {
+  if (value === "nextInspectionDate") return "nextInspection"
+  if (value === "co2e") return "co2e"
+
+  const allowedSortKeys: InstallationSortKey[] = [
+    "name",
+    "location",
+    "servicePartner",
+    "refrigerantType",
+    "refrigerantAmount",
+    "co2e",
+    "nextInspection",
+    "inspectionInterval",
+    "status",
+  ]
+
+  return allowedSortKeys.includes(value as InstallationSortKey)
+    ? (value as InstallationSortKey)
+    : ""
+}
+
+function sortInstallations(
+  installations: Installation[],
+  sortKey: InstallationSortKey | "",
+  direction: SortDirection | ""
+) {
+  if (!sortKey || !direction) return installations
+
+  const multiplier = direction === "asc" ? 1 : -1
+
+  return [...installations].sort((first, second) => {
+    const firstValue = getInstallationSortValue(first, sortKey)
+    const secondValue = getInstallationSortValue(second, sortKey)
+
+    if (typeof firstValue === "number" && typeof secondValue === "number") {
+      return (firstValue - secondValue) * multiplier
+    }
+
+    return String(firstValue).localeCompare(String(secondValue), "sv", {
+      numeric: true,
+      sensitivity: "base",
+    }) * multiplier
+  })
+}
+
+function getInstallationSortValue(
+  installation: Installation,
+  sortKey: InstallationSortKey
+) {
+  switch (sortKey) {
+    case "name":
+      return installation.name
+    case "location":
+      return `${installation.location} ${formatPlacementMeta(installation)}`
+    case "servicePartner":
+      return formatAssignedServicePartner(installation)
+    case "refrigerantType":
+      return installation.refrigerantType
+    case "refrigerantAmount":
+      return installation.refrigerantAmount
+    case "co2e":
+      return installation.co2eTon ?? Number.NEGATIVE_INFINITY
+    case "nextInspection":
+      return installation.nextInspection
+        ? new Date(installation.nextInspection).getTime()
+        : Number.POSITIVE_INFINITY
+    case "inspectionInterval":
+      return installation.inspectionInterval ?? Number.POSITIVE_INFINITY
+    case "status":
+      return getInstallationStatusLabel(installation)
+  }
+}
+
+function getInstallationStatusLabel(installation: Installation) {
+  if (installation.scrappedAt) return "Skrotad"
+  if (installation.archivedAt) return "Arkiverad"
+  return STATUS_LABELS[installation.complianceStatus]
 }
 
 function formatOptionalDate(value?: string | null) {
