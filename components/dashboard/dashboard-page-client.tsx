@@ -247,7 +247,12 @@ export default function DashboardPage() {
 
       {dashboardData && (
         <div className="mx-auto max-w-7xl">
-          <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="mt-6">
+            <SectionHeader
+              title="Kräver uppmärksamhet"
+              description="Det viktigaste att bedöma direkt när ni öppnar dashboarden."
+            />
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {PRIMARY_KPI_KEYS.map((key) => {
               const card = getKpiCard(key)
               return (
@@ -268,32 +273,21 @@ export default function DashboardPage() {
               tooltip="Antal fastigheter där årsrapport bedöms krävas men signerad rapport saknas i FgasPortal."
               value={dashboardData.annualReportStatus.remainingRequiredReports}
             />
+            </div>
           </section>
 
-          <section className="mt-4 grid gap-3 sm:grid-cols-3">
-            {SECONDARY_KPI_KEYS.map((key) => {
-              const card = getKpiCard(key)
-              return (
-                <SecondaryMetric
-                  description={getKpiDescription(card.key, dashboardData, card.description)}
-                  key={card.key}
-                  label={card.label}
-                  value={getKpiValue(card.key, dashboardData)}
-                />
-              )
-            })}
-          </section>
-
-          <section className="mt-6 grid gap-6 xl:grid-cols-2">
+          <section className="mt-8">
+            <SectionHeader
+              title="Operativt arbete"
+              description="Prioriterad arbetskö och årsrapportering som behöver följas upp."
+            />
+            <div className="mt-3 grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
             <Card className="border-blue-100 bg-white p-4 shadow-sm sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                    Operativt fokus
-                  </p>
                   <h2 className="mt-1 text-xl font-semibold text-slate-950">Att göra</h2>
                   <p className="mt-1 text-sm text-slate-700">
-                    Prioriterade statusproblem och uppföljningspunkter.
+                    De viktigaste uppföljningarna just nu.
                   </p>
                 </div>
                 <Link
@@ -326,9 +320,29 @@ export default function DashboardPage() {
               className="xl:mt-0"
               status={dashboardData.annualReportStatus}
             />
+            </div>
           </section>
 
-          <section className="mt-6 grid gap-4 lg:grid-cols-2">
+          <section className="mt-8">
+            <SectionHeader
+              title="Statusöversikt"
+              description="Samlad bild av register, kontrollstatus och risk utan att ta över arbetsytan."
+            />
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              {SECONDARY_KPI_KEYS.map((key) => {
+                const card = getKpiCard(key)
+                return (
+                  <SecondaryMetric
+                    description={getKpiDescription(card.key, dashboardData, card.description)}
+                    key={card.key}
+                    label={card.label}
+                    value={getKpiValue(card.key, dashboardData)}
+                  />
+                )
+              })}
+            </div>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <VisualCard
               title="Aggregat per riskklass"
               description="Fördelning av aggregat utifrån aktuell riskklassning."
@@ -358,12 +372,13 @@ export default function DashboardPage() {
                 )}
               />
             </VisualCard>
+          </div>
           </section>
 
-          <section className="mt-6 rounded-xl border border-slate-200 bg-white/70 p-4 sm:p-5">
+          <section className="mt-8 rounded-xl border border-slate-200 bg-white/70 p-4 sm:p-5">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Portföljanalys
+                Planering och klimatpåverkan
               </p>
               <h2 className="mt-1 text-lg font-semibold text-slate-950">
                 Köldmedier och klimatpåverkan
@@ -426,6 +441,21 @@ export default function DashboardPage() {
         </div>
       )}
     </main>
+  )
+}
+
+function SectionHeader({
+  description,
+  title,
+}: {
+  description: string
+  title: string
+}) {
+  return (
+    <div className="max-w-3xl">
+      <h2 className="text-base font-semibold text-slate-950 sm:text-lg">{title}</h2>
+      <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
+    </div>
   )
 }
 
@@ -500,7 +530,7 @@ function AnnualReportsOverview({
   className?: string
   status: DashboardData["annualReportStatus"]
 }) {
-  const visibleProperties = status.properties.slice(0, 4)
+  const visibleProperties = status.properties.slice(0, 3)
   const hasMoreProperties = status.properties.length > visibleProperties.length
 
   return (
@@ -510,9 +540,9 @@ function AnnualReportsOverview({
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Rapportering {status.year}
           </p>
-          <h2 className="mt-1 text-xl font-semibold text-slate-950">Årsrapporter</h2>
+          <h2 className="mt-1 text-xl font-semibold text-slate-950">Årsrapportering</h2>
           <p className="mt-1 max-w-3xl text-sm text-slate-700">
-            Kravbedömning per registrerad fastighet baserat på stationära aggregat och installerad CO₂e. FgasPortal spårar signering, inte inskick till kommunen.
+            Krav, signering och kvarvarande rapportarbete för året.
           </p>
         </div>
         <Link
@@ -523,16 +553,16 @@ function AnnualReportsOverview({
         </Link>
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">
         <MiniSummary label="Årsrapport krävs" value={status.requiredReports} />
         <MiniSummary label="Signerade" value={status.signedRequiredReports} tone="emerald" />
         <MiniSummary label="Återstår" value={status.remainingRequiredReports} tone="amber" />
-        <MiniSummary
-          label="Kräver kontroll"
-          value={status.uncertainProperties}
-          tone={status.uncertainProperties > 0 ? "red" : "neutral"}
-        />
       </div>
+      {status.uncertainProperties > 0 ? (
+        <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {status.uncertainProperties} fastigheter behöver kontrolleras innan rapportkrav kan bedömas säkert.
+        </p>
+      ) : null}
 
       {status.properties.length === 0 ? (
         <p className="mt-4 rounded-lg border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-600">
