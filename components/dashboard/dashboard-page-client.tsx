@@ -123,7 +123,7 @@ const ACTION_PRIORITY_LABELS: Record<ActionItem["priority"], string> = {
   LOW: "Låg",
 }
 
-const ACTION_PREVIEW_LIMIT = 3
+const ACTION_PREVIEW_LIMIT = 4
 
 const KPI_CARDS = [
   {
@@ -250,7 +250,6 @@ export default function DashboardPage() {
           <section className="mt-6">
             <SectionHeader
               title="Kräver uppmärksamhet"
-              description="Det viktigaste att bedöma direkt när ni öppnar dashboarden."
             />
             <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {PRIMARY_KPI_KEYS.map((key) => {
@@ -279,7 +278,6 @@ export default function DashboardPage() {
           <section className="mt-8">
             <SectionHeader
               title="Operativt arbete"
-              description="Prioriterad arbetskö och årsrapportering som behöver följas upp."
             />
             <div className="mt-3 grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
             <Card className="border-blue-100 bg-white p-4 shadow-sm sm:p-5">
@@ -311,7 +309,7 @@ export default function DashboardPage() {
               )}
               {visibleActionItems.length > 0 && (
                 <p className="mt-3 text-xs text-slate-500">
-                  Visar upp till tre prioriterade åtgärder.
+                  Visar upp till fyra prioriterade åtgärder.
                 </p>
               )}
             </Card>
@@ -378,14 +376,11 @@ export default function DashboardPage() {
           <section className="mt-8 rounded-xl border border-slate-200 bg-white/70 p-4 sm:p-5">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Planering och klimatpåverkan
+                PLANERING & KLIMATPÅVERKAN
               </p>
               <h2 className="mt-1 text-lg font-semibold text-slate-950">
                 Köldmedier och klimatpåverkan
               </h2>
-              <p className="mt-1 text-sm text-slate-600">
-                Fördjupande översikt för planering, rapportunderlag och långsiktig uppföljning.
-              </p>
             </div>
 
             <div className="mt-4 grid gap-4 lg:grid-cols-3">
@@ -448,13 +443,15 @@ function SectionHeader({
   description,
   title,
 }: {
-  description: string
+  description?: string
   title: string
 }) {
   return (
     <div className="max-w-3xl">
       <h2 className="text-base font-semibold text-slate-950 sm:text-lg">{title}</h2>
-      <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
+      {description ? (
+        <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
+      ) : null}
     </div>
   )
 }
@@ -531,16 +528,13 @@ function AnnualReportsOverview({
   status: DashboardData["annualReportStatus"]
 }) {
   const visibleProperties = status.properties.slice(0, 3)
-  const hasMoreProperties = status.properties.length > visibleProperties.length
-
   return (
     <Card className={`p-4 sm:p-5 ${className}`}>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Rapportering {status.year}
-          </p>
-          <h2 className="mt-1 text-xl font-semibold text-slate-950">Årsrapportering</h2>
+          <h2 className="text-xl font-semibold text-slate-950">
+            Årsrapportering {status.year}
+          </h2>
           <p className="mt-1 max-w-3xl text-sm text-slate-700">
             Krav, signering och kvarvarande rapportarbete för året.
           </p>
@@ -554,9 +548,9 @@ function AnnualReportsOverview({
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <MiniSummary label="Årsrapport krävs" value={status.requiredReports} />
-        <MiniSummary label="Signerade" value={status.signedRequiredReports} tone="emerald" />
-        <MiniSummary label="Återstår" value={status.remainingRequiredReports} tone="amber" />
+        <MiniSummary label="KRÄVS" value={status.requiredReports} />
+        <MiniSummary label="SIGNERADE" value={status.signedRequiredReports} tone="emerald" />
+        <MiniSummary label="ÅTERSTÅR" value={status.remainingRequiredReports} tone="amber" />
       </div>
       {status.uncertainProperties > 0 ? (
         <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -602,11 +596,6 @@ function AnnualReportsOverview({
               </span>
             </Link>
           ))}
-          {hasMoreProperties ? (
-            <p className="text-xs text-slate-500">
-              +{status.properties.length - visibleProperties.length} fler fastigheter visas på rapportsidan.
-            </p>
-          ) : null}
         </div>
       )}
     </Card>
