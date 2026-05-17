@@ -162,6 +162,7 @@ model ServicePartnerCompany {
   organizationNumber String?
   contactEmail       String?
   phone              String?
+  certificateNumber  String?
   notes              String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt

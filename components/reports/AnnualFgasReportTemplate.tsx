@@ -56,9 +56,7 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
               title="Sammanfattning"
               rows={[
                 ["Antal aggregat i rapporten", formatInteger(report.summary.equipmentCount)],
-                ["Antal kontrollpliktiga aggregat", formatInteger(report.summary.controlRequiredCount)],
-                ["Aggregat med okänt GWP-värde", formatInteger(report.summary.unknownCo2eEquipmentCount)],
-                ["Total köldmediemängd", `${formatNumber(report.summary.totalRefrigerantKg)} kg`],
+                ["Total köldmediemängd", `${formatInteger(report.summary.totalRefrigerantKg)} kg`],
                 ["Total CO₂e", formatCo2eSummary(report)],
                 ["Antal läckage", formatInteger(report.summary.leakageCount)],
                 ["Påfylld köldmediemängd", `${formatNumber(report.summary.addedRefrigerantKg)} kg`],
@@ -66,11 +64,10 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
               ]}
             />
             <SummaryBox
-              title="Ansvarig kylmediefirma"
+              title="Servicepartner"
               rows={[
                 ["Företag", report.responsibleContractor.company || report.responsibleContractor.name || "-"],
                 ["Företagscertifikat nr", report.responsibleContractor.certificateNumber || "-"],
-                ["Kontaktperson", report.responsibleContractor.name || "-"],
                 ["Telefon", report.responsibleContractor.phone || "-"],
                 ["E-post", report.responsibleContractor.email || "-"],
               ]}
@@ -543,12 +540,12 @@ function formatNumber(value: number) {
 
 function formatCo2eSummary(report: AnnualFgasReportData) {
   if (report.summary.totalCo2eKg !== null) {
-    return `${formatNumber(report.summary.totalCo2eKg)} kg`
+    return `${formatInteger(report.summary.totalCo2eKg / 1000)} ton`
   }
 
-  return `Kan inte beräknas fullständigt (känd delsumma ${formatNumber(
-    report.summary.knownCo2eKg
-  )} kg)`
+  return `Kan inte beräknas fullständigt (känd delsumma ${formatInteger(
+    report.summary.knownCo2eKg / 1000
+  )} ton)`
 }
 
 function formatOptionalNumber(value: number | null | undefined) {

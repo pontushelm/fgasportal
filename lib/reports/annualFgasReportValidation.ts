@@ -98,6 +98,10 @@ export function buildAnnualFgasReportWarnings({
     name: string
     equipmentId: string | null
     assignedContractorId: string | null
+    assignedServicePartnerCompanyId?: string | null
+    assignedServicePartnerCompany?: {
+      certificateNumber: string | null
+    } | null
     property?: {
       municipality: string | null
       propertyDesignation: string | null
@@ -226,21 +230,24 @@ export function buildAnnualFgasReportWarnings({
       }
     }
 
-    if (!installation.assignedContractorId) {
+    if (!installation.assignedServicePartnerCompanyId && !installation.assignedContractorId) {
       warnings.push({
-        id: `missing-service-contact-${installation.id}`,
+        id: `missing-service-partner-${installation.id}`,
         severity: "review",
         equipmentName: installation.name,
         equipmentId: installation.equipmentId,
-        message: "Aggregatet saknar tilldelad servicekontakt.",
+        message: "Aggregatet saknar tilldelad servicepartner.",
       })
-    } else if (!installation.assignedContractor?.memberships[0]?.certificationNumber) {
+    } else if (
+      !installation.assignedServicePartnerCompany?.certificateNumber &&
+      !installation.assignedContractor?.memberships[0]?.certificationNumber
+    ) {
       warnings.push({
         id: `missing-certificate-${installation.id}`,
         severity: "review",
         equipmentName: installation.name,
         equipmentId: installation.equipmentId,
-        message: "Tilldelad servicekontakt saknar registrerat certifikatnummer.",
+        message: "Tilldelad servicepartner saknar registrerat certifikatnummer.",
       })
     }
 

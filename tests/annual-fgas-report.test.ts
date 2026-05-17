@@ -11,6 +11,7 @@ import {
   mapSignedAnnualReportHistoryItem,
 } from "@/lib/reports/signedAnnualFgasReports"
 import type { AnnualFgasReportData } from "@/lib/reports/annualFgasReportTypes"
+import { buildAnnualFgasReportFilename } from "@/lib/reports/annualFgasReportFilename"
 import { summarizeAnnualFgasCo2e } from "@/lib/reports/annualFgasReportSummary"
 
 describe("annual F-gas report summary", () => {
@@ -366,7 +367,7 @@ describe("annual F-gas report warnings", () => {
         {
           id: "missing-certificate",
           severity: "review",
-          message: "Tilldelad servicekontakt saknar registrerat certifikatnummer.",
+          message: "Tilldelad servicepartner saknar registrerat certifikatnummer.",
         },
       ])
     ).toMatchObject({
@@ -449,5 +450,75 @@ describe("annual F-gas report warnings", () => {
         severity: "review",
       })
     )
+  })
+
+  it("does not warn for missing technician certificate when service partner company has certificate", () => {
+    const warnings = buildAnnualFgasReportWarnings({
+      certificateRegister: [],
+      co2eSummary: { unknownCo2eEquipmentCount: 0 },
+      equipment: [],
+      refrigerantHandlingLog: [],
+      reportInstallations: [
+        {
+          id: "installation-a",
+          name: "Kyl A",
+          equipmentId: "VP1",
+          assignedContractorId: "contractor-a",
+          assignedServicePartnerCompanyId: "service-company-a",
+          assignedServicePartnerCompany: {
+            certificateNumber: "FCERT-1",
+          },
+          assignedContractor: {
+            memberships: [{ certificationNumber: null }],
+          },
+          property: {
+            municipality: "Malmö",
+            propertyDesignation: "Skolan 1",
+          },
+          events: [],
+        },
+      ],
+      scrappedEquipment: [],
+    })
+
+    expect(warnings.map((warning) => warning.id)).not.toContain(
+      "missing-certificate-installation-a"
+    )
+  })
+})
+
+describe("annual F-gas report filename", () => {
+  it("uses property designation for single-property reports", () => {
+    expect(
+      buildAnnualFgasReportFilename(
+        {
+          facility: {
+            name: "Förskolan Åsen",
+            address: null,
+            municipality: "Malmö",
+            propertyDesignation: "Åsen 1:23",
+            propertyCount: 1,
+          },
+        },
+        2026
+      )
+    ).toBe("fgas-arsrapport-asen-1-23-2026.pdf")
+  })
+
+  it("uses a multi-property filename when several properties are included", () => {
+    expect(
+      buildAnnualFgasReportFilename(
+        {
+          facility: {
+            name: "2 fastigheter",
+            address: "Flera anläggningsadresser",
+            municipality: "Flera kommuner",
+            propertyDesignation: "Flera fastighetsbeteckningar",
+            propertyCount: 2,
+          },
+        },
+        2026
+      )
+    ).toBe("fgas-arsrapport-flera-fastigheter-2026.pdf")
   })
 })

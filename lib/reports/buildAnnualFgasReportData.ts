@@ -95,6 +95,14 @@ export async function buildAnnualFgasReportData({
     },
     include: {
       property: true,
+      assignedServicePartnerCompany: {
+        select: {
+          name: true,
+          contactEmail: true,
+          phone: true,
+          certificateNumber: true,
+        },
+      },
       assignedContractor: {
         select: {
           id: true,
@@ -114,6 +122,9 @@ export async function buildAnnualFgasReportData({
               servicePartnerCompany: {
                 select: {
                   name: true,
+                  contactEmail: true,
+                  phone: true,
+                  certificateNumber: true,
                 },
               },
             },
@@ -304,6 +315,11 @@ export async function buildAnnualFgasReportData({
     reportInstallations.find((installation) => installation.assignedContractor)
       ?.assignedContractor ?? null
   const primaryContractorCertification = primaryContractor?.memberships[0]
+  const primaryServicePartnerCompany =
+    reportInstallations.find((installation) => installation.assignedServicePartnerCompany)
+      ?.assignedServicePartnerCompany ??
+    primaryContractorCertification?.servicePartnerCompany ??
+    null
   const properties = Array.from(
     new Map(
       reportInstallations
@@ -377,16 +393,14 @@ export async function buildAnnualFgasReportData({
         trimmedMunicipality
       ),
       propertyDesignation: formatFacilityPropertyDesignation(properties),
+      propertyCount: properties.length,
     },
     responsibleContractor: {
-      name: primaryContractor?.name ?? null,
-      company:
-        primaryContractorCertification?.servicePartnerCompany?.name ??
-        primaryContractor?.company?.name ??
-        null,
-      email: primaryContractor?.email ?? null,
-      phone: primaryContractor?.company?.phone ?? null,
-      certificateNumber: primaryContractorCertification?.certificationNumber ?? null,
+      name: null,
+      company: primaryServicePartnerCompany?.name ?? null,
+      email: primaryServicePartnerCompany?.contactEmail ?? null,
+      phone: primaryServicePartnerCompany?.phone ?? null,
+      certificateNumber: primaryServicePartnerCompany?.certificateNumber ?? null,
     },
     signingMetadata: signingMetadata ?? null,
     certificateRegister,
@@ -499,6 +513,10 @@ function formatServicePartnerName(
 
 function buildCertificateRegister(
   installations: Array<{
+    assignedServicePartnerCompany: {
+      name: string
+      certificateNumber: string | null
+    } | null
     assignedContractor: {
       id: string
       name: string
@@ -507,7 +525,7 @@ function buildCertificateRegister(
         certificationNumber: string | null
         certificationOrganization: string | null
         certificationValidUntil: Date | null
-        servicePartnerCompany: { name: string } | null
+        servicePartnerCompany: { name: string; certificateNumber: string | null } | null
       }>
     } | null
   }>
@@ -523,10 +541,15 @@ function buildCertificateRegister(
       name: contractor.name,
       role: "Ansvarig tekniker/servicepartner",
       company:
+        installation.assignedServicePartnerCompany?.name ??
         certification?.servicePartnerCompany?.name ??
         contractor.company?.name ??
         null,
-      certificateNumber: certification?.certificationNumber ?? null,
+      certificateNumber:
+        installation.assignedServicePartnerCompany?.certificateNumber ??
+        certification?.servicePartnerCompany?.certificateNumber ??
+        certification?.certificationNumber ??
+        null,
       certificateOrganization: certification?.certificationOrganization ?? null,
       validUntil: certification?.certificationValidUntil ?? null,
     })

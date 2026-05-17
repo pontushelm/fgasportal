@@ -9,6 +9,7 @@ const servicePartnerCompanySchema = z.object({
   organizationNumber: optionalText(40),
   contactEmail: z.string().trim().email("Ogiltig e-postadress").optional().or(z.literal("")).transform((value) => value || null),
   phone: optionalText(40),
+  certificateNumber: optionalText(120),
   notes: optionalText(1000),
 })
 
@@ -94,6 +95,7 @@ const servicePartnerCompanySelect = {
   organizationNumber: true,
   contactEmail: true,
   phone: true,
+  certificateNumber: true,
   notes: true,
   createdAt: true,
   updatedAt: true,

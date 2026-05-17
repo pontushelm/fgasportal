@@ -15,6 +15,7 @@ type ServicePartnerCompanyDetail = {
     organizationNumber: string | null
     contactEmail: string | null
     phone: string | null
+    certificateNumber: string | null
     notes: string | null
   }
   metrics: {
@@ -234,6 +235,7 @@ export default function ServicePartnerCompanyDetailPageClient({
             />
             <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <DetailItem label="Organisationsnummer" value={data.company.organizationNumber} />
+              <DetailItem label="Företagscertifikat nr" value={data.company.certificateNumber} />
               <DetailItem label="E-post" value={data.company.contactEmail} />
               <DetailItem label="Telefon" value={data.company.phone} />
               <DetailItem

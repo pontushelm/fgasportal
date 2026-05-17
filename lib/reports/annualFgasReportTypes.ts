@@ -34,6 +34,7 @@ export type AnnualFgasReportData = {
     address: string | null
     municipality: string | null
     propertyDesignation: string | null
+    propertyCount: number
   }
   responsibleContractor: {
     name: string | null

@@ -5,6 +5,7 @@ import { AnnualReportTemplate } from "@/components/reports/AnnualFgasReportTempl
 import { logActivity } from "@/lib/activity-log"
 import { authenticateApiRequest, isContractor } from "@/lib/auth"
 import { buildAnnualFgasReportData } from "@/lib/reports/buildAnnualFgasReportData"
+import { buildAnnualFgasReportFilename } from "@/lib/reports/annualFgasReportFilename"
 import { generatePdfFromHtml } from "@/lib/reports/generatePdf"
 import { parseAnnualFgasSigningMetadata } from "@/lib/reports/annualFgasSigning"
 import {
@@ -115,7 +116,7 @@ export async function GET(request: NextRequest) {
       logger: (message, metadata) =>
         logAnnualReportRoute(requestId, message, metadata),
     })
-    const filename = `fgas-arsrapport-kontrollpliktiga-aggregat-${year}.pdf`
+    const filename = buildAnnualFgasReportFilename(report, year)
 
     const signedHistoryData =
       !historyRecord && signing.metadata

@@ -39,6 +39,7 @@ type ServicePartnerCompany = {
   organizationNumber: string | null
   contactEmail: string | null
   phone: string | null
+  certificateNumber: string | null
   notes: string | null
   createdAt?: string
   updatedAt?: string
@@ -49,6 +50,7 @@ type ServicePartnerCompanyForm = {
   organizationNumber: string
   contactEmail: string
   phone: string
+  certificateNumber: string
   notes: string
 }
 
@@ -71,6 +73,7 @@ type ServicePartnerCompanyMetrics = {
   organizationNumber: string | null
   contactEmail: string | null
   phone: string | null
+  certificateNumber: string | null
   notes: string | null
   isUnlinked: boolean
   linkedContactsCount: number
@@ -89,6 +92,7 @@ const emptyCompanyForm: ServicePartnerCompanyForm = {
   organizationNumber: "",
   contactEmail: "",
   phone: "",
+  certificateNumber: "",
   notes: "",
 }
 
@@ -243,6 +247,7 @@ export default function ContractorsOverviewPageClient() {
       organizationNumber: company.organizationNumber ?? "",
       contactEmail: company.contactEmail ?? "",
       phone: company.phone ?? "",
+      certificateNumber: company.certificateNumber ?? "",
       notes: company.notes ?? "",
     })
   }
@@ -419,6 +424,9 @@ export default function ContractorsOverviewPageClient() {
                           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                             {[
                               company.organizationNumber,
+                              company.certificateNumber
+                                ? `Certifikat ${company.certificateNumber}`
+                                : null,
                               company.contactEmail,
                               company.phone,
                             ]
@@ -473,6 +481,18 @@ export default function ContractorsOverviewPageClient() {
                     />
                   </label>
                 </div>
+                <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+                  Företagscertifikat nr
+                  <input
+                    className={inputClassName}
+                    name="certificateNumber"
+                    value={companyForm.certificateNumber}
+                    onChange={updateCompanyForm}
+                  />
+                  <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+                    Valfritt certifikatnummer för servicepartnerföretaget, inte enskild tekniker.
+                  </span>
+                </label>
                 <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
                   Kontakt e-post
                   <input
