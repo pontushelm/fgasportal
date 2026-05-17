@@ -45,6 +45,23 @@ type SendInvitationEmailInput = {
   role?: "OWNER" | "ADMIN" | "MEMBER" | "CONTRACTOR"
 }
 
+type SendFeedbackEmailInput = {
+  type: string
+  title: string
+  description: string
+  pageUrl: string | null
+  createdAt: Date
+  user: {
+    id: string | null
+    name: string | null
+    email: string | null
+  }
+  company: {
+    id: string | null
+    name: string | null
+  }
+}
+
 let resend: Resend | null = null
 
 export async function sendInspectionReminderEmail({
@@ -308,6 +325,56 @@ export async function sendInvitationEmail({
   return result.data
 }
 
+export async function sendFeedbackEmail(input: SendFeedbackEmailInput) {
+  const apiKey = requireEnv("RESEND_API_KEY")
+  const from = requireEnv("REMINDER_FROM_EMAIL")
+  const to = getOptionalEnv("FEEDBACK_TO_EMAIL") ?? getOptionalEnv("SUPPORT_EMAIL")
+
+  if (!to) {
+    throw new Error("FEEDBACK_TO_EMAIL or SUPPORT_EMAIL is required")
+  }
+
+  const text = [
+    "Ny feedback i FgasPortal",
+    "",
+    `Typ: ${input.type}`,
+    `Rubrik: ${input.title}`,
+    `Tidpunkt: ${input.createdAt.toISOString()}`,
+    "",
+    "Beskrivning:",
+    input.description,
+    "",
+    input.pageUrl ? `Sida: ${input.pageUrl}` : "Sida: Saknas",
+    "",
+    "Användare:",
+    `ID: ${input.user.id ?? "Saknas"}`,
+    `Namn: ${input.user.name ?? "Saknas"}`,
+    `E-post: ${input.user.email ?? "Saknas"}`,
+    "",
+    "Företag:",
+    `ID: ${input.company.id ?? "Saknas"}`,
+    `Namn: ${input.company.name ?? "Saknas"}`,
+    "",
+    "Vänliga hälsningar,",
+    "FgasPortal",
+  ].join("\n")
+
+  resend ??= new Resend(apiKey)
+
+  const result = await resend.emails.send({
+    from,
+    to,
+    subject: `FgasPortal feedback: ${input.title}`,
+    text,
+  })
+
+  if (result.error) {
+    throw new Error(result.error.message)
+  }
+
+  return result.data
+}
+
 function requireEnv(name: string) {
   const value = process.env[name]
 
@@ -316,6 +383,11 @@ function requireEnv(name: string) {
   }
 
   return value
+}
+
+function getOptionalEnv(name: string) {
+  const value = process.env[name]
+  return value?.trim() || null
 }
 
 function formatDate(date: Date) {

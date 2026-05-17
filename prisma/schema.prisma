@@ -32,6 +32,13 @@ enum UserRole {
   CONTRACTOR
 }
 
+enum FeedbackType {
+  BUG
+  IMPROVEMENT
+  QUESTION
+  OTHER
+}
+
 model Company {
   id                                   String   @id @default(cuid())
   name                                 String
@@ -67,6 +74,7 @@ model Company {
   savedFilters            SavedFilter[]
   signedAnnualFgasReports SignedAnnualFgasReport[]
   servicePartnerCompanies ServicePartnerCompany[]
+  feedback                Feedback[]
 
   @@map("companies")
 }
@@ -101,6 +109,7 @@ model User {
   savedFilters                  SavedFilter[]
   signedAnnualFgasReports       SignedAnnualFgasReport[]
   passwordResetTokens           PasswordResetToken[]
+  feedback                      Feedback[]
 
   @@map("users")
 }
@@ -416,4 +425,24 @@ model SignedAnnualFgasReport {
   @@index([reportYear])
   @@index([createdAt])
   @@map("signed_annual_fgas_reports")
+}
+
+model Feedback {
+  id          String       @id @default(cuid())
+  companyId   String?
+  userId      String?
+  type        FeedbackType
+  title       String
+  description String
+  pageUrl     String?
+  createdAt   DateTime     @default(now())
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("feedback")
 }
