@@ -153,6 +153,29 @@ describe("inspection reminder recipients", () => {
     expect(recipients).toEqual([admin])
   })
 
+  it("excludes internal users who disabled inspection reminder emails", () => {
+    const recipients = getReminderRecipients({
+      company: {
+        id: "company-a",
+        sendInspectionRemindersToContractors: true,
+        memberships: [
+          {
+            user: {
+              ...admin,
+              notifyInspectionReminderEmails: false,
+            },
+          },
+        ],
+      },
+      assignedContractor: {
+        ...contractor,
+        notifyInspectionReminderEmails: false,
+      },
+    })
+
+    expect(recipients).toEqual([])
+  })
+
   it("only includes assigned contractors when the company toggle is enabled", () => {
     const recipients = getReminderRecipients({
       company: {

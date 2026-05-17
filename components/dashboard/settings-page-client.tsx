@@ -30,7 +30,7 @@ type NotificationPreferences = Pick<
 >
 
 const notificationLabels: Record<keyof NotificationPreferences, string> = {
-  notifyAssignmentEmails: "Tilldelning av aggregat",
+  notifyAssignmentEmails: "Nya tilldelningar",
   notifyInspectionReminderEmails: "Kommande och försenade kontroller",
   notifyDocumentEmails: "Dokument kopplade till aggregat",
   notifyAnnualReportDeadlineEmails: "Kommande deadline för årsrapport",
@@ -39,15 +39,15 @@ const notificationLabels: Record<keyof NotificationPreferences, string> = {
 
 const notificationDescriptions: Record<keyof NotificationPreferences, string> = {
   notifyAssignmentEmails:
-    "E-post när du som servicekontakt får nya tilldelade aggregat.",
+    "E-post när aggregat eller åtkomst tilldelas dig som servicepartner.",
   notifyInspectionReminderEmails:
     "E-post om kontroller som är försenade eller behöver göras inom 30 dagar.",
   notifyDocumentEmails:
-    "Framtidsklar inställning för dokumentnotiser kopplade till aggregat.",
+    "E-post när nya dokument kopplas till aggregat.",
   notifyAnnualReportDeadlineEmails:
-    "Framtidsklar inställning för påminnelser inför årsrapportering.",
+    "E-post inför kommande årsrapportering.",
   notifyLeakEmails:
-    "Framtidsklar inställning för notiser om registrerade läckage.",
+    "E-post när nya läckage registreras.",
 }
 
 export default function SettingsPageClient() {
@@ -115,14 +115,17 @@ export default function SettingsPageClient() {
       return [
         "notifyAssignmentEmails",
         "notifyInspectionReminderEmails",
-        "notifyDocumentEmails",
+      ] satisfies Array<keyof NotificationPreferences>
+    }
+
+    if (currentUser.role === "MEMBER") {
+      return [
+        "notifyInspectionReminderEmails",
       ] satisfies Array<keyof NotificationPreferences>
     }
 
     return [
       "notifyInspectionReminderEmails",
-      "notifyDocumentEmails",
-      "notifyAnnualReportDeadlineEmails",
       "notifyLeakEmails",
     ] satisfies Array<keyof NotificationPreferences>
   }, [currentUser])
@@ -398,18 +401,24 @@ export default function SettingsPageClient() {
           <Card className="p-5">
             <SectionHeader
               title="Notifieringar"
-              subtitle="Välj vilka e-postnotiser du vill få för din roll."
+              subtitle="Välj vilka e-postnotiser du vill få"
             />
             <form className="mt-5 grid gap-4" onSubmit={handleNotificationSubmit}>
-              {visibleNotificationKeys.map((key) => (
-                <NotificationToggle
-                  checked={notifications[key]}
-                  description={notificationDescriptions[key]}
-                  key={key}
-                  label={notificationLabels[key]}
-                  onChange={(value) => updateNotificationPreference(key, value)}
-                />
-              ))}
+              {visibleNotificationKeys.length > 0 ? (
+                visibleNotificationKeys.map((key) => (
+                  <NotificationToggle
+                    checked={notifications[key]}
+                    description={notificationDescriptions[key]}
+                    key={key}
+                    label={notificationLabels[key]}
+                    onChange={(value) => updateNotificationPreference(key, value)}
+                  />
+                ))
+              ) : (
+                <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+                  Det finns inga e-postnotiser att ställa in för din roll just nu.
+                </p>
+              )}
               <div className="flex flex-wrap items-center gap-3">
                 <Button
                   disabled={isSavingNotifications}

@@ -21,9 +21,9 @@ export function getReminderRecipients(installation: {
 }) {
   const recipientsByEmail = new Map<string, ReminderRecipient>()
 
-  for (const { user: admin } of installation.company.memberships) {
-    if (admin.email) {
-      recipientsByEmail.set(admin.email.toLowerCase(), admin)
+  for (const { user: internalUser } of installation.company.memberships) {
+    if (internalUser.email && internalUser.notifyInspectionReminderEmails) {
+      recipientsByEmail.set(internalUser.email.toLowerCase(), internalUser)
     }
   }
 

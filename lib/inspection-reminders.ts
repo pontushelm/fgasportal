@@ -47,7 +47,7 @@ export async function sendInspectionReminders(
             where: {
               isActive: true,
               role: {
-                in: ["OWNER", "ADMIN"],
+                in: ["OWNER", "ADMIN", "MEMBER"],
               },
               user: {
                 isActive: true,
