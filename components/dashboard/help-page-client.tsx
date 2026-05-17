@@ -148,7 +148,7 @@ const helpSections: HelpSection[] = [
     summary: "Kort översikt över interna roller och servicepartneråtkomst.",
     icon: ShieldCheck,
     items: [
-      "OWNER kan hantera företag, fakturauppgifter, användare och bjuda in OWNER, ADMIN och MEMBER.",
+      "OWNER kan hantera företag, fakturauppgifter, användare, bjuda in ADMIN och MEMBER samt överföra ägarskap från användarlistan.",
       "ADMIN kan hantera operativ data och bjuda in MEMBER internt. Servicepartners bjuds fortfarande in via Servicepartners-flödet.",
       "MEMBER kan arbeta med registrerad data men har begränsad åtkomst till företagsinställningar.",
       "CONTRACTOR används för servicepartneranvändare och ska inte hanteras som vanliga interna användare i företagsinställningar.",

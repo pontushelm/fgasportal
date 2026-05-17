@@ -21,7 +21,7 @@ describe("company settings user roles", () => {
   })
 
   it("restricts internal invitation roles by inviter role", () => {
-    expect(canInviteInternalRole("OWNER", "OWNER")).toBe(true)
+    expect(canInviteInternalRole("OWNER", "OWNER")).toBe(false)
     expect(canInviteInternalRole("OWNER", "ADMIN")).toBe(true)
     expect(canInviteInternalRole("OWNER", "MEMBER")).toBe(true)
     expect(canInviteInternalRole("ADMIN", "MEMBER")).toBe(true)

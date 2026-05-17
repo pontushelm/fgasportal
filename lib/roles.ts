@@ -39,7 +39,7 @@ export function canInviteInternalRole(
   invitedRole: UserRole | string | undefined
 ) {
   if (inviterRole === "OWNER") {
-    return invitedRole === "OWNER" || invitedRole === "ADMIN" || invitedRole === "MEMBER"
+    return invitedRole === "ADMIN" || invitedRole === "MEMBER"
   }
 
   if (inviterRole === "ADMIN") {

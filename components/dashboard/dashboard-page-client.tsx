@@ -98,6 +98,7 @@ type DashboardData = {
   }
   statusDistribution: Record<ComplianceStatus, number>
   refrigerantDistribution: DistributionItem[]
+  actionItemTotal: number
   actionItems: ActionItem[]
 }
 
@@ -231,6 +232,7 @@ export default function DashboardPage() {
 
   const sortedActionItems = dashboardData?.actionItems ?? []
   const visibleActionItems = sortedActionItems.slice(0, ACTION_PREVIEW_LIMIT)
+  const totalActionItems = dashboardData?.actionItemTotal ?? sortedActionItems.length
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
@@ -309,7 +311,8 @@ export default function DashboardPage() {
               )}
               {visibleActionItems.length > 0 && (
                 <p className="mt-3 text-xs text-slate-500">
-                  Visar upp till fyra prioriterade åtgärder.
+                  Visar {visibleActionItems.length} prioriterade åtgärder av{" "}
+                  {totalActionItems}.
                 </p>
               )}
             </Card>
@@ -562,40 +565,45 @@ function AnnualReportsOverview({
           Inga registrerade fastigheter med aktiva aggregat hittades.
         </p>
       ) : (
-        <div className="mt-4 grid gap-2">
-          {visibleProperties.map((property) => (
-            <Link
-              className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm hover:bg-white sm:flex-row sm:items-center sm:justify-between"
-              href={`${property.href}&year=${status.year}`}
-              key={property.id}
-            >
-              <span className="min-w-0">
-                <span className="block truncate font-semibold text-slate-950">
-                  {property.name}
+        <>
+          <div className="mt-4 grid gap-2">
+            {visibleProperties.map((property) => (
+              <Link
+                className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm hover:bg-white sm:flex-row sm:items-center sm:justify-between"
+                href={`${property.href}&year=${status.year}`}
+                key={property.id}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-semibold text-slate-950">
+                    {property.name}
+                  </span>
+                  <span className="text-xs text-slate-600">
+                    {property.municipality || "Kommun saknas"} ·{" "}
+                    {formatWholeNumber(property.installedCo2eTon)} t installerad CO₂e
+                  </span>
                 </span>
-                <span className="text-xs text-slate-600">
-                  {property.municipality || "Kommun saknas"} ·{" "}
-                  {formatWholeNumber(property.installedCo2eTon)} t installerad CO₂e
-                </span>
-              </span>
-              <span className="flex flex-col gap-1 text-left sm:items-end sm:text-right">
-                <span className="flex flex-wrap items-center gap-2 sm:justify-end">
-                  <AnnualReportRequirementBadge status={property.requirementStatus} />
-                  {property.signedStatus ? (
-                    <AnnualReportSignedStatusText status={property.signedStatus} />
+                <span className="flex flex-col gap-1 text-left sm:items-end sm:text-right">
+                  <span className="flex flex-wrap items-center gap-2 sm:justify-end">
+                    <AnnualReportRequirementBadge status={property.requirementStatus} />
+                    {property.signedStatus ? (
+                      <AnnualReportSignedStatusText status={property.signedStatus} />
+                    ) : null}
+                  </span>
+                  {property.signedStatus &&
+                  property.blockingIssueCount + property.reviewWarningCount > 0 ? (
+                    <span className="text-xs font-medium text-slate-600">
+                      {property.blockingIssueCount} kräver komplettering,{" "}
+                      {property.reviewWarningCount} bör granskas
+                    </span>
                   ) : null}
                 </span>
-                {property.signedStatus &&
-                property.blockingIssueCount + property.reviewWarningCount > 0 ? (
-                  <span className="text-xs font-medium text-slate-600">
-                    {property.blockingIssueCount} kräver komplettering,{" "}
-                    {property.reviewWarningCount} bör granskas
-                  </span>
-                ) : null}
-              </span>
-            </Link>
-          ))}
-        </div>
+              </Link>
+            ))}
+          </div>
+          <p className="mt-3 text-xs text-slate-500">
+            Visar {visibleProperties.length} fastigheter av {status.properties.length}.
+          </p>
+        </>
       )}
     </Card>
   )

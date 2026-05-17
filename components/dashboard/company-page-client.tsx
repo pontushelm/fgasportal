@@ -146,6 +146,7 @@ export default function CompanySettingsPage() {
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null)
   const [transferTargetUser, setTransferTargetUser] =
     useState<CompanyUser | null>(null)
+  const [removeTargetUser, setRemoveTargetUser] = useState<CompanyUser | null>(null)
   const [isTransferringOwnership, setIsTransferringOwnership] = useState(false)
 
   useEffect(() => {
@@ -230,7 +231,7 @@ export default function CompanySettingsPage() {
   const canEditBilling = currentUser?.role === "OWNER"
   const canManageUsers = currentUser?.role === "OWNER"
   const internalInviteRoleOptions: UserRole[] =
-    currentUser?.role === "OWNER" ? ["OWNER", "ADMIN", "MEMBER"] : ["MEMBER"]
+    currentUser?.role === "OWNER" ? ["ADMIN", "MEMBER"] : ["MEMBER"]
   const selectedInvitationRole = internalInviteRoleOptions.includes(invitationForm.role)
     ? invitationForm.role
     : "MEMBER"
@@ -446,20 +447,21 @@ export default function CompanySettingsPage() {
     setUpdatingUserId(null)
   }
 
-  async function handleRemoveUser(user: CompanyUser) {
+  function handleRemoveUser(user: CompanyUser) {
     if (isTransferringOwnership) return
     setUserManagementError("")
     setUserManagementSuccess("")
+    setRemoveTargetUser(user)
+  }
 
-    const confirmed = window.confirm(
-      `Vill du ta bort ${user.name || user.email} från företaget? Användaren inaktiveras och kan inte längre logga in.`
-    )
+  async function handleConfirmRemoveUser() {
+    if (!removeTargetUser) return
 
-    if (!confirmed) return
+    setUserManagementError("")
+    setUserManagementSuccess("")
+    setUpdatingUserId(removeTargetUser.id)
 
-    setUpdatingUserId(user.id)
-
-    const res = await fetch(`/api/company/users/${user.id}`, {
+    const res = await fetch(`/api/company/users/${removeTargetUser.id}`, {
       method: "DELETE",
       credentials: "include",
     })
@@ -473,6 +475,7 @@ export default function CompanySettingsPage() {
     if (!res.ok) {
       setUserManagementError(result.error || "Kunde inte ta bort användaren")
       setUpdatingUserId(null)
+      setRemoveTargetUser(null)
       return
     }
 
@@ -484,6 +487,7 @@ export default function CompanySettingsPage() {
     }))
     setUserManagementSuccess("Användaren har inaktiverats")
     setUpdatingUserId(null)
+    setRemoveTargetUser(null)
   }
 
   async function handleTransferOwnership() {
@@ -567,7 +571,7 @@ export default function CompanySettingsPage() {
               <div>
                 <h2 className="text-xl font-semibold text-slate-950">Företagsuppgifter</h2>
                 <p className="mt-1 text-sm text-slate-700">
-                  Uppgifter som kan återanvändas i rapporter, exporter och dokumenthuvuden.
+                  Grunduppgifter som används i rapporter och dokument.
                 </p>
               </div>
               {canEditProfile && !isEditingProfile && (
@@ -658,12 +662,13 @@ export default function CompanySettingsPage() {
           </Card>
 
           {canViewBilling && (
-          <Card className="mt-8 p-5">
+          <Card className="mt-8 border-slate-200 bg-white/80 p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-slate-950">Fakturauppgifter</h2>
                 <p className="mt-1 text-sm text-slate-700">
-                  Uppgifter som används för fakturering. Endast ägare kan ändra dem.
+                  Valfria uppgifter för fakturering. Lämna tomt om de inte används.
+                  Endast ägare kan ändra dem.
                 </p>
               </div>
               {canEditBilling && !isEditingBilling && (
@@ -681,22 +686,37 @@ export default function CompanySettingsPage() {
               <form className="mt-5 grid gap-4 md:grid-cols-2" onSubmit={handleBillingSubmit}>
                 <label className={fieldClassName}>
                   Faktura-e-post
+                  <span className="text-xs font-normal text-slate-500">
+                    Valfri e-postadress för fakturor.
+                  </span>
                   <input className={inputClassName} name="billingEmail" type="email" value={billingForm.billingEmail} onChange={handleBillingChange} />
                 </label>
                 <label className={fieldClassName}>
                   Fakturareferens
+                  <span className="text-xs font-normal text-slate-500">
+                    Valfri referens, till exempel avdelning eller kostnadsställe.
+                  </span>
                   <input className={inputClassName} name="invoiceReference" value={billingForm.invoiceReference} onChange={handleBillingChange} />
                 </label>
                 <label className={fieldClassName}>
                   VAT-nummer
+                  <span className="text-xs font-normal text-slate-500">
+                    Valfritt momsregistreringsnummer.
+                  </span>
                   <input className={inputClassName} name="vatNumber" value={billingForm.vatNumber} onChange={handleBillingChange} />
                 </label>
                 <label className={fieldClassName}>
                   E-faktura-ID
+                  <span className="text-xs font-normal text-slate-500">
+                    Valfritt ID för e-faktura om det används.
+                  </span>
                   <input className={inputClassName} name="eInvoiceId" value={billingForm.eInvoiceId} onChange={handleBillingChange} />
                 </label>
                 <label className={`${fieldClassName} md:col-span-2`}>
                   Fakturaadress
+                  <span className="text-xs font-normal text-slate-500">
+                    Valfri adress om den skiljer sig från företagets ordinarie adress.
+                  </span>
                   <input className={inputClassName} name="billingAddress" value={billingForm.billingAddress} onChange={handleBillingChange} />
                 </label>
                 <div className="flex flex-wrap gap-2 md:col-span-2">
@@ -878,11 +898,50 @@ export default function CompanySettingsPage() {
               </Button>
               <Button
                 type="button"
-                variant="danger"
+                variant="primary"
                 disabled={isTransferringOwnership}
                 onClick={handleTransferOwnership}
               >
                 {isTransferringOwnership ? "Överför..." : "Fortsätt"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {removeTargetUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold text-slate-950">
+              Ta bort användare
+            </h2>
+            <p className="mt-3 text-sm text-slate-700">
+              Användaren inaktiveras och kan inte längre logga in i företagets
+              arbetsyta.
+            </p>
+            <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+              Användare:{" "}
+              <span className="font-semibold text-slate-950">
+                {removeTargetUser.name || removeTargetUser.email}
+              </span>
+            </p>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={updatingUserId === removeTargetUser.id}
+                onClick={() => setRemoveTargetUser(null)}
+              >
+                Avbryt
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={updatingUserId === removeTargetUser.id}
+                onClick={handleConfirmRemoveUser}
+              >
+                {updatingUserId === removeTargetUser.id
+                  ? "Tar bort..."
+                  : "Bekräfta"}
               </Button>
             </div>
           </div>

@@ -236,10 +236,11 @@ export async function GET(request: NextRequest) {
     const leakageInstallationCount = new Set(
       currentYearLeakageEvents.map((event) => event.installationId)
     ).size
-    const actionItems = generateDashboardActions({
+    const allActionItems = generateDashboardActions({
       installations: installationRows,
       leakageEvents,
-    }).slice(0, ACTION_PREVIEW_LIMIT)
+    })
+    const actionItems = allActionItems.slice(0, ACTION_PREVIEW_LIMIT)
     const co2eCompleteness = summarizeCo2eCompleteness(installationRows)
     const totalRefrigerantAmount = installationRows.reduce(
       (sum, installation) => sum + installation.refrigerantAmount,
@@ -335,6 +336,7 @@ export async function GET(request: NextRequest) {
           (first, second) => second.count - first.count
         ),
         installations: installationRows.sort(compareInstallations),
+        actionItemTotal: allActionItems.length,
         actionItems,
       },
       { status: 200 }
