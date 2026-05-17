@@ -90,6 +90,7 @@ export async function GET(request: NextRequest) {
     const report = await buildAnnualFgasReportData({
       companyId: auth.user.companyId,
       assignedContractorId: isContractor(auth.user) ? auth.user.userId : undefined,
+      contactUserId: historyRecord?.userId ?? auth.user.userId,
       municipality: municipality || undefined,
       propertyId: propertyId || undefined,
       signingMetadata: signing.metadata,

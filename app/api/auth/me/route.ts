@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
       select: {
         email: true,
         name: true,
+        phone: true,
         role: true,
         companyId: true,
         themePreference: true,
@@ -61,6 +62,7 @@ export async function GET(request: NextRequest) {
         activeMembershipId: membership?.id ?? null,
         email: user?.email ?? null,
         name: user?.name ?? null,
+        phone: user?.phone ?? null,
         themePreference: normalizeThemePreference(user?.themePreference),
         notifyAssignmentEmails: user?.notifyAssignmentEmails ?? true,
         notifyInspectionReminderEmails:

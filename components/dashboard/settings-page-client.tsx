@@ -13,6 +13,7 @@ type CurrentUser = {
   role: UserRole
   email?: string | null
   name?: string | null
+  phone?: string | null
   notifyAssignmentEmails: boolean
   notifyInspectionReminderEmails: boolean
   notifyDocumentEmails: boolean
@@ -54,6 +55,7 @@ export default function SettingsPageClient() {
   const router = useRouter()
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [name, setName] = useState("")
+  const [phone, setPhone] = useState("")
   const [notifications, setNotifications] =
     useState<NotificationPreferences | null>(null)
   const [passwordForm, setPasswordForm] = useState({
@@ -97,6 +99,7 @@ export default function SettingsPageClient() {
       if (!isMounted) return
       setCurrentUser(user)
       setName(user.name || "")
+      setPhone(user.phone || "")
       setNotifications(extractNotificationPreferences(user))
       setIsLoading(false)
     }
@@ -142,10 +145,11 @@ export default function SettingsPageClient() {
         "Content-Type": "application/json",
       },
       credentials: "include",
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, phone }),
     })
 
-    const result: { error?: string; name?: string } = await response.json()
+    const result: { error?: string; name?: string; phone?: string | null } =
+      await response.json()
 
     if (!response.ok) {
       setError(result.error || "Kunde inte spara profilen")
@@ -153,7 +157,11 @@ export default function SettingsPageClient() {
       return
     }
 
-    setCurrentUser((user) => (user ? { ...user, name: result.name || name } : user))
+    setCurrentUser((user) =>
+      user
+        ? { ...user, name: result.name || name, phone: result.phone ?? phone }
+        : user
+    )
     setProfileMessage("Profilen har sparats.")
     setIsSavingProfile(false)
   }
@@ -284,6 +292,21 @@ export default function SettingsPageClient() {
                   onChange={(event) => setName(event.target.value)}
                   required
                 />
+              </label>
+              <label className={labelClassName}>
+                Telefon
+                <input
+                  className={inputClassName}
+                  inputMode="tel"
+                  name="phone"
+                  placeholder="070-123 45 67"
+                  type="tel"
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                />
+                <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+                  Valfritt. Används som kontaktuppgift i årsrapporter.
+                </span>
               </label>
               <div className="grid gap-4 sm:grid-cols-2">
                 <ReadOnlyItem label="E-post" value={currentUser.email || "-"} />

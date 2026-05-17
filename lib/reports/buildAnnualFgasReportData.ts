@@ -18,6 +18,7 @@ const UNKNOWN_REFRIGERANT = "Okänt köldmedium"
 export async function buildAnnualFgasReportData({
   assignedContractorId,
   companyId,
+  contactUserId,
   municipality,
   propertyId,
   signingMetadata,
@@ -44,6 +45,30 @@ export async function buildAnnualFgasReportData({
       phone: true,
     },
   })
+  const reportContact = contactUserId
+    ? await prisma.user.findFirst({
+        where: {
+          id: contactUserId,
+          isActive: true,
+          OR: [
+            { companyId },
+            {
+              memberships: {
+                some: {
+                  companyId,
+                  isActive: true,
+                },
+              },
+            },
+          ],
+        },
+        select: {
+          name: true,
+          email: true,
+          phone: true,
+        },
+      })
+    : null
 
   const installations = await prisma.installation.findMany({
     where: {
@@ -279,11 +304,20 @@ export async function buildAnnualFgasReportData({
     reportInstallations.find((installation) => installation.assignedContractor)
       ?.assignedContractor ?? null
   const primaryContractorCertification = primaryContractor?.memberships[0]
-  const properties = reportInstallations
-    .map((installation) => installation.property)
-    .filter((property): property is NonNullable<typeof property> => Boolean(property))
+  const properties = Array.from(
+    new Map(
+      reportInstallations
+        .map((installation) => installation.property)
+        .filter((property): property is NonNullable<typeof property> => Boolean(property))
+        .map((property) => [property.id, property])
+    ).values()
+  )
   const uniqueMunicipalities = Array.from(
-    new Set(properties.map((property) => property.municipality).filter(Boolean))
+    new Set(
+      properties
+        .map((property) => property.municipality)
+        .filter((municipality): municipality is string => Boolean(municipality))
+    )
   )
   const addedRefrigerantKg = refrigerantHandlingLog.reduce(
     (sum, row) => sum + (row.addedKg ?? 0),
@@ -330,22 +364,19 @@ export async function buildAnnualFgasReportData({
       contactEmail: company.contactEmail,
       contactPhone: company.contactPhone || company.phone,
     },
+    contact: {
+      name: reportContact?.name ?? null,
+      email: reportContact?.email ?? null,
+      phone: reportContact?.phone ?? null,
+    },
     facility: {
-      name:
-        properties.length === 1
-          ? properties[0].name
-          : trimmedMunicipality
-            ? `Anläggningar i ${trimmedMunicipality}`
-            : "Samtliga kontrollpliktiga anläggningar",
-      address:
-        properties.length === 1
-          ? formatAddress(properties[0].address, properties[0].postalCode, properties[0].city)
-          : null,
-      municipality:
-        trimmedMunicipality ||
-        (uniqueMunicipalities.length === 1 ? uniqueMunicipalities[0] ?? null : null),
-      propertyDesignation:
-        properties.length === 1 ? properties[0].propertyDesignation : null,
+      name: formatFacilityName(properties, trimmedMunicipality),
+      address: formatFacilityAddress(properties),
+      municipality: formatFacilityMunicipality(
+        uniqueMunicipalities,
+        trimmedMunicipality
+      ),
+      propertyDesignation: formatFacilityPropertyDesignation(properties),
     },
     responsibleContractor: {
       name: primaryContractor?.name ?? null,
@@ -394,6 +425,53 @@ export async function buildAnnualFgasReportData({
     scrappedEquipment,
     notes: leakageNotes,
   }
+}
+
+function formatFacilityMunicipality(
+  municipalities: string[],
+  selectedMunicipality?: string
+) {
+  if (selectedMunicipality) return selectedMunicipality
+  if (municipalities.length === 1) return municipalities[0] ?? null
+  if (municipalities.length > 1) return "Flera kommuner"
+  return null
+}
+
+function formatFacilityName(
+  properties: Array<{ name: string }>,
+  municipality?: string
+) {
+  if (properties.length === 1) return properties[0].name
+  if (properties.length > 1) return `${properties.length} fastigheter`
+  if (municipality) return `Fastigheter i ${municipality}`
+  return "Flera fastigheter"
+}
+
+function formatFacilityAddress(
+  properties: Array<{
+    address: string | null
+    postalCode: string | null
+    city: string | null
+  }>
+) {
+  if (properties.length === 1) {
+    return formatAddress(
+      properties[0].address,
+      properties[0].postalCode,
+      properties[0].city
+    )
+  }
+
+  if (properties.length > 1) return "Flera anläggningsadresser"
+  return null
+}
+
+function formatFacilityPropertyDesignation(
+  properties: Array<{ propertyDesignation: string | null }>
+) {
+  if (properties.length === 1) return properties[0].propertyDesignation
+  if (properties.length > 1) return "Flera fastighetsbeteckningar"
+  return null
 }
 
 function formatServicePartnerName(

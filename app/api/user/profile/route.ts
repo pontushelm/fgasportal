@@ -5,6 +5,13 @@ import { prisma } from "@/lib/db"
 
 const updateProfileSchema = z.object({
   name: z.string().trim().min(2, "Namn måste vara minst 2 tecken").max(80),
+  phone: z
+    .string()
+    .trim()
+    .max(40, "Telefonnummer får vara högst 40 tecken")
+    .regex(/^[0-9+\-\s().]*$/, "Ange ett giltigt telefonnummer")
+    .optional()
+    .transform((value) => (value ? value : null)),
 })
 
 export async function PATCH(request: NextRequest) {
@@ -28,10 +35,12 @@ export async function PATCH(request: NextRequest) {
       },
       data: {
         name: validation.data.name,
+        phone: validation.data.phone,
       },
       select: {
         id: true,
         name: true,
+        phone: true,
         email: true,
         role: true,
       },

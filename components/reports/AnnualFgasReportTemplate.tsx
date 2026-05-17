@@ -26,10 +26,6 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
         <main className="report-page">
           <ReportHeader report={report} />
 
-          <ReportSection title="Anläggning">
-            <p className="strong">{report.facility.name}</p>
-          </ReportSection>
-
           <ReportSection title="Operatör">
             <div className="field-grid field-grid-2">
               <Field label="Företagsnamn" value={report.operator.name} />
@@ -41,9 +37,9 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
 
           <ReportSection title="Kontaktuppgifter">
             <div className="field-grid field-grid-3">
-              <Field label="Kontaktperson" value={report.operator.contactPerson} />
-              <Field label="E-post" value={report.operator.contactEmail} />
-              <Field label="Telefon" value={report.operator.contactPhone} />
+              <Field label="Kontaktperson" value={report.contact.name} />
+              <Field label="E-post" value={report.contact.email} />
+              <Field label="Telefon" value={report.contact.phone} />
             </div>
           </ReportSection>
 
@@ -182,16 +178,11 @@ export function ReportHeader({ report }: { report: AnnualFgasReportData }) {
   return (
     <header className="report-header">
       <div>
-        <h1>Årsrapport för kontrollpliktiga aggregat</h1>
-        <p>
-          Omfattar kontrollpliktiga aggregat, skrotade aggregat under rapportåret
-          och aggregat där kontrollplikt inte kan fastställas på grund av okänt
-          GWP-värde.
-        </p>
+        <h1>Årsrapport enligt 15 § Förordning (2016:1128) om fluorerade växthusgaser</h1>
         <p>Rapportår: {report.reportYear}</p>
       </div>
       <div className="header-meta">
-        <p>Genererad: {formatDate(report.generatedAt)}</p>
+        <p>Skapad: {formatDate(report.generatedAt)}</p>
       </div>
     </header>
   )
@@ -636,8 +627,9 @@ const annualReportPrintStyles = `
 
   .header-meta {
     color: #374151;
-    min-width: 90px;
+    min-width: 105px;
     text-align: right;
+    white-space: nowrap;
   }
 
   .report-section {

@@ -1,6 +1,7 @@
 export type AnnualFgasReportFilter = {
   companyId: string
   year: number
+  contactUserId?: string
   municipality?: string
   propertyId?: string
   assignedContractorId?: string
@@ -22,6 +23,11 @@ export type AnnualFgasReportData = {
     contactPerson: string | null
     contactEmail: string | null
     contactPhone: string | null
+  }
+  contact: {
+    name: string | null
+    email: string | null
+    phone: string | null
   }
   facility: {
     name: string
