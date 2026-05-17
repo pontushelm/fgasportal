@@ -324,7 +324,7 @@ export default function DashboardPage() {
           <section className="mt-8">
             <SectionHeader
               title="Statusöversikt"
-              description="Samlad bild av register, kontrollstatus och risk utan att ta över arbetsytan."
+              description="Samlad bild av register, kontrollstatus och risk."
             />
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               {SECONDARY_KPI_KEYS.map((key) => {
@@ -395,7 +395,6 @@ export default function DashboardPage() {
 
               <VisualCard
                 title="Köldmediestatus"
-                description="Operativa signaler för köldmedier som kan behöva följas upp."
                 tooltip="Visar aggregat med köldmedier som kan behöva kontrolleras mot gällande eller kommande F-gaskrav. Bedömningen är en operativ signal, inte ett juridiskt beslut."
                 subdued
               >

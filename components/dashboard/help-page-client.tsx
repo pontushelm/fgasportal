@@ -4,14 +4,16 @@ import Link from "next/link"
 import { type ComponentType, useState } from "react"
 import {
   BarChart3,
+  Bell,
   Building2,
   ChevronDown,
   ClipboardCheck,
-  FileSpreadsheet,
   FileText,
-  LifeBuoy,
   ListChecks,
+  MessageSquare,
+  ShieldCheck,
   Users,
+  Wrench,
 } from "lucide-react"
 import { Card, PageHeader, buttonClassName } from "@/components/ui"
 
@@ -26,74 +28,77 @@ type HelpSection = {
 
 const helpSections: HelpSection[] = [
   {
-    id: "start",
-    title: "Kom igång",
-    summary: "Grundflödet för att få organisationens register på plats.",
-    icon: LifeBuoy,
+    id: "dashboard",
+    title: "Dashboard",
+    summary: "F-gasöversikt för det som kräver uppmärksamhet först.",
+    icon: BarChart3,
     items: [
-      "Skapa aggregat manuellt när registret är litet eller uppgifterna behöver kontrolleras direkt.",
-      "Importera befintliga Excel- eller CSV-register och granska mappning, varningar och förhandsvisning före import.",
-      "Lägg upp fastigheter först om aggregat ska kopplas automatiskt via fastighetsnamn i importfilen.",
-      "Lägg till servicepartnerföretag och koppla valfri servicekontakt eller tekniker när den är känd.",
+      "F-gasöversikten visar Kräver uppmärksamhet, Att göra, årsrapportering, statusöversikt samt köldmedier och klimatpåverkan.",
+      "Kräver uppmärksamhet samlar försenade kontroller, kommande kontroller, läckage-CO₂e och årsrapporter som återstår.",
+      "Att göra visar ett kort urval av prioriterade uppföljningar. Öppna Åtgärder för filtrering, sparade vyer och hela arbetskön.",
+      "Statusöversikt och köldmedier/klimatpåverkan är sekundär översikt för kontrollstatus, risk, installerad CO₂e och köldmediestatus.",
+    ],
+    links: [
+      { href: "/dashboard", label: "Dashboard" },
+      { href: "/dashboard/actions", label: "Åtgärder" },
+    ],
+  },
+  {
+    id: "installations",
+    title: "Aggregat",
+    summary: "Register, filtrering, massåtgärder, import och historik.",
+    icon: ClipboardCheck,
+    items: [
+      "Aggregat-ID / märkning är den primära identiteten och används vid registerarbete, import och händelseimport.",
+      "Aggregatlistan stödjer sök, filter och sorterbara kolumner för bland annat placering, servicepartner, köldmedium, mängd, CO₂e och kontrollstatus.",
+      "Markerade aggregat kan massuppdateras med servicepartner, fastighet eller arkivering. Listan uppdateras lokalt där det är säkert för ett smidigare arbetsflöde.",
+      "Arkivering och skrotning är livscykelåtgärder. Permanent borttagning är bara avsett för felregistreringar.",
+      "Importera aggregat från Excel/CSV och importera historiska händelser i separata, strukturerade flöden.",
     ],
     links: [
       { href: "/dashboard/installations", label: "Aggregat" },
-      { href: "/dashboard/properties", label: "Fastigheter" },
-      { href: "/dashboard/contractors", label: "Servicepartners" },
+      { href: "/dashboard/installations/import", label: "Importera aggregat" },
+      { href: "/dashboard/installations/import-events", label: "Importera händelser" },
     ],
   },
   {
-    id: "status",
-    title: "Aggregat och kontrollstatus",
-    summary: "Hur kontrollplikt, intervall, status och risk visas i systemet.",
-    icon: ClipboardCheck,
+    id: "properties",
+    title: "Fastigheter",
+    summary: "Fastighetsöversikt med rapportkrav, klimatpåverkan och operativ status.",
+    icon: Building2,
     items: [
-      "Kontrollplikt baseras på köldmedium, fyllnadsmängd och beräknad CO₂e där GWP är känt.",
-      "Kontrollintervall och nästa kontroll används för att visa OK, kommande, försenade och ej kontrollerade aggregat.",
-      "Risknivåer hjälper till att prioritera aggregat med hög klimatpåverkan, läckagehistorik eller bristande uppföljning.",
-      "Arkivering och skrotning ska hanteras via livscykelåtgärder så historiken förblir spårbar.",
+      "Fastighetssidorna visar kopplade aggregat, kontrollstatus, risk, servicepartners och senaste händelser.",
+      "Rapportöversikt visar om årsrapport krävs per fastighet utifrån installerad CO₂e för kontrollpliktiga stationära aggregat.",
+      "Fastigheter kan följas upp med klimatpåverkan från installerade köldmedier och registrerade läckage.",
+      "Länkar från fastighetssidan leder vidare till filtrerade åtgärder, aggregat och årsrapportering där det är relevant.",
     ],
-    links: [{ href: "/dashboard/installations", label: "Se aggregat" }],
+    links: [{ href: "/dashboard/properties", label: "Fastigheter" }],
   },
   {
-    id: "import",
-    title: "Import av aggregat",
-    summary: "Vad importen förväntar sig och varför vissa rader får varningar.",
-    icon: FileSpreadsheet,
-    items: [
-      "Aggregat-ID / märkning är den primära identiteten och används för att känna igen aggregat i register.",
-      "Aggregatnamn eller benämning är valfritt. Om namn saknas kan Aggregat-ID användas som visningsnamn.",
-      "Fastigheter kopplas bara om fastigheten redan finns i FgasPortal och namnet matchar importfilen.",
-      "GWP och CO₂e beräknas normalt av systemet och behöver inte importeras.",
-      "Varningar betyder oftast att raden kan importeras men behöver granskas, till exempel vid okänd fastighet eller ofullständig data.",
-    ],
-    links: [{ href: "/dashboard/installations", label: "Öppna import" }],
-  },
-  {
-    id: "reports",
-    title: "Årsrapport",
-    summary: "Stöd för årlig F-gasrapportering och spårbar dokumentation.",
-    icon: FileText,
-    items: [
-      "Årsrapporten sammanställer kontrollpliktiga aggregat, köldmedier, mängder och relevanta händelser för valt år.",
-      "Rapporten används som underlag för intern uppföljning, myndighetsdialog och kommunala complianceflöden.",
-      "Export och signering görs utifrån den data som finns registrerad för organisationen och valt rapportår.",
-      "Aktivitetslogg, händelser och dokument bidrar till spårbarhet när uppgifter behöver kontrolleras i efterhand.",
-    ],
-    links: [{ href: "/dashboard/reports", label: "Rapporter" }],
-  },
-  {
-    id: "contacts",
+    id: "servicepartners",
     title: "Servicepartners",
-    summary: "Servicepartnerföretag, valfria kontakter, certifikat och tilldelning av aggregat.",
+    summary: "Servicepartnerföretag är primär tilldelning, kontaktperson är valfri.",
     icon: Users,
     items: [
-      "Ett servicepartnerföretag är den primära externa parten som aggregat tilldelas till.",
-      "Servicekontakt eller tekniker är valfri operativ metadata och kan kopplas när en primär kontakt behövs.",
-      "Certifikatuppgifter hjälper organisationen att följa behörighet och kommande certifikatslutdatum.",
-      "Tilldelning av aggregat görs i första hand till servicepartnerföretag och kan kompletteras med ansvarig tekniker.",
+      "Aggregat tilldelas i första hand till servicepartnerföretag. Servicekontakt / tekniker är valfri sekundär metadata.",
+      "Servicepartners bjuds in från servicepartnersidan, inte från den interna användarlistan i företagsinställningar.",
+      "Servicepartneröversikten grupperar kontakter under företag och visar kopplade aggregat via företagstilldelning och kontaktkoppling.",
+      "Servicepartneranvändare kan arbeta i servicevyn och registrera relevanta händelser enligt sin åtkomst.",
     ],
     links: [{ href: "/dashboard/contractors", label: "Servicepartners" }],
+  },
+  {
+    id: "events",
+    title: "Händelser",
+    summary: "Strukturerad historik för kontroller, läckage och köldmediehantering.",
+    icon: Wrench,
+    items: [
+      "Händelser omfattar kontroller, läckage, påfyllning, service/reparation, tömning/återvinning, köldmediebyte och skrotning.",
+      "Byte av köldmedium och återvinning/tömning sparar strukturerade fält där det finns stöd, så årsrapport och historik blir mer tillförlitliga.",
+      "Felregistrerade händelser korrigeras genom en ersättningshändelse. Den gamla händelsen finns kvar som ersatt men räknas inte i rapporter och beräkningar.",
+      "Historiska händelser kan importeras från strukturerade Excel/CSV-filer och kopplas till befintliga aggregat via Aggregat-ID.",
+    ],
+    links: [{ href: "/dashboard/installations", label: "Aggregat" }],
   },
   {
     id: "actions",
@@ -109,6 +114,56 @@ const helpSections: HelpSection[] = [
     links: [
       { href: "/dashboard", label: "Dashboard" },
       { href: "/dashboard/actions", label: "Åtgärder" },
+    ],
+  },
+  {
+    id: "reports",
+    title: "Rapporter",
+    summary: "Årsrapport, readiness, varningar, signering och PDF-export.",
+    icon: FileText,
+    items: [
+      "Årlig F-gasrapport kan skapas för valt år och filtreras på fastighet där det är relevant.",
+      "Rapporten visar readiness och varningar för uppgifter som bör kontrolleras, till exempel okänt GWP, saknade mängder eller ofullständiga service-/certifikatuppgifter.",
+      "PDF-export finns för rapporten. Signering light sparar metadata om vem som intygat rapporten och när.",
+      "Signerade rapporter visas i historik och kan återskapas utifrån sparad signeringsinformation och aktuell systemdata.",
+    ],
+    links: [{ href: "/dashboard/reports", label: "Rapporter" }],
+  },
+  {
+    id: "notifications",
+    title: "Notifieringar",
+    summary: "E-post för påminnelser och viktiga operativa händelser.",
+    icon: Bell,
+    items: [
+      "Kontrollpåminnelser skickas enligt befintlig påminnelselogik och personliga notifieringsinställningar.",
+      "Tilldelningsmejl används när aggregat kopplas till servicepartner/servicekontakt där flödet stöder det.",
+      "Läckagenotiser kan skickas till ansvariga interna roller när läckage registreras.",
+      "Mina inställningar styr personliga notifieringsval för bland annat kontrollpåminnelser, tilldelningar och läckage.",
+    ],
+    links: [{ href: "/dashboard/settings", label: "Mina inställningar" }],
+  },
+  {
+    id: "roles",
+    title: "Roller och behörighet",
+    summary: "Kort översikt över interna roller och servicepartneråtkomst.",
+    icon: ShieldCheck,
+    items: [
+      "OWNER kan hantera företag, fakturauppgifter, användare och bjuda in OWNER, ADMIN och MEMBER.",
+      "ADMIN kan hantera operativ data och bjuda in MEMBER internt. Servicepartners bjuds fortfarande in via Servicepartners-flödet.",
+      "MEMBER kan arbeta med registrerad data men har begränsad åtkomst till företagsinställningar.",
+      "CONTRACTOR används för servicepartneranvändare och ska inte hanteras som vanliga interna användare i företagsinställningar.",
+    ],
+    links: [{ href: "/dashboard/company", label: "Företagsinställningar" }],
+  },
+  {
+    id: "feedback",
+    title: "Feedback under pilot",
+    summary: "Skicka buggar, frågor och förbättringsförslag direkt från systemet.",
+    icon: MessageSquare,
+    items: [
+      "Använd Skicka feedback i sidomenyn för buggar, frågor, förbättringsförslag eller annan återkoppling.",
+      "Formuläret skickar automatiskt med aktuell sida, användare, företag och tidpunkt.",
+      "Feedback är avsedd för snabb pilotdialog och är inte ett separat ärende- eller supportflöde.",
     ],
   },
 ]
@@ -129,10 +184,20 @@ const faqItems = [
     answer:
       "Använd arkivering eller skrotning när aggregatet faktiskt lämnar det aktiva registret. Permanent borttagning är bara för felaktiga registreringar.",
   },
+  {
+    question: "Var bjuder jag in servicepartners?",
+    answer:
+      "Servicepartners bjuds in från sidan Servicepartners. Interna användare hanteras i företagsinställningar och ska inte blandas ihop med servicepartnerkontakter.",
+  },
+  {
+    question: "Hur lämnar pilotanvändare feedback?",
+    answer:
+      "Klicka på Skicka feedback i sidomenyn. Systemet skickar med aktuell sida, användare och företag så att återkopplingen går snabbare att förstå.",
+  },
 ]
 
 export default function HelpPageClient() {
-  const [openSectionIds, setOpenSectionIds] = useState<string[]>(["start", "actions"])
+  const [openSectionIds, setOpenSectionIds] = useState<string[]>(["dashboard", "installations"])
 
   function toggleSection(sectionId: string) {
     setOpenSectionIds((current) =>
@@ -171,14 +236,17 @@ export default function HelpPageClient() {
                 <div>
                   <h2 className="font-semibold text-slate-950">Snabb väg in</h2>
                   <p className="mt-1 text-sm leading-6 text-slate-600">
-                    De vanligaste pilotflödena börjar med register, fastigheter,
-                    åtgärder eller årsrapport.
+                    De vanligaste pilotflödena börjar med dashboard, aggregat,
+                    åtgärder eller årsrapportering.
                   </p>
                 </div>
               </div>
               <div className="mt-4 grid gap-2">
                 <Link className={buttonClassName({ className: "justify-start" })} href="/dashboard/installations">
                   Aggregat
+                </Link>
+                <Link className={buttonClassName({ className: "justify-start" })} href="/dashboard/properties">
+                  Fastigheter
                 </Link>
                 <Link className={buttonClassName({ className: "justify-start" })} href="/dashboard/actions">
                   Åtgärder
