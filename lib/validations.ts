@@ -179,6 +179,7 @@ export const createInvitationSchema = z.object({
   email: z.string().email("Ogiltig emailadress"),
   role: z.enum(["OWNER", "ADMIN", "MEMBER", "CONTRACTOR"]),
   servicePartnerCompanyId: z.string().min(1).optional(),
+  isServicePartnerAdminInvite: z.boolean().optional(),
 })
 
 export type CreateInvitationData = z.infer<typeof createInvitationSchema>

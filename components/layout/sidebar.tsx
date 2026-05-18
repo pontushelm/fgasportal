@@ -16,6 +16,8 @@ type CurrentUser = {
   email: string | null
   name: string | null
   role: UserRole
+  servicePartnerCompanyId: string | null
+  isServicePartnerAdmin: boolean
   memberships: UserMembership[]
 }
 
@@ -24,6 +26,8 @@ type UserMembership = {
   companyId: string
   companyName: string
   role: UserRole
+  servicePartnerCompanyId: string | null
+  isServicePartnerAdmin: boolean
 }
 
 type NavigationItem = {
@@ -70,6 +74,7 @@ const primaryNavigation: NavigationItem[] = [
     roles: ["OWNER", "ADMIN", "MEMBER"],
   },
   { href: "/dashboard/service", label: "Serviceuppdrag", roles: ["CONTRACTOR"] },
+  { href: "/dashboard/installations", label: "Mina aggregat", roles: ["CONTRACTOR"] },
 ]
 
 const secondaryNavigation: NavigationItem[] = [
@@ -124,12 +129,12 @@ export function Sidebar() {
   }, [router])
 
   const visiblePrimaryItems = useMemo(
-    () => filterNavigationByRole(primaryNavigation, currentUser?.role),
-    [currentUser?.role]
+    () => getPrimaryNavigation(currentUser),
+    [currentUser]
   )
   const visibleSecondaryItems = useMemo(
-    () => filterNavigationByRole(secondaryNavigation, currentUser?.role),
-    [currentUser?.role]
+    () => getSecondaryNavigation(currentUser),
+    [currentUser]
   )
   const homeHref =
     currentUser?.role === "CONTRACTOR" ? "/dashboard/service" : "/dashboard"
@@ -603,4 +608,49 @@ function filterNavigationByRole(
   role: UserRole | undefined
 ) {
   return items.filter((item) => !item.roles || (role && item.roles.includes(role)))
+}
+
+function getPrimaryNavigation(currentUser: CurrentUser | null) {
+  if (currentUser?.role !== "CONTRACTOR") {
+    return filterNavigationByRole(primaryNavigation, currentUser?.role)
+  }
+
+  const items: NavigationItem[] = [
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/dashboard/service", label: "Serviceuppdrag" },
+    {
+      href: "/dashboard/installations",
+      label: currentUser.isServicePartnerAdmin ? "Aggregat" : "Mina aggregat",
+    },
+  ]
+
+  return items
+}
+
+function getSecondaryNavigation(currentUser: CurrentUser | null) {
+  if (currentUser?.role === "CONTRACTOR") {
+    const items: NavigationItem[] = []
+
+    if (currentUser.isServicePartnerAdmin) {
+      items.push({
+        href: "/dashboard/company",
+        label: "Företagsinställningar",
+      })
+    }
+
+    items.push(
+      {
+        href: "/dashboard/settings",
+        label: "Mina inställningar",
+      },
+      {
+        href: "/dashboard/help",
+        label: "Hjälp",
+      }
+    )
+
+    return items
+  }
+
+  return filterNavigationByRole(secondaryNavigation, currentUser?.role)
 }

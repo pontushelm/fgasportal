@@ -111,12 +111,27 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = createInvitationSchema.parse(body)
     const isServicePartnerInvite = validatedData.role === "CONTRACTOR"
+    const isServicePartnerTechnicianInvite =
+      auth.user.role === "CONTRACTOR" &&
+      Boolean(auth.user.isServicePartnerAdmin) &&
+      Boolean(auth.user.servicePartnerCompanyId) &&
+      isServicePartnerInvite
+    const servicePartnerCompanyIdForInvite = isServicePartnerTechnicianInvite
+      ? auth.user.servicePartnerCompanyId
+      : validatedData.servicePartnerCompanyId
+    const isServicePartnerAdminInvite = isServicePartnerTechnicianInvite
+      ? false
+      : validatedData.isServicePartnerAdminInvite ?? true
     const invitationMetadata = getServicePartnerInvitationMetadata({
       role: validatedData.role,
-      servicePartnerCompanyId: validatedData.servicePartnerCompanyId,
+      isServicePartnerAdminInvite,
+      servicePartnerCompanyId: servicePartnerCompanyIdForInvite,
     })
 
-    if (
+    if (isServicePartnerTechnicianInvite) {
+      // Servicepartner admins may only invite technicians into their own
+      // servicepartner company. Internal/customer roles stay unavailable here.
+    } else if (
       isServicePartnerInvite
         ? !canInviteServicePartners(auth.user.role)
         : !canInviteInternalUsers(auth.user.role)
@@ -246,6 +261,7 @@ export async function POST(request: NextRequest) {
         token,
         companyId,
         servicePartnerCompanyId: invitationMetadata.servicePartnerCompanyId,
+        isServicePartnerAdminInvite: invitationMetadata.isServicePartnerAdmin,
         invitedByUserId: userId,
         expiresAt,
       },

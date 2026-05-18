@@ -158,6 +158,7 @@ async function registerInvitedUser(data: InvitedRegisterData) {
   const invitedRole = normalizeInvitedUserRole(invitation.role)
   const invitationMetadata = getServicePartnerInvitationMetadata({
     role: invitedRole,
+    isServicePartnerAdminInvite: invitation.isServicePartnerAdminInvite,
     servicePartnerCompanyId: invitation.servicePartnerCompanyId,
   })
   const user = await prisma.$transaction(async (tx) => {

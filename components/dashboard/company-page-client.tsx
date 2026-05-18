@@ -76,11 +76,29 @@ type CurrentUser = {
   userId: string
   companyId: string
   role: UserRole
+  servicePartnerCompanyId: string | null
+  isServicePartnerAdmin: boolean
 }
 
 type InvitationFormData = {
   email: string
   role: UserRole
+}
+
+type ServicePartnerSettings = {
+  id: string
+  name: string
+  organizationNumber: string | null
+  contactEmail: string | null
+  phone: string | null
+  certificateNumber: string | null
+}
+
+type ServicePartnerSettingsFormData = {
+  name: string
+  contactEmail: string
+  phone: string
+  certificateNumber: string
 }
 
 const initialInvitationFormData: InvitationFormData = {
@@ -106,6 +124,13 @@ const initialBillingFormData: BillingFormData = {
   eInvoiceId: "",
 }
 
+const initialServicePartnerSettingsFormData: ServicePartnerSettingsFormData = {
+  name: "",
+  contactEmail: "",
+  phone: "",
+  certificateNumber: "",
+}
+
 const fieldClassName = "grid gap-1 text-sm font-medium text-slate-700"
 const inputClassName = "rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400"
 
@@ -116,6 +141,8 @@ export default function CompanySettingsPage() {
     invitations: [],
   })
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null)
+  const [servicePartnerSettings, setServicePartnerSettings] =
+    useState<ServicePartnerSettings | null>(null)
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [profileForm, setProfileForm] = useState<CompanyProfileFormData>(
     initialProfileFormData
@@ -123,20 +150,32 @@ export default function CompanySettingsPage() {
   const [billingForm, setBillingForm] = useState<BillingFormData>(
     initialBillingFormData
   )
+  const [servicePartnerSettingsForm, setServicePartnerSettingsForm] =
+    useState<ServicePartnerSettingsFormData>(
+      initialServicePartnerSettingsFormData
+    )
   const [invitationForm, setInvitationForm] = useState<InvitationFormData>(
     initialInvitationFormData
   )
   const [isLoading, setIsLoading] = useState(true)
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [isEditingBilling, setIsEditingBilling] = useState(false)
+  const [isEditingServicePartnerSettings, setIsEditingServicePartnerSettings] =
+    useState(false)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [isSavingBilling, setIsSavingBilling] = useState(false)
+  const [isSavingServicePartnerSettings, setIsSavingServicePartnerSettings] =
+    useState(false)
   const [isSubmittingInvite, setIsSubmittingInvite] = useState(false)
   const [error, setError] = useState("")
   const [profileError, setProfileError] = useState("")
   const [profileSuccess, setProfileSuccess] = useState("")
   const [billingError, setBillingError] = useState("")
   const [billingSuccess, setBillingSuccess] = useState("")
+  const [servicePartnerSettingsError, setServicePartnerSettingsError] =
+    useState("")
+  const [servicePartnerSettingsSuccess, setServicePartnerSettingsSuccess] =
+    useState("")
   const [inviteError, setInviteError] = useState("")
   const [inviteSuccess, setInviteSuccess] = useState("")
   const [inviteWarning, setInviteWarning] = useState("")
@@ -172,6 +211,44 @@ export default function CompanySettingsPage() {
       const accessUser: CurrentUser = await accessRes.json()
 
       if (!isMounted) return
+
+      if (accessUser.role === "CONTRACTOR") {
+        if (!accessUser.isServicePartnerAdmin) {
+          setCurrentUser(accessUser)
+          setError("Företagsinställningar är bara tillgängliga för ansvarig servicepartner.")
+          setIsLoading(false)
+          return
+        }
+
+        const servicePartnerRes = await fetch("/api/dashboard/service/company", {
+          credentials: "include",
+        })
+
+        if (servicePartnerRes.status === 401) {
+          router.push("/login")
+          return
+        }
+
+        if (!servicePartnerRes.ok) {
+          if (!isMounted) return
+          setCurrentUser(accessUser)
+          setError("Kunde inte hämta servicepartnerinställningar")
+          setIsLoading(false)
+          return
+        }
+
+        const servicePartnerData: ServicePartnerSettings =
+          await servicePartnerRes.json()
+
+        if (!isMounted) return
+        setCurrentUser(accessUser)
+        setServicePartnerSettings(servicePartnerData)
+        setServicePartnerSettingsForm(
+          toServicePartnerSettingsFormData(servicePartnerData)
+        )
+        setIsLoading(false)
+        return
+      }
 
       const [companyRes, userRes, invitationsRes] = await Promise.all([
         fetch("/api/company", {
@@ -252,6 +329,15 @@ export default function CompanySettingsPage() {
   function handleBillingChange(event: React.ChangeEvent<HTMLInputElement>) {
     setBillingForm({
       ...billingForm,
+      [event.target.name]: event.target.value,
+    })
+  }
+
+  function handleServicePartnerSettingsChange(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    setServicePartnerSettingsForm({
+      ...servicePartnerSettingsForm,
       [event.target.name]: event.target.value,
     })
   }
@@ -343,6 +429,42 @@ export default function CompanySettingsPage() {
     setIsSavingBilling(false)
   }
 
+  async function handleServicePartnerSettingsSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    setServicePartnerSettingsError("")
+    setServicePartnerSettingsSuccess("")
+    setIsSavingServicePartnerSettings(true)
+
+    const res = await fetch("/api/dashboard/service/company", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify(servicePartnerSettingsForm),
+    })
+    const result: ServicePartnerSettings & { error?: string } = await res.json()
+
+    if (res.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!res.ok) {
+      setServicePartnerSettingsError(
+        result.error || "Kunde inte spara servicepartneruppgifter"
+      )
+      setIsSavingServicePartnerSettings(false)
+      return
+    }
+
+    setServicePartnerSettings(result)
+    setServicePartnerSettingsForm(toServicePartnerSettingsFormData(result))
+    setIsEditingServicePartnerSettings(false)
+    setServicePartnerSettingsSuccess("Servicepartneruppgifterna har sparats")
+    setIsSavingServicePartnerSettings(false)
+  }
+
   async function handleInviteSubmit(event: React.FormEvent) {
     event.preventDefault()
     setInviteError("")
@@ -401,6 +523,56 @@ export default function CompanySettingsPage() {
       const refreshedData: CompanySettingsData = await refreshRes.json()
       setData(refreshedData)
     }
+  }
+
+  async function handleTechnicianInviteSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    setInviteError("")
+    setInviteSuccess("")
+    setInviteWarning("")
+    setInviteLink("")
+    setIsSubmittingInvite(true)
+
+    const res = await fetch("/api/company/invitations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        email: invitationForm.email,
+        role: "CONTRACTOR",
+      }),
+    })
+    const result: {
+      error?: string
+      message?: string
+      emailSent?: boolean
+      inviteLink?: string
+    } = await res.json()
+
+    if (res.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!res.ok) {
+      setInviteError(result.error || "Kunde inte bjuda in tekniker")
+      setIsSubmittingInvite(false)
+      return
+    }
+
+    if (result.emailSent === false) {
+      setInviteWarning(
+        result.message ||
+          "Inbjudan skapad, men e-post kunde inte skickas. Använd inbjudningslänken nedan."
+      )
+    } else {
+      setInviteSuccess(result.message || "Teknikern har bjudits in.")
+    }
+    setInviteLink(result.inviteLink || "")
+    setInvitationForm(initialInvitationFormData)
+    setIsSubmittingInvite(false)
   }
 
   async function handleRoleChange(user: CompanyUser, role: UserRole) {
@@ -564,7 +736,45 @@ export default function CompanySettingsPage() {
       {isLoading && <p className="mt-8 text-slate-700">Laddar...</p>}
       {error && <p className="mt-8 font-semibold text-red-700">{error}</p>}
 
-      {!isLoading && !error && companyProfile && (
+      {!isLoading &&
+        !error &&
+        currentUser?.role === "CONTRACTOR" &&
+        servicePartnerSettings && (
+          <>
+          <ServicePartnerSettingsPanel
+            error={servicePartnerSettingsError}
+            form={servicePartnerSettingsForm}
+            isEditing={isEditingServicePartnerSettings}
+            isSaving={isSavingServicePartnerSettings}
+            settings={servicePartnerSettings}
+            success={servicePartnerSettingsSuccess}
+            onCancel={() => {
+              setServicePartnerSettingsForm(
+                toServicePartnerSettingsFormData(servicePartnerSettings)
+              )
+              setIsEditingServicePartnerSettings(false)
+              setServicePartnerSettingsError("")
+            }}
+            onChange={handleServicePartnerSettingsChange}
+            onEdit={() => setIsEditingServicePartnerSettings(true)}
+            onSubmit={handleServicePartnerSettingsSubmit}
+          />
+          <ServicePartnerTechnicianInvitePanel
+            email={invitationForm.email}
+            error={inviteError}
+            inviteLink={inviteLink}
+            isSubmitting={isSubmittingInvite}
+            success={inviteSuccess}
+            warning={inviteWarning}
+            onChange={(email) =>
+              setInvitationForm({ ...initialInvitationFormData, email })
+            }
+            onSubmit={handleTechnicianInviteSubmit}
+          />
+          </>
+        )}
+
+      {!isLoading && !error && currentUser?.role !== "CONTRACTOR" && companyProfile && (
         <>
           <Card className="mt-8 p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -966,6 +1176,183 @@ function ProfileItem({
   )
 }
 
+function ServicePartnerSettingsPanel({
+  error,
+  form,
+  isEditing,
+  isSaving,
+  onCancel,
+  onChange,
+  onEdit,
+  onSubmit,
+  settings,
+  success,
+}: {
+  error: string
+  form: ServicePartnerSettingsFormData
+  isEditing: boolean
+  isSaving: boolean
+  onCancel: () => void
+  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void
+  onEdit: () => void
+  onSubmit: (event: React.FormEvent) => void
+  settings: ServicePartnerSettings
+  success: string
+}) {
+  return (
+    <Card className="mt-8 p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-950">
+            Servicepartnerföretag
+          </h2>
+          <p className="mt-1 text-sm text-slate-700">
+            Uppgifter för ert servicepartnerföretag i kundens arbetsyta.
+          </p>
+        </div>
+        {!isEditing && (
+          <button
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+            type="button"
+            onClick={onEdit}
+          >
+            Redigera
+          </button>
+        )}
+      </div>
+
+      {isEditing ? (
+        <form className="mt-5 grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
+          <label className={fieldClassName}>
+            Företagsnamn
+            <input
+              className={inputClassName}
+              name="name"
+              value={form.name}
+              onChange={onChange}
+              required
+            />
+          </label>
+          <label className={fieldClassName}>
+            E-post
+            <input
+              className={inputClassName}
+              name="contactEmail"
+              type="email"
+              value={form.contactEmail}
+              onChange={onChange}
+            />
+          </label>
+          <label className={fieldClassName}>
+            Telefon
+            <input
+              className={inputClassName}
+              name="phone"
+              value={form.phone}
+              onChange={onChange}
+            />
+          </label>
+          <label className={fieldClassName}>
+            Företagscertifikat nr
+            <input
+              className={inputClassName}
+              name="certificateNumber"
+              value={form.certificateNumber}
+              onChange={onChange}
+            />
+          </label>
+          <div className="flex flex-wrap gap-2 md:col-span-2">
+            <button
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
+              type="submit"
+              disabled={isSaving}
+            >
+              {isSaving ? "Sparar..." : "Spara uppgifter"}
+            </button>
+            <button
+              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+              type="button"
+              disabled={isSaving}
+              onClick={onCancel}
+            >
+              Avbryt
+            </button>
+          </div>
+          {error && <p className="font-semibold text-red-700 md:col-span-2">{error}</p>}
+        </form>
+      ) : (
+        <dl className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <ProfileItem label="Företagsnamn" value={settings.name} />
+          <ProfileItem label="Organisationsnummer" value={settings.organizationNumber} />
+          <ProfileItem label="E-post" value={settings.contactEmail} />
+          <ProfileItem label="Telefon" value={settings.phone} />
+          <ProfileItem label="Företagscertifikat nr" value={settings.certificateNumber} />
+        </dl>
+      )}
+
+      {success && !isEditing && (
+        <p className="mt-4 text-sm font-semibold text-green-700">{success}</p>
+      )}
+    </Card>
+  )
+}
+
+function ServicePartnerTechnicianInvitePanel({
+  email,
+  error,
+  inviteLink,
+  isSubmitting,
+  onChange,
+  onSubmit,
+  success,
+  warning,
+}: {
+  email: string
+  error: string
+  inviteLink: string
+  isSubmitting: boolean
+  onChange: (email: string) => void
+  onSubmit: (event: React.FormEvent) => void
+  success: string
+  warning: string
+}) {
+  return (
+    <Card className="mt-8 p-5">
+      <h2 className="text-xl font-semibold text-slate-950">Bjud in tekniker</h2>
+      <p className="mt-1 text-sm text-slate-700">
+        Teknikern kopplas till ert servicepartnerföretag och kan senare tilldelas aggregat.
+      </p>
+      <form className="mt-5 grid max-w-md gap-4" onSubmit={onSubmit}>
+        <label className={fieldClassName}>
+          E-post
+          <input
+            className={inputClassName}
+            type="email"
+            value={email}
+            onChange={(event) => onChange(event.target.value)}
+            required
+          />
+        </label>
+        {error && <p className="font-semibold text-red-700">{error}</p>}
+        {success && <p className="font-semibold text-green-700">{success}</p>}
+        {warning && <p className="font-semibold text-amber-700">{warning}</p>}
+        {inviteLink && (
+          <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-700">
+            Inbjudningslänk: <code className="break-all text-slate-950">{inviteLink}</code>
+          </p>
+        )}
+        <button
+          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
+          type="submit"
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? "Skickar..." : "Bjud in tekniker"}
+        </button>
+      </form>
+    </Card>
+  )
+}
+
 function ManagedUsersTable({
   currentUserId,
   disabledUserId,
@@ -1182,6 +1569,17 @@ function toBillingFormData(company: CompanyProfile): BillingFormData {
     billingAddress: company.billingAddress || "",
     vatNumber: company.vatNumber || "",
     eInvoiceId: company.eInvoiceId || "",
+  }
+}
+
+function toServicePartnerSettingsFormData(
+  settings: ServicePartnerSettings
+): ServicePartnerSettingsFormData {
+  return {
+    name: settings.name,
+    contactEmail: settings.contactEmail || "",
+    phone: settings.phone || "",
+    certificateNumber: settings.certificateNumber || "",
   }
 }
 

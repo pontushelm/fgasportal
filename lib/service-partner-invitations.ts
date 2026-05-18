@@ -7,9 +7,11 @@ export type ServicePartnerInvitationMetadata = {
 
 export function getServicePartnerInvitationMetadata({
   role,
+  isServicePartnerAdminInvite,
   servicePartnerCompanyId,
 }: {
   role: UserRole | string
+  isServicePartnerAdminInvite?: boolean
   servicePartnerCompanyId?: string | null
 }): ServicePartnerInvitationMetadata {
   if (role !== "CONTRACTOR") {
@@ -24,6 +26,9 @@ export function getServicePartnerInvitationMetadata({
 
   return {
     servicePartnerCompanyId: normalizedServicePartnerCompanyId,
-    isServicePartnerAdmin: Boolean(normalizedServicePartnerCompanyId),
+    isServicePartnerAdmin: Boolean(
+      normalizedServicePartnerCompanyId &&
+        (isServicePartnerAdminInvite ?? true)
+    ),
   }
 }

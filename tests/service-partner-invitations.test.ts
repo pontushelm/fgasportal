@@ -38,17 +38,32 @@ describe("service partner invitation metadata", () => {
     })
   })
 
+  it("can mark service partner technician invitations as non-admin", () => {
+    const metadata = getServicePartnerInvitationMetadata({
+      role: "CONTRACTOR",
+      servicePartnerCompanyId: "spc_123",
+      isServicePartnerAdminInvite: false,
+    })
+
+    expect(metadata).toEqual({
+      servicePartnerCompanyId: "spc_123",
+      isServicePartnerAdmin: false,
+    })
+  })
+
   it("accepts service partner company id in invitation payload validation", () => {
     expect(
       createInvitationSchema.parse({
         email: "servicepartner@example.com",
         role: "CONTRACTOR",
         servicePartnerCompanyId: "spc_123",
+        isServicePartnerAdminInvite: false,
       })
     ).toEqual({
       email: "servicepartner@example.com",
       role: "CONTRACTOR",
       servicePartnerCompanyId: "spc_123",
+      isServicePartnerAdminInvite: false,
     })
   })
 })

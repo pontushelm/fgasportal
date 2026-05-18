@@ -192,6 +192,7 @@ model Invitation {
 
   servicePartnerCompanyId String?
   servicePartnerCompany   ServicePartnerCompany? @relation(fields: [servicePartnerCompanyId], references: [id], onDelete: SetNull)
+  isServicePartnerAdminInvite Boolean @default(false)
 
   invitedByUserId String
   invitedByUser   User   @relation("InvitedBy", fields: [invitedByUserId], references: [id], onDelete: Restrict)

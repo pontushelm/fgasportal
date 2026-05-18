@@ -167,6 +167,8 @@ type CurrentUser = {
   userId: string
   companyId: string
   role: UserRole
+  servicePartnerCompanyId?: string | null
+  isServicePartnerAdmin?: boolean
 }
 
 type EventFormData = {
@@ -492,41 +494,31 @@ export default function InstallationDetailPage() {
     let isMounted = true
 
     async function fetchInstallation() {
-      const [
-        installationRes,
-        userRes,
-        eventsRes,
-        documentsRes,
-        activityRes,
-        propertiesRes,
-      ] = await Promise.all([
-        fetch(`/api/installations/${params.id}`, {
-          credentials: "include",
-        }),
-        fetch("/api/auth/me", {
-          credentials: "include",
-        }),
-        fetch(`/api/installations/${params.id}/events`, {
-          credentials: "include",
-        }),
-        fetch(`/api/installations/${params.id}/documents`, {
-          credentials: "include",
-        }),
-        fetch(`/api/installations/${params.id}/activity`, {
-          credentials: "include",
-        }),
-        fetch("/api/properties", {
-          credentials: "include",
-        }),
-      ])
+      const [installationRes, userRes, eventsRes, documentsRes, activityRes] =
+        await Promise.all([
+          fetch(`/api/installations/${params.id}`, {
+            credentials: "include",
+          }),
+          fetch("/api/auth/me", {
+            credentials: "include",
+          }),
+          fetch(`/api/installations/${params.id}/events`, {
+            credentials: "include",
+          }),
+          fetch(`/api/installations/${params.id}/documents`, {
+            credentials: "include",
+          }),
+          fetch(`/api/installations/${params.id}/activity`, {
+            credentials: "include",
+          }),
+        ])
 
       if (
         installationRes.status === 401 ||
         userRes.status === 401 ||
         eventsRes.status === 401 ||
         documentsRes.status === 401 ||
-        activityRes.status === 401 ||
-        propertiesRes.status === 401
+        activityRes.status === 401
       ) {
         router.push("/login")
         return
@@ -544,8 +536,7 @@ export default function InstallationDetailPage() {
         !userRes.ok ||
         !eventsRes.ok ||
         !documentsRes.ok ||
-        !activityRes.ok ||
-        !propertiesRes.ok
+        !activityRes.ok
       ) {
         if (!isMounted) return
         setError("Kunde inte hämta aggregatet")
@@ -558,7 +549,12 @@ export default function InstallationDetailPage() {
       const eventsData: InstallationEvent[] = await eventsRes.json()
       const documentsData: InstallationDocument[] = await documentsRes.json()
       const activityData: ActivityLogEntry[] = await activityRes.json()
-      const propertiesData: PropertyOption[] = await propertiesRes.json()
+      const propertiesData: PropertyOption[] =
+        isAdminRole(userData.role)
+          ? await fetch("/api/properties", {
+              credentials: "include",
+            }).then((response) => (response.ok ? response.json() : []))
+          : []
       const contractorsData: Contractor[] =
         isAdminRole(userData.role)
           ? await fetch("/api/company/contractors", {
@@ -1239,10 +1235,16 @@ export default function InstallationDetailPage() {
     refrigerantAmountKg: installation.refrigerantAmount,
   })
   const canManage = isAdminRole(currentUser?.role)
+  const canRegisterEvents =
+    canManage || currentUser?.role === "CONTRACTOR"
   const canPermanentlyDelete = currentUser?.role === "OWNER"
   const isArchived = Boolean(installation.archivedAt)
   const isScrapped = Boolean(installation.scrappedAt)
   const canManageActiveInstallation = canManage && !isArchived && !isScrapped
+  const canRegisterInstallationEvent =
+    canRegisterEvents && !isArchived && !isScrapped
+  const canUploadDocuments =
+    canRegisterEvents && !isArchived && !isScrapped
   const permanentDeleteLabel = installation.equipmentId || installation.name
   const editInspectionPreview = calculateInspectionPreview(
     editForm.refrigerantType,
@@ -1308,10 +1310,12 @@ export default function InstallationDetailPage() {
           </div>
         </div>
 
-        {canManageActiveInstallation && (
+        {canRegisterInstallationEvent && (
           <div className="mt-5 grid gap-2 border-t border-slate-200 pt-4 sm:flex sm:flex-wrap">
             <ActionButton label="Ny händelse" onClick={() => openEventModal()} primary />
-            <ActionButton label="Redigera aggregat" onClick={openEditModal} />
+            {canManageActiveInstallation && (
+              <ActionButton label="Redigera aggregat" onClick={openEditModal} />
+            )}
           </div>
         )}
 
@@ -1469,7 +1473,7 @@ export default function InstallationDetailPage() {
               {documents.length} uppladdade dokument
             </p>
           </div>
-          {canManageActiveInstallation && (
+          {canUploadDocuments && (
             <ActionButton label="Ladda upp dokument" onClick={openDocumentModal} />
           )}
         </div>
@@ -1863,7 +1867,7 @@ export default function InstallationDetailPage() {
         </ModalFrame>
       )}
 
-      {isEventModalOpen && canManageActiveInstallation && (
+      {isEventModalOpen && canRegisterInstallationEvent && (
         <ModalFrame
           title={
             correctingEvent
@@ -2250,7 +2254,7 @@ export default function InstallationDetailPage() {
         </ModalFrame>
       )}
 
-      {isDocumentModalOpen && canManageActiveInstallation && (
+      {isDocumentModalOpen && canUploadDocuments && (
         <ModalFrame title="Ladda upp dokument" onClose={closeDocumentModal} closeDisabled={isUploadingDocument}>
           <form className="grid gap-3" onSubmit={handleDocumentSubmit}>
             <label className={fieldClassName}>

@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui"
@@ -426,7 +427,7 @@ export default function ServiceDashboardPage() {
       {error && <p className="mt-8 text-sm font-semibold text-red-700">{error}</p>}
       {success && <p className="mt-8 text-sm font-semibold text-green-700">{success}</p>}
 
-      {!isLoading && !error && certification && (
+      {!isLoading && !error && certification && !isServicePartnerAdmin && (
         <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -551,7 +552,14 @@ export default function ServiceDashboardPage() {
                 <tbody className="divide-y divide-slate-200">
                   {visibleInstallations.map((installation) => (
                     <tr className="hover:bg-slate-50" key={installation.id}>
-                      <TableCell>{installation.name}</TableCell>
+                      <TableCell>
+                        <Link
+                          className="font-semibold text-blue-700 hover:text-blue-900"
+                          href={`/dashboard/installations/${installation.id}`}
+                        >
+                          {installation.name}
+                        </Link>
+                      </TableCell>
                       <TableCell>{installation.location}</TableCell>
                       <TableCell>{installation.refrigerantType}</TableCell>
                       <TableCell>{formatNumber(installation.refrigerantAmount)} kg</TableCell>
