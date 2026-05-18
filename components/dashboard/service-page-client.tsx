@@ -20,6 +20,12 @@ type ServiceInstallation = {
   nextInspection: string | null
   complianceStatus: ComplianceStatus
   daysUntilDue: number | null
+  assignedContractorId: string | null
+  assignedContractor: {
+    id: string
+    name: string | null
+    email: string
+  } | null
 }
 
 type ServiceEventType = Exclude<InstallationEventType, "REFRIGERANT_CHANGE">
@@ -34,6 +40,17 @@ type EventFormData = {
 
 type CurrentUser = {
   userId: string
+  role: string
+  servicePartnerCompanyId: string | null
+  isServicePartnerAdmin: boolean
+}
+
+type ServiceTechnician = {
+  membershipId: string
+  id: string
+  name: string | null
+  email: string
+  isServicePartnerAdmin: boolean
 }
 
 type CertificationData = {
@@ -94,6 +111,7 @@ const initialCertificationForm: CertificationFormData = {
 export default function ServiceDashboardPage() {
   const router = useRouter()
   const [installations, setInstallations] = useState<ServiceInstallation[]>([])
+  const [technicians, setTechnicians] = useState<ServiceTechnician[]>([])
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [certification, setCertification] = useState<CertificationData | null>(null)
   const [certificationForm, setCertificationForm] =
@@ -101,7 +119,10 @@ export default function ServiceDashboardPage() {
   const [eventForm, setEventForm] = useState<EventFormData>(initialEventForm)
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [assigningInstallationId, setAssigningInstallationId] = useState("")
   const [isSavingCertification, setIsSavingCertification] = useState(false)
+  const [assignmentFilter, setAssignmentFilter] =
+    useState<"all" | "unassigned" | "assigned">("all")
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [certificationError, setCertificationError] = useState("")
@@ -144,6 +165,13 @@ export default function ServiceDashboardPage() {
 
       const data: ServiceInstallation[] = await response.json()
       const userData: CurrentUser = await userResponse.json()
+      const techniciansResponse = userData.isServicePartnerAdmin
+        ? await fetch("/api/dashboard/service/technicians", {
+            credentials: "include",
+          })
+        : null
+      const techniciansData: ServiceTechnician[] | null =
+        techniciansResponse?.ok ? await techniciansResponse.json() : null
       const certificationResponse = await fetch(
         `/api/company/contractors/${userData.userId}/certification`,
         {
@@ -156,6 +184,7 @@ export default function ServiceDashboardPage() {
 
       if (!isMounted) return
       setInstallations(data)
+      setTechnicians(techniciansData ?? [])
       setCurrentUser(userData)
       setCertification(certificationData)
       setCertificationForm(toCertificationForm(certificationData))
@@ -309,9 +338,75 @@ export default function ServiceDashboardPage() {
     setIsSubmitting(false)
   }
 
+  async function assignTechnician(installationId: string, technicianId: string) {
+    setError("")
+    setSuccess("")
+    setAssigningInstallationId(installationId)
+
+    const response = await fetch("/api/dashboard/service/assign-technician", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        installationId,
+        technicianId: technicianId || null,
+      }),
+    })
+    const result: {
+      error?: string
+      installationId?: string
+      assignedContractorId?: string | null
+      assignedContractor?: ServiceInstallation["assignedContractor"]
+    } = await response.json()
+
+    if (response.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!response.ok || !result.installationId) {
+      setError(result.error || "Kunde inte tilldela tekniker.")
+      setAssigningInstallationId("")
+      return
+    }
+
+    setInstallations((current) =>
+      current.map((installation) =>
+        installation.id === result.installationId
+          ? {
+              ...installation,
+              assignedContractorId: result.assignedContractorId ?? null,
+              assignedContractor: result.assignedContractor ?? null,
+            }
+          : installation
+      )
+    )
+    setSuccess(
+      result.assignedContractor
+        ? "Teknikern har tilldelats aggregatet."
+        : "Teknikertilldelningen har tagits bort."
+    )
+    setAssigningInstallationId("")
+  }
+
   const eventCertificationWarning = getCertificationWarning(
     certification?.certificationStatus ?? null
   )
+  const isServicePartnerAdmin = Boolean(currentUser?.isServicePartnerAdmin)
+  const visibleInstallations = isServicePartnerAdmin
+    ? installations.filter((installation) => {
+        if (assignmentFilter === "assigned") {
+          return Boolean(installation.assignedContractorId)
+        }
+        if (assignmentFilter === "unassigned") {
+          return !installation.assignedContractorId
+        }
+
+        return true
+      })
+    : installations
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
@@ -321,8 +416,9 @@ export default function ServiceDashboardPage() {
         </p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">Serviceuppdrag</h1>
         <p className="mt-2 max-w-2xl text-sm text-slate-700">
-          Registrera kontroller, läckage, påfyllningar och service för tilldelade
-          aggregat.
+          {isServicePartnerAdmin
+            ? "Fördela aggregat inom ert servicepartnerföretag och registrera händelser."
+            : "Registrera kontroller, läckage, påfyllningar och service för tilldelade aggregat."}
         </p>
       </div>
 
@@ -405,9 +501,37 @@ export default function ServiceDashboardPage() {
 
       {!isLoading && !error && (
         <section className="mt-8">
-          {installations.length === 0 ? (
+          {isServicePartnerAdmin && (
+            <div className="mb-4 rounded-lg border border-slate-200 bg-white p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-base font-semibold text-slate-950">
+                    Teknikertilldelning
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Endast tekniker inom ert servicepartnerföretag kan väljas.
+                  </p>
+                </div>
+                <div className="flex rounded-md border border-slate-200 bg-slate-50 p-1 text-sm">
+                  <FilterButton active={assignmentFilter === "all"} onClick={() => setAssignmentFilter("all")}>
+                    Alla
+                  </FilterButton>
+                  <FilterButton active={assignmentFilter === "unassigned"} onClick={() => setAssignmentFilter("unassigned")}>
+                    Ej tilldelade
+                  </FilterButton>
+                  <FilterButton active={assignmentFilter === "assigned"} onClick={() => setAssignmentFilter("assigned")}>
+                    Tilldelade
+                  </FilterButton>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {visibleInstallations.length === 0 ? (
             <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-700">
-              Du har inga tilldelade aggregat just nu.
+              {installations.length === 0
+                ? "Du har inga tilldelade aggregat just nu."
+                : "Inga aggregat matchar filtret."}
             </div>
           ) : (
             <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
@@ -420,11 +544,12 @@ export default function ServiceDashboardPage() {
                     <TableHeader>Fyllnadsmängd</TableHeader>
                     <TableHeader>Nästa kontroll</TableHeader>
                     <TableHeader>Status</TableHeader>
+                    {isServicePartnerAdmin && <TableHeader>Tekniker</TableHeader>}
                     <TableHeader>Åtgärder</TableHeader>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {installations.map((installation) => (
+                  {visibleInstallations.map((installation) => (
                     <tr className="hover:bg-slate-50" key={installation.id}>
                       <TableCell>{installation.name}</TableCell>
                       <TableCell>{installation.location}</TableCell>
@@ -434,6 +559,29 @@ export default function ServiceDashboardPage() {
                       <TableCell>
                         <StatusBadge status={installation.complianceStatus} />
                       </TableCell>
+                      {isServicePartnerAdmin && (
+                        <TableCell>
+                          <label className="sr-only" htmlFor={`technician-${installation.id}`}>
+                            Tilldela tekniker
+                          </label>
+                          <select
+                            className="min-w-48 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-900 disabled:bg-slate-100"
+                            id={`technician-${installation.id}`}
+                            value={installation.assignedContractorId ?? ""}
+                            onChange={(event) =>
+                              assignTechnician(installation.id, event.target.value)
+                            }
+                            disabled={assigningInstallationId === installation.id}
+                          >
+                            <option value="">Ingen tekniker tilldelad</option>
+                            {technicians.map((technician) => (
+                              <option key={technician.id} value={technician.id}>
+                                {formatTechnicianName(technician)}
+                              </option>
+                            ))}
+                          </select>
+                        </TableCell>
+                      )}
                       <TableCell>
                         <div className="flex flex-wrap gap-2">
                           <ActionButton label="Registrera kontroll" onClick={() => startEvent(installation.id, "INSPECTION")} />
@@ -536,6 +684,30 @@ function ActionButton({
   )
 }
 
+function FilterButton({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean
+  children: React.ReactNode
+  onClick: () => void
+}) {
+  return (
+    <button
+      className={`rounded px-3 py-1.5 font-semibold transition ${
+        active
+          ? "bg-white text-slate-950 shadow-sm"
+          : "text-slate-600 hover:bg-white/70 hover:text-slate-950"
+      }`}
+      type="button"
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  )
+}
+
 function CertificationBadge({ status }: { status: CertificationStatusResult }) {
   return <Badge variant={status.variant}>{status.label}</Badge>
 }
@@ -580,6 +752,11 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("sv-SE", {
     maximumFractionDigits: 2,
   }).format(value)
+}
+
+function formatTechnicianName(technician: ServiceTechnician) {
+  const label = technician.name || technician.email
+  return technician.isServicePartnerAdmin ? `${label} (ansvarig)` : label
 }
 
 function getTodayInputValue() {

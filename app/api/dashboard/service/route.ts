@@ -23,6 +23,15 @@ export async function GET(request: NextRequest) {
       orderBy: {
         name: "asc",
       },
+      include: {
+        assignedContractor: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
     })
 
     const rows = installations.map((installation) => {
@@ -43,6 +52,8 @@ export async function GET(request: NextRequest) {
         nextInspection: installation.nextInspection,
         complianceStatus: compliance.status,
         daysUntilDue: compliance.daysUntilDue,
+        assignedContractorId: installation.assignedContractorId,
+        assignedContractor: installation.assignedContractor,
       }
     })
 
