@@ -5,15 +5,12 @@ import type { ReactNode } from "react"
 import type {
   AnnualFgasCertificateEntry,
   AnnualFgasEquipmentRow,
-  AnnualFgasLeakageControlRow,
   AnnualFgasRefrigerantHandlingRow,
   AnnualFgasReportData,
   AnnualFgasScrappedEquipmentRow,
 } from "@/lib/reports/annualFgasReportTypes"
 
 export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData }) {
-  const hasLeakageNotes = report.summary.leakageCount > 0 || report.notes.length > 0
-
   return (
     <html lang="sv">
       <head>
@@ -87,10 +84,10 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
             <ReportWarnings rows={report.warnings} />
           )}
 
-          <ReportSection title="Köldmediehantering per aggregat">
-            <RefrigerantHandlingLog
-              equipment={report.equipment}
-              rows={report.refrigerantHandlingLog}
+          <ReportSection title="Aggregatförteckning">
+            <EquipmentList
+              rows={report.equipment}
+              refrigerantHandlingRows={report.refrigerantHandlingLog}
             />
           </ReportSection>
 
@@ -110,14 +107,6 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
               />
             </ReportSection>
           )}
-
-          <ReportSection title="Aggregatförteckning">
-            <EquipmentList rows={report.equipment} />
-          </ReportSection>
-
-          <ReportSection title="Läckagekontroller under kalenderåret">
-            <LeakageControlResults rows={report.leakageControls} />
-          </ReportSection>
 
           <CertificateRegister rows={report.certificateRegister} />
 
@@ -143,22 +132,12 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
             <ScrappedEquipmentSection rows={report.scrappedEquipment} />
           )}
 
-          {hasLeakageNotes && (
-            <ReportSection title="Läckage- och reparationsanteckningar">
-              {report.notes.length > 0 ? (
-                <ul className="notes-list">
-                  {report.notes.map((note) => (
-                    <li key={note}>{note}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="muted">Inga kompletterande anteckningar registrerade.</p>
-              )}
-            </ReportSection>
-          )}
-
           <ReportSection title="Övriga anteckningar">
-            <div className="lined-box" />
+            {report.reportNotes ? (
+              <p className="note-box">{report.reportNotes}</p>
+            ) : (
+              <p className="muted">Inga övriga anteckningar angivna.</p>
+            )}
           </ReportSection>
 
           {report.signingMetadata && <SigningMetadataSection report={report} />}
@@ -394,17 +373,17 @@ export function ReportQualitySummary({ report }: { report: AnnualFgasReportData 
   )
 }
 
-export function RefrigerantHandlingLog({
-  equipment,
+function EquipmentList({
+  refrigerantHandlingRows,
   rows,
 }: {
-  equipment: AnnualFgasEquipmentRow[]
-  rows: AnnualFgasRefrigerantHandlingRow[]
+  refrigerantHandlingRows: AnnualFgasRefrigerantHandlingRow[]
+  rows: AnnualFgasEquipmentRow[]
 }) {
   const addedByEquipment = new Map<string, number>()
   const recoveredByEquipment = new Map<string, number>()
 
-  rows.forEach((row) => {
+  refrigerantHandlingRows.forEach((row) => {
     const key = row.equipmentId || row.equipmentName
     addedByEquipment.set(key, (addedByEquipment.get(key) ?? 0) + (row.addedKg ?? 0))
     recoveredByEquipment.set(
@@ -416,21 +395,25 @@ export function RefrigerantHandlingLog({
   return (
     <DataTable
       columns={[
-        "Aggregat",
+        "Aggregat-ID",
+        "Typ",
         "Köldmedium",
         "Fyllnadsmängd (kg)",
         "CO₂e (ton)",
+        "Gaslarm",
         // TODO: Split refill origin into new/regenerated/reused once event forms and imports store that distinction.
         "Påfyllt (kg)",
         "Omhändertaget/återvunnet (kg)",
       ]}
-      rows={equipment.map((row) => {
+      rows={rows.map((row) => {
         const key = row.equipmentId || row.name
         return [
-          displayEquipment(row.name, row.equipmentId),
+          row.equipmentId || row.name,
+          row.equipmentType || "-",
           row.refrigerantType,
           formatNumber(row.refrigerantAmountKg),
           formatCo2eTon(row.co2eKg),
+          row.leakDetectionSystem ? "Ja" : "Nej",
           formatOptionalNumber(addedByEquipment.get(key)),
           formatOptionalNumber(recoveredByEquipment.get(key)),
         ]
@@ -460,37 +443,6 @@ export function ScrappedEquipmentSection({
         ])}
       />
     </ReportSection>
-  )
-}
-
-function EquipmentList({ rows }: { rows: AnnualFgasEquipmentRow[] }) {
-  return (
-    <DataTable
-      columns={["Aggregat-ID / märkning", "Placering / fastighet", "Kontrollintervall", "Nästa kontroll", "Status"]}
-      rows={rows.map((row) => [
-        row.equipmentId || "-",
-        [row.location, row.propertyName].filter(Boolean).join(" / ") || "-",
-        row.inspectionIntervalMonths ? `${row.inspectionIntervalMonths} mån` : "Ej kontrollpliktigt",
-        formatDate(row.nextInspectionAt),
-        statusLabel(row.status),
-      ])}
-    />
-  )
-}
-
-function LeakageControlResults({ rows }: { rows: AnnualFgasLeakageControlRow[] }) {
-  return (
-    <DataTable
-      columns={["Datum", "Aggregat", "Tekniker", "Resultat", "Nästa kontroll", "Anteckning"]}
-      rows={rows.map((row) => [
-        formatDate(row.date),
-        displayEquipment(row.equipmentName, row.equipmentId),
-        row.inspectorName,
-        row.result,
-        formatDate(row.nextDueDate),
-        row.notes || "-",
-      ])}
-    />
   )
 }
 
@@ -556,14 +508,6 @@ function formatHandlingRefrigerant(row: AnnualFgasRefrigerantHandlingRow) {
   }
 
   return row.newRefrigerantType ?? row.refrigerantType
-}
-
-function statusLabel(status: AnnualFgasEquipmentRow["status"]) {
-  return {
-    active: "Aktivt",
-    archived: "Arkiverat",
-    scrapped: "Skrotat",
-  }[status]
 }
 
 function getReportLogoDataUri() {
@@ -777,6 +721,14 @@ const annualReportPrintStyles = `
     border: 1px solid #c9d0da;
     margin: 0;
     padding: 8px 8px 8px 18px;
+  }
+
+  .note-box {
+    border: 1px solid #c9d0da;
+    margin: 0;
+    min-height: 34px;
+    padding: 7px 9px;
+    white-space: pre-wrap;
   }
 
   .muted {

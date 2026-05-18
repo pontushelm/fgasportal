@@ -60,6 +60,7 @@ export async function GET(request: NextRequest) {
     const propertyId =
       historyRecord?.propertyId ??
       request.nextUrl.searchParams.get("propertyId")?.trim()
+    const reportNotes = parseReportNotes(request.nextUrl.searchParams.get("reportNotes"))
     const signing = historyRecord
       ? {
           ok: true as const,
@@ -94,6 +95,7 @@ export async function GET(request: NextRequest) {
       contactUserId: historyRecord?.userId ?? auth.user.userId,
       municipality: municipality || undefined,
       propertyId: propertyId || undefined,
+      reportNotes,
       signingMetadata: signing.metadata,
       year,
     })
@@ -211,6 +213,13 @@ function parseReportYear(value: string | null) {
   }
 
   return year
+}
+
+function parseReportNotes(value: string | null) {
+  const text = value?.trim()
+  if (!text) return null
+
+  return text.slice(0, 2000)
 }
 
 function logAnnualReportRoute(

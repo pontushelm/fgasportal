@@ -22,6 +22,7 @@ export async function buildAnnualFgasReportData({
   contactUserId,
   municipality,
   propertyId,
+  reportNotes,
   signingMetadata,
   year,
 }: AnnualFgasReportFilter): Promise<AnnualFgasReportData> {
@@ -404,6 +405,7 @@ export async function buildAnnualFgasReportData({
       certificateNumber: primaryServicePartnerCompany?.certificateNumber ?? null,
     },
     signingMetadata: signingMetadata ?? null,
+    reportNotes: reportNotes?.trim() || null,
     certificateRegister,
     summary: {
       equipmentCount: equipment.length,

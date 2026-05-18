@@ -158,6 +158,7 @@ export default function ReportsPage() {
   const [reportData, setReportData] = useState<ReportData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
+  const [reportNotes, setReportNotes] = useState("")
   const [signingForm, setSigningForm] = useState<SigningFormState>({
     signerName: "",
     signerRole: "",
@@ -203,9 +204,10 @@ export default function ReportsPage() {
 
     if (selectedMunicipality) params.set("municipality", selectedMunicipality)
     if (selectedPropertyId) params.set("propertyId", selectedPropertyId)
+    if (reportNotes.trim()) params.set("reportNotes", reportNotes.trim())
 
     return `/api/reports/annual-fgas?${params.toString()}`
-  }, [reportQuery, selectedMunicipality, selectedPropertyId, selectedReportType, selectedYear])
+  }, [reportNotes, reportQuery, selectedMunicipality, selectedPropertyId, selectedReportType, selectedYear])
   const selectedReport = useMemo(
     () => getReportTypeMetadata(selectedReportType),
     [selectedReportType]
@@ -411,6 +413,8 @@ export default function ReportsPage() {
               <ReportSigningPanel
                 canExportSigned={canExportSigned}
                 onChange={setSigningForm}
+                onReportNotesChange={setReportNotes}
+                reportNotes={reportNotes}
                 signingForm={signingForm}
                 signedPdfExportHref={signedPdfExportHref}
                 status={reportData.qualitySummary?.status}
@@ -702,12 +706,16 @@ function ReportQualityPanel({ reportData }: { reportData: ReportData }) {
 function ReportSigningPanel({
   canExportSigned,
   onChange,
+  onReportNotesChange,
+  reportNotes,
   signedPdfExportHref,
   signingForm,
   status,
 }: {
   canExportSigned: boolean
   onChange: React.Dispatch<React.SetStateAction<SigningFormState>>
+  onReportNotesChange: (value: string) => void
+  reportNotes: string
   signedPdfExportHref: string
   signingForm: SigningFormState
   status?: NonNullable<ReportData["qualitySummary"]>["status"]
@@ -786,6 +794,19 @@ function ReportSigningPanel({
             }))
           }
           value={signingForm.comment}
+        />
+      </label>
+
+      <label className={`${filterLabelClassName} mt-3`}>
+        Övriga anteckningar till årsrapporten
+        <span className="text-xs font-normal text-slate-600">
+          Valfritt fält för kompletterande information till tillsynsmyndigheten.
+        </span>
+        <textarea
+          className={signingTextareaClassName}
+          maxLength={2000}
+          onChange={(event) => onReportNotesChange(event.target.value)}
+          value={reportNotes}
         />
       </label>
 
