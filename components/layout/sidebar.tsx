@@ -618,7 +618,7 @@ function getPrimaryNavigation(currentUser: CurrentUser | null) {
   const items: NavigationItem[] = [
     {
       href: "/dashboard/installations",
-      label: currentUser.isServicePartnerAdmin ? "Aggregat" : "Mina aggregat",
+      label: "Tilldelade aggregat",
     },
   ]
 

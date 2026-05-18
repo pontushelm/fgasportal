@@ -1,7 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { type ComponentType, useState } from "react"
+import { useRouter } from "next/navigation"
+import { type ComponentType, useEffect, useState } from "react"
 import {
   BarChart3,
   Bell,
@@ -24,6 +25,11 @@ type HelpSection = {
   icon: ComponentType<{ className?: string }>
   items: string[]
   links?: Array<{ href: string; label: string }>
+}
+
+type CurrentUser = {
+  role: string
+  isServicePartnerAdmin?: boolean
 }
 
 const helpSections: HelpSection[] = [
@@ -168,6 +174,91 @@ const helpSections: HelpSection[] = [
   },
 ]
 
+const servicePartnerHelpSections: HelpSection[] = [
+  {
+    id: "assigned-installations",
+    title: "Tilldelade aggregat",
+    summary: "Hitta och arbeta med aggregat som kunden har tilldelat ert servicepartnerföretag.",
+    icon: ClipboardCheck,
+    items: [
+      "Tilldelade aggregat är servicepartnerns huvudvy för dagligt arbete.",
+      "Sök och filtrera på status, köldmedium och kontrollintervall för att hitta rätt aggregat snabbt.",
+      "Öppna aggregatdetaljen för historik, dokument, rapportunderlag och full händelseregistrering.",
+      "Servicepartners kan inte importera aggregat eller ändra kundens grunddata för aggregatet.",
+    ],
+    links: [{ href: "/dashboard/installations", label: "Tilldelade aggregat" }],
+  },
+  {
+    id: "events",
+    title: "Registrera händelser",
+    summary: "Registrera kontroller, läckage och service på tilldelade aggregat.",
+    icon: Wrench,
+    items: [
+      "Snabbknappar på aggregatlistan öppnar befintlig händelseregistrering för kontroll, läckage eller service.",
+      "På aggregatdetaljen finns hela händelseflödet med relevanta fält och historik.",
+      "Normala tekniker arbetar med sina direkt tilldelade aggregat.",
+      "Servicepartneradmin kan arbeta med aggregat som är tilldelade servicepartnerföretaget.",
+    ],
+    links: [{ href: "/dashboard/installations", label: "Registrera händelse" }],
+  },
+  {
+    id: "documents",
+    title: "Dokument",
+    summary: "Visa och koppla dokument där aggregatets åtkomst tillåter det.",
+    icon: FileText,
+    items: [
+      "Dokument på aggregatdetaljen kan användas för kontrollprotokoll, serviceunderlag och kompletterande filer.",
+      "Dokument hör till kundens aggregat och visas inom den åtkomst kunden har delegerat.",
+    ],
+  },
+  {
+    id: "company-settings",
+    title: "Företagsinställningar",
+    summary: "Servicepartnerföretagets uppgifter och certifikat.",
+    icon: Building2,
+    items: [
+      "Servicepartneradmin kan redigera företagsnamn, e-post, telefon och företagscertifikat nr.",
+      "Tekniker kan läsa företagsuppgifterna men inte ändra dem.",
+      "Företagscertifikat är servicepartnerföretagets certifikat och ska inte blandas ihop med personligt teknikercertifikat.",
+    ],
+    links: [{ href: "/dashboard/company", label: "Företagsinställningar" }],
+  },
+  {
+    id: "personal-settings",
+    title: "Mina inställningar",
+    summary: "Personliga uppgifter, certifikat och e-postnotiser.",
+    icon: Bell,
+    items: [
+      "Personligt certifikat nr sparas på ditt användarkonto och kan användas för teknikerbehörighet i underlag.",
+      "E-postnotiser styrs per användare, till exempel tilldelningar och kontrollpåminnelser.",
+      "E-post och roll är låsta i användarprofilen och hanteras via inbjudningsflödet.",
+    ],
+    links: [{ href: "/dashboard/settings", label: "Mina inställningar" }],
+  },
+  {
+    id: "technician-assignment",
+    title: "Teknikertilldelning",
+    summary: "Endast servicepartneradmin kan fördela aggregat till tekniker.",
+    icon: Users,
+    items: [
+      "Servicepartneradmin kan välja eller rensa tekniker direkt på Tilldelade aggregat.",
+      "Endast tekniker inom samma servicepartnerföretag kan väljas.",
+      "Vanliga tekniker ser inte tilldelningskontroller och kan inte fördela aggregat till andra.",
+    ],
+    links: [{ href: "/dashboard/installations", label: "Tilldela tekniker" }],
+  },
+  {
+    id: "feedback",
+    title: "Feedback under pilot",
+    summary: "Skicka buggar, frågor och förbättringsförslag direkt från systemet.",
+    icon: MessageSquare,
+    items: [
+      "Använd Skicka feedback i sidomenyn om något saknas, är otydligt eller inte fungerar.",
+      "Formuläret skickar med aktuell sida, användare, företag och tidpunkt automatiskt.",
+    ],
+  },
+]
+
 const faqItems = [
   {
     question: "Varför visas inte en fastighet som kopplad efter import?",
@@ -196,8 +287,64 @@ const faqItems = [
   },
 ]
 
+const servicePartnerFaqItems = [
+  {
+    question: "Varför ser jag inte alla kundens aggregat?",
+    answer:
+      "Servicepartneråtkomst är delegerad. Du ser aggregat som är tilldelade ditt servicepartnerföretag eller direkt till dig som tekniker.",
+  },
+  {
+    question: "Kan servicepartner importera aggregat eller händelser?",
+    answer:
+      "Nej. Import och kundägd grunddata hanteras av kundens interna roller. Servicepartners registrerar händelser på tilldelade aggregat.",
+  },
+  {
+    question: "Var sparas företagscertifikat och personligt certifikat?",
+    answer:
+      "Företagscertifikat finns i Företagsinställningar. Personligt certifikat finns i Mina inställningar.",
+  },
+]
+
 export default function HelpPageClient() {
-  const [openSectionIds, setOpenSectionIds] = useState<string[]>(["dashboard", "installations"])
+  const router = useRouter()
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
+  const isServicePartnerUser = currentUser?.role === "CONTRACTOR"
+  const sections = isServicePartnerUser ? servicePartnerHelpSections : helpSections
+  const visibleFaqItems = isServicePartnerUser ? servicePartnerFaqItems : faqItems
+  const [openSectionIds, setOpenSectionIds] = useState<string[]>([
+    "dashboard",
+    "installations",
+  ])
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function fetchCurrentUser() {
+      const response = await fetch("/api/auth/me", {
+        credentials: "include",
+      })
+
+      if (response.status === 401) {
+        router.push("/login")
+        return
+      }
+
+      if (!response.ok) return
+
+      const user: CurrentUser = await response.json()
+      if (!isMounted) return
+      setCurrentUser(user)
+      if (user.role === "CONTRACTOR") {
+        setOpenSectionIds(["assigned-installations", "events"])
+      }
+    }
+
+    void fetchCurrentUser()
+
+    return () => {
+      isMounted = false
+    }
+  }, [router])
 
   function toggleSection(sectionId: string) {
     setOpenSectionIds((current) =>
@@ -212,12 +359,16 @@ export default function HelpPageClient() {
       <section className="mx-auto max-w-7xl">
         <PageHeader
           title="Hjälp"
-          subtitle="Kom igång med FgasPortal och vanliga arbetsflöden."
+          subtitle={
+            isServicePartnerUser
+              ? "Kom igång med tilldelade aggregat, händelser och servicepartnerinställningar."
+              : "Kom igång med FgasPortal och vanliga arbetsflöden."
+          }
         />
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <section className="grid gap-3">
-            {helpSections.map((section) => (
+            {sections.map((section) => (
               <HelpSectionCard
                 isOpen={openSectionIds.includes(section.id)}
                 key={section.id}
@@ -236,24 +387,41 @@ export default function HelpPageClient() {
                 <div>
                   <h2 className="font-semibold text-slate-950">Snabb väg in</h2>
                   <p className="mt-1 text-sm leading-6 text-slate-600">
-                    De vanligaste pilotflödena börjar med dashboard, aggregat,
-                    åtgärder eller årsrapportering.
+                    {isServicePartnerUser
+                      ? "Servicepartnerflödet börjar med tilldelade aggregat och personliga inställningar."
+                      : "De vanligaste pilotflödena börjar med dashboard, aggregat, åtgärder eller årsrapportering."}
                   </p>
                 </div>
               </div>
               <div className="mt-4 grid gap-2">
-                <Link className={buttonClassName({ className: "justify-start" })} href="/dashboard/installations">
-                  Aggregat
-                </Link>
-                <Link className={buttonClassName({ className: "justify-start" })} href="/dashboard/properties">
-                  Fastigheter
-                </Link>
-                <Link className={buttonClassName({ className: "justify-start" })} href="/dashboard/actions">
-                  Åtgärder
-                </Link>
-                <Link className={buttonClassName({ className: "justify-start" })} href="/dashboard/reports">
-                  Rapporter
-                </Link>
+                {isServicePartnerUser ? (
+                  <>
+                    <Link className={buttonClassName({ className: "justify-start" })} href="/dashboard/installations">
+                      Tilldelade aggregat
+                    </Link>
+                    <Link className={buttonClassName({ className: "justify-start" })} href="/dashboard/company">
+                      Företagsinställningar
+                    </Link>
+                    <Link className={buttonClassName({ className: "justify-start" })} href="/dashboard/settings">
+                      Mina inställningar
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link className={buttonClassName({ className: "justify-start" })} href="/dashboard/installations">
+                      Aggregat
+                    </Link>
+                    <Link className={buttonClassName({ className: "justify-start" })} href="/dashboard/properties">
+                      Fastigheter
+                    </Link>
+                    <Link className={buttonClassName({ className: "justify-start" })} href="/dashboard/actions">
+                      Åtgärder
+                    </Link>
+                    <Link className={buttonClassName({ className: "justify-start" })} href="/dashboard/reports">
+                      Rapporter
+                    </Link>
+                  </>
+                )}
               </div>
             </Card>
 
@@ -270,7 +438,7 @@ export default function HelpPageClient() {
                 </div>
               </div>
               <div className="mt-4 grid gap-3">
-                {faqItems.map((item) => (
+                {visibleFaqItems.map((item) => (
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-3" key={item.question}>
                     <h3 className="text-sm font-semibold text-slate-950">{item.question}</h3>
                     <p className="mt-1 text-sm leading-6 text-slate-600">{item.answer}</p>
