@@ -518,47 +518,7 @@ export default function ReportsPage() {
               subtitle="Senaste kontroll-, läckage-, påfyllnings- och servicehändelser för valt år."
             />
 
-            {reportData.events.length === 0 ? (
-              <EmptyState text="Inga händelser registrerade för valt år." />
-            ) : (
-              <div className="mt-5 overflow-x-auto rounded-lg border border-neutral-200 bg-white">
-                <table className="min-w-full divide-y divide-neutral-200 text-sm">
-                  <thead className="bg-neutral-50">
-                    <tr>
-                      <TableHeader>Datum</TableHeader>
-                      <TableHeader>Aggregat</TableHeader>
-                      <TableHeader>Typ</TableHeader>
-                      <TableHeader>Mängd</TableHeader>
-                      <TableHeader>Anteckningar</TableHeader>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-200">
-                    {reportData.events.map((event) => (
-                      <tr key={event.id}>
-                        <TableCell>{formatDate(event.date)}</TableCell>
-                        <TableCell>
-                          <Link
-                            className="font-semibold text-neutral-950 underline-offset-4 hover:underline"
-                            href={`/dashboard/installations/${event.installationId}`}
-                          >
-                            {event.installationName}
-                          </Link>
-                        </TableCell>
-                        <TableCell>
-                          <EventBadge type={event.type} />
-                        </TableCell>
-                        <TableCell>
-                          {event.refrigerantAddedKg === null
-                            ? "-"
-                            : `${getEventAmountLabel(event.type)}: ${formatNumber(event.refrigerantAddedKg)} kg`}
-                        </TableCell>
-                        <TableCell>{event.notes || "-"}</TableCell>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <ReportEventsPreview key={reportQuery} events={reportData.events} />
           </section>
 
           {selectedReportType === "annual" && (
@@ -859,6 +819,69 @@ function ReportSigningPanel({
         </a>
       </div>
     </section>
+  )
+}
+
+function ReportEventsPreview({ events }: { events: ReportData["events"] }) {
+  const [showAllEvents, setShowAllEvents] = useState(false)
+  const visibleEvents = showAllEvents ? events : events.slice(0, 5)
+  const hiddenEventCount = events.length - visibleEvents.length
+
+  if (events.length === 0) {
+    return <EmptyState text="Inga händelser registrerade för valt år." />
+  }
+
+  return (
+    <>
+      <div className="mt-5 overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+        <table className="min-w-full divide-y divide-neutral-200 text-sm">
+          <thead className="bg-neutral-50">
+            <tr>
+              <TableHeader>Datum</TableHeader>
+              <TableHeader>Aggregat</TableHeader>
+              <TableHeader>Typ</TableHeader>
+              <TableHeader>Mängd</TableHeader>
+              <TableHeader>Anteckningar</TableHeader>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-neutral-200">
+            {visibleEvents.map((event) => (
+              <tr key={event.id}>
+                <TableCell>{formatDate(event.date)}</TableCell>
+                <TableCell>
+                  <Link
+                    className="font-semibold text-neutral-950 underline-offset-4 hover:underline"
+                    href={`/dashboard/installations/${event.installationId}`}
+                  >
+                    {event.installationName}
+                  </Link>
+                </TableCell>
+                <TableCell>
+                  <EventBadge type={event.type} />
+                </TableCell>
+                <TableCell>
+                  {event.refrigerantAddedKg === null
+                    ? "-"
+                    : `${getEventAmountLabel(event.type)}: ${formatNumber(event.refrigerantAddedKg)} kg`}
+                </TableCell>
+                <TableCell>{event.notes || "-"}</TableCell>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {events.length > 5 && (
+        <button
+          className="mt-3 inline-flex h-8 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+          onClick={() => setShowAllEvents((current) => !current)}
+          type="button"
+        >
+          {showAllEvents
+            ? "Visa mindre"
+            : `Visa mer (${hiddenEventCount} till)`}
+        </button>
+      )}
+    </>
   )
 }
 

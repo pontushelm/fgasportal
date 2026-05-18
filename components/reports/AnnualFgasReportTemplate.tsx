@@ -12,13 +12,7 @@ import type {
 } from "@/lib/reports/annualFgasReportTypes"
 
 export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData }) {
-  const hasRegeneratedReused =
-    report.summary.regeneratedReusedRefrigerantKg != null &&
-    report.summary.regeneratedReusedRefrigerantKg > 0
   const hasLeakageNotes = report.summary.leakageCount > 0 || report.notes.length > 0
-  const visibleHandlingEvents = report.refrigerantHandlingLog.slice(0, 5)
-  const hiddenHandlingEventCount =
-    report.refrigerantHandlingLog.length - visibleHandlingEvents.length
 
   return (
     <html lang="sv">
@@ -93,19 +87,18 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
             <ReportWarnings rows={report.warnings} />
           )}
 
-          <ReportSection title="Köldmediehantering - sammanställning av aggregat">
+          <ReportSection title="Köldmediehantering per aggregat">
             <RefrigerantHandlingLog
               equipment={report.equipment}
               rows={report.refrigerantHandlingLog}
-              showRegeneratedReused={hasRegeneratedReused}
             />
           </ReportSection>
 
           {report.refrigerantHandlingLog.length > 0 && (
             <ReportSection title="Köldmediehantering - händelser under året">
               <DataTable
-                columns={["Datum", "Aggregat", "Typ", "Köldmedium", "Tillfört", "Återvunnet", "Anteckning"]}
-                rows={visibleHandlingEvents.map((row) => [
+                columns={["Datum", "Aggregat", "Typ", "Köldmedium", "Påfyllt", "Omhändertaget/återvunnet", "Anteckning"]}
+                rows={report.refrigerantHandlingLog.map((row) => [
                   formatDate(row.date),
                   displayEquipment(row.equipmentName, row.equipmentId),
                   row.eventType,
@@ -115,11 +108,6 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
                   row.notes || "-",
                 ])}
               />
-              {hiddenHandlingEventCount > 0 && (
-                <p className="muted events-note">
-                  Ytterligare {formatInteger(hiddenHandlingEventCount)} händelser finns registrerade i systemet.
-                </p>
-              )}
             </ReportSection>
           )}
 
@@ -133,7 +121,8 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
 
           <CertificateRegister rows={report.certificateRegister} />
 
-          {hasRegeneratedReused && (
+          {report.summary.regeneratedReusedRefrigerantKg != null &&
+            report.summary.regeneratedReusedRefrigerantKg > 0 && (
             <ReportSection title="Regenererat eller återanvänt köldmedium">
               <DataTable
                 columns={["Datum", "Aggregat", "Köldmedium", "Mängd", "Anteckning"]}
@@ -408,15 +397,12 @@ export function ReportQualitySummary({ report }: { report: AnnualFgasReportData 
 export function RefrigerantHandlingLog({
   equipment,
   rows,
-  showRegeneratedReused,
 }: {
   equipment: AnnualFgasEquipmentRow[]
   rows: AnnualFgasRefrigerantHandlingRow[]
-  showRegeneratedReused: boolean
 }) {
   const addedByEquipment = new Map<string, number>()
   const recoveredByEquipment = new Map<string, number>()
-  const regeneratedByEquipment = new Map<string, number>()
 
   rows.forEach((row) => {
     const key = row.equipmentId || row.equipmentName
@@ -425,37 +411,27 @@ export function RefrigerantHandlingLog({
       key,
       (recoveredByEquipment.get(key) ?? 0) + (row.recoveredKg ?? 0)
     )
-    regeneratedByEquipment.set(
-      key,
-      (regeneratedByEquipment.get(key) ?? 0) + (row.regeneratedReusedKg ?? 0)
-    )
   })
 
   return (
     <DataTable
       columns={[
-        "Aggregat-ID",
+        "Aggregat",
         "Köldmedium",
         "Fyllnadsmängd (kg)",
         "CO₂e (ton)",
-        "Gaslarm",
         // TODO: Split refill origin into new/regenerated/reused once event forms and imports store that distinction.
         "Påfyllt (kg)",
-        ...(showRegeneratedReused ? ["Regenererat/återanvänt (kg)"] : []),
         "Omhändertaget/återvunnet (kg)",
       ]}
       rows={equipment.map((row) => {
         const key = row.equipmentId || row.name
         return [
-          row.equipmentId || row.name,
+          displayEquipment(row.name, row.equipmentId),
           row.refrigerantType,
           formatNumber(row.refrigerantAmountKg),
           formatCo2eTon(row.co2eKg),
-          row.leakDetectionSystem ? "Ja" : "Nej",
           formatOptionalNumber(addedByEquipment.get(key)),
-          ...(showRegeneratedReused
-            ? [formatOptionalNumber(regeneratedByEquipment.get(key))]
-            : []),
           formatOptionalNumber(recoveredByEquipment.get(key)),
         ]
       })}
@@ -490,15 +466,11 @@ export function ScrappedEquipmentSection({
 function EquipmentList({ rows }: { rows: AnnualFgasEquipmentRow[] }) {
   return (
     <DataTable
-      columns={["Aggregat-ID", "Benämning", "Placering", "Fastighet", "Typ", "Kontrollintervall", "Senaste kontroll", "Nästa kontroll", "Status"]}
+      columns={["Aggregat-ID / märkning", "Placering / fastighet", "Kontrollintervall", "Nästa kontroll", "Status"]}
       rows={rows.map((row) => [
         row.equipmentId || "-",
-        row.name,
-        row.location || "-",
-        row.propertyName || "-",
-        row.equipmentType || "-",
+        [row.location, row.propertyName].filter(Boolean).join(" / ") || "-",
         row.inspectionIntervalMonths ? `${row.inspectionIntervalMonths} mån` : "Ej kontrollpliktigt",
-        formatDate(row.lastInspectionAt),
         formatDate(row.nextInspectionAt),
         statusLabel(row.status),
       ])}
@@ -810,10 +782,6 @@ const annualReportPrintStyles = `
   .muted {
     color: #4b5563;
     margin: 0;
-  }
-
-  .events-note {
-    margin-top: 6px;
   }
 
   .warning-box {
