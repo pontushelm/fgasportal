@@ -7,6 +7,7 @@ import {
   type RegisterFormData,
 } from "@/lib/validations"
 import { hashPassword, type UserRole } from "@/lib/auth"
+import { getServicePartnerInvitationMetadata } from "@/lib/service-partner-invitations"
 
 export async function POST(request: NextRequest) {
   try {
@@ -155,6 +156,10 @@ async function registerInvitedUser(data: InvitedRegisterData) {
 
   const hashedPassword = await hashPassword(data.password)
   const invitedRole = normalizeInvitedUserRole(invitation.role)
+  const invitationMetadata = getServicePartnerInvitationMetadata({
+    role: invitedRole,
+    servicePartnerCompanyId: invitation.servicePartnerCompanyId,
+  })
   const user = await prisma.$transaction(async (tx) => {
     const createdUser = await tx.user.create({
       data: {
@@ -172,6 +177,8 @@ async function registerInvitedUser(data: InvitedRegisterData) {
         companyId: invitation.companyId,
         role: invitedRole,
         isActive: true,
+        servicePartnerCompanyId: invitationMetadata.servicePartnerCompanyId,
+        isServicePartnerAdmin: invitationMetadata.isServicePartnerAdmin,
       },
     })
 

@@ -20,6 +20,7 @@ type InviteContext = {
   email: string
   role: string
   companyName: string
+  servicePartnerCompanyName?: string | null
   expiresAt: string
 }
 
@@ -119,6 +120,11 @@ export default function RegisterForm({ inviteToken }: { inviteToken?: string }) 
           <p className="mt-1">
             Du registreras som {formatRoleLabel(inviteContext.role)}.
           </p>
+          {inviteContext.servicePartnerCompanyName && (
+            <p className="mt-1">
+              Servicepartnerföretag: {inviteContext.servicePartnerCompanyName}
+            </p>
+          )}
         </div>
       )}
 

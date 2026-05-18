@@ -141,6 +141,7 @@ model CompanyMembership {
   certificationValidUntil   DateTime?
   certificationOrganization String?
   servicePartnerCompanyId   String?
+  isServicePartnerAdmin     Boolean   @default(false)
   createdAt                 DateTime  @default(now())
   updatedAt                 DateTime  @updatedAt
 
@@ -169,6 +170,7 @@ model ServicePartnerCompany {
 
   company     Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
   memberships CompanyMembership[]
+  invitations Invitation[]
   assignedInstallations Installation[] @relation("AssignedServicePartnerCompany")
 
   @@unique([companyId, name])
@@ -188,9 +190,13 @@ model Invitation {
   companyId String
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
+  servicePartnerCompanyId String?
+  servicePartnerCompany   ServicePartnerCompany? @relation(fields: [servicePartnerCompanyId], references: [id], onDelete: SetNull)
+
   invitedByUserId String
   invitedByUser   User   @relation("InvitedBy", fields: [invitedByUserId], references: [id], onDelete: Restrict)
 
+  @@index([servicePartnerCompanyId])
   @@map("invitations")
 }
 

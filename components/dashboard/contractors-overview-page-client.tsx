@@ -106,6 +106,8 @@ export default function ContractorsOverviewPageClient() {
   const [error, setError] = useState("")
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState("")
+  const [inviteServicePartnerCompanyId, setInviteServicePartnerCompanyId] =
+    useState("")
   const [inviteError, setInviteError] = useState("")
   const [inviteSuccess, setInviteSuccess] = useState("")
   const [inviteLink, setInviteLink] = useState("")
@@ -176,6 +178,7 @@ export default function ContractorsOverviewPageClient() {
 
   function openInviteModal() {
     setInviteEmail("")
+    setInviteServicePartnerCompanyId(data?.servicePartnerCompanies[0]?.id ?? "")
     setInviteError("")
     setInviteSuccess("")
     setInviteLink("")
@@ -198,6 +201,7 @@ export default function ContractorsOverviewPageClient() {
       body: JSON.stringify({
         email: inviteEmail,
         role: "CONTRACTOR",
+        servicePartnerCompanyId: inviteServicePartnerCompanyId,
       }),
     })
     const result: {
@@ -224,6 +228,7 @@ export default function ContractorsOverviewPageClient() {
     )
     setInviteLink(result.inviteLink || "")
     setInviteEmail("")
+    setInviteServicePartnerCompanyId("")
     setIsSubmittingInvite(false)
     await refreshOverview()
   }
@@ -789,6 +794,24 @@ export default function ContractorsOverviewPageClient() {
                 Lägg gärna till servicepartnerföretaget i översikten först. Inbjudan skapar en primär kontakt med befintliga servicepartnerbehörigheter.
               </div>
               <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+                Servicepartnerföretag
+                <select
+                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  value={inviteServicePartnerCompanyId}
+                  onChange={(event) =>
+                    setInviteServicePartnerCompanyId(event.target.value)
+                  }
+                  required
+                >
+                  <option value="">Välj servicepartnerföretag</option>
+                  {data?.servicePartnerCompanies.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
                 E-post till primär kontakt
                 <input
                   className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
@@ -826,7 +849,7 @@ export default function ContractorsOverviewPageClient() {
                 <button
                   className={buttonClassName({ variant: "primary" })}
                   type="submit"
-                  disabled={isSubmittingInvite}
+                  disabled={isSubmittingInvite || !inviteServicePartnerCompanyId}
                 >
                   {isSubmittingInvite ? "Skickar..." : "Skicka inbjudan"}
                 </button>

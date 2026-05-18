@@ -14,6 +14,8 @@ export type AuthenticatedUser = {
   membershipId?: string
   companyId: string
   role: UserRole
+  servicePartnerCompanyId?: string | null
+  isServicePartnerAdmin?: boolean
 }
 
 type AuthResult =
@@ -119,6 +121,8 @@ export async function authenticateApiRequest(request: NextRequest): Promise<Auth
       id: true,
       companyId: true,
       role: true,
+      servicePartnerCompanyId: true,
+      isServicePartnerAdmin: true,
     },
   })
 
@@ -137,6 +141,8 @@ export async function authenticateApiRequest(request: NextRequest): Promise<Auth
       membershipId: membership.id,
       companyId: membership.companyId,
       role: membership.role,
+      servicePartnerCompanyId: membership.servicePartnerCompanyId,
+      isServicePartnerAdmin: membership.isServicePartnerAdmin,
     },
   }
 }

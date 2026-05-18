@@ -49,6 +49,8 @@ export async function GET(request: NextRequest) {
       companyId: item.companyId,
       companyName: item.company.name,
       role: item.role,
+      servicePartnerCompanyId: item.servicePartnerCompanyId,
+      isServicePartnerAdmin: item.isServicePartnerAdmin,
     }))
 
     return NextResponse.json(
@@ -58,6 +60,14 @@ export async function GET(request: NextRequest) {
         companyId: activeCompanyId,
         companyName: membership?.company.name ?? user?.company.name ?? null,
         role: activeRole,
+        servicePartnerCompanyId:
+          membership?.servicePartnerCompanyId ??
+          auth.user.servicePartnerCompanyId ??
+          null,
+        isServicePartnerAdmin:
+          membership?.isServicePartnerAdmin ??
+          auth.user.isServicePartnerAdmin ??
+          false,
         memberships: normalizedMemberships,
         activeMembershipId: membership?.id ?? null,
         email: user?.email ?? null,

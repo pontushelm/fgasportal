@@ -12,6 +12,7 @@ import {
   canInviteInternalUsers,
   canInviteServicePartners,
 } from "@/lib/roles"
+import { getServicePartnerInvitationMetadata } from "@/lib/service-partner-invitations"
 import { createInvitationSchema } from "@/lib/validations"
 
 const INVITATION_TTL_DAYS = 7
@@ -110,6 +111,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = createInvitationSchema.parse(body)
     const isServicePartnerInvite = validatedData.role === "CONTRACTOR"
+    const invitationMetadata = getServicePartnerInvitationMetadata({
+      role: validatedData.role,
+      servicePartnerCompanyId: validatedData.servicePartnerCompanyId,
+    })
 
     if (
       isServicePartnerInvite
@@ -121,6 +126,32 @@ export async function POST(request: NextRequest) {
 
     if (!isServicePartnerInvite && !canInviteInternalRole(auth.user.role, validatedData.role)) {
       return forbiddenResponse()
+    }
+
+    if (isServicePartnerInvite) {
+      if (!invitationMetadata.servicePartnerCompanyId) {
+        return NextResponse.json(
+          { error: "Välj vilket servicepartnerföretag inbjudan gäller." },
+          { status: 400 }
+        )
+      }
+
+      const servicePartnerCompany = await prisma.servicePartnerCompany.findFirst({
+        where: {
+          id: invitationMetadata.servicePartnerCompanyId,
+          companyId,
+        },
+        select: {
+          id: true,
+        },
+      })
+
+      if (!servicePartnerCompany) {
+        return NextResponse.json(
+          { error: "Servicepartnerföretaget kunde inte hittas." },
+          { status: 400 }
+        )
+      }
     }
     const existingUser = await prisma.user.findUnique({
       where: {
@@ -158,6 +189,10 @@ export async function POST(request: NextRequest) {
             companyId,
             role: validatedData.role,
             isActive: true,
+            servicePartnerCompanyId:
+              invitationMetadata.servicePartnerCompanyId,
+            isServicePartnerAdmin:
+              invitationMetadata.isServicePartnerAdmin,
           },
         })
 
@@ -172,6 +207,10 @@ export async function POST(request: NextRequest) {
             targetUserName: existingUser.name,
             role: validatedData.role,
             membershipId: membership.id,
+            servicePartnerCompanyId:
+              invitationMetadata.servicePartnerCompanyId,
+            isServicePartnerAdmin:
+              invitationMetadata.isServicePartnerAdmin,
           },
         })
 
@@ -206,6 +245,7 @@ export async function POST(request: NextRequest) {
         role: validatedData.role,
         token,
         companyId,
+        servicePartnerCompanyId: invitationMetadata.servicePartnerCompanyId,
         invitedByUserId: userId,
         expiresAt,
       },

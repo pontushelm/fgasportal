@@ -19,6 +19,12 @@ export async function GET(_request: NextRequest, context: RouteContext) {
           name: true,
         },
       },
+      servicePartnerCompany: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
     },
   })
 
@@ -48,6 +54,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       email: invitation.email,
       role: invitation.role,
       companyName: invitation.company.name,
+      servicePartnerCompanyId: invitation.servicePartnerCompany?.id ?? null,
+      servicePartnerCompanyName: invitation.servicePartnerCompany?.name ?? null,
       expiresAt: invitation.expiresAt,
     },
     { status: 200 }

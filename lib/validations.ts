@@ -178,6 +178,7 @@ export type EditInstallationData = z.infer<typeof editInstallationSchema>
 export const createInvitationSchema = z.object({
   email: z.string().email("Ogiltig emailadress"),
   role: z.enum(["OWNER", "ADMIN", "MEMBER", "CONTRACTOR"]),
+  servicePartnerCompanyId: z.string().min(1).optional(),
 })
 
 export type CreateInvitationData = z.infer<typeof createInvitationSchema>

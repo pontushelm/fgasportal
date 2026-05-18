@@ -16,6 +16,8 @@ export async function getMembershipById(userId: string, membershipId: string) {
       companyId: true,
       role: true,
       isActive: true,
+      servicePartnerCompanyId: true,
+      isServicePartnerAdmin: true,
       company: {
         select: {
           name: true,
@@ -41,6 +43,8 @@ export async function getActiveMembership(userId: string, companyId: string) {
       companyId: true,
       role: true,
       isActive: true,
+      servicePartnerCompanyId: true,
+      isServicePartnerAdmin: true,
       company: {
         select: {
           name: true,
@@ -66,6 +70,8 @@ export async function getUserMemberships(userId: string) {
       id: true,
       companyId: true,
       role: true,
+      servicePartnerCompanyId: true,
+      isServicePartnerAdmin: true,
       company: {
         select: {
           name: true,
