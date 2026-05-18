@@ -1,7 +1,12 @@
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
-import { buildAnnualFgasReportQualitySummary } from "@/lib/reports/annualFgasReportValidation"
+import { buildAnnualFgasReportData } from "@/lib/reports/buildAnnualFgasReportData"
+import {
+  ANNUAL_FGAS_EVENT_LABELS,
+  buildAnnualFgasReportQualitySummary,
+} from "@/lib/reports/annualFgasReportValidation"
 import type {
+  AnnualFgasReportData,
   AnnualFgasReportQualitySummary,
   AnnualFgasReportWarningSeverity,
 } from "@/lib/reports/annualFgasReportTypes"
@@ -66,6 +71,10 @@ export type FgasReportData = {
 }
 
 type RefrigerantSummary = FgasReportData["refrigerants"][number]
+
+const ANNUAL_EVENT_TYPE_BY_LABEL = Object.fromEntries(
+  Object.entries(ANNUAL_FGAS_EVENT_LABELS).map(([type, label]) => [label, type])
+) as Record<string, FgasReportEventType>
 
 const UNKNOWN_REFRIGERANT = "Okänt köldmedium"
 
@@ -294,5 +303,127 @@ export async function getFgasAnnualReport({
     events: events.sort(
       (first, second) => second.date.getTime() - first.date.getTime()
     ),
+  }
+}
+
+export async function getAnnualFgasReportPreview({
+  assignedContractorId,
+  companyId,
+  municipality,
+  propertyId,
+  year,
+}: {
+  companyId: string
+  assignedContractorId?: string
+  municipality?: string
+  propertyId?: string
+  year: number
+}): Promise<FgasReportData> {
+  const report = await buildAnnualFgasReportData({
+    assignedContractorId,
+    companyId,
+    municipality,
+    propertyId,
+    year,
+  })
+
+  return mapAnnualReportDataToPreview(report)
+}
+
+function mapAnnualReportDataToPreview(
+  report: AnnualFgasReportData
+): FgasReportData {
+  const refrigerantMap = new Map<string, RefrigerantSummary>()
+
+  report.equipment.forEach((equipment) => {
+    const refrigerantType = equipment.refrigerantType || UNKNOWN_REFRIGERANT
+    const summary = refrigerantMap.get(refrigerantType) ?? {
+      refrigerantType,
+      installationCount: 0,
+      totalAmountKg: 0,
+      totalCo2eTon: null,
+      refilledAmountKg: 0,
+      leakageEvents: 0,
+    }
+
+    summary.installationCount += 1
+    summary.totalAmountKg += equipment.refrigerantAmountKg
+    if (equipment.co2eKg !== null) {
+      summary.totalCo2eTon = (summary.totalCo2eTon ?? 0) + equipment.co2eKg / 1000
+    }
+    refrigerantMap.set(refrigerantType, summary)
+  })
+
+  report.refrigerantHandlingLog.forEach((row) => {
+    const refrigerantType = row.refrigerantType || UNKNOWN_REFRIGERANT
+    const summary = refrigerantMap.get(refrigerantType) ?? {
+      refrigerantType,
+      installationCount: 0,
+      totalAmountKg: 0,
+      totalCo2eTon: null,
+      refilledAmountKg: 0,
+      leakageEvents: 0,
+    }
+
+    summary.refilledAmountKg += row.addedKg ?? 0
+    if (row.eventType === ANNUAL_FGAS_EVENT_LABELS.LEAK) {
+      summary.leakageEvents += 1
+    }
+    refrigerantMap.set(refrigerantType, summary)
+  })
+
+  return {
+    year: report.reportYear,
+    period: report.period,
+    metrics: {
+      totalInstallations: report.summary.equipmentCount,
+      totalRefrigerantAmountKg: report.summary.totalRefrigerantKg,
+      totalCo2eTon:
+        report.summary.totalCo2eKg === null
+          ? null
+          : report.summary.totalCo2eKg / 1000,
+      knownCo2eTon: report.summary.knownCo2eKg / 1000,
+      unknownCo2eInstallations: report.summary.unknownCo2eEquipmentCount,
+      requiringInspection: report.summary.controlRequiredCount,
+      inspectionsPerformed:
+        report.leakageControls.length +
+        report.refrigerantHandlingLog.filter(
+          (row) => row.eventType === ANNUAL_FGAS_EVENT_LABELS.INSPECTION
+        ).length,
+      leakageEvents: report.summary.leakageCount,
+      refilledAmountKg: report.summary.addedRefrigerantKg,
+      serviceEvents: report.refrigerantHandlingLog.filter(
+        (row) =>
+          row.eventType === ANNUAL_FGAS_EVENT_LABELS.SERVICE ||
+          row.eventType === ANNUAL_FGAS_EVENT_LABELS.REPAIR
+      ).length,
+    },
+    warnings: report.warnings.map((warning) => ({
+      id: warning.id,
+      severity: warning.severity,
+      message: warning.message,
+      installationName: warning.equipmentName ?? warning.equipmentId ?? null,
+    })),
+    qualitySummary: report.qualitySummary,
+    refrigerants: Array.from(refrigerantMap.values()).sort((first, second) =>
+      first.refrigerantType.localeCompare(second.refrigerantType, "sv")
+    ),
+    events: report.refrigerantHandlingLog
+      .map((row) => ({
+        id: row.id,
+        date: row.date,
+        installationId: row.installationId ?? row.equipmentId ?? row.equipmentName,
+        installationName: row.equipmentName,
+        refrigerantType: row.refrigerantType,
+        type: ANNUAL_EVENT_TYPE_BY_LABEL[row.eventType] ?? "SERVICE",
+        refrigerantAddedKg: row.addedKg ?? row.recoveredKg,
+        previousRefrigerantType: row.previousRefrigerantType,
+        newRefrigerantType: row.newRefrigerantType,
+        previousAmountKg: row.previousAmountKg,
+        newAmountKg: row.newAmountKg,
+        recoveredAmountKg: row.recoveredKg,
+        notes: row.notes,
+      }))
+      .sort((first, second) => second.date.getTime() - first.date.getTime()),
   }
 }

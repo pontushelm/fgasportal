@@ -29,9 +29,11 @@ export function buildRefrigerantHandlingRow({
   equipmentName,
   event,
   fallbackRefrigerantType,
+  installationId,
 }: {
   equipmentId: string | null
   equipmentName: string
+  installationId?: string | null
   event: {
     id: string
     date: Date
@@ -51,6 +53,7 @@ export function buildRefrigerantHandlingRow({
 
   return {
     id: event.id,
+    installationId: installationId ?? null,
     date: event.date,
     equipmentName,
     equipmentId,

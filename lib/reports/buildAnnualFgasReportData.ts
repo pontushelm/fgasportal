@@ -275,6 +275,7 @@ export async function buildAnnualFgasReportData({
         event,
         fallbackRefrigerantType:
           installation.refrigerantType?.trim() || UNKNOWN_REFRIGERANT,
+        installationId: installation.id,
       })
     )
   )

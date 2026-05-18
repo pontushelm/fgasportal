@@ -242,7 +242,7 @@ export default function ReportsPage() {
         fetch("/api/properties", {
           credentials: "include",
         }),
-        fetch("/api/reports/annual-fgas/history", {
+        fetch(`/api/reports/annual-fgas/history?${reportQuery}`, {
           credentials: "include",
         }),
       ])
@@ -396,7 +396,9 @@ export default function ReportsPage() {
         title={selectedReport.title}
         subtitle={selectedReport.subtitle}
       />
-      <ReportModuleStatusPanel report={selectedReport} />
+      {selectedReportType !== "annual" && (
+        <ReportModuleStatusPanel report={selectedReport} />
+      )}
 
       {isLoading && <p className="mt-8 text-neutral-600">Laddar rapport...</p>}
       {error && <p className="mt-8 text-red-700">{error}</p>}
@@ -413,7 +415,6 @@ export default function ReportsPage() {
                 signedPdfExportHref={signedPdfExportHref}
                 status={reportData.qualitySummary?.status}
               />
-              <SignedReportsHistory reports={signedReports} />
             </>
           )}
           {selectedReportType !== "annual" && (
@@ -559,6 +560,10 @@ export default function ReportsPage() {
               </div>
             )}
           </section>
+
+          {selectedReportType === "annual" && (
+            <SignedReportsHistory key={reportQuery} reports={signedReports} />
+          )}
         </>
       )}
     </main>
@@ -756,7 +761,7 @@ function ReportSigningPanel({
         <div>
           <h2 className="font-semibold">Intygande inför signerad export</h2>
           <p className="mt-1 text-slate-600">
-            Lägg till ansvarig person i PDF:en. Detta är inte BankID eller en extern e-signatur.
+            Lägg till ansvarig person i PDF:en.
           </p>
         </div>
         {hasQualityIssues && (
@@ -862,6 +867,10 @@ function SignedReportsHistory({
 }: {
   reports: SignedReportHistoryItem[]
 }) {
+  const [showAllReports, setShowAllReports] = useState(false)
+  const visibleReports = showAllReports ? reports : reports.slice(0, 3)
+  const hiddenReportCount = reports.length - visibleReports.length
+
   return (
     <section className="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-900">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -892,7 +901,7 @@ function SignedReportsHistory({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {reports.map((report) => (
+              {visibleReports.map((report) => (
                 <tr key={report.id}>
                   <TableCell>{report.reportYear}</TableCell>
                   <TableCell>{report.scopeSummary}</TableCell>
@@ -924,6 +933,17 @@ function SignedReportsHistory({
             </tbody>
           </table>
         </div>
+      )}
+      {reports.length > 3 && (
+        <button
+          className="mt-3 inline-flex h-8 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+          onClick={() => setShowAllReports((current) => !current)}
+          type="button"
+        >
+          {showAllReports
+            ? "Visa mindre"
+            : `Visa mer (${hiddenReportCount} till)`}
+        </button>
       )}
     </section>
   )

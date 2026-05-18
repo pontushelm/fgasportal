@@ -14,6 +14,9 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
     report.summary.regeneratedReusedRefrigerantKg != null &&
     report.summary.regeneratedReusedRefrigerantKg > 0
   const hasLeakageNotes = report.summary.leakageCount > 0 || report.notes.length > 0
+  const visibleHandlingEvents = report.refrigerantHandlingLog.slice(0, 5)
+  const hiddenHandlingEventCount =
+    report.refrigerantHandlingLog.length - visibleHandlingEvents.length
 
   return (
     <html lang="sv">
@@ -100,7 +103,7 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
             <ReportSection title="Köldmediehantering - händelser under året">
               <DataTable
                 columns={["Datum", "Aggregat", "Typ", "Köldmedium", "Tillfört", "Återvunnet", "Anteckning"]}
-                rows={report.refrigerantHandlingLog.map((row) => [
+                rows={visibleHandlingEvents.map((row) => [
                   formatDate(row.date),
                   displayEquipment(row.equipmentName, row.equipmentId),
                   row.eventType,
@@ -110,6 +113,11 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
                   row.notes || "-",
                 ])}
               />
+              {hiddenHandlingEventCount > 0 && (
+                <p className="muted events-note">
+                  Ytterligare {formatInteger(hiddenHandlingEventCount)} händelser finns registrerade i systemet.
+                </p>
+              )}
             </ReportSection>
           )}
 
@@ -283,10 +291,6 @@ export function SigningMetadataSection({ report }: { report: AnnualFgasReportDat
     <ReportSection title="Intygande och signering">
       <div className="signing-box">
         <p className="strong">{signing.attestationText}</p>
-        <p className="muted">
-          Detta är ett intygande i FgasPortal och inte en kryptografisk signatur,
-          BankID-signering eller extern e-signatur.
-        </p>
         <div className="field-grid field-grid-2 signing-fields">
           <Field label="Signeras av" value={signing.signerName} />
           <Field label="Roll/titel" value={signing.signerRole} />
@@ -769,6 +773,10 @@ const annualReportPrintStyles = `
   .muted {
     color: #4b5563;
     margin: 0;
+  }
+
+  .events-note {
+    margin-top: 6px;
   }
 
   .warning-box {

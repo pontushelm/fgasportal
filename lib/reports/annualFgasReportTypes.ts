@@ -130,6 +130,7 @@ export type AnnualFgasLeakageControlRow = {
 
 export type AnnualFgasRefrigerantHandlingRow = {
   id: string
+  installationId?: string | null
   date: Date
   equipmentName: string
   equipmentId: string | null
