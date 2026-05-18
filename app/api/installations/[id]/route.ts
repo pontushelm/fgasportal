@@ -4,8 +4,8 @@ import {
   authenticateApiRequest,
   forbiddenResponse,
   isAdmin,
-  isContractor,
 } from "@/lib/auth"
+import { getInstallationAccessWhereClause } from "@/lib/access/installation-access"
 import { getCertificationStatus } from "@/lib/certification-status"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
@@ -26,13 +26,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
     if (auth.response) return auth.response
 
     const { id } = await context.params
-    const { companyId, userId } = auth.user
+    const { companyId } = auth.user
 
     const installation = await prisma.installation.findFirst({
       where: {
-        id,
-        companyId,
-        ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
+        AND: [
+          getInstallationAccessWhereClause(auth.user),
+          {
+            id,
+          },
+        ],
       },
       include: {
         property: {

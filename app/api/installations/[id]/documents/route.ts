@@ -50,6 +50,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         id: true,
         companyId: true,
         assignedContractorId: true,
+        assignedServicePartnerCompanyId: true,
       },
     })
 
@@ -139,6 +140,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         id: true,
         companyId: true,
         assignedContractorId: true,
+        assignedServicePartnerCompanyId: true,
       },
     })
 

@@ -1,6 +1,6 @@
 import { generateDashboardActions } from "@/lib/actions/generate-actions"
+import { getInstallationAccessWhereClause } from "@/lib/access/installation-access"
 import type { AuthenticatedUser } from "@/lib/auth"
-import { isContractor } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { calculateInstallationRisk } from "@/lib/risk-classification"
@@ -8,10 +8,13 @@ import { calculateInstallationRisk } from "@/lib/risk-classification"
 export async function loadDashboardActions(user: AuthenticatedUser) {
   const installations = await prisma.installation.findMany({
     where: {
-      companyId: user.companyId,
-      archivedAt: null,
-      scrappedAt: null,
-      ...(isContractor(user) ? { assignedContractorId: user.userId } : {}),
+      AND: [
+        getInstallationAccessWhereClause(user),
+        {
+          archivedAt: null,
+          scrappedAt: null,
+        },
+      ],
     },
     include: {
       events: {

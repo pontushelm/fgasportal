@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { ZodError } from "zod"
-import { authenticateApiRequest, isContractor } from "@/lib/auth"
+import { authenticateApiRequest } from "@/lib/auth"
+import { getInstallationAccessWhereClause } from "@/lib/access/installation-access"
 import { prisma } from "@/lib/db"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
@@ -22,12 +23,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
     if (auth.response) return auth.response
 
     const { id } = await context.params
-    const { companyId, userId } = auth.user
     const installation = await prisma.installation.findFirst({
       where: {
-        id,
-        companyId,
-        ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
+        AND: [
+          getInstallationAccessWhereClause(auth.user),
+          {
+            id,
+          },
+        ],
       },
       select: {
         id: true,
@@ -80,11 +83,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const validatedData = createInstallationEventSchema.parse(body)
     const installation = await prisma.installation.findFirst({
       where: {
-        id,
-        companyId,
-        archivedAt: null,
-        scrappedAt: null,
-        ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
+        AND: [
+          getInstallationAccessWhereClause(auth.user),
+          {
+            id,
+            archivedAt: null,
+            scrappedAt: null,
+          },
+        ],
       },
       select: {
         id: true,

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { getInstallationAccessWhereClause } from "@/lib/access/installation-access"
 import { authenticateApiRequest, isContractor } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
@@ -29,18 +30,21 @@ export async function GET(request: NextRequest) {
     const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
-    const { companyId, userId } = auth.user
+    const { companyId } = auth.user
 
     if (isContractor(auth.user)) {
       const installations = await prisma.installation.findMany({
         where: {
-          companyId,
-          archivedAt: null,
-          scrappedAt: null,
-          assignedContractorId: userId,
-          propertyId: {
-            not: null,
-          },
+          AND: [
+            getInstallationAccessWhereClause(auth.user),
+            {
+              archivedAt: null,
+              scrappedAt: null,
+              propertyId: {
+                not: null,
+              },
+            },
+          ],
         },
         include: {
           property: true,

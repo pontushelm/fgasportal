@@ -36,6 +36,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
           select: {
             companyId: true,
             assignedContractorId: true,
+            assignedServicePartnerCompanyId: true,
           },
         },
       },

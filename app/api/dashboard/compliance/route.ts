@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { getInstallationAccessWhereClause } from "@/lib/access/installation-access"
 import { generateDashboardActions } from "@/lib/actions/generate-actions"
 import { authenticateApiRequest, isContractor } from "@/lib/auth"
 import { buildDashboardAnnualReportStatus } from "@/lib/dashboard/annual-report-status"
@@ -54,10 +55,13 @@ export async function GET(request: NextRequest) {
     const currentYearRange = getCurrentYearRange()
     const installations = await prisma.installation.findMany({
       where: {
-        companyId,
-        archivedAt: null,
-        scrappedAt: null,
-        ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
+        AND: [
+          getInstallationAccessWhereClause(auth.user),
+          {
+            archivedAt: null,
+            scrappedAt: null,
+          },
+        ],
       },
       include: {
         events: {

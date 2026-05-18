@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { authenticateApiRequest, forbiddenResponse, isContractor } from "@/lib/auth"
+import { authenticateApiRequest, forbiddenResponse } from "@/lib/auth"
+import { canAccessInstallation } from "@/lib/access/installation-access"
 import { prisma } from "@/lib/db"
 
 type RouteContext = {
@@ -21,7 +22,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
       },
       select: {
         id: true,
+        companyId: true,
         assignedContractorId: true,
+        assignedServicePartnerCompanyId: true,
       },
     })
 
@@ -32,10 +35,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       )
     }
 
-    if (
-      isContractor(auth.user) &&
-      installation.assignedContractorId !== auth.user.userId
-    ) {
+    if (!canAccessInstallation(auth.user, installation)) {
       return forbiddenResponse()
     }
 

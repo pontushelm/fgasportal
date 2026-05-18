@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { generateDashboardActions } from "@/lib/actions/generate-actions"
+import { getInstallationAccessWhereClause } from "@/lib/access/installation-access"
 import { authenticateApiRequest, isContractor } from "@/lib/auth"
 import { buildDashboardAnnualReportStatus } from "@/lib/dashboard/annual-report-status"
 import { prisma } from "@/lib/db"
@@ -35,9 +36,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
       include: {
         installations: {
           where: {
-            archivedAt: null,
-            scrappedAt: null,
-            ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
+            AND: [
+              getInstallationAccessWhereClause(auth.user),
+              {
+                archivedAt: null,
+                scrappedAt: null,
+              },
+            ],
           },
           include: {
             assignedContractor: {

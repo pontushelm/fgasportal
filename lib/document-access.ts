@@ -1,9 +1,11 @@
 import type { AuthenticatedUser } from "@/lib/auth"
+import { canAccessInstallation } from "@/lib/access/installation-access"
 import { isAdminRole } from "@/lib/roles"
 
 export type DocumentAccessInstallation = {
   companyId: string
   assignedContractorId?: string | null
+  assignedServicePartnerCompanyId?: string | null
 }
 
 export type DocumentAccessRecord = {
@@ -15,12 +17,7 @@ export function canAccessInstallationDocuments(
   user: AuthenticatedUser,
   installation: DocumentAccessInstallation
 ) {
-  if (installation.companyId !== user.companyId) return false
-  if (user.role === "CONTRACTOR") {
-    return installation.assignedContractorId === user.userId
-  }
-
-  return true
+  return canAccessInstallation(user, installation)
 }
 
 export function canUploadInstallationDocument(

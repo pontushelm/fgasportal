@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { authenticateApiRequest, isContractor } from "@/lib/auth"
+import { getInstallationAccessWhereClause } from "@/lib/access/installation-access"
+import { authenticateApiRequest } from "@/lib/auth"
 import { calculateCO2e } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
 
@@ -38,7 +39,6 @@ export async function GET(request: NextRequest) {
     const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
-    const { companyId, userId } = auth.user
     const yearParam = request.nextUrl.searchParams.get("year")
     const year = parseReportYear(yearParam)
 
@@ -50,10 +50,13 @@ export async function GET(request: NextRequest) {
     const endDate = new Date(Date.UTC(year + 1, 0, 1))
     const installations = await prisma.installation.findMany({
       where: {
-        companyId,
-        archivedAt: null,
-        scrappedAt: null,
-        ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
+        AND: [
+          getInstallationAccessWhereClause(auth.user),
+          {
+            archivedAt: null,
+            scrappedAt: null,
+          },
+        ],
       },
       include: {
         events: {

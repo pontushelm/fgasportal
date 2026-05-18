@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { Prisma } from '@prisma/client'
 import { ZodError } from 'zod'
-import { authenticateApiRequest, forbiddenResponse, isAdmin, isContractor } from '@/lib/auth'
+import { authenticateApiRequest, forbiddenResponse, isAdmin } from '@/lib/auth'
+import { getInstallationAccessWhereClause } from "@/lib/access/installation-access"
 import { prisma } from '@/lib/db'
 import { createInstallationSchema } from '@/lib/validations'
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
@@ -265,7 +266,7 @@ export async function GET(request: NextRequest) {
     const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
-    const { companyId, userId } = auth.user
+    const { companyId } = auth.user
     const searchParams = request.nextUrl.searchParams
     const search = searchParams.get('q')?.trim()
     const archived = searchParams.get('archived') || 'all'
@@ -310,8 +311,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const where: Prisma.InstallationWhereInput = {
-      companyId,
+    const filters: Prisma.InstallationWhereInput = {
       ...(archivedScope === 'scrapped'
         ? { scrappedAt: { not: null } }
         : archivedScope === 'archived'
@@ -348,7 +348,9 @@ export async function GET(request: NextRequest) {
             ],
           }
         : {}),
-      ...(isContractor(auth.user) ? { assignedContractorId: userId } : {}),
+    }
+    const where: Prisma.InstallationWhereInput = {
+      AND: [getInstallationAccessWhereClause(auth.user), filters],
     }
 
     const orderBy = getInstallationOrderBy(sort, direction)
