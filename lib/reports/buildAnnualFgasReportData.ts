@@ -110,6 +110,7 @@ export async function buildAnnualFgasReportData({
           id: true,
           name: true,
           email: true,
+          certificationNumber: true,
           company: { select: { name: true, phone: true } },
           memberships: {
             where: {
@@ -523,6 +524,7 @@ function buildCertificateRegister(
     assignedContractor: {
       id: string
       name: string
+      certificationNumber: string | null
       company: { name: string } | null
       memberships: Array<{
         certificationNumber: string | null
@@ -551,6 +553,7 @@ function buildCertificateRegister(
       certificateNumber:
         installation.assignedServicePartnerCompany?.certificateNumber ??
         certification?.servicePartnerCompany?.certificateNumber ??
+        contractor.certificationNumber ??
         certification?.certificationNumber ??
         null,
       certificateOrganization: certification?.certificationOrganization ?? null,

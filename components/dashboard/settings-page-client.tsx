@@ -14,6 +14,7 @@ type CurrentUser = {
   email?: string | null
   name?: string | null
   phone?: string | null
+  certificationNumber?: string | null
   notifyAssignmentEmails: boolean
   notifyInspectionReminderEmails: boolean
   notifyDocumentEmails: boolean
@@ -56,6 +57,7 @@ export default function SettingsPageClient() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
+  const [certificationNumber, setCertificationNumber] = useState("")
   const [notifications, setNotifications] =
     useState<NotificationPreferences | null>(null)
   const [passwordForm, setPasswordForm] = useState({
@@ -100,6 +102,7 @@ export default function SettingsPageClient() {
       setCurrentUser(user)
       setName(user.name || "")
       setPhone(user.phone || "")
+      setCertificationNumber(user.certificationNumber || "")
       setNotifications(extractNotificationPreferences(user))
       setIsLoading(false)
     }
@@ -145,11 +148,15 @@ export default function SettingsPageClient() {
         "Content-Type": "application/json",
       },
       credentials: "include",
-      body: JSON.stringify({ name, phone }),
+      body: JSON.stringify({ name, phone, certificationNumber }),
     })
 
-    const result: { error?: string; name?: string; phone?: string | null } =
-      await response.json()
+    const result: {
+      error?: string
+      name?: string
+      phone?: string | null
+      certificationNumber?: string | null
+    } = await response.json()
 
     if (!response.ok) {
       setError(result.error || "Kunde inte spara profilen")
@@ -159,7 +166,13 @@ export default function SettingsPageClient() {
 
     setCurrentUser((user) =>
       user
-        ? { ...user, name: result.name || name, phone: result.phone ?? phone }
+        ? {
+            ...user,
+            name: result.name || name,
+            phone: result.phone ?? phone,
+            certificationNumber:
+              result.certificationNumber ?? certificationNumber,
+          }
         : user
     )
     setProfileMessage("Profilen har sparats.")
@@ -308,6 +321,22 @@ export default function SettingsPageClient() {
                   Valfritt. Används som kontaktuppgift i årsrapporter.
                 </span>
               </label>
+              {currentUser.role === "CONTRACTOR" && (
+                <label className={labelClassName}>
+                  Personligt certifikat nr
+                  <input
+                    className={inputClassName}
+                    name="certificationNumber"
+                    value={certificationNumber}
+                    onChange={(event) =>
+                      setCertificationNumber(event.target.value)
+                    }
+                  />
+                  <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+                    Används för att visa teknikerbehörighet vid händelser och rapportunderlag.
+                  </span>
+                </label>
+              )}
               <div className="grid gap-4 sm:grid-cols-2">
                 <ReadOnlyItem label="E-post" value={currentUser.email || "-"} />
                 <div className="rounded-lg bg-slate-50 p-4 dark:bg-slate-950">

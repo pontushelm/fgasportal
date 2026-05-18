@@ -3,6 +3,10 @@ import { z, ZodError } from "zod"
 import { authenticateApiRequest, forbiddenResponse } from "@/lib/auth"
 import { logActivity } from "@/lib/activity-log"
 import { prisma } from "@/lib/db"
+import {
+  canEditServicePartnerCompanySettings,
+  canViewServicePartnerCompanySettings,
+} from "@/lib/servicepartner-company-settings-access"
 
 const servicePartnerSettingsSchema = z.object({
   name: z.string().trim().min(1, "Namn krävs").max(160),
@@ -15,7 +19,7 @@ export async function GET(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
-    if (!canAccessServicePartnerSettings(auth.user)) return forbiddenResponse()
+    if (!canViewServicePartnerCompanySettings(auth.user)) return forbiddenResponse()
 
     const servicePartnerCompany = await prisma.servicePartnerCompany.findFirst({
       where: {
@@ -47,7 +51,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
-    if (!canAccessServicePartnerSettings(auth.user)) return forbiddenResponse()
+    if (!canEditServicePartnerCompanySettings(auth.user)) return forbiddenResponse()
 
     const body = await request.json()
     const data = servicePartnerSettingsSchema.parse(body)
@@ -104,18 +108,6 @@ export async function PATCH(request: NextRequest) {
       { status: 500 }
     )
   }
-}
-
-function canAccessServicePartnerSettings(user: {
-  role: string
-  isServicePartnerAdmin?: boolean
-  servicePartnerCompanyId?: string | null
-}) {
-  return Boolean(
-    user.role === "CONTRACTOR" &&
-      user.isServicePartnerAdmin &&
-      user.servicePartnerCompanyId
-  )
 }
 
 function optionalText(maxLength: number) {

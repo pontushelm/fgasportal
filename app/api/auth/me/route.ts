@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
         email: true,
         name: true,
         phone: true,
+        certificationNumber: true,
         role: true,
         companyId: true,
         themePreference: true,
@@ -73,6 +74,7 @@ export async function GET(request: NextRequest) {
         email: user?.email ?? null,
         name: user?.name ?? null,
         phone: user?.phone ?? null,
+        certificationNumber: user?.certificationNumber ?? null,
         themePreference: normalizeThemePreference(user?.themePreference),
         notifyAssignmentEmails: user?.notifyAssignmentEmails ?? true,
         notifyInspectionReminderEmails:

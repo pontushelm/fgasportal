@@ -392,10 +392,9 @@ export default function ServiceDashboardPage() {
     setAssigningInstallationId("")
   }
 
-  const eventCertificationWarning = getCertificationWarning(
-    certification?.certificationStatus ?? null
-  )
+  const eventCertificationWarning = getCertificationWarning(null)
   const isServicePartnerAdmin = Boolean(currentUser?.isServicePartnerAdmin)
+  const showCompanyCertificationPanel = false
   const visibleInstallations = isServicePartnerAdmin
     ? installations.filter((installation) => {
         if (assignmentFilter === "assigned") {
@@ -427,7 +426,7 @@ export default function ServiceDashboardPage() {
       {error && <p className="mt-8 text-sm font-semibold text-red-700">{error}</p>}
       {success && <p className="mt-8 text-sm font-semibold text-green-700">{success}</p>}
 
-      {!isLoading && !error && certification && !isServicePartnerAdmin && (
+      {showCompanyCertificationPanel && !isLoading && !error && certification && !isServicePartnerAdmin && (
         <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>

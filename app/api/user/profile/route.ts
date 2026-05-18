@@ -12,6 +12,11 @@ const updateProfileSchema = z.object({
     .regex(/^[0-9+\-\s().]*$/, "Ange ett giltigt telefonnummer")
     .optional()
     .transform((value) => (value ? value : null)),
+  certificationNumber: z
+    .string()
+    .trim()
+    .max(120, "Certifikatnummer får vara högst 120 tecken")
+    .optional(),
 })
 
 export async function PATCH(request: NextRequest) {
@@ -36,11 +41,15 @@ export async function PATCH(request: NextRequest) {
       data: {
         name: validation.data.name,
         phone: validation.data.phone,
+        ...(validation.data.certificationNumber !== undefined
+          ? { certificationNumber: validation.data.certificationNumber || null }
+          : {}),
       },
       select: {
         id: true,
         name: true,
         phone: true,
+        certificationNumber: true,
         email: true,
         role: true,
       },

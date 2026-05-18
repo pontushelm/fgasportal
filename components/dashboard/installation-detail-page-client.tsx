@@ -1,6 +1,6 @@
 "use client"
 
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui"
 import type { CertificationStatusResult } from "@/lib/certification-status"
@@ -441,6 +441,7 @@ const maxInstallationDate = `${new Date().getFullYear() + 1}-12-31`
 export default function InstallationDetailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [installation, setInstallation] = useState<InstallationDetail | null>(null)
   const [events, setEvents] = useState<InstallationEvent[]>([])
   const [documents, setDocuments] = useState<InstallationDocument[]>([])
@@ -463,6 +464,7 @@ export default function InstallationDetailPage() {
   const [documentSuccess, setDocumentSuccess] = useState("")
   const [isSubmittingEvent, setIsSubmittingEvent] = useState(false)
   const [isEventModalOpen, setIsEventModalOpen] = useState(false)
+  const [handledEventParam, setHandledEventParam] = useState("")
   const [isUploadingDocument, setIsUploadingDocument] = useState(false)
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false)
   const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null)
@@ -1191,6 +1193,42 @@ export default function InstallationDetailPage() {
 
     router.push("/dashboard/installations")
   }
+
+  useEffect(() => {
+    const requestedType = normalizeQuickEventType(searchParams.get("event"))
+    const canOpenEventModal =
+      Boolean(installation) &&
+      (isAdminRole(currentUser?.role) || currentUser?.role === "CONTRACTOR") &&
+      !installation?.archivedAt &&
+      !installation?.scrappedAt
+
+    if (!requestedType || !installation || !canOpenEventModal) return
+
+    const eventKey = `${installation.id}:${requestedType}`
+    if (handledEventParam === eventKey) return
+
+    const timer = window.setTimeout(() => {
+      setHandledEventParam(eventKey)
+      setCorrectingEvent(null)
+      setEventError("")
+      setEventSuccess("")
+      setArchiveError("")
+      setScrapError("")
+      setLifecycleConfirmed(false)
+      setEventForm((current) => ({
+        ...current,
+        type: requestedType,
+        date: current.date || getTodayInputValue(),
+        refillRefrigerantType:
+          requestedType === "REFILL"
+            ? current.refillRefrigerantType || installation.refrigerantType || ""
+            : "",
+      }))
+      setIsEventModalOpen(true)
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [currentUser, handledEventParam, installation, searchParams])
 
   if (isLoading) {
     return (
@@ -2983,6 +3021,18 @@ function calculateInspectionPreview(
     co2eTon,
     gwpWarning: warning,
   }
+}
+
+function normalizeQuickEventType(value: string | null): EventFormType | null {
+  if (
+    value === "INSPECTION" ||
+    value === "LEAK" ||
+    value === "SERVICE"
+  ) {
+    return value
+  }
+
+  return null
 }
 
 function formatInspectionInterval(compliance: {

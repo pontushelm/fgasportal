@@ -213,13 +213,6 @@ export default function CompanySettingsPage() {
       if (!isMounted) return
 
       if (accessUser.role === "CONTRACTOR") {
-        if (!accessUser.isServicePartnerAdmin) {
-          setCurrentUser(accessUser)
-          setError("Företagsinställningar är bara tillgängliga för ansvarig servicepartner.")
-          setIsLoading(false)
-          return
-        }
-
         const servicePartnerRes = await fetch("/api/dashboard/service/company", {
           credentials: "include",
         })
@@ -719,7 +712,11 @@ export default function CompanySettingsPage() {
     <main className="mx-auto max-w-6xl px-4 py-10 text-slate-900 sm:px-6 lg:px-8">
       <PageHeader
         title="Företagsinställningar"
-        subtitle="Hantera företagsuppgifter, användare och inbjudningar för organisationen."
+        subtitle={
+          currentUser?.role === "CONTRACTOR"
+            ? "Uppgifter för ert servicepartnerföretag."
+            : "Hantera företagsuppgifter, användare och inbjudningar för organisationen."
+        }
       />
       <div className="hidden">
         <p className="text-sm font-semibold uppercase tracking-wide text-slate-600">
@@ -742,6 +739,7 @@ export default function CompanySettingsPage() {
         servicePartnerSettings && (
           <>
           <ServicePartnerSettingsPanel
+            canEdit={currentUser.isServicePartnerAdmin}
             error={servicePartnerSettingsError}
             form={servicePartnerSettingsForm}
             isEditing={isEditingServicePartnerSettings}
@@ -759,18 +757,20 @@ export default function CompanySettingsPage() {
             onEdit={() => setIsEditingServicePartnerSettings(true)}
             onSubmit={handleServicePartnerSettingsSubmit}
           />
-          <ServicePartnerTechnicianInvitePanel
-            email={invitationForm.email}
-            error={inviteError}
-            inviteLink={inviteLink}
-            isSubmitting={isSubmittingInvite}
-            success={inviteSuccess}
-            warning={inviteWarning}
-            onChange={(email) =>
-              setInvitationForm({ ...initialInvitationFormData, email })
-            }
-            onSubmit={handleTechnicianInviteSubmit}
-          />
+          {currentUser.isServicePartnerAdmin && (
+            <ServicePartnerTechnicianInvitePanel
+              email={invitationForm.email}
+              error={inviteError}
+              inviteLink={inviteLink}
+              isSubmitting={isSubmittingInvite}
+              success={inviteSuccess}
+              warning={inviteWarning}
+              onChange={(email) =>
+                setInvitationForm({ ...initialInvitationFormData, email })
+              }
+              onSubmit={handleTechnicianInviteSubmit}
+            />
+          )}
           </>
         )}
 
@@ -1177,6 +1177,7 @@ function ProfileItem({
 }
 
 function ServicePartnerSettingsPanel({
+  canEdit,
   error,
   form,
   isEditing,
@@ -1188,6 +1189,7 @@ function ServicePartnerSettingsPanel({
   settings,
   success,
 }: {
+  canEdit: boolean
   error: string
   form: ServicePartnerSettingsFormData
   isEditing: boolean
@@ -1210,7 +1212,7 @@ function ServicePartnerSettingsPanel({
             Uppgifter för ert servicepartnerföretag i kundens arbetsyta.
           </p>
         </div>
-        {!isEditing && (
+        {canEdit && !isEditing && (
           <button
             className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
             type="button"

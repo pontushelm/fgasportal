@@ -137,7 +137,7 @@ export function Sidebar() {
     [currentUser]
   )
   const homeHref =
-    currentUser?.role === "CONTRACTOR" ? "/dashboard/service" : "/dashboard"
+    currentUser?.role === "CONTRACTOR" ? "/dashboard/installations" : "/dashboard"
 
   async function handleCompanyChange(membershipId: string) {
     if (!membershipId || membershipId === currentUser?.activeMembershipId) return
@@ -161,7 +161,7 @@ export function Sidebar() {
       const result: { membership?: { role?: UserRole } } = await response.json()
       const nextHref =
         result.membership?.role === "CONTRACTOR"
-          ? "/dashboard/service"
+          ? "/dashboard/installations"
           : "/dashboard"
       router.refresh()
       window.location.assign(nextHref)
@@ -616,8 +616,6 @@ function getPrimaryNavigation(currentUser: CurrentUser | null) {
   }
 
   const items: NavigationItem[] = [
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/dashboard/service", label: "Serviceuppdrag" },
     {
       href: "/dashboard/installations",
       label: currentUser.isServicePartnerAdmin ? "Aggregat" : "Mina aggregat",
@@ -631,7 +629,7 @@ function getSecondaryNavigation(currentUser: CurrentUser | null) {
   if (currentUser?.role === "CONTRACTOR") {
     const items: NavigationItem[] = []
 
-    if (currentUser.isServicePartnerAdmin) {
+    if (currentUser.servicePartnerCompanyId || currentUser.isServicePartnerAdmin) {
       items.push({
         href: "/dashboard/company",
         label: "Företagsinställningar",

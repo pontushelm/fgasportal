@@ -84,6 +84,7 @@ model User {
   email                            String   @unique
   name                             String
   phone                            String?
+  certificationNumber              String?
   password                         String
   role                             UserRole @default(ADMIN)
   themePreference                  String   @default("light")

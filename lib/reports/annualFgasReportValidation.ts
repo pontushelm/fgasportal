@@ -110,6 +110,7 @@ export function buildAnnualFgasReportWarnings({
       propertyDesignation: string | null
     } | null
     assignedContractor: {
+      certificationNumber?: string | null
       memberships: Array<{ certificationNumber: string | null }>
     } | null
     events: Array<{
@@ -243,6 +244,7 @@ export function buildAnnualFgasReportWarnings({
       })
     } else if (
       !installation.assignedServicePartnerCompany?.certificateNumber &&
+      !installation.assignedContractor?.certificationNumber &&
       !installation.assignedContractor?.memberships[0]?.certificationNumber
     ) {
       warnings.push({

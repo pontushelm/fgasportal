@@ -229,6 +229,7 @@ export default function InstallationsPageClient() {
       ? searchInputState.value
       : searchValue
   const canManage = isAdminRole(currentUser?.role)
+  const isServicePartnerUser = currentUser?.role === "CONTRACTOR"
 
   useEffect(() => {
     let isMounted = true
@@ -1232,6 +1233,7 @@ export default function InstallationsPageClient() {
           {displayedInstallations.map((installation) => (
             <InstallationMobileCard
               canManage={canManage}
+              canQuickRegisterEvents={isServicePartnerUser}
               installation={installation}
               isSelected={selectedIds.includes(installation.id)}
               key={installation.id}
@@ -1419,6 +1421,9 @@ export default function InstallationsPageClient() {
                       scrappedAt={installation.scrappedAt}
                       status={installation.complianceStatus}
                     />
+                    {isServicePartnerUser && !installation.archivedAt && !installation.scrappedAt && (
+                      <QuickEventLinks installationId={installation.id} />
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1758,12 +1763,14 @@ function InstallationQuickView({
 
 function InstallationMobileCard({
   canManage,
+  canQuickRegisterEvents,
   installation,
   isSelected,
   onOpenQuickView,
   onToggleSelected,
 }: {
   canManage: boolean
+  canQuickRegisterEvents: boolean
   installation: Installation
   isSelected: boolean
   onOpenQuickView: () => void
@@ -1828,6 +1835,11 @@ function InstallationMobileCard({
       </dl>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        {canQuickRegisterEvents && !installation.archivedAt && !installation.scrappedAt && (
+          <div className="sm:col-span-2">
+            <QuickEventLinks installationId={installation.id} />
+          </div>
+        )}
         <button
           className="min-h-11 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
           type="button"
@@ -1843,6 +1855,37 @@ function InstallationMobileCard({
         </Link>
       </div>
     </article>
+  )
+}
+
+function QuickEventLinks({ installationId }: { installationId: string }) {
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      <QuickEventLink
+        href={`/dashboard/installations/${installationId}?event=INSPECTION`}
+        label="Kontroll"
+      />
+      <QuickEventLink
+        href={`/dashboard/installations/${installationId}?event=LEAK`}
+        label="Läckage"
+      />
+      <QuickEventLink
+        href={`/dashboard/installations/${installationId}?event=SERVICE`}
+        label="Service"
+      />
+    </div>
+  )
+}
+
+function QuickEventLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      className="inline-flex min-h-8 items-center rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+      href={href}
+      onClick={(event) => event.stopPropagation()}
+    >
+      {label}
+    </Link>
   )
 }
 
