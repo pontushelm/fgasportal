@@ -55,7 +55,7 @@ export async function generatePdfFromHtml(
       displayHeaderFooter: true,
       footerTemplate: `
         <div style="width:100%;font-size:7px;color:#4b5563;padding:0 13mm;display:flex;justify-content:space-between;font-family:Arial,Helvetica,sans-serif;">
-          <span>FgasPortal årsrapport</span>
+          <span>FgasPortal - Årsrapport enligt 15 § förordning (2016:1128) om fluorerade växthusgaser</span>
           <span>Sida <span class="pageNumber"></span> av <span class="totalPages"></span></span>
         </div>
       `,

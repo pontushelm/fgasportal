@@ -7,6 +7,7 @@ import type {
   AnnualFgasReportFilter,
 } from "@/lib/reports/annualFgasReportTypes"
 import { summarizeAnnualFgasCo2e } from "@/lib/reports/annualFgasReportSummary"
+import { selectPrimaryAnnualReportServicePartnerCompany } from "@/lib/reports/annualFgasServicePartner"
 import {
   buildAnnualFgasReportQualitySummary,
   buildAnnualFgasReportWarnings as buildAnnualFgasReportWarningsShared,
@@ -317,8 +318,7 @@ export async function buildAnnualFgasReportData({
       ?.assignedContractor ?? null
   const primaryContractorCertification = primaryContractor?.memberships[0]
   const primaryServicePartnerCompany =
-    reportInstallations.find((installation) => installation.assignedServicePartnerCompany)
-      ?.assignedServicePartnerCompany ??
+    selectPrimaryAnnualReportServicePartnerCompany(reportInstallations) ??
     primaryContractorCertification?.servicePartnerCompany ??
     null
   const properties = Array.from(

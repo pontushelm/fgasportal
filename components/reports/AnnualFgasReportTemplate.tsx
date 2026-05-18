@@ -1,4 +1,6 @@
-/* eslint-disable @next/next/no-head-element */
+/* eslint-disable @next/next/no-head-element, @next/next/no-img-element */
+import { existsSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 import type { ReactNode } from "react"
 import type {
   AnnualFgasCertificateEntry,
@@ -180,6 +182,8 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
 }
 
 export function ReportHeader({ report }: { report: AnnualFgasReportData }) {
+  const logoDataUri = getReportLogoDataUri()
+
   return (
     <header className="report-header">
       <div>
@@ -187,6 +191,13 @@ export function ReportHeader({ report }: { report: AnnualFgasReportData }) {
         <p>Rapportår: {report.reportYear}</p>
       </div>
       <div className="header-meta">
+        {logoDataUri && (
+          <img
+            alt="FgasPortal"
+            className="report-logo"
+            src={logoDataUri}
+          />
+        )}
         <p>Skapad: {formatDate(report.generatedAt)}</p>
       </div>
     </header>
@@ -425,12 +436,13 @@ export function RefrigerantHandlingLog({
       columns={[
         "Aggregat-ID",
         "Köldmedium",
-        "Mängd (kg)",
-        "CO₂e (kg)",
+        "Fyllnadsmängd (kg)",
+        "CO₂e (ton)",
         "Gaslarm",
-        "Tillfört (kg)",
+        // TODO: Split refill origin into new/regenerated/reused once event forms and imports store that distinction.
+        "Påfyllt (kg)",
         ...(showRegeneratedReused ? ["Regenererat/återanvänt (kg)"] : []),
-        "Återvunnet (kg)",
+        "Omhändertaget/återvunnet (kg)",
       ]}
       rows={equipment.map((row) => {
         const key = row.equipmentId || row.name
@@ -438,7 +450,7 @@ export function RefrigerantHandlingLog({
           row.equipmentId || row.name,
           row.refrigerantType,
           formatNumber(row.refrigerantAmountKg),
-          row.co2eKg === null ? "Okänt GWP-värde" : formatNumber(row.co2eKg),
+          formatCo2eTon(row.co2eKg),
           row.leakDetectionSystem ? "Ja" : "Nej",
           formatOptionalNumber(addedByEquipment.get(key)),
           ...(showRegeneratedReused
@@ -552,6 +564,15 @@ function formatCo2eSummary(report: AnnualFgasReportData) {
   )} ton)`
 }
 
+function formatCo2eTon(valueKg: number | null) {
+  if (valueKg === null) return "Okänt GWP-värde"
+
+  return new Intl.NumberFormat("sv-SE", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+  }).format(valueKg / 1000)
+}
+
 function formatOptionalNumber(value: number | null | undefined) {
   if (!value) return "-"
   return formatNumber(value)
@@ -571,6 +592,14 @@ function statusLabel(status: AnnualFgasEquipmentRow["status"]) {
     archived: "Arkiverat",
     scrapped: "Skrotat",
   }[status]
+}
+
+function getReportLogoDataUri() {
+  const logoPath = join(process.cwd(), "public", "logo-mark.png")
+
+  if (!existsSync(logoPath)) return null
+
+  return `data:image/png;base64,${readFileSync(logoPath).toString("base64")}`
 }
 
 function qualityStatusLabel(status: AnnualFgasReportData["qualitySummary"]["status"]) {
@@ -631,6 +660,14 @@ const annualReportPrintStyles = `
     min-width: 105px;
     text-align: right;
     white-space: nowrap;
+  }
+
+  .report-logo {
+    display: block;
+    height: 18px;
+    margin: 0 0 6px auto;
+    opacity: 0.82;
+    width: auto;
   }
 
   .report-section {

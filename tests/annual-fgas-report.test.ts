@@ -13,6 +13,7 @@ import {
 import type { AnnualFgasReportData } from "@/lib/reports/annualFgasReportTypes"
 import { buildAnnualFgasReportFilename } from "@/lib/reports/annualFgasReportFilename"
 import { summarizeAnnualFgasCo2e } from "@/lib/reports/annualFgasReportSummary"
+import { selectPrimaryAnnualReportServicePartnerCompany } from "@/lib/reports/annualFgasServicePartner"
 
 describe("annual F-gas report summary", () => {
   it("returns a full CO2e total when all rows have known GWP values", () => {
@@ -484,6 +485,26 @@ describe("annual F-gas report warnings", () => {
     expect(warnings.map((warning) => warning.id)).not.toContain(
       "missing-certificate-installation-a"
     )
+  })
+})
+
+describe("annual F-gas report service partner company mapping", () => {
+  it("uses the assigned service partner company certificate for the PDF service partner box", () => {
+    const company = selectPrimaryAnnualReportServicePartnerCompany([
+      {
+        assignedServicePartnerCompany: {
+          name: "Servicepartner AB",
+          contactEmail: "info@servicepartner.example",
+          phone: "040-123 45",
+          certificateNumber: "FCERT-123",
+        },
+      },
+    ])
+
+    expect(company).toMatchObject({
+      name: "Servicepartner AB",
+      certificateNumber: "FCERT-123",
+    })
   })
 })
 
