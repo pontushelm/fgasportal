@@ -2,12 +2,11 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Fragment, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import {
   Badge,
   buttonClassName,
   Card,
-  EmptyState,
   PageHeader,
   SectionHeader,
 } from "@/components/ui"
@@ -51,6 +50,7 @@ type ServicePartnerCompanyForm = {
   contactEmail: string
   phone: string
   certificateNumber: string
+  responsibleContactEmail: string
   notes: string
 }
 
@@ -93,6 +93,7 @@ const emptyCompanyForm: ServicePartnerCompanyForm = {
   contactEmail: "",
   phone: "",
   certificateNumber: "",
+  responsibleContactEmail: "",
   notes: "",
 }
 
@@ -104,14 +105,6 @@ export default function ContractorsOverviewPageClient() {
   const [data, setData] = useState<ContractorsOverviewResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
-  const [isInviteOpen, setIsInviteOpen] = useState(false)
-  const [inviteEmail, setInviteEmail] = useState("")
-  const [inviteServicePartnerCompanyId, setInviteServicePartnerCompanyId] =
-    useState("")
-  const [inviteError, setInviteError] = useState("")
-  const [inviteSuccess, setInviteSuccess] = useState("")
-  const [inviteLink, setInviteLink] = useState("")
-  const [isSubmittingInvite, setIsSubmittingInvite] = useState(false)
   const [companyForm, setCompanyForm] = useState<ServicePartnerCompanyForm>(
     emptyCompanyForm
   )
@@ -119,7 +112,7 @@ export default function ContractorsOverviewPageClient() {
   const [companyError, setCompanyError] = useState("")
   const [companySuccess, setCompanySuccess] = useState("")
   const [isSavingCompany, setIsSavingCompany] = useState(false)
-  const [linkingContractorId, setLinkingContractorId] = useState("")
+  const [showAllServicePartners, setShowAllServicePartners] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -176,63 +169,6 @@ export default function ContractorsOverviewPageClient() {
     }
   }
 
-  function openInviteModal() {
-    setInviteEmail("")
-    setInviteServicePartnerCompanyId(data?.servicePartnerCompanies[0]?.id ?? "")
-    setInviteError("")
-    setInviteSuccess("")
-    setInviteLink("")
-    setIsInviteOpen(true)
-  }
-
-  async function handleInviteSubmit(event: React.FormEvent) {
-    event.preventDefault()
-    setInviteError("")
-    setInviteSuccess("")
-    setInviteLink("")
-    setIsSubmittingInvite(true)
-
-    const response = await fetch("/api/company/invitations", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify({
-        email: inviteEmail,
-        role: "CONTRACTOR",
-        servicePartnerCompanyId: inviteServicePartnerCompanyId,
-      }),
-    })
-    const result: {
-      error?: string
-      inviteLink?: string
-      message?: string
-    } = await response.json()
-
-    if (response.status === 401) {
-      router.push("/login")
-      return
-    }
-
-    if (!response.ok) {
-      setInviteError(result.error || "Kunde inte skicka inbjudan.")
-      setIsSubmittingInvite(false)
-      return
-    }
-
-    setInviteSuccess(
-      result.inviteLink
-        ? "Inbjudan har skickats."
-        : result.message || "Servicepartnern har lagts till."
-    )
-    setInviteLink(result.inviteLink || "")
-    setInviteEmail("")
-    setInviteServicePartnerCompanyId("")
-    setIsSubmittingInvite(false)
-    await refreshOverview()
-  }
-
   function updateCompanyForm(
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) {
@@ -253,6 +189,7 @@ export default function ContractorsOverviewPageClient() {
       contactEmail: company.contactEmail ?? "",
       phone: company.phone ?? "",
       certificateNumber: company.certificateNumber ?? "",
+      responsibleContactEmail: "",
       notes: company.notes ?? "",
     })
   }
@@ -282,7 +219,10 @@ export default function ContractorsOverviewPageClient() {
         body: JSON.stringify(companyForm),
       }
     )
-    const result: { error?: string } = await response.json()
+    const result: {
+      error?: string
+      responsibleInvitation?: { message?: string; inviteLink?: string | null }
+    } = await response.json()
 
     if (response.status === 401) {
       router.push("/login")
@@ -297,72 +237,31 @@ export default function ContractorsOverviewPageClient() {
 
     setCompanySuccess(
       editingCompanyId
-        ? "Servicepartnerföretaget har uppdaterats."
-        : "Servicepartnerföretaget har lagts till."
+        ? "Servicepartnern har uppdaterats."
+        : result.responsibleInvitation?.message ||
+            "Servicepartnern har lagts till."
     )
     setIsSavingCompany(false)
     resetCompanyForm()
     await refreshOverview()
   }
 
-  async function handleCompanyLink(
-    contractor: ContractorOverview,
-    servicePartnerCompanyId: string
-  ) {
-    setCompanyError("")
-    setCompanySuccess("")
-    setLinkingContractorId(contractor.id)
-
-    const response = await fetch(
-      `/api/company/contractors/${contractor.id}/service-partner-company`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          servicePartnerCompanyId: servicePartnerCompanyId || null,
-        }),
-      }
-    )
-    const result: { error?: string } = await response.json()
-
-    if (response.status === 401) {
-      router.push("/login")
-      return
-    }
-
-    if (!response.ok) {
-      setCompanyError(result.error || "Kunde inte koppla servicekontakten till företaget.")
-      setLinkingContractorId("")
-      return
-    }
-
-    setCompanySuccess("Servicekontakten har kopplats till servicepartnerföretaget.")
-    setLinkingContractorId("")
-    await refreshOverview()
-  }
+  const visibleServicePartners = data
+    ? showAllServicePartners
+      ? data.servicePartnerCompanyMetrics
+      : data.servicePartnerCompanyMetrics.slice(0, 2)
+    : []
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 dark:text-slate-100 sm:px-6 lg:px-8">
       <PageHeader
         title="Servicepartners"
-        subtitle="Hantera servicepartnerföretag först och koppla valfria servicekontakter eller tekniker vid behov."
-        actions={
-          <button
-            className={buttonClassName({ variant: "secondary" })}
-            type="button"
-            onClick={openInviteModal}
-          >
-            Bjud in servicepartner
-          </button>
-        }
+        subtitle="Koppla servicepartner, följ certifiering och se operativ status för tilldelade aggregat."
       />
 
       <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-100">
-        Tilldela aggregat till servicepartnerföretag. Servicekontakt eller tekniker är valfri
-        operativ information och kan kopplas när den är känd.
+        Kunder hanterar relationen till servicepartnern. Tekniker och serviceansvariga
+        hanteras av serviceorganisationen.
       </div>
 
       {isLoading && (
@@ -374,11 +273,7 @@ export default function ContractorsOverviewPageClient() {
 
       {!isLoading && !error && data && (
         <>
-          <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-            <MetricCard
-              label="Servicekontakter / tekniker"
-              value={data.summary.totalContractors}
-            />
+          <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
               label="Tilldelade aggregat"
               value={data.summary.assignedInstallations}
@@ -404,17 +299,16 @@ export default function ContractorsOverviewPageClient() {
             <div className="grid gap-5 lg:grid-cols-[1fr_1.1fr]">
               <div>
                 <SectionHeader
-                  title="Servicepartnerföretag"
-                  subtitle="Lägg till de servicepartnerföretag ni samarbetar med. Kontakter och tekniker kan kopplas under respektive företag."
+                  title="Kopplade servicepartners"
+                  subtitle="Serviceorganisationer som kan tilldelas aggregat och ansvarar för sina egna tekniker."
                 />
                 {data.servicePartnerCompanies.length === 0 ? (
                   <p className="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
-                    Inga servicepartnerföretag har lagts till ännu. Lägg till företaget först
-                    och bjud sedan in en primär kontakt vid behov.
+                    Inga servicepartners har kopplats ännu.
                   </p>
                 ) : (
                   <div className="mt-4 grid gap-2">
-                    {data.servicePartnerCompanies.map((company) => (
+                    {data.servicePartnerCompanies.slice(0, 2).map((company) => (
                       <div
                         className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950 sm:flex-row sm:items-center sm:justify-between"
                         key={company.id}
@@ -448,13 +342,18 @@ export default function ContractorsOverviewPageClient() {
                         </button>
                       </div>
                     ))}
+                    {data.servicePartnerCompanies.length > 2 && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {data.servicePartnerCompanies.length - 2} fler visas i den operativa översikten.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
 
               <form className="grid gap-3" onSubmit={handleCompanySubmit}>
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  {editingCompanyId ? "Redigera servicepartnerföretag" : "Nytt servicepartnerföretag"}
+                  {editingCompanyId ? "Redigera servicepartner" : "Koppla servicepartner"}
                 </h3>
                 <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
                   Företag
@@ -508,6 +407,21 @@ export default function ContractorsOverviewPageClient() {
                     onChange={updateCompanyForm}
                   />
                 </label>
+                {!editingCompanyId && (
+                  <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+                    Ansvarig kontaktperson e-post
+                    <input
+                      className={inputClassName}
+                      name="responsibleContactEmail"
+                      type="email"
+                      value={companyForm.responsibleContactEmail}
+                      onChange={updateCompanyForm}
+                    />
+                    <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+                      Valfritt. Skapar en serviceansvarig inbjudan till serviceorganisationen.
+                    </span>
+                  </label>
+                )}
                 <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
                   Anteckningar
                   <textarea
@@ -544,7 +458,7 @@ export default function ContractorsOverviewPageClient() {
                       ? "Sparar..."
                       : editingCompanyId
                         ? "Spara ändringar"
-                        : "Lägg till servicepartnerföretag"}
+                        : "Koppla servicepartner"}
                   </button>
                 </div>
               </form>
@@ -553,11 +467,11 @@ export default function ContractorsOverviewPageClient() {
 
           <Card className="mt-6 p-5">
             <SectionHeader
-              title="Servicepartnerföretag - operativ översikt"
-              subtitle="Aggregat räknas per servicepartnerföretag. Servicekontakter visas som valfri operativ detalj."
+              title="Servicepartners - operativ översikt"
+              subtitle="Relationer, certifiering och driftstatus per servicepartner."
             />
             <div className="mt-4 grid gap-3 lg:grid-cols-2">
-              {data.servicePartnerCompanyMetrics.map((company) => (
+              {visibleServicePartners.map((company) => (
                 <div
                   className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
                   key={company.id ?? "unlinked"}
@@ -578,8 +492,8 @@ export default function ContractorsOverviewPageClient() {
                       )}
                       <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                         {company.id
-                          ? "Aggregat tilldelade servicepartnerföretaget"
-                          : "Servicekontakter som inte är kopplade till ett servicepartnerföretag"}
+                          ? "Aggregat tilldelade servicepartnern"
+                          : "Saknar servicepartnerrelation"}
                       </p>
                     </div>
                     {company.certificationWarnings > 0 ? (
@@ -591,7 +505,6 @@ export default function ContractorsOverviewPageClient() {
                     )}
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-                    <CompanyMetric label="Kontakter" value={company.linkedContactsCount} />
                     <CompanyMetric
                       label="Aggregat"
                       value={company.assignedInstallationsCount}
@@ -624,8 +537,20 @@ export default function ContractorsOverviewPageClient() {
                 </div>
               ))}
             </div>
+            {data.servicePartnerCompanyMetrics.length > 2 && (
+              <div className="mt-4 flex justify-end">
+                <button
+                  className={buttonClassName({ variant: "secondary" })}
+                  type="button"
+                  onClick={() => setShowAllServicePartners((current) => !current)}
+                >
+                  {showAllServicePartners ? "Visa mindre" : "Visa fler"}
+                </button>
+              </div>
+            )}
           </Card>
 
+          {/*
           <Card className="mt-6 overflow-hidden">
             <div className="border-b border-slate-200 p-5 dark:border-slate-800">
               <SectionHeader
@@ -764,9 +689,11 @@ export default function ContractorsOverviewPageClient() {
               </div>
             )}
           </Card>
+          */}
         </>
       )}
 
+      {/*
       {isInviteOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
           <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
@@ -859,6 +786,7 @@ export default function ContractorsOverviewPageClient() {
         </div>
       )}
 
+      */}
     </main>
   )
 }
@@ -915,55 +843,6 @@ function CompanyMetric({
         {typeof value === "number" ? formatNumber(value) : value}
       </p>
     </div>
-  )
-}
-
-function StatusBadge({ isActive }: { isActive: boolean }) {
-  return isActive ? (
-    <Badge variant="success">Aktiv</Badge>
-  ) : (
-    <Badge variant="neutral">Inaktiv</Badge>
-  )
-}
-
-function CountBadge({
-  activeVariant,
-  count,
-}: {
-  activeVariant: "danger" | "warning"
-  count: number
-}) {
-  return count > 0 ? (
-    <Badge variant={activeVariant}>{count}</Badge>
-  ) : (
-    <Badge variant="success">0</Badge>
-  )
-}
-
-function CertificationBadge({ status }: { status: CertificationStatusResult }) {
-  return (
-    <Badge
-      title="Certifieringsuppgifter hanteras av servicekontakten."
-      variant={status.variant}
-    >
-      {status.label}
-    </Badge>
-  )
-}
-
-function TableHeader({ children }: { children: React.ReactNode }) {
-  return (
-    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">
-      {children}
-    </th>
-  )
-}
-
-function TableCell({ children }: { children: React.ReactNode }) {
-  return (
-    <td className="whitespace-nowrap px-4 py-3 text-slate-800 dark:text-slate-200">
-      {children}
-    </td>
   )
 }
 
