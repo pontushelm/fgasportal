@@ -87,6 +87,12 @@ type ServicePartnerCompanyMetrics = {
   contractorIds: string[]
 }
 
+type ServicePartnerFeedback = {
+  type: "success" | "error" | "info"
+  message: string
+  inviteLink?: string | null
+}
+
 const emptyCompanyForm: ServicePartnerCompanyForm = {
   name: "",
   organizationNumber: "",
@@ -109,10 +115,8 @@ export default function ContractorsOverviewPageClient() {
     emptyCompanyForm
   )
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null)
-  const [companyError, setCompanyError] = useState("")
-  const [companySuccess, setCompanySuccess] = useState("")
   const [isSavingCompany, setIsSavingCompany] = useState(false)
-  const [showAllServicePartners, setShowAllServicePartners] = useState(false)
+  const [feedback, setFeedback] = useState<ServicePartnerFeedback | null>(null)
 
   useEffect(() => {
     let isMounted = true
@@ -181,8 +185,7 @@ export default function ContractorsOverviewPageClient() {
 
   function startEditingCompany(company: ServicePartnerCompany) {
     setEditingCompanyId(company.id)
-    setCompanyError("")
-    setCompanySuccess("")
+    setFeedback(null)
     setCompanyForm({
       name: company.name,
       organizationNumber: company.organizationNumber ?? "",
@@ -197,13 +200,12 @@ export default function ContractorsOverviewPageClient() {
   function resetCompanyForm() {
     setEditingCompanyId(null)
     setCompanyForm(emptyCompanyForm)
-    setCompanyError("")
+    setFeedback(null)
   }
 
   async function handleCompanySubmit(event: React.FormEvent) {
     event.preventDefault()
-    setCompanyError("")
-    setCompanySuccess("")
+    setFeedback(null)
     setIsSavingCompany(true)
 
     const response = await fetch(
@@ -230,27 +232,31 @@ export default function ContractorsOverviewPageClient() {
     }
 
     if (!response.ok) {
-      setCompanyError(result.error || "Kunde inte spara servicepartnerföretaget.")
+      setFeedback({
+        type: "error",
+        message: result.error || "Kunde inte spara servicepartnern.",
+      })
       setIsSavingCompany(false)
       return
     }
 
-    setCompanySuccess(
-      editingCompanyId
+    const inviteLink = result.responsibleInvitation?.inviteLink ?? null
+    setFeedback({
+      type: inviteLink ? "info" : "success",
+      message: editingCompanyId
         ? "Servicepartnern har uppdaterats."
-        : result.responsibleInvitation?.message ||
-            "Servicepartnern har lagts till."
-    )
+        : inviteLink
+          ? "Servicepartnern har lagts till. E-post kunde inte skickas, men en inbjudningslänk har skapats."
+          : result.responsibleInvitation?.message ||
+            "Servicepartnern har lagts till.",
+      inviteLink,
+    })
     setIsSavingCompany(false)
     resetCompanyForm()
     await refreshOverview()
   }
 
-  const visibleServicePartners = data
-    ? showAllServicePartners
-      ? data.servicePartnerCompanyMetrics
-      : data.servicePartnerCompanyMetrics.slice(0, 2)
-    : []
+  const visibleServicePartners = data?.servicePartnerCompanyMetrics ?? []
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 dark:text-slate-100 sm:px-6 lg:px-8">
@@ -259,36 +265,46 @@ export default function ContractorsOverviewPageClient() {
         subtitle="Koppla servicepartner, följ certifiering och se operativ status för tilldelade aggregat."
       />
 
-      <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-100">
-        Kunder hanterar relationen till servicepartnern. Tekniker och serviceansvariga
-        hanteras av serviceorganisationen.
-      </div>
-
       {isLoading && (
         <p className="mt-8 text-sm text-slate-700 dark:text-slate-300">
           Laddar servicepartners...
         </p>
       )}
       {error && <p className="mt-8 text-sm font-semibold text-red-700">{error}</p>}
+      {feedback && (
+        <ServicePartnerFeedbackToast
+          feedback={feedback}
+          onDismiss={() => setFeedback(null)}
+        />
+      )}
 
       {!isLoading && !error && data && (
         <>
-          <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <MetricCard
+              description="Antal servicepartners som är kopplade till företaget."
+              label="Kopplade servicepartners"
+              value={data.servicePartnerCompanies.length}
+            />
+            <MetricCard
+              description="Antal aggregat som är tilldelade kopplade servicepartners."
               label="Tilldelade aggregat"
               value={data.summary.assignedInstallations}
             />
             <MetricCard
+              description="Tilldelade aggregat där senaste kontroll passerat deadline."
               label="Försenade kontroller"
               tone={data.summary.overdueInspections > 0 ? "danger" : "success"}
               value={data.summary.overdueInspections}
             />
             <MetricCard
+              description="Tilldelade aggregat med hög riskklassning."
               label="Högriskaggregat"
               tone={data.summary.highRiskInstallations > 0 ? "warning" : "success"}
               value={data.summary.highRiskInstallations}
             />
             <MetricCard
+              description="Servicepartners där företagscertifiering saknas eller har passerat giltighetsdatum."
               label="Utgången certifiering"
               tone={data.summary.expiredCertifications > 0 ? "danger" : "success"}
               value={data.summary.expiredCertifications}
@@ -300,7 +316,6 @@ export default function ContractorsOverviewPageClient() {
               <div>
                 <SectionHeader
                   title="Kopplade servicepartners"
-                  subtitle="Serviceorganisationer som kan tilldelas aggregat och ansvarar för sina egna tekniker."
                 />
                 {data.servicePartnerCompanies.length === 0 ? (
                   <p className="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
@@ -308,7 +323,7 @@ export default function ContractorsOverviewPageClient() {
                   </p>
                 ) : (
                   <div className="mt-4 grid gap-2">
-                    {data.servicePartnerCompanies.slice(0, 2).map((company) => (
+                    {data.servicePartnerCompanies.map((company) => (
                       <div
                         className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950 sm:flex-row sm:items-center sm:justify-between"
                         key={company.id}
@@ -342,11 +357,6 @@ export default function ContractorsOverviewPageClient() {
                         </button>
                       </div>
                     ))}
-                    {data.servicePartnerCompanies.length > 2 && (
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {data.servicePartnerCompanies.length - 2} fler visas i den operativa översikten.
-                      </p>
-                    )}
                   </div>
                 )}
               </div>
@@ -432,12 +442,6 @@ export default function ContractorsOverviewPageClient() {
                     onChange={updateCompanyForm}
                   />
                 </label>
-                {companyError && (
-                  <p className="text-sm font-semibold text-red-700">{companyError}</p>
-                )}
-                {companySuccess && (
-                  <p className="text-sm font-semibold text-green-700">{companySuccess}</p>
-                )}
                 <div className="flex flex-wrap justify-end gap-2">
                   {editingCompanyId && (
                     <button
@@ -537,17 +541,6 @@ export default function ContractorsOverviewPageClient() {
                 </div>
               ))}
             </div>
-            {data.servicePartnerCompanyMetrics.length > 2 && (
-              <div className="mt-4 flex justify-end">
-                <button
-                  className={buttonClassName({ variant: "secondary" })}
-                  type="button"
-                  onClick={() => setShowAllServicePartners((current) => !current)}
-                >
-                  {showAllServicePartners ? "Visa mindre" : "Visa fler"}
-                </button>
-              </div>
-            )}
           </Card>
 
           {/*
@@ -792,10 +785,12 @@ export default function ContractorsOverviewPageClient() {
 }
 
 function MetricCard({
+  description,
   label,
   tone = "neutral",
   value,
 }: {
+  description: string
   label: string
   tone?: "danger" | "neutral" | "success" | "warning"
   value: number
@@ -808,7 +803,12 @@ function MetricCard({
   }[tone]
 
   return (
-    <Card className={`border-l-4 p-5 ${accentClassName}`}>
+    <Card
+      aria-label={`${label}. ${description}`}
+      className={`border-l-4 p-5 ${accentClassName}`}
+      tabIndex={0}
+      title={description}
+    >
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
         {label}
       </p>
@@ -816,6 +816,66 @@ function MetricCard({
         {formatNumber(value)}
       </p>
     </Card>
+  )
+}
+
+function ServicePartnerFeedbackToast({
+  feedback,
+  onDismiss,
+}: {
+  feedback: ServicePartnerFeedback
+  onDismiss: () => void
+}) {
+  const toneClassName = {
+    error:
+      "border-red-200 bg-red-50 text-red-900 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-100",
+    info:
+      "border-blue-200 bg-blue-50 text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-100",
+    success:
+      "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-100",
+  }[feedback.type]
+
+  async function copyInviteLink() {
+    if (!feedback.inviteLink) return
+    await navigator.clipboard.writeText(feedback.inviteLink)
+  }
+
+  return (
+    <div className={`mt-5 rounded-lg border px-4 py-3 text-sm shadow-sm ${toneClassName}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="font-semibold">{feedback.message}</p>
+          {feedback.inviteLink && (
+            <p className="mt-1 text-sm">
+              E-post kunde inte skickas. Kopiera inbjudningslänken och skicka den manuellt.
+            </p>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {feedback.inviteLink && (
+            <button
+              className={buttonClassName({ variant: "secondary" })}
+              type="button"
+              onClick={() => void copyInviteLink()}
+            >
+              Kopiera länk
+            </button>
+          )}
+          <button
+            className={buttonClassName({ variant: "secondary" })}
+            type="button"
+            onClick={onDismiss}
+          >
+            Stäng
+          </button>
+        </div>
+      </div>
+      {feedback.inviteLink && (
+        <code className="mt-3 block break-all rounded-md bg-white/70 p-2 text-xs text-slate-900 dark:bg-slate-950/70 dark:text-slate-100">
+          {feedback.inviteLink}
+        </code>
+      )}
+    </div>
   )
 }
 

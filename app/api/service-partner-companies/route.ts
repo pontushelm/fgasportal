@@ -240,7 +240,7 @@ async function createResponsibleServicePartnerInvitation({
         inviteLink: null,
         membershipId: existingMembership.id,
         message:
-          "Servicepartnern har lagts till. Ansvarig e-post tillhÃ¶r redan en intern anvÃ¤ndare och bjÃ¶ds inte in som servicepartner.",
+          "Servicepartnern har lagts till. Ansvarig e-post tillhör redan en intern användare och bjöds inte in som servicepartner.",
       }
     }
 
@@ -296,7 +296,40 @@ async function createResponsibleServicePartnerInvitation({
       emailSent: false,
       inviteLink: null,
       membershipId: membership.id,
-      message: "Befintlig anvÃ¤ndare kopplades som serviceansvarig.",
+      message: "Befintlig användare kopplades som serviceansvarig.",
+    }
+  }
+
+  const existingInvitation = await prisma.invitation.findFirst({
+    where: {
+      companyId,
+      email: to,
+      role: "CONTRACTOR",
+      acceptedAt: null,
+      expiresAt: {
+        gt: new Date(),
+      },
+      servicePartnerCompanyId,
+      serviceOrganizationId,
+      isServicePartnerAdminInvite: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    select: {
+      email: true,
+      token: true,
+    },
+  })
+
+  if (existingInvitation) {
+    return {
+      email: existingInvitation.email,
+      emailSent: false,
+      inviteLink: `${origin}/register?invite=${existingInvitation.token}`,
+      membershipId: null,
+      message:
+        "Servicepartnern har lagts till. En aktiv inbjudningslänk finns redan.",
     }
   }
 
@@ -346,7 +379,7 @@ async function createResponsibleServicePartnerInvitation({
     inviteLink: emailSent ? null : inviteLink,
     membershipId: null,
     message: emailSent
-      ? "Servicepartnern har lagts till och ansvarig kontakt har bjudits in."
-      : "Servicepartnern har lagts till, men e-post kunde inte skickas.",
+      ? "Servicepartnern har lagts till och inbjudan har skickats."
+      : "Servicepartnern har lagts till. E-post kunde inte skickas, men en inbjudningslänk har skapats.",
   }
 }
