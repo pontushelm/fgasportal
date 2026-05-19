@@ -39,6 +39,11 @@ enum FeedbackType {
   OTHER
 }
 
+enum ServiceOrganizationRole {
+  ADMIN
+  TECHNICIAN
+}
+
 model Company {
   id                                   String   @id @default(cuid())
   name                                 String
@@ -74,6 +79,7 @@ model Company {
   savedFilters            SavedFilter[]
   signedAnnualFgasReports SignedAnnualFgasReport[]
   servicePartnerCompanies ServicePartnerCompany[]
+  companyServiceOrganizations CompanyServiceOrganization[]
   feedback                Feedback[]
 
   @@map("companies")
@@ -115,6 +121,7 @@ model User {
   signedAnnualFgasReports       SignedAnnualFgasReport[]
   passwordResetTokens           PasswordResetToken[]
   feedback                      Feedback[]
+  serviceOrganizationMemberships ServiceOrganizationMembership[]
 
   @@map("users")
 }
@@ -163,6 +170,9 @@ model CompanyMembership {
 model ServicePartnerCompany {
   id                 String   @id @default(cuid())
   companyId          String
+  /// Transitional bridge to the future global servicepartner identity.
+  /// Keep customer-scoped ServicePartnerCompany behavior until installation assignment is migrated.
+  serviceOrganizationId String?
   name               String
   organizationNumber String?
   contactEmail       String?
@@ -173,13 +183,65 @@ model ServicePartnerCompany {
   updatedAt          DateTime @updatedAt
 
   company     Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  serviceOrganization ServiceOrganization? @relation(fields: [serviceOrganizationId], references: [id], onDelete: SetNull)
   memberships CompanyMembership[]
   invitations Invitation[]
   assignedInstallations Installation[] @relation("AssignedServicePartnerCompany")
 
   @@unique([companyId, name])
   @@index([companyId])
+  @@index([serviceOrganizationId])
   @@map("service_partner_companies")
+}
+
+model ServiceOrganization {
+  id                 String   @id @default(cuid())
+  name               String
+  organizationNumber String?
+  contactEmail       String?
+  phone              String?
+  certificateNumber  String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  legacyServicePartnerCompanies ServicePartnerCompany[]
+  memberships                   ServiceOrganizationMembership[]
+  companyLinks                  CompanyServiceOrganization[]
+
+  @@index([organizationNumber])
+  @@map("service_organizations")
+}
+
+model ServiceOrganizationMembership {
+  id                    String                  @id @default(cuid())
+  serviceOrganizationId String
+  userId                String
+  role                  ServiceOrganizationRole
+  isActive              Boolean                 @default(true)
+  createdAt             DateTime                @default(now())
+
+  serviceOrganization ServiceOrganization @relation(fields: [serviceOrganizationId], references: [id], onDelete: Cascade)
+  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceOrganizationId, userId])
+  @@index([userId])
+  @@map("service_organization_memberships")
+}
+
+model CompanyServiceOrganization {
+  id                    String   @id @default(cuid())
+  companyId             String
+  serviceOrganizationId String
+  displayName           String?
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+
+  company             Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  serviceOrganization ServiceOrganization @relation(fields: [serviceOrganizationId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, serviceOrganizationId])
+  @@index([serviceOrganizationId])
+  @@map("company_service_organizations")
 }
 
 model Invitation {
