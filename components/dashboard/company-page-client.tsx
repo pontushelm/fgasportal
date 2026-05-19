@@ -1206,7 +1206,7 @@ function ServicePartnerSettingsPanel({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold text-slate-950">
-            Servicepartnerföretag
+            Företagsuppgifter
           </h2>
           <p className="mt-1 text-sm text-slate-700">
             Uppgifter för ert servicepartnerföretag i kundens arbetsyta.

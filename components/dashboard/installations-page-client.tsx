@@ -200,6 +200,7 @@ export default function InstallationsPageClient() {
   const [bulkServicePartnerCompanyId, setBulkServicePartnerCompanyId] = useState("")
   const [contractorId, setContractorId] = useState("")
   const [bulkPropertyId, setBulkPropertyId] = useState("")
+  const [bulkTechnicianId, setBulkTechnicianId] = useState("")
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
   const [isPropertyModalOpen, setIsPropertyModalOpen] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -207,7 +208,7 @@ export default function InstallationsPageClient() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [pendingBulkAction, setPendingBulkAction] = useState<
-    "servicepartner" | "property" | "archive" | null
+    "servicepartner" | "property" | "archive" | "technician" | null
   >(null)
   const [error, setError] = useState("")
   const [feedback, setFeedback] = useState<{
@@ -246,6 +247,7 @@ export default function InstallationsPageClient() {
   const isServicePartnerAdmin = Boolean(
     currentUser?.role === "CONTRACTOR" && currentUser.isServicePartnerAdmin
   )
+  const canSelectInstallations = canManage || isServicePartnerAdmin
 
   useEffect(() => {
     let isMounted = true
@@ -401,7 +403,7 @@ export default function InstallationsPageClient() {
   useEffect(() => {
     const sentinel = bulkPanelSentinelRef.current
 
-    if (!canManage || !sentinel) {
+    if (!canSelectInstallations || !sentinel) {
       setIsBulkPanelFloating(false)
       return
     }
@@ -427,7 +429,7 @@ export default function InstallationsPageClient() {
       observer.disconnect()
       window.removeEventListener("resize", handleResize)
     }
-  }, [canManage, installations.length, isLoading])
+  }, [canSelectInstallations, installations.length, isLoading])
 
   function dismissFeedback() {
     setIsFeedbackExiting(true)
@@ -915,7 +917,7 @@ export default function InstallationsPageClient() {
     setAssigningTechnicianInstallationId(installationId)
 
     const res = await fetch("/api/dashboard/service/assign-technician", {
-      method: "POST",
+      method: "PATCH",
       headers: {
         "Content-Type": "application/json",
       },
@@ -968,6 +970,76 @@ export default function InstallationsPageClient() {
         : "Teknikertilldelningen togs bort.",
     })
     setAssigningTechnicianInstallationId("")
+  }
+
+  async function handleBulkAssignTechnician() {
+    setFeedback(null)
+
+    if (!hasSelectedInstallations) return
+
+    const targetInstallationIds = selectedIds
+    setIsSubmitting(true)
+    setPendingBulkAction("technician")
+
+    const res = await fetch("/api/dashboard/service/assign-technician/bulk", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        installationIds: targetInstallationIds,
+        technicianId: bulkTechnicianId || null,
+      }),
+    })
+    const result: {
+      error?: string
+      updated?: number
+      assignedContractor?: {
+        id: string
+        name: string | null
+        email: string
+      } | null
+    } = await res.json()
+
+    if (res.status === 401) {
+      setIsSubmitting(false)
+      setPendingBulkAction(null)
+      router.push("/login")
+      return
+    }
+
+    if (!res.ok) {
+      showFeedback({
+        type: "error",
+        message: result.error || "Kunde inte tilldela tekniker.",
+      })
+      setIsSubmitting(false)
+      setPendingBulkAction(null)
+      return
+    }
+
+    const assignedContractor = result.assignedContractor
+      ? {
+          id: result.assignedContractor.id,
+          name: result.assignedContractor.name || result.assignedContractor.email,
+          email: result.assignedContractor.email,
+        }
+      : null
+
+    updateInstallationRows(targetInstallationIds, (installation) => ({
+      ...installation,
+      assignedContractor,
+    }))
+    setSelectedIds([])
+    showFeedback({
+      type: "success",
+      message: assignedContractor
+        ? `${result.updated ?? targetInstallationIds.length} aggregat tilldelades ${assignedContractor.name}.`
+        : `${result.updated ?? targetInstallationIds.length} aggregat fick teknikertilldelningen borttagen.`,
+    })
+    setIsSubmitting(false)
+    setPendingBulkAction(null)
   }
 
   return (
@@ -1255,7 +1327,7 @@ export default function InstallationsPageClient() {
         </div>
       )}
 
-      {!isLoading && canManage && (
+      {!isLoading && canSelectInstallations && (
         <div
           className={`mt-5 flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-3 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between ${
             isBulkPanelFloating ? "lg:hidden" : ""
@@ -1271,38 +1343,26 @@ export default function InstallationsPageClient() {
               </p>
             )}
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              className={bulkSecondaryButtonClassName}
-              type="button"
-              disabled={!hasSelectedInstallations || isSubmitting}
-              onClick={() => setIsAssignModalOpen(true)}
-            >
-              {pendingBulkAction === "servicepartner" ? "Tilldelar..." : "Tilldela servicepartner"}
-            </button>
-            <button
-              className={bulkSecondaryButtonClassName}
-              type="button"
-              disabled={!hasSelectedInstallations || isSubmitting}
-              onClick={() => setIsPropertyModalOpen(true)}
-            >
-              {pendingBulkAction === "property" ? "Kopplar..." : "Tilldela fastighet"}
-            </button>
-            <button
-              className={bulkDestructiveButtonClassName}
-              type="button"
-              disabled={!hasSelectedInstallations || isSubmitting}
-              onClick={() => void handleArchiveSelected()}
-            >
-              {pendingBulkAction === "archive" ? "Arkiverar..." : "Arkivera aggregat"}
-            </button>
-          </div>
+          <BulkActionControls
+            bulkTechnicianId={bulkTechnicianId}
+            canManage={canManage}
+            hasSelectedInstallations={hasSelectedInstallations}
+            isServicePartnerAdmin={isServicePartnerAdmin}
+            isSubmitting={isSubmitting}
+            pendingBulkAction={pendingBulkAction}
+            technicians={technicians}
+            onArchiveSelected={handleArchiveSelected}
+            onBulkTechnicianChange={setBulkTechnicianId}
+            onOpenAssignModal={() => setIsAssignModalOpen(true)}
+            onOpenPropertyModal={() => setIsPropertyModalOpen(true)}
+            onSubmitBulkTechnician={handleBulkAssignTechnician}
+          />
         </div>
       )}
 
       <div ref={bulkPanelSentinelRef} className="h-px" />
 
-      {!isLoading && canManage && isBulkPanelFloating && (
+      {!isLoading && canSelectInstallations && isBulkPanelFloating && (
         <div className="fixed right-4 top-28 z-30 hidden w-52 rounded-lg border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur lg:block">
           <p className="text-sm font-semibold text-slate-950">
             {selectedIds.length} aggregat valda
@@ -1312,31 +1372,22 @@ export default function InstallationsPageClient() {
               Markera aggregat för att använda åtgärderna.
             </p>
           )}
-          <div className="mt-3 grid gap-2">
-            <button
-              className={bulkSecondaryButtonClassName}
-              type="button"
-              disabled={!hasSelectedInstallations || isSubmitting}
-              onClick={() => setIsAssignModalOpen(true)}
-            >
-              {pendingBulkAction === "servicepartner" ? "Tilldelar..." : "Tilldela servicepartner"}
-            </button>
-            <button
-              className={bulkSecondaryButtonClassName}
-              type="button"
-              disabled={!hasSelectedInstallations || isSubmitting}
-              onClick={() => setIsPropertyModalOpen(true)}
-            >
-              {pendingBulkAction === "property" ? "Kopplar..." : "Tilldela fastighet"}
-            </button>
-            <button
-              className={bulkDestructiveButtonClassName}
-              type="button"
-              disabled={!hasSelectedInstallations || isSubmitting}
-              onClick={() => void handleArchiveSelected()}
-            >
-              {pendingBulkAction === "archive" ? "Arkiverar..." : "Arkivera aggregat"}
-            </button>
+          <div className="mt-3">
+            <BulkActionControls
+              bulkTechnicianId={bulkTechnicianId}
+              canManage={canManage}
+              compact
+              hasSelectedInstallations={hasSelectedInstallations}
+              isServicePartnerAdmin={isServicePartnerAdmin}
+              isSubmitting={isSubmitting}
+              pendingBulkAction={pendingBulkAction}
+              technicians={technicians}
+              onArchiveSelected={handleArchiveSelected}
+              onBulkTechnicianChange={setBulkTechnicianId}
+              onOpenAssignModal={() => setIsAssignModalOpen(true)}
+              onOpenPropertyModal={() => setIsPropertyModalOpen(true)}
+              onSubmitBulkTechnician={handleBulkAssignTechnician}
+            />
           </div>
         </div>
       )}
@@ -1345,8 +1396,7 @@ export default function InstallationsPageClient() {
         <div className="mt-6 grid gap-3 lg:hidden">
           {displayedInstallations.map((installation) => (
             <InstallationMobileCard
-              canManage={canManage}
-              canQuickRegisterEvents={isServicePartnerUser}
+              canManage={canSelectInstallations}
               canAssignTechnician={isServicePartnerAdmin}
               assigningTechnicianInstallationId={assigningTechnicianInstallationId}
               installation={installation}
@@ -1365,7 +1415,7 @@ export default function InstallationsPageClient() {
         <div className="mt-4 hidden overflow-x-auto rounded-lg border border-slate-200 bg-white lg:block">
           <table className="min-w-full table-fixed divide-y divide-slate-200 text-[13px]">
             <colgroup>
-              {canManage && <col className="w-[3.5%]" />}
+              {canSelectInstallations && <col className="w-[3.5%]" />}
               <col className="w-[15%]" />
               <col className="w-[12%]" />
               <col className="w-[12%]" />
@@ -1379,7 +1429,7 @@ export default function InstallationsPageClient() {
             </colgroup>
             <thead className="bg-slate-50">
               <tr>
-                {canManage && (
+                {canSelectInstallations && (
                   <th className="px-1.5 py-2 text-left">
                     <label className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-md border border-transparent hover:border-slate-300 hover:bg-white">
                       <input
@@ -1478,7 +1528,7 @@ export default function InstallationsPageClient() {
                   key={installation.id}
                   onClick={() => setSelectedInstallation(installation)}
                 >
-                  {canManage && (
+                  {canSelectInstallations && (
                     <td className="px-2 py-2" onClick={(event) => event.stopPropagation()}>
                       <label className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-md border border-transparent hover:border-slate-300 hover:bg-slate-50">
                         <input
@@ -1561,9 +1611,6 @@ export default function InstallationsPageClient() {
                       scrappedAt={installation.scrappedAt}
                       status={installation.complianceStatus}
                     />
-                    {isServicePartnerUser && !installation.archivedAt && !installation.scrappedAt && (
-                      <QuickEventLinks installationId={installation.id} />
-                    )}
                   </td>
                 </tr>
               ))}
@@ -1901,11 +1948,102 @@ function InstallationQuickView({
   )
 }
 
+function BulkActionControls({
+  bulkTechnicianId,
+  canManage,
+  compact = false,
+  hasSelectedInstallations,
+  isServicePartnerAdmin,
+  isSubmitting,
+  onArchiveSelected,
+  onBulkTechnicianChange,
+  onOpenAssignModal,
+  onOpenPropertyModal,
+  onSubmitBulkTechnician,
+  pendingBulkAction,
+  technicians,
+}: {
+  bulkTechnicianId: string
+  canManage: boolean
+  compact?: boolean
+  hasSelectedInstallations: boolean
+  isServicePartnerAdmin: boolean
+  isSubmitting: boolean
+  onArchiveSelected: () => void
+  onBulkTechnicianChange: (technicianId: string) => void
+  onOpenAssignModal: () => void
+  onOpenPropertyModal: () => void
+  onSubmitBulkTechnician: () => void
+  pendingBulkAction: "servicepartner" | "property" | "archive" | "technician" | null
+  technicians: ServiceTechnician[]
+}) {
+  if (isServicePartnerAdmin) {
+    return (
+      <div className={compact ? "grid gap-2" : "flex flex-wrap items-end gap-2"}>
+        <label className="grid gap-1 text-xs font-semibold text-slate-600">
+          Tekniker
+          <select
+            className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 disabled:bg-slate-100"
+            disabled={!hasSelectedInstallations || isSubmitting}
+            value={bulkTechnicianId}
+            onChange={(event) => onBulkTechnicianChange(event.target.value)}
+          >
+            <option value="">Ingen tekniker</option>
+            {technicians.map((technician) => (
+              <option key={technician.id} value={technician.id}>
+                {formatTechnicianName(technician)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          className={bulkSecondaryButtonClassName}
+          type="button"
+          disabled={!hasSelectedInstallations || isSubmitting}
+          onClick={onSubmitBulkTechnician}
+        >
+          {pendingBulkAction === "technician" ? "Tilldelar..." : "Tilldela tekniker"}
+        </button>
+      </div>
+    )
+  }
+
+  if (!canManage) return null
+
+  return (
+    <div className={compact ? "grid gap-2" : "flex flex-wrap gap-2"}>
+      <button
+        className={bulkSecondaryButtonClassName}
+        type="button"
+        disabled={!hasSelectedInstallations || isSubmitting}
+        onClick={onOpenAssignModal}
+      >
+        {pendingBulkAction === "servicepartner" ? "Tilldelar..." : "Tilldela servicepartner"}
+      </button>
+      <button
+        className={bulkSecondaryButtonClassName}
+        type="button"
+        disabled={!hasSelectedInstallations || isSubmitting}
+        onClick={onOpenPropertyModal}
+      >
+        {pendingBulkAction === "property" ? "Kopplar..." : "Tilldela fastighet"}
+      </button>
+      <button
+        className={bulkDestructiveButtonClassName}
+        type="button"
+        disabled={!hasSelectedInstallations || isSubmitting}
+        onClick={onArchiveSelected}
+      >
+        {pendingBulkAction === "archive" ? "Arkiverar..." : "Arkivera aggregat"}
+      </button>
+    </div>
+  )
+}
+
 function InstallationMobileCard({
   assigningTechnicianInstallationId,
   canAssignTechnician,
   canManage,
-  canQuickRegisterEvents,
   installation,
   isSelected,
   technicians,
@@ -1916,7 +2054,6 @@ function InstallationMobileCard({
   assigningTechnicianInstallationId: string
   canAssignTechnician: boolean
   canManage: boolean
-  canQuickRegisterEvents: boolean
   installation: Installation
   isSelected: boolean
   technicians: ServiceTechnician[]
@@ -2001,11 +2138,6 @@ function InstallationMobileCard({
       )}
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        {canQuickRegisterEvents && !installation.archivedAt && !installation.scrappedAt && (
-          <div className="sm:col-span-2">
-            <QuickEventLinks installationId={installation.id} />
-          </div>
-        )}
         <button
           className="min-h-11 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
           type="button"
@@ -2021,25 +2153,6 @@ function InstallationMobileCard({
         </Link>
       </div>
     </article>
-  )
-}
-
-function QuickEventLinks({ installationId }: { installationId: string }) {
-  return (
-    <div className="mt-2 flex flex-wrap gap-1.5">
-      <QuickEventLink
-        href={`/dashboard/installations/${installationId}?event=INSPECTION`}
-        label="Kontroll"
-      />
-      <QuickEventLink
-        href={`/dashboard/installations/${installationId}?event=LEAK`}
-        label="Läckage"
-      />
-      <QuickEventLink
-        href={`/dashboard/installations/${installationId}?event=SERVICE`}
-        label="Service"
-      />
-    </div>
   )
 }
 
@@ -2070,18 +2183,6 @@ function TechnicianAssignmentSelect({
         </option>
       ))}
     </select>
-  )
-}
-
-function QuickEventLink({ href, label }: { href: string; label: string }) {
-  return (
-    <Link
-      className="inline-flex min-h-8 items-center rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-      href={href}
-      onClick={(event) => event.stopPropagation()}
-    >
-      {label}
-    </Link>
   )
 }
 

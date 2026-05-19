@@ -7,6 +7,7 @@ import { type FormEvent, useEffect, useMemo, useState } from "react"
 import { Badge, Button } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
 import { formatRoleLabel } from "@/lib/roles"
+import { formatServicepartnerRoleLabel } from "@/lib/servicepartner-role-labels"
 
 type CurrentUser = {
   userId: string
@@ -261,7 +262,7 @@ export function Sidebar() {
             </Link>
             <div className="mt-2 flex items-center gap-2">
               {currentUser?.role && (
-                <Badge variant="neutral">{formatRoleLabel(currentUser.role)}</Badge>
+                <Badge variant="neutral">{formatSidebarRoleLabel(currentUser)}</Badge>
               )}
             </div>
             <CompanySwitcher
@@ -608,6 +609,10 @@ function filterNavigationByRole(
   role: UserRole | undefined
 ) {
   return items.filter((item) => !item.roles || (role && item.roles.includes(role)))
+}
+
+function formatSidebarRoleLabel(user: Pick<CurrentUser, "role" | "isServicePartnerAdmin">) {
+  return formatServicepartnerRoleLabel(user) ?? formatRoleLabel(user.role)
 }
 
 function getPrimaryNavigation(currentUser: CurrentUser | null) {

@@ -23,6 +23,7 @@ export function canAssignServicepartnerTechnician({
   installation: InstallationAccessRecord
   technicianMembership?: TechnicianAssignmentMembership | null
 }) {
+  // Future: servicepartner organisations may need shared technician pools across multiple customer tenants.
   if (
     installation.companyId !== user.companyId ||
     !canManageServicepartnerTechnicianAssignments(

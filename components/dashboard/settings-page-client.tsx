@@ -15,6 +15,9 @@ type CurrentUser = {
   name?: string | null
   phone?: string | null
   certificationNumber?: string | null
+  certificationIssuer?: string | null
+  certificationValidUntil?: string | null
+  certificationCategory?: string | null
   notifyAssignmentEmails: boolean
   notifyInspectionReminderEmails: boolean
   notifyDocumentEmails: boolean
@@ -58,6 +61,9 @@ export default function SettingsPageClient() {
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
   const [certificationNumber, setCertificationNumber] = useState("")
+  const [certificationIssuer, setCertificationIssuer] = useState("")
+  const [certificationValidUntil, setCertificationValidUntil] = useState("")
+  const [certificationCategory, setCertificationCategory] = useState("")
   const [notifications, setNotifications] =
     useState<NotificationPreferences | null>(null)
   const [passwordForm, setPasswordForm] = useState({
@@ -103,6 +109,9 @@ export default function SettingsPageClient() {
       setName(user.name || "")
       setPhone(user.phone || "")
       setCertificationNumber(user.certificationNumber || "")
+      setCertificationIssuer(user.certificationIssuer || "")
+      setCertificationValidUntil(toDateInputValue(user.certificationValidUntil))
+      setCertificationCategory(user.certificationCategory || "")
       setNotifications(extractNotificationPreferences(user))
       setIsLoading(false)
     }
@@ -148,7 +157,14 @@ export default function SettingsPageClient() {
         "Content-Type": "application/json",
       },
       credentials: "include",
-      body: JSON.stringify({ name, phone, certificationNumber }),
+      body: JSON.stringify({
+        name,
+        phone,
+        certificationNumber,
+        certificationIssuer,
+        certificationValidUntil,
+        certificationCategory,
+      }),
     })
 
     const result: {
@@ -156,6 +172,9 @@ export default function SettingsPageClient() {
       name?: string
       phone?: string | null
       certificationNumber?: string | null
+      certificationIssuer?: string | null
+      certificationValidUntil?: string | null
+      certificationCategory?: string | null
     } = await response.json()
 
     if (!response.ok) {
@@ -172,6 +191,12 @@ export default function SettingsPageClient() {
             phone: result.phone ?? phone,
             certificationNumber:
               result.certificationNumber ?? certificationNumber,
+            certificationIssuer:
+              result.certificationIssuer ?? certificationIssuer,
+            certificationValidUntil:
+              result.certificationValidUntil ?? certificationValidUntil,
+            certificationCategory:
+              result.certificationCategory ?? certificationCategory,
           }
         : user
     )
@@ -322,20 +347,61 @@ export default function SettingsPageClient() {
                 </span>
               </label>
               {currentUser.role === "CONTRACTOR" && (
-                <label className={labelClassName}>
-                  Personligt certifikat nr
-                  <input
-                    className={inputClassName}
-                    name="certificationNumber"
-                    value={certificationNumber}
-                    onChange={(event) =>
-                      setCertificationNumber(event.target.value)
-                    }
-                  />
-                  <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
-                    Används för att visa teknikerbehörighet vid händelser och rapportunderlag.
-                  </span>
-                </label>
+                <div className="grid gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <h2 className="text-sm font-semibold text-slate-950 dark:text-slate-100">
+                      Personlig certifiering
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                      Valfria uppgifter som används för att visa teknikerbehörighet vid händelser och rapportunderlag.
+                    </p>
+                  </div>
+                  <label className={labelClassName}>
+                    Personligt certifikat nr
+                    <input
+                      className={inputClassName}
+                      name="certificationNumber"
+                      value={certificationNumber}
+                      onChange={(event) =>
+                        setCertificationNumber(event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className={labelClassName}>
+                    Certifieringsorgan
+                    <input
+                      className={inputClassName}
+                      name="certificationIssuer"
+                      value={certificationIssuer}
+                      onChange={(event) =>
+                        setCertificationIssuer(event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className={labelClassName}>
+                    Giltigt till
+                    <input
+                      className={inputClassName}
+                      name="certificationValidUntil"
+                      type="date"
+                      value={certificationValidUntil}
+                      onChange={(event) =>
+                        setCertificationValidUntil(event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className={labelClassName}>
+                    Certifikatstyp/kategori
+                    <input
+                      className={inputClassName}
+                      name="certificationCategory"
+                      value={certificationCategory}
+                      onChange={(event) =>
+                        setCertificationCategory(event.target.value)
+                      }
+                    />
+                  </label>
+                </div>
               )}
               <div className="grid gap-4 sm:grid-cols-2">
                 <ReadOnlyItem label="E-post" value={currentUser.email || "-"} />
@@ -560,6 +626,11 @@ function extractNotificationPreferences(
     notifyAnnualReportDeadlineEmails: user.notifyAnnualReportDeadlineEmails,
     notifyLeakEmails: user.notifyLeakEmails,
   }
+}
+
+function toDateInputValue(value?: string | null) {
+  if (!value) return ""
+  return value.slice(0, 10)
 }
 
 const labelClassName =

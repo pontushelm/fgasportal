@@ -85,6 +85,9 @@ model User {
   name                             String
   phone                            String?
   certificationNumber              String?
+  certificationIssuer              String?
+  certificationValidUntil          DateTime?
+  certificationCategory            String?
   password                         String
   role                             UserRole @default(ADMIN)
   themePreference                  String   @default("light")
