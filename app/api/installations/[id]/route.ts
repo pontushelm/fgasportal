@@ -13,6 +13,7 @@ import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 import { editInstallationSchema } from "@/lib/validations"
 import { logActivity } from "@/lib/activity-log"
 import { notifyContractorsAboutNewAssignments } from "@/lib/contractor-assignment-notifications"
+import { toServiceOrganizationBackedCompany } from "@/lib/service-organizations"
 
 type RouteContext = {
   params: Promise<{
@@ -68,8 +69,24 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 servicePartnerCompany: {
                   select: {
                     id: true,
+                    companyId: true,
+                    serviceOrganizationId: true,
                     name: true,
                     organizationNumber: true,
+                    contactEmail: true,
+                    phone: true,
+                    certificateNumber: true,
+                    notes: true,
+                    serviceOrganization: {
+                      select: {
+                        id: true,
+                        name: true,
+                        organizationNumber: true,
+                        contactEmail: true,
+                        phone: true,
+                        certificateNumber: true,
+                      },
+                    },
                   },
                 },
               },
@@ -80,8 +97,24 @@ export async function GET(request: NextRequest, context: RouteContext) {
         assignedServicePartnerCompany: {
           select: {
             id: true,
+            companyId: true,
+            serviceOrganizationId: true,
             name: true,
             organizationNumber: true,
+            contactEmail: true,
+            phone: true,
+            certificateNumber: true,
+            notes: true,
+            serviceOrganization: {
+              select: {
+                id: true,
+                name: true,
+                organizationNumber: true,
+                contactEmail: true,
+                phone: true,
+                certificateNumber: true,
+              },
+            },
           },
         },
       },
@@ -109,8 +142,24 @@ export async function GET(request: NextRequest, context: RouteContext) {
             servicePartnerCompany: {
               select: {
                 id: true,
+                companyId: true,
+                serviceOrganizationId: true,
                 name: true,
                 organizationNumber: true,
+                contactEmail: true,
+                phone: true,
+                certificateNumber: true,
+                notes: true,
+                serviceOrganization: {
+                  select: {
+                    id: true,
+                    name: true,
+                    organizationNumber: true,
+                    contactEmail: true,
+                    phone: true,
+                    certificateNumber: true,
+                  },
+                },
               },
             },
             user: {
@@ -138,13 +187,21 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 validUntil: contractorMembership?.certificationValidUntil ?? null,
               }),
               servicePartnerCompany:
-                contractorMembership?.servicePartnerCompany ?? null,
+                contractorMembership?.servicePartnerCompany
+                  ? toServiceOrganizationBackedCompany(
+                      contractorMembership.servicePartnerCompany
+                    )
+                  : null,
             }
           : null,
         assignedServicePartnerCompany:
-          assignedServicePartnerCompany ??
-          contractorMembership?.servicePartnerCompany ??
-          null,
+          assignedServicePartnerCompany
+            ? toServiceOrganizationBackedCompany(assignedServicePartnerCompany)
+            : contractorMembership?.servicePartnerCompany
+              ? toServiceOrganizationBackedCompany(
+                  contractorMembership.servicePartnerCompany
+                )
+              : null,
         scrapServicePartner: scrapServicePartner
           ? {
               id: scrapServicePartner.user.id,
@@ -154,7 +211,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 isCertifiedCompany: scrapServicePartner.isCertifiedCompany,
                 validUntil: scrapServicePartner.certificationValidUntil,
               }),
-              servicePartnerCompany: scrapServicePartner.servicePartnerCompany,
+              servicePartnerCompany: scrapServicePartner.servicePartnerCompany
+                ? toServiceOrganizationBackedCompany(
+                    scrapServicePartner.servicePartnerCompany
+                  )
+                : null,
             }
           : null,
       },

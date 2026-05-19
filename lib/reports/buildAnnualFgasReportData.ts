@@ -103,6 +103,14 @@ export async function buildAnnualFgasReportData({
           contactEmail: true,
           phone: true,
           certificateNumber: true,
+          serviceOrganization: {
+            select: {
+              name: true,
+              contactEmail: true,
+              phone: true,
+              certificateNumber: true,
+            },
+          },
         },
       },
       assignedContractor: {
@@ -128,6 +136,14 @@ export async function buildAnnualFgasReportData({
                   contactEmail: true,
                   phone: true,
                   certificateNumber: true,
+                  serviceOrganization: {
+                    select: {
+                      name: true,
+                      contactEmail: true,
+                      phone: true,
+                      certificateNumber: true,
+                    },
+                  },
                 },
               },
             },
@@ -306,7 +322,8 @@ export async function buildAnnualFgasReportData({
             : null
         ) ??
         installation.assignedContractor?.memberships[0]?.servicePartnerCompany
-          ?.name ??
+          ?.serviceOrganization?.name ??
+        installation.assignedContractor?.memberships[0]?.servicePartnerCompany?.name ??
         installation.assignedContractor?.name ??
         installation.assignedContractor?.company?.name ??
         null,
@@ -520,6 +537,10 @@ function buildCertificateRegister(
     assignedServicePartnerCompany: {
       name: string
       certificateNumber: string | null
+      serviceOrganization?: {
+        name: string
+        certificateNumber: string | null
+      } | null
     } | null
     assignedContractor: {
       id: string
@@ -530,7 +551,14 @@ function buildCertificateRegister(
         certificationNumber: string | null
         certificationOrganization: string | null
         certificationValidUntil: Date | null
-        servicePartnerCompany: { name: string; certificateNumber: string | null } | null
+        servicePartnerCompany: {
+          name: string
+          certificateNumber: string | null
+          serviceOrganization?: {
+            name: string
+            certificateNumber: string | null
+          } | null
+        } | null
       }>
     } | null
   }>
@@ -546,12 +574,18 @@ function buildCertificateRegister(
       name: contractor.name,
       role: "Ansvarig tekniker/servicepartner",
       company:
+        installation.assignedServicePartnerCompany?.serviceOrganization?.name ??
         installation.assignedServicePartnerCompany?.name ??
+        certification?.servicePartnerCompany?.serviceOrganization?.name ??
         certification?.servicePartnerCompany?.name ??
         contractor.company?.name ??
         null,
       certificateNumber:
+        installation.assignedServicePartnerCompany?.serviceOrganization
+          ?.certificateNumber ??
         installation.assignedServicePartnerCompany?.certificateNumber ??
+        certification?.servicePartnerCompany?.serviceOrganization
+          ?.certificateNumber ??
         certification?.servicePartnerCompany?.certificateNumber ??
         contractor.certificationNumber ??
         certification?.certificationNumber ??

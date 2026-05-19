@@ -5,6 +5,7 @@ import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
 import { calculateInstallationRisk } from "@/lib/risk-classification"
 import { buildServicePartnerCompanyMetrics } from "@/lib/service-partner-company-metrics"
+import { toServiceOrganizationBackedCompany } from "@/lib/service-organizations"
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,6 +35,18 @@ export async function GET(request: NextRequest) {
             phone: true,
             certificateNumber: true,
             notes: true,
+            companyId: true,
+            serviceOrganizationId: true,
+            serviceOrganization: {
+              select: {
+                id: true,
+                name: true,
+                organizationNumber: true,
+                contactEmail: true,
+                phone: true,
+                certificateNumber: true,
+              },
+            },
           },
         },
         user: {
@@ -143,7 +156,9 @@ export async function GET(request: NextRequest) {
           isCertifiedCompany: membership.isCertifiedCompany,
           validUntil: membership.certificationValidUntil,
         }),
-        servicePartnerCompany: membership.servicePartnerCompany,
+        servicePartnerCompany: membership.servicePartnerCompany
+          ? toServiceOrganizationBackedCompany(membership.servicePartnerCompany)
+          : null,
         assignedInstallationsCount: contractor.assignedInstallations.length,
         overdueInspections,
         dueSoonInspections,
@@ -190,6 +205,8 @@ export async function GET(request: NextRequest) {
       },
       select: {
         id: true,
+        companyId: true,
+        serviceOrganizationId: true,
         name: true,
         organizationNumber: true,
         contactEmail: true,
@@ -198,17 +215,30 @@ export async function GET(request: NextRequest) {
         notes: true,
         createdAt: true,
         updatedAt: true,
+        serviceOrganization: {
+          select: {
+            id: true,
+            name: true,
+            organizationNumber: true,
+            contactEmail: true,
+            phone: true,
+            certificateNumber: true,
+          },
+        },
       },
     })
+    const servicePartnerCompanyRows = servicePartnerCompanies.map(
+      toServiceOrganizationBackedCompany
+    )
     const servicePartnerCompanyMetrics = buildServicePartnerCompanyMetrics({
-      companies: servicePartnerCompanies,
+      companies: servicePartnerCompanyRows,
       contractors: rows,
     })
 
     return NextResponse.json(
       {
         summary,
-        servicePartnerCompanies,
+        servicePartnerCompanies: servicePartnerCompanyRows,
         servicePartnerCompanyMetrics,
         contractors: rows,
       },

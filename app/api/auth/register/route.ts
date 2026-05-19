@@ -8,6 +8,10 @@ import {
 } from "@/lib/validations"
 import { hashPassword, type UserRole } from "@/lib/auth"
 import { getServicePartnerInvitationMetadata } from "@/lib/service-partner-invitations"
+import {
+  ensureServiceOrganizationForLegacyCompany,
+  mapServiceOrganizationRole,
+} from "@/lib/service-organizations"
 
 export async function POST(request: NextRequest) {
   try {
@@ -161,6 +165,12 @@ async function registerInvitedUser(data: InvitedRegisterData) {
     isServicePartnerAdminInvite: invitation.isServicePartnerAdminInvite,
     servicePartnerCompanyId: invitation.servicePartnerCompanyId,
   })
+  const serviceOrganizationBridge = invitationMetadata.servicePartnerCompanyId
+    ? await ensureServiceOrganizationForLegacyCompany({
+        companyId: invitation.companyId,
+        servicePartnerCompanyId: invitationMetadata.servicePartnerCompanyId,
+      })
+    : null
   const user = await prisma.$transaction(async (tx) => {
     const createdUser = await tx.user.create({
       data: {
@@ -182,6 +192,29 @@ async function registerInvitedUser(data: InvitedRegisterData) {
         isServicePartnerAdmin: invitationMetadata.isServicePartnerAdmin,
       },
     })
+
+    if (invitationMetadata.servicePartnerCompanyId && serviceOrganizationBridge) {
+      await tx.serviceOrganizationMembership.upsert({
+        where: {
+          serviceOrganizationId_userId: {
+            serviceOrganizationId: serviceOrganizationBridge.serviceOrganizationId,
+            userId: createdUser.id,
+          },
+        },
+        create: {
+          serviceOrganizationId: serviceOrganizationBridge.serviceOrganizationId,
+          userId: createdUser.id,
+          role: mapServiceOrganizationRole(
+            invitationMetadata.isServicePartnerAdmin
+          ),
+          isActive: true,
+        },
+        update: {
+          role: invitationMetadata.isServicePartnerAdmin ? "ADMIN" : undefined,
+          isActive: true,
+        },
+      })
+    }
 
     await tx.invitation.update({
       where: {

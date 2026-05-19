@@ -3,6 +3,12 @@ export type AnnualFgasServicePartnerCompanySummary = {
   contactEmail?: string | null
   phone?: string | null
   certificateNumber: string | null
+  serviceOrganization?: {
+    name: string
+    contactEmail?: string | null
+    phone?: string | null
+    certificateNumber: string | null
+  } | null
 }
 
 export function selectPrimaryAnnualReportServicePartnerCompany(
@@ -11,7 +17,19 @@ export function selectPrimaryAnnualReportServicePartnerCompany(
   }>
 ) {
   return (
-    installations.find((installation) => installation.assignedServicePartnerCompany)
-      ?.assignedServicePartnerCompany ?? null
+    installations
+      .map((installation) => installation.assignedServicePartnerCompany)
+      .filter((company): company is AnnualFgasServicePartnerCompanySummary =>
+        Boolean(company)
+      )
+      .map((company) => ({
+        name: company.serviceOrganization?.name ?? company.name,
+        contactEmail:
+          company.serviceOrganization?.contactEmail ?? company.contactEmail,
+        phone: company.serviceOrganization?.phone ?? company.phone,
+        certificateNumber:
+          company.serviceOrganization?.certificateNumber ??
+          company.certificateNumber,
+      }))[0] ?? null
   )
 }

@@ -11,6 +11,7 @@ import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 import { logActivity } from "@/lib/activity-log"
 import { notifyContractorsAboutNewAssignments } from "@/lib/contractor-assignment-notifications"
 import { calculateInstallationRisk } from "@/lib/risk-classification"
+import { toServiceOrganizationBackedCompany } from "@/lib/service-organizations"
 import { normalizeRefrigerantCode } from "@/lib/refrigerants"
 
 export async function POST(request: NextRequest) {
@@ -373,8 +374,24 @@ export async function GET(request: NextRequest) {
                 servicePartnerCompany: {
                   select: {
                     id: true,
+                    companyId: true,
+                    serviceOrganizationId: true,
                     name: true,
                     organizationNumber: true,
+                    contactEmail: true,
+                    phone: true,
+                    certificateNumber: true,
+                    notes: true,
+                    serviceOrganization: {
+                      select: {
+                        id: true,
+                        name: true,
+                        organizationNumber: true,
+                        contactEmail: true,
+                        phone: true,
+                        certificateNumber: true,
+                      },
+                    },
                   },
                 },
               },
@@ -393,8 +410,24 @@ export async function GET(request: NextRequest) {
         assignedServicePartnerCompany: {
           select: {
             id: true,
+            companyId: true,
+            serviceOrganizationId: true,
             name: true,
             organizationNumber: true,
+            contactEmail: true,
+            phone: true,
+            certificateNumber: true,
+            notes: true,
+            serviceOrganization: {
+              select: {
+                id: true,
+                name: true,
+                organizationNumber: true,
+                contactEmail: true,
+                phone: true,
+                certificateNumber: true,
+              },
+            },
           },
         },
         events: {
@@ -436,13 +469,21 @@ export async function GET(request: NextRequest) {
               name: assignedContractor.name,
               email: assignedContractor.email,
               servicePartnerCompany:
-                assignedContractor.memberships[0]?.servicePartnerCompany ?? null,
+                assignedContractor.memberships[0]?.servicePartnerCompany
+                  ? toServiceOrganizationBackedCompany(
+                      assignedContractor.memberships[0].servicePartnerCompany
+                    )
+                  : null,
             }
           : null,
         assignedServicePartnerCompany:
-          assignedServicePartnerCompany ??
-          assignedContractor?.memberships[0]?.servicePartnerCompany ??
-          null,
+          assignedServicePartnerCompany
+            ? toServiceOrganizationBackedCompany(assignedServicePartnerCompany)
+            : assignedContractor?.memberships[0]?.servicePartnerCompany
+              ? toServiceOrganizationBackedCompany(
+                  assignedContractor.memberships[0].servicePartnerCompany
+                )
+              : null,
         gwp: compliance.gwp,
         co2eKg: compliance.co2eKg,
         co2eTon: compliance.co2eTon,

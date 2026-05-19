@@ -3,6 +3,10 @@ import { z, ZodError } from "zod"
 import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
 import { getCertificationStatus } from "@/lib/certification-status"
 import { prisma } from "@/lib/db"
+import {
+  ensureServiceOrganizationForLegacyCompany,
+  mapServiceOrganizationRole,
+} from "@/lib/service-organizations"
 
 type RouteContext = {
   params: Promise<{
@@ -26,14 +30,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       linkServicePartnerCompanySchema.parse(body)
 
     if (servicePartnerCompanyId) {
-      const servicePartnerCompany = await prisma.servicePartnerCompany.findFirst({
-        where: {
-          id: servicePartnerCompanyId,
-          companyId: auth.user.companyId,
-        },
-        select: {
-          id: true,
-        },
+      const servicePartnerCompany = await ensureServiceOrganizationForLegacyCompany({
+        companyId: auth.user.companyId,
+        servicePartnerCompanyId,
       })
 
       if (!servicePartnerCompany) {
@@ -59,6 +58,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       },
       select: {
         id: true,
+        userId: true,
+        isServicePartnerAdmin: true,
       },
     })
 
@@ -96,6 +97,34 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         },
       },
     })
+
+    if (servicePartnerCompanyId) {
+      const bridge = await ensureServiceOrganizationForLegacyCompany({
+        companyId: auth.user.companyId,
+        servicePartnerCompanyId,
+      })
+
+      if (bridge) {
+        await prisma.serviceOrganizationMembership.upsert({
+          where: {
+            serviceOrganizationId_userId: {
+              serviceOrganizationId: bridge.serviceOrganizationId,
+              userId: membership.userId,
+            },
+          },
+          create: {
+            serviceOrganizationId: bridge.serviceOrganizationId,
+            userId: membership.userId,
+            role: mapServiceOrganizationRole(membership.isServicePartnerAdmin),
+            isActive: true,
+          },
+          update: {
+            role: membership.isServicePartnerAdmin ? "ADMIN" : undefined,
+            isActive: true,
+          },
+        })
+      }
+    }
 
     return NextResponse.json(
       {

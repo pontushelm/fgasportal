@@ -13,6 +13,10 @@ import {
   canInviteServicePartners,
 } from "@/lib/roles"
 import { getServicePartnerInvitationMetadata } from "@/lib/service-partner-invitations"
+import {
+  ensureServiceOrganizationForLegacyCompany,
+  mapServiceOrganizationRole,
+} from "@/lib/service-organizations"
 import { createInvitationSchema } from "@/lib/validations"
 
 const INVITATION_TTL_DAYS = 7
@@ -151,14 +155,9 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      const servicePartnerCompany = await prisma.servicePartnerCompany.findFirst({
-        where: {
-          id: invitationMetadata.servicePartnerCompanyId,
-          companyId,
-        },
-        select: {
-          id: true,
-        },
+      const servicePartnerCompany = await ensureServiceOrganizationForLegacyCompany({
+        companyId,
+        servicePartnerCompanyId: invitationMetadata.servicePartnerCompanyId,
       })
 
       if (!servicePartnerCompany) {
@@ -168,6 +167,13 @@ export async function POST(request: NextRequest) {
         )
       }
     }
+    const serviceOrganizationBridge = invitationMetadata.servicePartnerCompanyId
+      ? await ensureServiceOrganizationForLegacyCompany({
+          companyId,
+          servicePartnerCompanyId: invitationMetadata.servicePartnerCompanyId,
+        })
+      : null
+
     const existingUser = await prisma.user.findUnique({
       where: {
         email: validatedData.email,
@@ -211,6 +217,33 @@ export async function POST(request: NextRequest) {
           },
         })
 
+        if (isServicePartnerInvite && serviceOrganizationBridge) {
+          await prisma.serviceOrganizationMembership.upsert({
+            where: {
+              serviceOrganizationId_userId: {
+                serviceOrganizationId:
+                  serviceOrganizationBridge.serviceOrganizationId,
+                userId: existingUser.id,
+              },
+            },
+            create: {
+              serviceOrganizationId:
+                serviceOrganizationBridge.serviceOrganizationId,
+              userId: existingUser.id,
+              role: mapServiceOrganizationRole(
+                invitationMetadata.isServicePartnerAdmin
+              ),
+              isActive: true,
+            },
+            update: {
+              role: invitationMetadata.isServicePartnerAdmin
+                ? "ADMIN"
+                : undefined,
+              isActive: true,
+            },
+          })
+        }
+
         await logActivity({
           companyId,
           userId,
@@ -222,8 +255,10 @@ export async function POST(request: NextRequest) {
             targetUserName: existingUser.name,
             role: validatedData.role,
             membershipId: membership.id,
-            servicePartnerCompanyId:
+        servicePartnerCompanyId:
               invitationMetadata.servicePartnerCompanyId,
+            serviceOrganizationId:
+              serviceOrganizationBridge?.serviceOrganizationId ?? null,
             isServicePartnerAdmin:
               invitationMetadata.isServicePartnerAdmin,
           },
@@ -261,6 +296,8 @@ export async function POST(request: NextRequest) {
         token,
         companyId,
         servicePartnerCompanyId: invitationMetadata.servicePartnerCompanyId,
+        serviceOrganizationId:
+          serviceOrganizationBridge?.serviceOrganizationId ?? null,
         isServicePartnerAdminInvite: invitationMetadata.isServicePartnerAdmin,
         invitedByUserId: userId,
         expiresAt,

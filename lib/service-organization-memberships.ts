@@ -28,3 +28,9 @@ export function isSameServiceOrganizationMembership({
 }) {
   return Boolean(serviceOrganizationId && userId)
 }
+
+export function getServiceOrganizationRoleFromServicePartnerAdmin(
+  isServicePartnerAdmin?: boolean | null
+) {
+  return mapServiceOrganizationRole(isServicePartnerAdmin)
+}

@@ -8,6 +8,10 @@ import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
 import { calculateInstallationRisk } from "@/lib/risk-classification"
 import { buildServicePartnerCompanyMetrics } from "@/lib/service-partner-company-metrics"
+import {
+  ensureServiceOrganizationForLegacyCompany,
+  toServiceOrganizationBackedCompany,
+} from "@/lib/service-organizations"
 
 type RouteContext = {
   params: Promise<{
@@ -42,12 +46,24 @@ export async function GET(request: NextRequest, context: RouteContext) {
       },
       select: {
         id: true,
+        companyId: true,
         name: true,
         organizationNumber: true,
         contactEmail: true,
         phone: true,
         certificateNumber: true,
         notes: true,
+        serviceOrganizationId: true,
+        serviceOrganization: {
+          select: {
+            id: true,
+            name: true,
+            organizationNumber: true,
+            contactEmail: true,
+            phone: true,
+            certificateNumber: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
         assignedInstallations: {
@@ -170,6 +186,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       )
     }
 
+    const displayCompany = toServiceOrganizationBackedCompany(servicePartnerCompany)
     const contractors = servicePartnerCompany.memberships.map((membership) => {
       let overdueInspections = 0
       let dueSoonInspections = 0
@@ -228,13 +245,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
         certificationValidUntil: membership.certificationValidUntil,
         certificationStatus,
         servicePartnerCompany: {
-          id: servicePartnerCompany.id,
-          name: servicePartnerCompany.name,
-          organizationNumber: servicePartnerCompany.organizationNumber,
-          contactEmail: servicePartnerCompany.contactEmail,
-                  phone: servicePartnerCompany.phone,
-                  certificateNumber: servicePartnerCompany.certificateNumber,
-                  notes: servicePartnerCompany.notes,
+          id: displayCompany.id,
+          name: displayCompany.name,
+          organizationNumber: displayCompany.organizationNumber,
+          contactEmail: displayCompany.contactEmail,
+          phone: displayCompany.phone,
+          certificateNumber: displayCompany.certificateNumber,
+          notes: displayCompany.notes,
         },
         assignedInstallationsCount: membership.user.assignedInstallations.length,
         overdueInspections,
@@ -336,7 +353,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
           assignedServiceContactName: contractor?.name ?? null,
           assignedServiceContactEmail: contractor?.email ?? null,
           servicePartnerCompanyId: servicePartnerCompany.id,
-          servicePartnerCompanyName: servicePartnerCompany.name,
+          servicePartnerCompanyName: displayCompany.name,
           risk,
         }
       })
@@ -351,7 +368,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
           assignedServiceContactName: contractor?.name ?? null,
           assignedServiceContactEmail: contractor?.email ?? null,
           servicePartnerCompanyId: servicePartnerCompany.id,
-          servicePartnerCompanyName: servicePartnerCompany.name,
+          servicePartnerCompanyName: displayCompany.name,
           date: event.date,
         }))
     )
@@ -361,7 +378,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     })
 
     const [metrics] = buildServicePartnerCompanyMetrics({
-      companies: [servicePartnerCompany],
+      companies: [displayCompany],
       contractors,
     })
     const companyMetrics = metrics
@@ -392,13 +409,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json(
       {
         company: {
-          id: servicePartnerCompany.id,
-          name: servicePartnerCompany.name,
-          organizationNumber: servicePartnerCompany.organizationNumber,
-          contactEmail: servicePartnerCompany.contactEmail,
-          phone: servicePartnerCompany.phone,
-          certificateNumber: servicePartnerCompany.certificateNumber,
-          notes: servicePartnerCompany.notes,
+          id: displayCompany.id,
+          serviceOrganizationId: displayCompany.serviceOrganizationId,
+          name: displayCompany.name,
+          organizationNumber: displayCompany.organizationNumber,
+          contactEmail: displayCompany.contactEmail,
+          phone: displayCompany.phone,
+          certificateNumber: displayCompany.certificateNumber,
+          notes: displayCompany.notes,
           createdAt: servicePartnerCompany.createdAt,
           updatedAt: servicePartnerCompany.updatedAt,
         },
@@ -437,6 +455,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         },
         select: {
           id: true,
+          serviceOrganizationId: true,
         },
       })
 
@@ -447,15 +466,46 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       )
     }
 
+    const bridge = await ensureServiceOrganizationForLegacyCompany({
+      companyId: auth.user.companyId,
+      servicePartnerCompanyId: id,
+    })
+
+    if (!bridge) {
+      return NextResponse.json(
+        { error: "ServicefÃ¶retaget hittades inte" },
+        { status: 404 }
+      )
+    }
+
+    await prisma.serviceOrganization.update({
+      where: {
+        id: bridge.serviceOrganizationId,
+      },
+      data: {
+        name: data.name,
+        organizationNumber: data.organizationNumber,
+        contactEmail: data.contactEmail,
+        phone: data.phone,
+        certificateNumber: data.certificateNumber,
+      },
+    })
+
     const servicePartnerCompany = await prisma.servicePartnerCompany.update({
       where: {
         id,
       },
-      data,
+      data: {
+        ...data,
+        serviceOrganizationId: bridge.serviceOrganizationId,
+      },
       select: servicePartnerCompanySelect,
     })
 
-    return NextResponse.json(servicePartnerCompany, { status: 200 })
+    return NextResponse.json(
+      toServiceOrganizationBackedCompany(servicePartnerCompany),
+      { status: 200 }
+    )
   } catch (error: unknown) {
     console.error("Update service partner company error:", error)
 
@@ -489,6 +539,8 @@ function optionalText(maxLength: number) {
 
 const servicePartnerCompanySelect = {
   id: true,
+  companyId: true,
+  serviceOrganizationId: true,
   name: true,
   organizationNumber: true,
   contactEmail: true,
@@ -497,6 +549,16 @@ const servicePartnerCompanySelect = {
   notes: true,
   createdAt: true,
   updatedAt: true,
+  serviceOrganization: {
+    select: {
+      id: true,
+      name: true,
+      organizationNumber: true,
+      contactEmail: true,
+      phone: true,
+      certificateNumber: true,
+    },
+  },
 } satisfies Prisma.ServicePartnerCompanySelect
 
 function latestDate(

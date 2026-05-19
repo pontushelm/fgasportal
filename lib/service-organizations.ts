@@ -124,3 +124,117 @@ export function resolveServiceOrganizationIdFromLegacyCompany(
 ) {
   return company.serviceOrganizationId ?? null
 }
+
+export type LegacyServicePartnerCompanyWithOrganization = {
+  id: string
+  companyId: string
+  serviceOrganizationId: string | null
+  name: string
+  organizationNumber: string | null
+  contactEmail: string | null
+  phone: string | null
+  certificateNumber: string | null
+  notes?: string | null
+  serviceOrganization?: {
+    id: string
+    name: string
+    organizationNumber: string | null
+    contactEmail: string | null
+    phone: string | null
+    certificateNumber: string | null
+  } | null
+}
+
+export function toServiceOrganizationBackedCompany(
+  company: LegacyServicePartnerCompanyWithOrganization
+) {
+  const organization = company.serviceOrganization
+
+  return {
+    id: company.id,
+    serviceOrganizationId: organization?.id ?? company.serviceOrganizationId,
+    name: organization?.name ?? company.name,
+    organizationNumber:
+      organization?.organizationNumber ?? company.organizationNumber,
+    contactEmail: organization?.contactEmail ?? company.contactEmail,
+    phone: organization?.phone ?? company.phone,
+    certificateNumber:
+      organization?.certificateNumber ?? company.certificateNumber,
+    notes: company.notes ?? null,
+  }
+}
+
+export async function ensureServiceOrganizationForLegacyCompany({
+  companyId,
+  servicePartnerCompanyId,
+}: {
+  companyId: string
+  servicePartnerCompanyId: string
+}) {
+  const { prisma } = await import("@/lib/db")
+
+  return prisma.$transaction(async (tx) => {
+    const legacyCompany = await tx.servicePartnerCompany.findFirst({
+      where: {
+        id: servicePartnerCompanyId,
+        companyId,
+      },
+      select: {
+        id: true,
+        companyId: true,
+        serviceOrganizationId: true,
+        name: true,
+        organizationNumber: true,
+        contactEmail: true,
+        phone: true,
+        certificateNumber: true,
+      },
+    })
+
+    if (!legacyCompany) return null
+
+    const serviceOrganizationId =
+      legacyCompany.serviceOrganizationId ??
+      (
+        await tx.serviceOrganization.create({
+          data: buildServiceOrganizationCreateData(legacyCompany),
+          select: {
+            id: true,
+          },
+        })
+      ).id
+
+    if (!legacyCompany.serviceOrganizationId) {
+      await tx.servicePartnerCompany.update({
+        where: {
+          id: legacyCompany.id,
+        },
+        data: {
+          serviceOrganizationId,
+        },
+      })
+    }
+
+    await tx.companyServiceOrganization.upsert({
+      where: {
+        companyId_serviceOrganizationId: {
+          companyId,
+          serviceOrganizationId,
+        },
+      },
+      create: buildCompanyServiceOrganizationCreateData({
+        companyId,
+        displayName: legacyCompany.name,
+        serviceOrganizationId,
+      }),
+      update: {
+        isActive: true,
+      },
+    })
+
+    return {
+      legacyServicePartnerCompanyId: legacyCompany.id,
+      serviceOrganizationId,
+    }
+  })
+}

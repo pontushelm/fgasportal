@@ -4,6 +4,7 @@ import { authenticateApiRequest, forbiddenResponse } from "@/lib/auth"
 import { logActivity } from "@/lib/activity-log"
 import { prisma } from "@/lib/db"
 import { canAssignServicepartnerTechnician } from "@/lib/servicepartner-technician-assignment"
+import { ensureServiceOrganizationForLegacyCompany } from "@/lib/service-organizations"
 
 const assignTechnicianSchema = z.object({
   installationId: z.string().min(1),
@@ -18,6 +19,12 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json()
     const { installationId, technicianId } = assignTechnicianSchema.parse(body)
     const normalizedTechnicianId = technicianId?.trim() || null
+    const bridge = await ensureServiceOrganizationForLegacyCompany({
+      companyId: auth.user.companyId,
+      servicePartnerCompanyId: auth.user.servicePartnerCompanyId ?? "",
+    })
+
+    if (!bridge) return forbiddenResponse()
 
     const installation = await prisma.installation.findFirst({
       where: {
@@ -56,6 +63,12 @@ export async function PATCH(request: NextRequest) {
             servicePartnerCompanyId: auth.user.servicePartnerCompanyId,
             user: {
               isActive: true,
+              serviceOrganizationMemberships: {
+                some: {
+                  serviceOrganizationId: bridge.serviceOrganizationId,
+                  isActive: true,
+                },
+              },
             },
           },
           select: {

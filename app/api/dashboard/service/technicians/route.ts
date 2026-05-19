@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { authenticateApiRequest, forbiddenResponse } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { canManageServicepartnerTechnicianAssignments } from "@/lib/access/installation-access"
+import { ensureServiceOrganizationForLegacyCompany } from "@/lib/service-organizations"
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,19 +18,32 @@ export async function GET(request: NextRequest) {
       return forbiddenResponse()
     }
 
-    const technicians = await prisma.companyMembership.findMany({
+    const bridge = await ensureServiceOrganizationForLegacyCompany({
+      companyId: auth.user.companyId,
+      servicePartnerCompanyId: auth.user.servicePartnerCompanyId!,
+    })
+
+    if (!bridge) return forbiddenResponse()
+
+    const technicians = await prisma.serviceOrganizationMembership.findMany({
       where: {
-        companyId: auth.user.companyId,
-        role: "CONTRACTOR",
         isActive: true,
-        servicePartnerCompanyId: auth.user.servicePartnerCompanyId,
+        serviceOrganizationId: bridge.serviceOrganizationId,
         user: {
           isActive: true,
+          memberships: {
+            some: {
+              companyId: auth.user.companyId,
+              role: "CONTRACTOR",
+              isActive: true,
+              servicePartnerCompanyId: auth.user.servicePartnerCompanyId,
+            },
+          },
         },
       },
       select: {
         id: true,
-        isServicePartnerAdmin: true,
+        role: true,
         user: {
           select: {
             id: true,
@@ -40,14 +54,10 @@ export async function GET(request: NextRequest) {
       },
       orderBy: [
         {
-          user: {
-            name: "asc",
-          },
+          user: { name: "asc" },
         },
         {
-          user: {
-            email: "asc",
-          },
+          user: { email: "asc" },
         },
       ],
     })
@@ -58,7 +68,7 @@ export async function GET(request: NextRequest) {
         id: membership.user.id,
         name: membership.user.name,
         email: membership.user.email,
-        isServicePartnerAdmin: membership.isServicePartnerAdmin,
+        isServicePartnerAdmin: membership.role === "ADMIN",
       })),
       { status: 200 }
     )

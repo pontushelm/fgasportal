@@ -104,6 +104,9 @@ export function buildAnnualFgasReportWarnings({
     assignedServicePartnerCompanyId?: string | null
     assignedServicePartnerCompany?: {
       certificateNumber: string | null
+      serviceOrganization?: {
+        certificateNumber: string | null
+      } | null
     } | null
     property?: {
       municipality: string | null
@@ -243,6 +246,8 @@ export function buildAnnualFgasReportWarnings({
         message: "Aggregatet saknar tilldelad servicepartner.",
       })
     } else if (
+      !installation.assignedServicePartnerCompany?.serviceOrganization
+        ?.certificateNumber &&
       !installation.assignedServicePartnerCompany?.certificateNumber &&
       !installation.assignedContractor?.certificationNumber &&
       !installation.assignedContractor?.memberships[0]?.certificationNumber

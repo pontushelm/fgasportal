@@ -4,6 +4,10 @@ import { authenticateApiRequest, forbiddenResponse } from "@/lib/auth"
 import { logActivity } from "@/lib/activity-log"
 import { prisma } from "@/lib/db"
 import {
+  ensureServiceOrganizationForLegacyCompany,
+  toServiceOrganizationBackedCompany,
+} from "@/lib/service-organizations"
+import {
   canEditServicePartnerCompanySettings,
   canViewServicePartnerCompanySettings,
 } from "@/lib/servicepartner-company-settings-access"
@@ -21,6 +25,18 @@ export async function GET(request: NextRequest) {
     if (auth.response) return auth.response
     if (!canViewServicePartnerCompanySettings(auth.user)) return forbiddenResponse()
 
+    const bridge = await ensureServiceOrganizationForLegacyCompany({
+      companyId: auth.user.companyId,
+      servicePartnerCompanyId: auth.user.servicePartnerCompanyId!,
+    })
+
+    if (!bridge) {
+      return NextResponse.json(
+        { error: "ServicepartnerfÃ¶retaget hittades inte" },
+        { status: 404 }
+      )
+    }
+
     const servicePartnerCompany = await prisma.servicePartnerCompany.findFirst({
       where: {
         id: auth.user.servicePartnerCompanyId!,
@@ -36,7 +52,10 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    return NextResponse.json(servicePartnerCompany, { status: 200 })
+    return NextResponse.json(
+      toServiceOrganizationBackedCompany(servicePartnerCompany),
+      { status: 200 }
+    )
   } catch (error: unknown) {
     console.error("Get servicepartner company settings error:", error)
 
@@ -55,6 +74,18 @@ export async function PATCH(request: NextRequest) {
 
     const body = await request.json()
     const data = servicePartnerSettingsSchema.parse(body)
+    const bridge = await ensureServiceOrganizationForLegacyCompany({
+      companyId: auth.user.companyId,
+      servicePartnerCompanyId: auth.user.servicePartnerCompanyId!,
+    })
+
+    if (!bridge) {
+      return NextResponse.json(
+        { error: "ServicepartnerfÃ¶retaget hittades inte" },
+        { status: 404 }
+      )
+    }
+
     const servicePartnerCompany = await prisma.servicePartnerCompany.findFirst({
       where: {
         id: auth.user.servicePartnerCompanyId!,
@@ -72,13 +103,51 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
+    const updatedServiceOrganization =
+      await prisma.serviceOrganization.update({
+        where: {
+          id: bridge.serviceOrganizationId,
+        },
+        data: {
+          name: data.name,
+          contactEmail: data.contactEmail,
+          phone: data.phone,
+          certificateNumber: data.certificateNumber,
+        },
+        select: {
+          id: true,
+          name: true,
+          organizationNumber: true,
+          contactEmail: true,
+          phone: true,
+          certificateNumber: true,
+        },
+      })
+
     const updatedServicePartnerCompany =
       await prisma.servicePartnerCompany.update({
         where: {
           id: servicePartnerCompany.id,
         },
-        data,
-        select: servicePartnerSettingsSelect,
+        data: {
+          name: data.name,
+          contactEmail: data.contactEmail,
+          phone: data.phone,
+          certificateNumber: data.certificateNumber,
+        },
+        select: {
+          ...servicePartnerSettingsSelect,
+          serviceOrganization: {
+            select: {
+              id: true,
+              name: true,
+              organizationNumber: true,
+              contactEmail: true,
+              phone: true,
+              certificateNumber: true,
+            },
+          },
+        },
       })
 
     await logActivity({
@@ -88,11 +157,15 @@ export async function PATCH(request: NextRequest) {
       entityType: "service_partner_company",
       entityId: servicePartnerCompany.id,
       metadata: {
+        serviceOrganizationId: updatedServiceOrganization.id,
         updatedFields: Object.keys(data),
       },
     })
 
-    return NextResponse.json(updatedServicePartnerCompany, { status: 200 })
+    return NextResponse.json(
+      toServiceOrganizationBackedCompany(updatedServicePartnerCompany),
+      { status: 200 }
+    )
   } catch (error: unknown) {
     console.error("Update servicepartner company settings error:", error)
 
@@ -116,9 +189,21 @@ function optionalText(maxLength: number) {
 
 const servicePartnerSettingsSelect = {
   id: true,
+  companyId: true,
+  serviceOrganizationId: true,
   name: true,
   organizationNumber: true,
   contactEmail: true,
   phone: true,
   certificateNumber: true,
+  serviceOrganization: {
+    select: {
+      id: true,
+      name: true,
+      organizationNumber: true,
+      contactEmail: true,
+      phone: true,
+      certificateNumber: true,
+    },
+  },
 }

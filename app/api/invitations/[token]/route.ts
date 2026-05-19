@@ -23,6 +23,12 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         select: {
           id: true,
           name: true,
+          serviceOrganization: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
       },
     },
@@ -55,7 +61,14 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       role: invitation.role,
       companyName: invitation.company.name,
       servicePartnerCompanyId: invitation.servicePartnerCompany?.id ?? null,
-      servicePartnerCompanyName: invitation.servicePartnerCompany?.name ?? null,
+      servicePartnerCompanyName:
+        invitation.servicePartnerCompany?.serviceOrganization?.name ??
+        invitation.servicePartnerCompany?.name ??
+        null,
+      serviceOrganizationId:
+        invitation.serviceOrganizationId ??
+        invitation.servicePartnerCompany?.serviceOrganization?.id ??
+        null,
       expiresAt: invitation.expiresAt,
     },
     { status: 200 }

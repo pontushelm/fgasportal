@@ -54,6 +54,8 @@ export async function GET(request: NextRequest) {
       companyName: item.company.name,
       role: item.role,
       servicePartnerCompanyId: item.servicePartnerCompanyId,
+      serviceOrganizationId:
+        item.servicePartnerCompany?.serviceOrganizationId ?? null,
       isServicePartnerAdmin: item.isServicePartnerAdmin,
     }))
 
@@ -67,6 +69,10 @@ export async function GET(request: NextRequest) {
         servicePartnerCompanyId:
           membership?.servicePartnerCompanyId ??
           auth.user.servicePartnerCompanyId ??
+          null,
+        serviceOrganizationId:
+          membership?.servicePartnerCompany?.serviceOrganizationId ??
+          auth.user.serviceOrganizationId ??
           null,
         isServicePartnerAdmin:
           membership?.isServicePartnerAdmin ??

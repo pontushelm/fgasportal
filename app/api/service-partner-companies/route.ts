@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client"
 import { z, ZodError } from "zod"
 import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { toServiceOrganizationBackedCompany } from "@/lib/service-organizations"
 
 const servicePartnerCompanySchema = z.object({
   name: z.string().trim().min(1, "Namn krävs").max(160),
@@ -29,7 +30,10 @@ export async function GET(request: NextRequest) {
       select: servicePartnerCompanySelect,
     })
 
-    return NextResponse.json(servicePartnerCompanies, { status: 200 })
+    return NextResponse.json(
+      servicePartnerCompanies.map(toServiceOrganizationBackedCompany),
+      { status: 200 }
+    )
   } catch (error: unknown) {
     console.error("Get service partner companies error:", error)
 
@@ -49,15 +53,62 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const data = servicePartnerCompanySchema.parse(body)
 
+    const existingServiceOrganization = data.organizationNumber
+      ? await prisma.serviceOrganization.findFirst({
+          where: {
+            organizationNumber: data.organizationNumber,
+          },
+          select: {
+            id: true,
+          },
+        })
+      : null
+    const serviceOrganization =
+      existingServiceOrganization ??
+      (await prisma.serviceOrganization.create({
+        data: {
+          name: data.name,
+          organizationNumber: data.organizationNumber,
+          contactEmail: data.contactEmail,
+          phone: data.phone,
+          certificateNumber: data.certificateNumber,
+        },
+        select: {
+          id: true,
+        },
+      }))
+
     const servicePartnerCompany = await prisma.servicePartnerCompany.create({
       data: {
         ...data,
         companyId: auth.user.companyId,
+        serviceOrganizationId: serviceOrganization.id,
       },
       select: servicePartnerCompanySelect,
     })
 
-    return NextResponse.json(servicePartnerCompany, { status: 201 })
+    await prisma.companyServiceOrganization.upsert({
+      where: {
+        companyId_serviceOrganizationId: {
+          companyId: auth.user.companyId,
+          serviceOrganizationId: servicePartnerCompany.serviceOrganizationId!,
+        },
+      },
+      create: {
+        companyId: auth.user.companyId,
+        serviceOrganizationId: servicePartnerCompany.serviceOrganizationId!,
+        displayName: data.name,
+      },
+      update: {
+        isActive: true,
+        displayName: data.name,
+      },
+    })
+
+    return NextResponse.json(
+      toServiceOrganizationBackedCompany(servicePartnerCompany),
+      { status: 201 }
+    )
   } catch (error: unknown) {
     console.error("Create service partner company error:", error)
 
@@ -91,6 +142,8 @@ function optionalText(maxLength: number) {
 
 const servicePartnerCompanySelect = {
   id: true,
+  companyId: true,
+  serviceOrganizationId: true,
   name: true,
   organizationNumber: true,
   contactEmail: true,
@@ -99,4 +152,14 @@ const servicePartnerCompanySelect = {
   notes: true,
   createdAt: true,
   updatedAt: true,
+  serviceOrganization: {
+    select: {
+      id: true,
+      name: true,
+      organizationNumber: true,
+      contactEmail: true,
+      phone: true,
+      certificateNumber: true,
+    },
+  },
 } satisfies Prisma.ServicePartnerCompanySelect

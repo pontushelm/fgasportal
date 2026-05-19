@@ -5,6 +5,7 @@ import {
   buildServiceOrganizationCreateData,
   mapServiceOrganizationRole,
   resolveServiceOrganizationIdFromLegacyCompany,
+  toServiceOrganizationBackedCompany,
 } from "@/lib/service-organizations"
 import { buildServiceOrganizationMembershipCreateData } from "@/lib/service-organization-memberships"
 
@@ -70,6 +71,39 @@ describe("service organization transition helpers", () => {
       })
     ).toBe("so_1")
     expect(resolveServiceOrganizationIdFromLegacyCompany({})).toBeNull()
+  })
+
+  it("uses global service organization fields as primary identity when bridged", () => {
+    expect(
+      toServiceOrganizationBackedCompany({
+        id: "spc_1",
+        companyId: "customer_1",
+        serviceOrganizationId: "so_1",
+        name: "Kundspecifikt namn",
+        organizationNumber: null,
+        contactEmail: null,
+        phone: null,
+        certificateNumber: null,
+        notes: "Kundanteckning",
+        serviceOrganization: {
+          id: "so_1",
+          name: "Global Service AB",
+          organizationNumber: "559000-0000",
+          contactEmail: "info@service.example",
+          phone: "010-123 45 67",
+          certificateNumber: "FCERT-1",
+        },
+      })
+    ).toEqual({
+      id: "spc_1",
+      serviceOrganizationId: "so_1",
+      name: "Global Service AB",
+      organizationNumber: "559000-0000",
+      contactEmail: "info@service.example",
+      phone: "010-123 45 67",
+      certificateNumber: "FCERT-1",
+      notes: "Kundanteckning",
+    })
   })
 
   it("plans one global organization per legacy company without fuzzy deduplication", () => {

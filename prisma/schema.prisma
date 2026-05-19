@@ -207,6 +207,7 @@ model ServiceOrganization {
   legacyServicePartnerCompanies ServicePartnerCompany[]
   memberships                   ServiceOrganizationMembership[]
   companyLinks                  CompanyServiceOrganization[]
+  invitations                   Invitation[]
 
   @@index([organizationNumber])
   @@map("service_organizations")
@@ -258,12 +259,15 @@ model Invitation {
 
   servicePartnerCompanyId String?
   servicePartnerCompany   ServicePartnerCompany? @relation(fields: [servicePartnerCompanyId], references: [id], onDelete: SetNull)
+  serviceOrganizationId String?
+  serviceOrganization   ServiceOrganization? @relation(fields: [serviceOrganizationId], references: [id], onDelete: SetNull)
   isServicePartnerAdminInvite Boolean @default(false)
 
   invitedByUserId String
   invitedByUser   User   @relation("InvitedBy", fields: [invitedByUserId], references: [id], onDelete: Restrict)
 
   @@index([servicePartnerCompanyId])
+  @@index([serviceOrganizationId])
   @@map("invitations")
 }
 

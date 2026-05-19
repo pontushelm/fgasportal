@@ -8,6 +8,7 @@ export type ServicePartnerCompanyMetricInput = {
   organizationNumber: string | null
   contactEmail?: string | null
   phone?: string | null
+  certificateNumber?: string | null
   notes?: string | null
 }
 
@@ -29,6 +30,7 @@ export type ServicePartnerCompanyMetrics = {
   organizationNumber: string | null
   contactEmail: string | null
   phone: string | null
+  certificateNumber: string | null
   notes: string | null
   isUnlinked: boolean
   linkedContactsCount: number
@@ -63,8 +65,9 @@ export function buildServicePartnerCompanyMetrics({
       name: UNLINKED_GROUP_NAME,
       organizationNumber: null,
       contactEmail: null,
-      phone: null,
-      notes: null,
+    phone: null,
+    certificateNumber: null,
+    notes: null,
     },
     true
   )
@@ -116,6 +119,7 @@ function createCompanyMetrics(
     organizationNumber: company.organizationNumber,
     contactEmail: company.contactEmail ?? null,
     phone: company.phone ?? null,
+    certificateNumber: company.certificateNumber ?? null,
     notes: company.notes ?? null,
     isUnlinked,
     linkedContactsCount: 0,

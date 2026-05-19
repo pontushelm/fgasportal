@@ -5,6 +5,7 @@ import { logActivity } from "@/lib/activity-log"
 import { canManageServicepartnerTechnicianAssignments } from "@/lib/access/installation-access"
 import { prisma } from "@/lib/db"
 import { canAssignServicepartnerTechnician } from "@/lib/servicepartner-technician-assignment"
+import { ensureServiceOrganizationForLegacyCompany } from "@/lib/service-organizations"
 
 const bulkAssignTechnicianSchema = z.object({
   installationIds: z.array(z.string().min(1)).min(1).max(200),
@@ -30,6 +31,12 @@ export async function PATCH(request: NextRequest) {
       bulkAssignTechnicianSchema.parse(body)
     const normalizedTechnicianId = technicianId?.trim() || null
     const uniqueInstallationIds = Array.from(new Set(installationIds))
+    const bridge = await ensureServiceOrganizationForLegacyCompany({
+      companyId: auth.user.companyId,
+      servicePartnerCompanyId: auth.user.servicePartnerCompanyId ?? "",
+    })
+
+    if (!bridge) return forbiddenResponse()
 
     const installations = await prisma.installation.findMany({
       where: {
@@ -69,6 +76,12 @@ export async function PATCH(request: NextRequest) {
             servicePartnerCompanyId: auth.user.servicePartnerCompanyId,
             user: {
               isActive: true,
+              serviceOrganizationMemberships: {
+                some: {
+                  serviceOrganizationId: bridge.serviceOrganizationId,
+                  isActive: true,
+                },
+              },
             },
           },
           select: {
