@@ -40,20 +40,24 @@ const workflowSteps = [
 
 const audiences = [
   {
-    title: "Fastighetsägare och förvaltare",
-    text: "Samla aggregat, kontroller och rapportunderlag över flera fastigheter.",
+    title: "Fastighetsägare och förvaltning",
+    text: "Få kontroll över aggregat, kontrollintervall och rapportunderlag över flera fastigheter och verksamheter.",
   },
   {
-    title: "Kommuner och offentliga verksamheter",
-    text: "Få struktur för uppföljning, dokumentation och intern kontroll.",
+    title: "Kommuner, regioner och offentliga verksamheter",
+    text: "Skapa struktur för uppföljning av skolor, sjukhus, verksamhetslokaler och externa servicepartners.",
   },
   {
-    title: "Regioner, sjukhus och industri",
-    text: "Hantera stora bestånd med tydlig status, riskbild och spårbar historik.",
+    title: "Butiker, hotell och verksamheter med kylsystem",
+    text: "Samla servicehistorik, läckagekontroller och dokumentation på ett ställe.",
   },
   {
-    title: "Servicepartners",
-    text: "Samarbeta kring tilldelade aggregat utan att operatören tappar kontrollen.",
+    title: "Industri och driftorganisationer",
+    text: "Hantera större aggregatbestånd med tydlig status, risköversikt och spårbar historik.",
+  },
+  {
+    title: "Servicepartnerföretag",
+    text: "Registrera läckagekontroller, service och andra händelser direkt i operatörens register.",
   },
 ]
 
@@ -185,7 +189,7 @@ export default function Home() {
           </div>
           <div className="grid gap-3">
             <ServicePoint>Operatören behåller kontrollen över sitt F-gasregister</ServicePoint>
-            <ServicePoint>Servicepartners får begränsad åtkomst till tilldelade aggregat</ServicePoint>
+            <ServicePoint>Servicepartners kan registrera läckagekontroller, service och andra händelser direkt i operatörens register.</ServicePoint>
             <ServicePoint>Byggt för organisationer med flera fastigheter och externa servicepartners</ServicePoint>
           </div>
         </div>
