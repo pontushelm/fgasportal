@@ -1,5 +1,6 @@
 import Link from "next/link"
 import Image from "next/image"
+import { DemoRequestButton } from "@/components/demo-request-button"
 import { LegalLinks } from "@/components/legal-links"
 
 const previewStats = [
@@ -77,7 +78,7 @@ export default function Home() {
           <Link className="inline-flex items-center" href="/">
             <Image
               alt="FgasPortal"
-              className="h-auto w-40 sm:w-44"
+              className="h-auto w-40 mix-blend-multiply sm:w-44"
               height={130}
               priority
               src="/logo-full.png"
@@ -91,9 +92,9 @@ export default function Home() {
             <Link className={secondaryLinkClassName} href="/register">
               Skapa konto
             </Link>
-            <a className={primaryLinkClassName} href="mailto:info@fgasportal.se">
+            <DemoRequestButton className={primaryLinkClassName}>
               Boka demo
-            </a>
+            </DemoRequestButton>
           </div>
         </nav>
       </header>
@@ -112,9 +113,9 @@ export default function Home() {
             verksamheter som omfattas av F-gasförordningen.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <a className={primaryLargeLinkClassName} href="mailto:info@fgasportal.se">
+            <DemoRequestButton className={primaryLargeLinkClassName}>
               Boka demo
-            </a>
+            </DemoRequestButton>
             <Link className={secondaryLargeLinkClassName} href="/register">
               Skapa konto
             </Link>
@@ -234,9 +235,9 @@ export default function Home() {
             kontroller, dokumentation, serviceuppföljning och rapportunderlag.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
-            <a className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700" href="mailto:info@fgasportal.se">
+            <DemoRequestButton className={primaryLargeLinkClassName}>
               Boka demo
-            </a>
+            </DemoRequestButton>
             <Link className={secondaryLargeLinkClassName} href="/register">
               Skapa konto
             </Link>

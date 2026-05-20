@@ -62,6 +62,15 @@ type SendFeedbackEmailInput = {
   }
 }
 
+type SendDemoRequestEmailInput = {
+  name: string
+  organization: string
+  email: string
+  phone: string | null
+  message: string | null
+  createdAt: Date
+}
+
 let resend: Resend | null = null
 
 export async function sendInspectionReminderEmail({
@@ -365,6 +374,44 @@ export async function sendFeedbackEmail(input: SendFeedbackEmailInput) {
     from,
     to,
     subject: `FgasPortal feedback: ${input.title}`,
+    text,
+  })
+
+  if (result.error) {
+    throw new Error(result.error.message)
+  }
+
+  return result.data
+}
+
+export async function sendDemoRequestEmail(input: SendDemoRequestEmailInput) {
+  const apiKey = requireEnv("RESEND_API_KEY")
+  const from = requireEnv("REMINDER_FROM_EMAIL")
+  const to = requireEnv("DEMO_REQUEST_TO_EMAIL")
+
+  const text = [
+    "Ny demo-förfrågan i FgasPortal",
+    "",
+    `Namn: ${input.name}`,
+    `Organisation: ${input.organization}`,
+    `E-post: ${input.email}`,
+    `Telefon: ${input.phone ?? "Ej angivet"}`,
+    `Tidpunkt: ${input.createdAt.toISOString()}`,
+    "",
+    "Meddelande:",
+    input.message ?? "Ej angivet",
+    "",
+    "Vänliga hälsningar,",
+    "FgasPortal",
+  ].join("\n")
+
+  resend ??= new Resend(apiKey)
+
+  const result = await resend.emails.send({
+    from,
+    to,
+    replyTo: input.email,
+    subject: `FgasPortal demo-förfrågan: ${input.organization}`,
     text,
   })
 
