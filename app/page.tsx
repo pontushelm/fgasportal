@@ -39,12 +39,22 @@ const workflowSteps = [
 ]
 
 const audiences = [
-  "Fastighetsägare",
-  "Kommuner",
-  "Regioner och sjukhus",
-  "Industriella verksamheter",
-  "Driftorganisationer",
-  "Servicepartners",
+  {
+    title: "Fastighetsägare och förvaltare",
+    text: "Samla aggregat, kontroller och rapportunderlag över flera fastigheter.",
+  },
+  {
+    title: "Kommuner och offentliga verksamheter",
+    text: "Få struktur för uppföljning, dokumentation och intern kontroll.",
+  },
+  {
+    title: "Regioner, sjukhus och industri",
+    text: "Hantera stora bestånd med tydlig status, riskbild och spårbar historik.",
+  },
+  {
+    title: "Servicepartners",
+    text: "Samarbeta kring tilldelade aggregat utan att operatören tappar kontrollen.",
+  },
 ]
 
 const riskPoints = [
@@ -87,10 +97,10 @@ export default function Home() {
       <section className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(420px,0.82fr)] lg:items-center lg:px-8 lg:py-24">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
-            SaaS för F-gasregister och uppföljning
+            Digitalt F-gasregister för uppföljning och årsrapportering
           </p>
           <h1 className="mt-4 max-w-4xl text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
-            Hantera köldmedieaggregat, uppfyll krav och minska klimatpåverkan.
+            Få kontroll på köldmedieaggregat och F-gasrapportering
           </h1>
           <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-700">
             FgasPortal samlar register, kontroller, dokumentation,
@@ -104,7 +114,7 @@ export default function Home() {
             <Link className={secondaryLargeLinkClassName} href="/register">
               Skapa konto
             </Link>
-            <Link className={ghostLargeLinkClassName} href="/login">
+            <Link className={secondaryLargeLinkClassName} href="/login">
               Logga in
             </Link>
           </div>
@@ -114,7 +124,7 @@ export default function Home() {
       </section>
 
       <Section
-        eyebrow="Värde"
+        eyebrow="Översikt"
         title="Det viktigaste samlat på ett ställe"
         description="FgasPortal ger organisationen en tydlig grund för registerhållning, uppföljning och rapportering."
       >
@@ -161,7 +171,7 @@ export default function Home() {
       <section className="border-y border-slate-200 bg-white">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:px-8">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
               Servicepartners
             </p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
@@ -170,13 +180,13 @@ export default function Home() {
             <p className="mt-4 text-sm leading-6 text-slate-600">
               Bjud in servicepartnerföretag så att de kan se tilldelade aggregat,
               registrera kontroller, läckage, service och ladda upp dokument
-              direkt på rätt installation.
+              direkt på rätt aggregat.
             </p>
           </div>
           <div className="grid gap-3">
-            <ServicePoint>Operatören behåller ägarskapet över registret</ServicePoint>
-            <ServicePoint>Servicepartners ser endast tilldelade aggregat</ServicePoint>
-            <ServicePoint>Stöd för organisationer med många fastigheter och inbjudna servicepartners</ServicePoint>
+            <ServicePoint>Operatören behåller kontrollen över sitt F-gasregister</ServicePoint>
+            <ServicePoint>Servicepartners får begränsad åtkomst till tilldelade aggregat</ServicePoint>
+            <ServicePoint>Byggt för organisationer med flera fastigheter och externa servicepartners</ServicePoint>
           </div>
         </div>
       </section>
@@ -184,7 +194,7 @@ export default function Home() {
       <Section
         eyebrow="Risk och klimat"
         title="Prioritera rätt med risk- och klimatöversikt"
-        description="Se vilka aggregat och fastigheter som bör prioriteras baserat på CO₂e, riskklassning, läckagehistorik och kontrollstatus."
+        description="Se vilka aggregat och fastigheter som bör prioriteras baserat på CO₂e, riskklassning, läckagehistorik och kontrollstatus - och använd översikten som stöd för att minska klimatpåverkan över tid."
       >
         <div className="flex flex-wrap gap-3">
           {riskPoints.map((point) => (
@@ -196,25 +206,26 @@ export default function Home() {
       </Section>
 
       <Section
-        eyebrow="Målgrupper"
-        title="Byggt för verksamheter med många aggregat"
-        description="För organisationer som behöver struktur, spårbarhet och överblick över flera fastigheter, anläggningar eller serviceflöden."
+        eyebrow="För vem"
+        title="Byggt för organisationer med ansvar för köldmedieaggregat"
+        description="För verksamheter som behöver struktur, spårbarhet och överblick över flera fastigheter, anläggningar eller serviceflöden."
       >
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {audiences.map((audience) => (
-            <div className="rounded-xl border border-slate-200 bg-white p-5 font-semibold text-slate-900 shadow-sm" key={audience}>
-              {audience}
-            </div>
+            <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" key={audience.title}>
+              <h3 className="font-semibold text-slate-950">{audience.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{audience.text}</p>
+            </article>
           ))}
         </div>
       </Section>
 
       <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
-        <div className="rounded-2xl border border-slate-200 bg-slate-950 p-8 text-white shadow-sm sm:p-10">
-          <h2 className="max-w-3xl text-3xl font-bold tracking-tight">
+        <div className="rounded-2xl border border-blue-100 bg-white p-8 shadow-sm sm:p-10">
+          <h2 className="max-w-3xl text-3xl font-bold tracking-tight text-slate-950">
             Vill ni få bättre kontroll över ert F-gasregister?
           </h2>
-          <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300">
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600">
             Boka en demo för att se hur FgasPortal kan samla register,
             kontroller, dokumentation, serviceuppföljning och rapportunderlag.
           </p>
@@ -222,10 +233,10 @@ export default function Home() {
             <a className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700" href="mailto:info@fgasportal.se">
               Boka demo
             </a>
-            <Link className="rounded-lg bg-white px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-slate-100" href="/register">
+            <Link className={secondaryLargeLinkClassName} href="/register">
               Skapa konto
             </Link>
-            <Link className="rounded-lg border border-slate-600 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-900" href="/login">
+            <Link className={secondaryLargeLinkClassName} href="/login">
               Logga in
             </Link>
           </div>
@@ -237,8 +248,9 @@ export default function Home() {
           <div>
             <p className="font-semibold text-slate-950">FgasPortal</p>
             <p className="mt-2 max-w-3xl">
-              FgasPortal ersätter inte operatörens ansvar, men hjälper till att
-              strukturera information, uppföljning och rapportunderlag.
+              FgasPortal hjälper till att strukturera register, uppföljning och
+              rapportunderlag. Operatören ansvarar fortsatt för att uppgifter och
+              rapportering är korrekta.
             </p>
           </div>
           <LegalLinks />
@@ -255,7 +267,7 @@ function DashboardPreview() {
         <div>
           <p className="text-sm font-semibold text-slate-500">Produktöversikt</p>
           <h2 className="mt-1 text-xl font-bold text-slate-950">
-            Compliance dashboard
+            Kontrollstatus och uppföljning
           </h2>
         </div>
         <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
@@ -366,10 +378,8 @@ const cardClassName =
 const primaryLinkClassName =
   "rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
 const secondaryLinkClassName =
-  "rounded-lg px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-950"
+  "rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
 const primaryLargeLinkClassName =
   "rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
 const secondaryLargeLinkClassName =
   "rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-const ghostLargeLinkClassName =
-  "rounded-lg px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-100"
