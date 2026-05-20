@@ -1,5 +1,4 @@
 import Link from "next/link"
-import Image from "next/image"
 import { DemoRequestButton } from "@/components/demo-request-button"
 import { LegalLinks } from "@/components/legal-links"
 
@@ -75,15 +74,15 @@ export default function Home() {
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <Link className="inline-flex items-center" href="/">
-            <Image
-              alt="FgasPortal"
-              className="h-auto w-40 mix-blend-multiply sm:w-44"
-              height={130}
-              priority
-              src="/logo-full.png"
-              width={520}
-            />
+          <Link
+            aria-label="FgasPortal startsida"
+            className="inline-flex items-center gap-2.5"
+            href="/"
+          >
+            <LogoMark />
+            <span className="text-2xl font-bold tracking-tight text-slate-950">
+              Fgas<span className="text-emerald-700">Portal</span>
+            </span>
           </Link>
           <div className="flex items-center gap-2">
             <Link className={secondaryLinkClassName} href="/login">
@@ -311,6 +310,43 @@ function DashboardPreview() {
         ))}
       </div>
     </aside>
+  )
+}
+
+function LogoMark() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-9 w-9 shrink-0"
+      fill="none"
+      viewBox="0 0 48 48"
+    >
+      <path
+        d="M29 6C18.4 5.4 9 13.8 8.4 25c-.2 4.4.9 8.5 3 11.9"
+        stroke="#063B5B"
+        strokeLinecap="round"
+        strokeWidth="3.5"
+      />
+      <path
+        d="M17 18.5v14M12.5 22l9 5.5M21.5 22l-9 5.5M14 16l6 4.5M20 16l-6 4.5"
+        stroke="#063B5B"
+        strokeLinecap="round"
+        strokeWidth="3"
+      />
+      <path
+        d="M27.5 36.5C27.5 24 34 15.2 43 11.5c1.8 9.9-2.8 21.4-15.5 25Z"
+        stroke="#198754"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="3.5"
+      />
+      <path
+        d="M29.5 34c3.8-7.6 7.4-12.8 11.4-16.4"
+        stroke="#198754"
+        strokeLinecap="round"
+        strokeWidth="3"
+      />
+    </svg>
   )
 }
 
