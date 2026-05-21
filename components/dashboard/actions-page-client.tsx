@@ -13,6 +13,7 @@ import {
   type ActionDueDateFilter,
   type ActionFilter,
   type ActionSeverityFilter,
+  type ActionSummaryCounts,
 } from "@/lib/actions/action-filters"
 import type {
   DashboardActionSeverity,
@@ -61,6 +62,8 @@ type SavedActionView = {
   queryParams: Record<string, string>
   createdAt: string
 }
+
+type SummaryCardTone = "slate" | "red" | "amber" | "sky"
 
 const CATEGORY_FILTERS: Array<{ label: string; value: ActionFilter }> = [
   { label: "Alla", value: "ALL" },
@@ -116,6 +119,56 @@ const SUMMARY_CARD_TOOLTIPS = {
 
 const SORT_TOOLTIP =
   "Listan sorteras automatiskt efter systemets prioritering. Försenade kontroller och viktiga uppföljningar visas före lägre prioriterade bevakningspunkter."
+
+const SUMMARY_CARDS = [
+  {
+    key: "overdue",
+    label: "Försenade",
+    tone: "red",
+    tooltip: SUMMARY_CARD_TOOLTIPS.overdue,
+  },
+  {
+    key: "highSeverity",
+    label: "Hög prio",
+    tone: "red",
+    tooltip: SUMMARY_CARD_TOOLTIPS.highSeverity,
+  },
+  {
+    key: "dueSoon",
+    label: "Kommande",
+    tone: "amber",
+    tooltip: SUMMARY_CARD_TOOLTIPS.dueSoon,
+  },
+  {
+    key: "leakageFollowUp",
+    label: "Läckage",
+    tone: "amber",
+    tooltip: SUMMARY_CARD_TOOLTIPS.leakageFollowUp,
+  },
+  {
+    key: "refrigerantReview",
+    label: "Köldmedium",
+    tone: "sky",
+    tooltip: SUMMARY_CARD_TOOLTIPS.refrigerantReview,
+  },
+  {
+    key: "missingServiceContact",
+    label: "Saknar servicepartner",
+    tone: "slate",
+    tooltip: SUMMARY_CARD_TOOLTIPS.missingServiceContact,
+  },
+  {
+    key: "total",
+    label: "Totalt",
+    tone: "slate",
+    tooltip: SUMMARY_CARD_TOOLTIPS.total,
+  },
+] satisfies Array<{
+  key: keyof ActionSummaryCounts
+  label: string
+  tone: SummaryCardTone
+  tooltip: string
+}>
 
 export default function ActionsPageClient() {
   const router = useRouter()
@@ -378,45 +431,15 @@ export default function ActionsPageClient() {
 
       <div className="mx-auto mt-6 max-w-7xl">
         <section className="grid gap-2 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-7 xl:gap-3">
+          {SUMMARY_CARDS.map((card) => (
             <SummaryCard
-              label="Totalt"
-              tooltip={SUMMARY_CARD_TOOLTIPS.total}
-              value={summaryCounts.total}
+              key={card.key}
+              label={card.label}
+              tone={card.tone}
+              tooltip={card.tooltip}
+              value={summaryCounts[card.key]}
             />
-            <SummaryCard
-              label="Hög prio"
-              tone="red"
-              tooltip={SUMMARY_CARD_TOOLTIPS.highSeverity}
-              value={summaryCounts.highSeverity}
-            />
-            <SummaryCard
-              label="Försenade"
-              tone="red"
-              tooltip={SUMMARY_CARD_TOOLTIPS.overdue}
-              value={summaryCounts.overdue}
-            />
-            <SummaryCard
-              label="Kommande"
-              tone="amber"
-              tooltip={SUMMARY_CARD_TOOLTIPS.dueSoon}
-              value={summaryCounts.dueSoon}
-            />
-            <SummaryCard
-              label="Läckage"
-              tone="amber"
-              tooltip={SUMMARY_CARD_TOOLTIPS.leakageFollowUp}
-              value={summaryCounts.leakageFollowUp}
-            />
-            <SummaryCard
-              label="Saknar servicepartner"
-              tooltip={SUMMARY_CARD_TOOLTIPS.missingServiceContact}
-              value={summaryCounts.missingServiceContact}
-            />
-            <SummaryCard
-              label="Köldmedium"
-              tooltip={SUMMARY_CARD_TOOLTIPS.refrigerantReview}
-              value={summaryCounts.refrigerantReview}
-            />
+          ))}
         </section>
 
         <Card className="sticky top-0 z-20 mt-4 p-3 shadow-sm sm:static sm:p-4 sm:shadow-none">
@@ -686,7 +709,7 @@ export default function ActionsPageClient() {
             </div>
             {visibleActions.length === 0 ? (
               <p className="px-4 py-8 text-sm text-slate-600">
-                Inga åtgärder matchar filtret. Prova att rensa filter eller visa alla åtgärder.
+                Inga åtgärder finns just nu.
               </p>
             ) : (
               <div className="divide-y divide-slate-200">
@@ -712,7 +735,7 @@ function SummaryCard({
   value,
 }: {
   label: string
-  tone?: "slate" | "red" | "amber"
+  tone?: SummaryCardTone
   tooltip: string
   value: number
 }) {
@@ -720,24 +743,33 @@ function SummaryCard({
     slate: "border-l-slate-300",
     red: "border-l-red-500",
     amber: "border-l-amber-500",
+    sky: "border-l-sky-500",
   }[tone]
   const tooltipId = useId()
 
   return (
-    <Card
-      aria-describedby={tooltipId}
-      className={`group relative border-l-4 px-3 py-3 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${toneClass}`}
-      tabIndex={0}
-    >
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+    <Card className={`relative border-l-4 px-3 py-3 ${toneClass}`}>
+      <div className="flex items-start justify-between gap-2">
+        <p className="min-w-0 text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+        <span className="group/help relative inline-flex">
+          <button
+            aria-describedby={tooltipId}
+            aria-label={`Visa hjälptext för ${label}`}
+            className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-xs font-semibold text-slate-600 outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            type="button"
+          >
+            i
+          </button>
+          <span
+            className="pointer-events-none absolute right-0 top-full z-30 mt-2 w-64 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs leading-5 text-slate-700 opacity-0 shadow-lg transition-opacity group-hover/help:opacity-100 group-focus-within/help:opacity-100"
+            id={tooltipId}
+            role="tooltip"
+          >
+            {tooltip}
+          </span>
+        </span>
+      </div>
       <p className="mt-1 text-2xl font-bold text-slate-950">{value}</p>
-      <span
-        className="pointer-events-none absolute left-0 right-0 top-full z-30 mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs leading-5 text-slate-700 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus:opacity-100 group-focus-visible:opacity-100"
-        id={tooltipId}
-        role="tooltip"
-      >
-        {tooltip}
-      </span>
     </Card>
   )
 }
