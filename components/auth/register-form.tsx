@@ -184,9 +184,6 @@ export default function RegisterForm({ inviteToken }: { inviteToken?: string }) 
       >
         {isSubmitting ? "Registrerar..." : isInviteMode ? "Skapa användare" : "Skapa organisationskonto"}
       </button>
-      <p className={trustLineClassName}>
-        Utformat för fastighetsägare, kommuner och verksamheter
-      </p>
 
       <div className="grid gap-2 border-t border-slate-200 pt-4 text-sm text-slate-600">
         <p>
@@ -229,4 +226,3 @@ const inputClassName =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
 const submitButtonClassName =
   "mt-2 w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-const trustLineClassName = "-mt-1 text-center text-xs text-slate-500"

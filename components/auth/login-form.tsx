@@ -96,9 +96,6 @@ export default function LoginForm() {
       <button className={submitButtonClassName} type="submit" disabled={isSubmitting}>
         {isSubmitting ? "Loggar in..." : "Logga in"}
       </button>
-      <p className={trustLineClassName}>
-        Utformat för fastighetsägare, kommuner och verksamheter
-      </p>
 
       <div className="grid gap-2 border-t border-slate-200 pt-4 text-sm text-slate-600">
         <p>
@@ -121,4 +118,3 @@ const inputClassName =
 const errorClassName = "mt-1 text-sm font-medium text-red-700"
 const submitButtonClassName =
   "mt-2 w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-const trustLineClassName = "-mt-1 text-center text-xs text-slate-500"

@@ -14,7 +14,7 @@ export function AuthShell({
 }) {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
-      <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-6xl gap-10 lg:grid-cols-[0.9fr_1fr] lg:items-center">
+      <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-6xl gap-10 lg:grid-cols-[0.9fr_1fr] lg:items-start lg:pt-16">
         <section className="max-w-xl">
           <Link className="inline-flex items-center" href="/">
             <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-50">
