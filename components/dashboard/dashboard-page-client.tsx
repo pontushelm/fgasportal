@@ -136,11 +136,11 @@ const KPI_CARDS = [
     tone: "neutral",
   },
   {
-    key: "ok",
-    label: "Aggregat i fas",
-    description: "OK kontrollstatus",
+    key: "requiringInspection",
+    label: "Kontrollpliktiga",
+    description: "Antal aggregat > 5 ton CO₂e",
     tooltip:
-      "Aggregat där kontrollstatusen är aktuell enligt registrerade intervall.",
+      "Aggregat som omfattas av krav på återkommande läckagekontroll utifrån registrerad CO₂e.",
     tone: "emerald",
   },
   {
@@ -176,7 +176,7 @@ const KPI_CARDS = [
     tone: "neutral",
   },
 ] satisfies Array<{
-  key: "total" | "ok" | "overdue" | "dueSoon" | "leakage" | "co2e"
+  key: "total" | "requiringInspection" | "overdue" | "dueSoon" | "leakage" | "co2e"
   label: string
   description: string
   tooltip: string
@@ -184,7 +184,7 @@ const KPI_CARDS = [
 }>
 
 const PRIMARY_KPI_KEYS = ["overdue", "dueSoon", "leakage"] as const
-const SECONDARY_KPI_KEYS = ["total", "ok", "co2e"] as const
+const SECONDARY_KPI_KEYS = ["total", "requiringInspection", "co2e"] as const
 
 export default function DashboardPage() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
@@ -340,10 +340,12 @@ export default function DashboardPage() {
               description="Fördelning av aggregat utifrån aktuell riskklassning."
               tooltip="Riskklassning baseras på köldmediemängd, GWP/CO₂e, läckagehistorik och om läckagevarningssystem finns."
             >
-              <div className="grid grid-cols-3 gap-2">
-                <MiniMetric label="Hög" value={dashboardData.riskSummary.high} tone="red" />
-                <MiniMetric label="Medel" value={dashboardData.riskSummary.medium} tone="amber" />
-                <MiniMetric label="Låg" value={dashboardData.riskSummary.low} tone="emerald" />
+              <div className="flex min-h-24 items-center">
+                <div className="grid w-full grid-cols-3 gap-2">
+                  <MiniMetric label="Hög" value={dashboardData.riskSummary.high} tone="red" />
+                  <MiniMetric label="Medel" value={dashboardData.riskSummary.medium} tone="amber" />
+                  <MiniMetric label="Låg" value={dashboardData.riskSummary.low} tone="emerald" />
+                </div>
               </div>
             </VisualCard>
 
@@ -929,7 +931,7 @@ function getKpiValue(
   dashboardData: DashboardData
 ) {
   if (key === "total") return dashboardData.metrics.totalInstallations
-  if (key === "ok") return dashboardData.metrics.ok
+  if (key === "requiringInspection") return dashboardData.environmental.requiringInspection
   if (key === "overdue") return dashboardData.metrics.overdue
   if (key === "dueSoon") return dashboardData.metrics.dueSoon
   if (key === "leakage") {
