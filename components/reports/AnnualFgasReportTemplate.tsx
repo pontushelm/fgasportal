@@ -511,7 +511,7 @@ function formatHandlingRefrigerant(row: AnnualFgasRefrigerantHandlingRow) {
 }
 
 function getReportLogoDataUri() {
-  const logoPath = join(process.cwd(), "public", "logo-mark.png")
+  const logoPath = join(process.cwd(), "public", "fgasportal-logo-transparent.png")
 
   if (!existsSync(logoPath)) return null
 
@@ -580,9 +580,8 @@ const annualReportPrintStyles = `
 
   .report-logo {
     display: block;
-    height: 18px;
+    height: 20px;
     margin: 0 0 6px auto;
-    opacity: 0.82;
     width: auto;
   }
 
