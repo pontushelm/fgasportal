@@ -137,24 +137,24 @@ const KPI_CARDS = [
   },
   {
     key: "ok",
-    label: "OK",
-    description: "Har aktuell kontrollstatus",
+    label: "Aggregat i fas",
+    description: "OK kontrollstatus",
     tooltip:
       "Aggregat där kontrollstatusen är aktuell enligt registrerade intervall.",
     tone: "emerald",
   },
   {
     key: "overdue",
-    label: "Försenade",
-    description: "Kontroller passerade deadline",
+    label: "Försenade kontroller",
+    description: "",
     tooltip:
-      "Aggregat där nästa kontroll har passerat planerat datum.",
+      "Aggregat där sista datum för nästa kontroll har passerat.",
     tone: "red",
   },
   {
     key: "dueSoon",
-    label: "Inom 30 dagar",
-    description: "Kommande kontroller",
+    label: "Kontroller inom 30 dagar",
+    description: "",
     tooltip:
       "Aggregat med kontroll som behöver genomföras inom 30 dagar.",
     tone: "amber",
@@ -162,9 +162,9 @@ const KPI_CARDS = [
   {
     key: "leakage",
     label: "Läckage CO₂e i år",
-    description: "Klimatpåverkan från registrerade läckage",
+    description: "",
     tooltip:
-      "Beräknad klimatpåverkan från årets registrerade läckagehändelser. Händelser med okänd mängd eller okänt GWP räknas inte som noll.",
+      "Beräknad klimatpåverkan från årets registrerade läckagehändelser.",
     tone: "red",
   },
   {
@@ -250,15 +250,12 @@ export default function DashboardPage() {
       {dashboardData && (
         <div className="mx-auto max-w-7xl">
           <section className="mt-6">
-            <SectionHeader
-              title="Kräver uppmärksamhet"
-            />
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {PRIMARY_KPI_KEYS.map((key) => {
               const card = getKpiCard(key)
               return (
                 <MetricCard
-                  description={getKpiDescription(card.key, dashboardData, card.description)}
+                  description=""
                   key={card.key}
                   label={card.label}
                   tone={card.tone}
@@ -268,27 +265,21 @@ export default function DashboardPage() {
               )
             })}
             <MetricCard
-              description="Signerade årsrapporter som saknas för kravställda fastigheter"
+              description=""
               label="Årsrapporter återstår"
               tone={dashboardData.annualReportStatus.remainingRequiredReports > 0 ? "amber" : "emerald"}
-              tooltip="Antal fastigheter där årsrapport bedöms krävas men signerad rapport saknas i FgasPortal."
+              tooltip="Antal fastigheter med minst 14 ton CO₂e där signerad rapport saknas i FgasPortal."
               value={dashboardData.annualReportStatus.remainingRequiredReports}
             />
             </div>
           </section>
 
           <section className="mt-8">
-            <SectionHeader
-              title="Operativt arbete"
-            />
-            <div className="mt-3 grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
             <Card className="border-blue-100 bg-white p-4 shadow-sm sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="mt-1 text-xl font-semibold text-slate-950">Att göra</h2>
-                  <p className="mt-1 text-sm text-slate-700">
-                    De viktigaste uppföljningarna just nu.
-                  </p>
                 </div>
                 <Link
                   className="rounded-lg border border-blue-200 bg-blue-600 px-3.5 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
@@ -300,7 +291,7 @@ export default function DashboardPage() {
 
               {visibleActionItems.length === 0 ? (
                 <p className="mt-5 text-sm text-slate-700">
-                  Inga prioriterade åtgärder just nu.
+                  Inga prioriterade åtgärder finns just nu.
                 </p>
               ) : (
                 <div className="mt-5 grid gap-3">
@@ -334,7 +325,7 @@ export default function DashboardPage() {
                 const card = getKpiCard(key)
                 return (
                   <SecondaryMetric
-                    description={getKpiDescription(card.key, dashboardData, card.description)}
+                    description={card.description}
                     key={card.key}
                     label={card.label}
                     value={getKpiValue(card.key, dashboardData)}
@@ -378,10 +369,7 @@ export default function DashboardPage() {
 
           <section className="mt-8 rounded-xl border border-slate-200 bg-white/70 p-4 sm:p-5">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                PLANERING & KLIMATPÅVERKAN
-              </p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-950">
+              <h2 className="text-lg font-semibold text-slate-950">
                 Köldmedier och klimatpåverkan
               </h2>
             </div>
@@ -398,7 +386,7 @@ export default function DashboardPage() {
 
               <VisualCard
                 title="Köldmediestatus"
-                tooltip="Visar aggregat med köldmedier som kan behöva kontrolleras mot gällande eller kommande F-gaskrav. Bedömningen är en operativ signal, inte ett juridiskt beslut."
+                tooltip="Visar aggregat med köldmedier som kan behöva kontrolleras mot gällande eller kommande F-gaskrav. Använd som stöd för vidare kontroll och uppföljning."
                 subdued
               >
                 <RefrigerantStatusSummary summary={dashboardData.refrigerantRegulatorySummary} />
@@ -482,20 +470,33 @@ function MetricCard({
 
   return (
     <div
-      aria-describedby={tooltipId}
-      className={`group relative min-h-28 rounded-xl border border-slate-200 border-l-4 bg-white px-3 py-3 shadow-sm outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${toneClass}`}
-      tabIndex={0}
+      className={`relative min-h-28 rounded-xl border border-slate-200 border-l-4 bg-white px-3 py-3 shadow-sm ${toneClass}`}
     >
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-2 break-words text-2xl font-bold tracking-tight text-slate-950">{value}</div>
-      <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
-      <div
-        className="pointer-events-none absolute left-3 right-3 top-full z-20 mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-700 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus:opacity-100 group-focus-visible:opacity-100"
-        id={tooltipId}
-        role="tooltip"
-      >
-        {tooltip}
+      <div className="flex items-start justify-between gap-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          {label}
+        </div>
+        <span className="group/help relative inline-flex">
+          <button
+            aria-describedby={tooltipId}
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 bg-white text-xs font-semibold text-slate-600 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            type="button"
+          >
+            i
+          </button>
+          <span
+            className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-72 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs leading-5 text-slate-700 opacity-0 shadow-lg transition-opacity group-hover/help:opacity-100 group-focus-within/help:opacity-100"
+            id={tooltipId}
+            role="tooltip"
+          >
+            {tooltip}
+          </span>
+        </span>
       </div>
+      <div className="mt-2 break-words text-2xl font-bold tracking-tight text-slate-950">{value}</div>
+      {description ? (
+        <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
+      ) : null}
     </div>
   )
 }
@@ -537,9 +538,6 @@ function AnnualReportsOverview({
           <h2 className="text-xl font-semibold text-slate-950">
             Årsrapportering {status.year}
           </h2>
-          <p className="mt-1 max-w-3xl text-sm text-slate-700">
-            Krav, signering och kvarvarande rapportarbete för året.
-          </p>
         </div>
         <Link
           className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-center text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
@@ -705,29 +703,21 @@ function RefrigerantStatusSummary({
     {
       label: "Kan omfattas av begränsningar",
       value: summary.RESTRICTED,
-      badge: "Begränsning",
-      variant: "warning",
       barClass: "bg-amber-500",
     },
     {
       label: "Bör planeras för utfasning",
       value: summary.PHASE_OUT_RISK,
-      badge: "Utfasning",
-      variant: "info",
       barClass: "bg-sky-500",
     },
     {
       label: "Okänt köldmedium",
       value: summary.UNKNOWN,
-      badge: "Okänt",
-      variant: "neutral",
       barClass: "bg-slate-400",
     },
   ] satisfies Array<{
     label: string
     value: number
-    badge: string
-    variant: React.ComponentProps<typeof Badge>["variant"]
     barClass: string
   }>
   const maxValue = Math.max(...items.map((item) => item.value), 1)
@@ -743,9 +733,6 @@ function RefrigerantStatusSummary({
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-slate-800">{item.label}</p>
-              <Badge className="mt-1" variant={item.variant}>
-                {item.badge}
-              </Badge>
             </div>
             <span className="shrink-0 text-lg font-bold text-slate-950">{item.value}</span>
           </div>
@@ -952,20 +939,6 @@ function getKpiValue(
 
   const prefix = dashboardData.environmental.co2eIsComplete ? "" : "Minst "
   return `${prefix}${formatWholeNumber(dashboardData.environmental.totalCo2eTon)} t`
-}
-
-function getKpiDescription(
-  key: (typeof KPI_CARDS)[number]["key"],
-  dashboardData: DashboardData,
-  fallback: string
-) {
-  if (key !== "leakage") return fallback
-
-  const eventCount = dashboardData.environmental.leakageEvents
-  if (eventCount === 0) return "Inga registrerade läckage i år"
-  if (eventCount === 1) return "1 registrerat läckage i år"
-
-  return `${eventCount} registrerade läckage i år`
 }
 
 function formatNumber(value: number) {
