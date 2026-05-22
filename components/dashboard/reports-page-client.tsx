@@ -622,20 +622,28 @@ function MetricCard({
   }[tone]
 
   return (
-    <Card
-      aria-describedby={tooltipId}
-      className={`group relative p-4 outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${toneClass}`}
-      tabIndex={0}
-    >
-      <div className="text-sm font-medium text-neutral-600">{label}</div>
-      <div className="mt-2 text-2xl font-bold text-neutral-950">{value}</div>
-      <div
-        className="pointer-events-none absolute left-3 right-3 top-full z-20 mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-700 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus:opacity-100 group-focus-visible:opacity-100"
-        id={tooltipId}
-        role="tooltip"
-      >
-        {description}
+    <Card className={`relative p-4 ${toneClass}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 text-sm font-medium text-neutral-600">{label}</div>
+        <span className="group/help relative inline-flex">
+          <button
+            aria-describedby={tooltipId}
+            aria-label={`Visa hjälptext för ${label}`}
+            className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-xs font-semibold text-slate-600 outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            type="button"
+          >
+            i
+          </button>
+          <span
+            className="pointer-events-none absolute right-0 top-full z-30 mt-2 w-64 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs leading-5 text-slate-700 opacity-0 shadow-lg transition-opacity group-hover/help:opacity-100 group-focus-within/help:opacity-100"
+            id={tooltipId}
+            role="tooltip"
+          >
+            {description}
+          </span>
+        </span>
       </div>
+      <div className="mt-2 text-2xl font-bold text-neutral-950">{value}</div>
     </Card>
   )
 }
@@ -1150,7 +1158,7 @@ function qualityStatusLabel(
   status: NonNullable<ReportData["qualitySummary"]>["status"]
 ) {
   return {
-    READY: "Rapportstatus: Redo",
+    READY: "Rapportstatus: Ok",
     HAS_WARNINGS: "Rapportstatus: Bör granskas",
     MISSING_REQUIRED_DATA: "Rapportstatus: Kräver komplettering",
   }[status]
@@ -1160,7 +1168,7 @@ function qualityStatusDescription(
   status: NonNullable<ReportData["qualitySummary"]>["status"]
 ) {
   return {
-    READY: "Inga kända kompletteringspunkter finns i rapportunderlaget.",
+    READY: "Inga kompletteringar krävs.",
     HAS_WARNINGS:
       "Rapporten kan skapas, men uppgifterna bör kontrolleras innan den skickas till tillsynsmyndigheten.",
     MISSING_REQUIRED_DATA:

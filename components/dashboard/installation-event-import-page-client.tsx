@@ -329,7 +329,7 @@ export default function InstallationEventImportPageClient() {
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
             <ul className="grid gap-1.5">
               <li>Inläsning av kontroll, läckage, påfyllning, service, reparation, tömning/återvinning och köldmediebyte stöds.</li>
-              <li>Händelser kopplas till befintliga aggregat via aggregat-ID eller märkning.</li>
+              <li>Händelser kopplas till befintliga aggregat via aggregat-ID.</li>
               <li>Om samma aggregat-ID finns på flera platser kan fastighet användas för att hitta rätt aggregat.</li>
               <li>Aggregatet måste redan finnas i FgasPortal för att händelsen ska kunna kopplas. Nya aggregat skapas inte i den här importen.</li>
             </ul>

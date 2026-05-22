@@ -280,7 +280,7 @@ export default function ImportInstallationsPage({
           Importera aggregat
         </h1>
         <p className="mt-2 text-sm text-slate-700">
-          Ladda upp Excel/CSV och koppla aggregatdata till portalen.
+          Ladda upp Excel/CSV och koppla aggregatdata till registret.
         </p>
         <p className="mt-2 text-sm text-slate-600">
           Ska du importera historiska kontroller, läckage, service eller
@@ -312,22 +312,13 @@ export default function ImportInstallationsPage({
               <summary className="cursor-pointer font-semibold text-slate-700">
                 Visa importtips
               </summary>
-              <div className="mt-2 grid gap-1.5">
-                <p>
-                  Aggregatnamn / benämning är valfritt; om det saknas används
-                  Aggregat-ID som visningsnamn.
-                </p>
-                <p>
-                  Importera normalt inte separata GWP- eller CO₂e-kolumner.
-                </p>
-                <p>
-                  För att koppla aggregat automatiskt behöver fastigheten redan
-                  finnas i FgasPortal och namnet matcha importfilen.
-                </p>
-                <p>
-                  Äldre eller komplexa register kan behöva rensas innan import.
-                </p>
-              </div>
+              <ul className="mt-2 list-disc space-y-1.5 pl-4">
+                <li>Använd tydliga datumformat, till exempel 2026-01-15.</li>
+                <li>Aggregat-ID används som primär identitet vid import.</li>
+                <li>Låt FgasPortal beräkna GWP och CO₂e i stället för att importera manuella värden.</li>
+                <li>Lämna okända värden tomma hellre än att fylla i uppskattningar.</li>
+                <li>Se till att märkning eller Aggregat-ID är unik och konsekvent i filen.</li>
+              </ul>
             </details>
           </div>
           <button

@@ -108,7 +108,8 @@ const ACTION_TYPE_LABELS: Record<DashboardActionType, string> = {
 
 const SUMMARY_CARD_TOOLTIPS = {
   total: "Alla framräknade uppföljningspunkter utifrån registrerade aggregat och händelser.",
-  highSeverity: "Punkter som bör prioriteras först, exempelvis försenade kontroller.",
+  highSeverity:
+    "Högprioriterade åtgärder baseras exempelvis på försenade kontroller, större läckage, högriskaggregat eller andra uppföljningar som bör hanteras snabbt.",
   overdue: "Aggregat där kontrollintervallet har passerats.",
   dueSoon: "Aggregat med kontroll inom kommande period.",
   leakageFollowUp: "Registrerade läckage som kan behöva följas upp.",

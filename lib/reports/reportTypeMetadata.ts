@@ -26,7 +26,7 @@ export const REPORT_TYPE_OPTIONS: ReportTypeMetadata[] = [
     label: "Årsrapport enligt F-gasförordningen",
     title: "F-gas årsrapport",
     subtitle:
-      "Årssammanställning av aggregat, kontrollhändelser, läckagehändelser, påfyllningar och klimatpåverkan.",
+      "Årsrapport enligt 15 § förordning (2016:1128) om fluorerade växthusgaser",
     contextTitle: "Rapportunderlag",
     supportStatus: "FULL",
     supportLabel: "Fullt stöd",
