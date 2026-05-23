@@ -91,14 +91,6 @@ type SignedReportHistoryItem = {
   regenerateHref: string
 }
 
-type SigningFormState = {
-  signerName: string
-  signerRole: string
-  signingDate: string
-  comment: string
-  confirmed: boolean
-}
-
 const EVENT_LABELS: Record<EventType, string> = {
   INSPECTION: "Kontroll",
   LEAK: "Läckage",
@@ -136,8 +128,6 @@ const yearInputClassName =
   "h-9 w-24 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900"
 const exportButtonClassName =
   "inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-const signingInputClassName =
-  "h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900"
 const signingTextareaClassName =
   "min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
 
@@ -159,13 +149,7 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
   const [reportNotes, setReportNotes] = useState("")
-  const [signingForm, setSigningForm] = useState<SigningFormState>({
-    signerName: "",
-    signerRole: "",
-    signingDate: formatDateInputValue(new Date()),
-    comment: "",
-    confirmed: false,
-  })
+  const [isAnnualExportModalOpen, setIsAnnualExportModalOpen] = useState(false)
   const router = useRouter()
   const municipalityOptions = useMemo(
     () =>
@@ -204,31 +188,25 @@ export default function ReportsPage() {
 
     if (selectedMunicipality) params.set("municipality", selectedMunicipality)
     if (selectedPropertyId) params.set("propertyId", selectedPropertyId)
-    if (reportNotes.trim()) params.set("reportNotes", reportNotes.trim())
-
     return `/api/reports/annual-fgas?${params.toString()}`
-  }, [reportNotes, reportQuery, selectedMunicipality, selectedPropertyId, selectedReportType, selectedYear])
+  }, [reportQuery, selectedMunicipality, selectedPropertyId, selectedReportType, selectedYear])
   const selectedReport = useMemo(
     () => getReportTypeMetadata(selectedReportType),
     [selectedReportType]
   )
   const canExportSelectedReport = pdfExportHref !== null
-  const signedPdfExportHref = useMemo(
-    () =>
-      pdfExportHref === null
-        ? ""
-        : buildSignedAnnualPdfHref({
-            baseHref: pdfExportHref,
-            signingForm,
-          }),
-    [pdfExportHref, signingForm]
-  )
-  const canExportSigned =
-    selectedReportType === "annual" &&
-    signingForm.confirmed &&
-    signingForm.signerName.trim().length > 0 &&
-    signingForm.signerRole.trim().length > 0 &&
-    signingForm.signingDate.trim().length > 0
+  function handleAnnualPdfExport(signed: boolean) {
+    if (!pdfExportHref) return
+
+    window.location.assign(
+      buildAnnualPdfExportHref({
+        baseHref: pdfExportHref,
+        reportNotes,
+        signed,
+      })
+    )
+    setIsAnnualExportModalOpen(false)
+  }
 
   useEffect(() => {
     let isMounted = true
@@ -377,12 +355,22 @@ export default function ReportsPage() {
                   >
                     Exportera Excel
                   </a>
-                  <a
-                    className={exportButtonClassName}
-                    href={pdfExportHref}
-                  >
-                    Exportera PDF
-                  </a>
+                  {selectedReportType === "annual" ? (
+                    <button
+                      className={exportButtonClassName}
+                      onClick={() => setIsAnnualExportModalOpen(true)}
+                      type="button"
+                    >
+                      Exportera PDF
+                    </button>
+                  ) : (
+                    <a
+                      className={exportButtonClassName}
+                      href={pdfExportHref}
+                    >
+                      Exportera PDF
+                    </a>
+                  )}
                 </>
               ) : (
                 <span
@@ -410,15 +398,6 @@ export default function ReportsPage() {
           {selectedReportType === "annual" && (
             <>
               <ReportQualityPanel reportData={reportData} />
-              <ReportSigningPanel
-                canExportSigned={canExportSigned}
-                onChange={setSigningForm}
-                onReportNotesChange={setReportNotes}
-                reportNotes={reportNotes}
-                signingForm={signingForm}
-                signedPdfExportHref={signedPdfExportHref}
-                status={reportData.qualitySummary?.status}
-              />
             </>
           )}
           {selectedReportType !== "annual" && (
@@ -529,6 +508,15 @@ export default function ReportsPage() {
             <SignedReportsHistory key={reportQuery} reports={signedReports} />
           )}
         </>
+      )}
+      {isAnnualExportModalOpen && selectedReportType === "annual" && (
+        <AnnualPdfExportModal
+          onClose={() => setIsAnnualExportModalOpen(false)}
+          onExport={handleAnnualPdfExport}
+          onReportNotesChange={setReportNotes}
+          reportNotes={reportNotes}
+          status={reportData?.qualitySummary?.status}
+        />
       )}
     </main>
   )
@@ -711,143 +699,90 @@ function ReportQualityPanel({ reportData }: { reportData: ReportData }) {
   )
 }
 
-function ReportSigningPanel({
-  canExportSigned,
-  onChange,
+function AnnualPdfExportModal({
+  onClose,
+  onExport,
   onReportNotesChange,
   reportNotes,
-  signedPdfExportHref,
-  signingForm,
   status,
 }: {
-  canExportSigned: boolean
-  onChange: React.Dispatch<React.SetStateAction<SigningFormState>>
+  onClose: () => void
+  onExport: (signed: boolean) => void
   onReportNotesChange: (value: string) => void
   reportNotes: string
-  signedPdfExportHref: string
-  signingForm: SigningFormState
   status?: NonNullable<ReportData["qualitySummary"]>["status"]
 }) {
   const hasQualityIssues =
     status === "MISSING_REQUIRED_DATA" || status === "HAS_WARNINGS"
 
   return (
-    <section className="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-900">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="font-semibold">Intygande inför signerad export</h2>
-          <p className="mt-1 text-slate-600">
-            Lägg till ansvarig person i PDF:en.
-          </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4 py-6">
+      <div
+        aria-modal="true"
+        className="w-full max-w-xl rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-900 shadow-2xl"
+        role="dialog"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-950">
+              Exportera årsrapport
+            </h2>
+            <p className="mt-1 text-slate-600">
+              Välj om PDF:en ska exporteras utan signatur eller signeras elektroniskt med din inloggade användare.
+            </p>
+          </div>
+          <button
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            onClick={onClose}
+            type="button"
+          >
+            Stäng
+          </button>
         </div>
+
         {hasQualityIssues && (
-          <p className="max-w-md rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+          <p className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
             Rapporten innehåller uppgifter som bör kompletteras eller granskas innan den skickas till kommunen.
           </p>
         )}
-      </div>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        <label className={filterLabelClassName}>
-          Signeras av
-          <input
-            className={signingInputClassName}
-            onChange={(event) =>
-              onChange((current) => ({
-                ...current,
-                signerName: event.target.value,
-              }))
-            }
-            value={signingForm.signerName}
-          />
-        </label>
-        <label className={filterLabelClassName}>
-          Roll/titel
-          <input
-            className={signingInputClassName}
-            onChange={(event) =>
-              onChange((current) => ({
-                ...current,
-                signerRole: event.target.value,
-              }))
-            }
-            value={signingForm.signerRole}
-          />
-        </label>
-        <label className={filterLabelClassName}>
-          Signeringsdatum
-          <input
-            className={signingInputClassName}
-            onChange={(event) =>
-              onChange((current) => ({
-                ...current,
-                signingDate: event.target.value,
-              }))
-            }
-            type="date"
-            value={signingForm.signingDate}
-          />
-        </label>
-      </div>
-
-      <label className={`${filterLabelClassName} mt-3`}>
-        Kommentar
-        <textarea
-          className={signingTextareaClassName}
-          maxLength={1000}
-          onChange={(event) =>
-            onChange((current) => ({
-              ...current,
-              comment: event.target.value,
-            }))
-          }
-          value={signingForm.comment}
-        />
-      </label>
-
-      <label className={`${filterLabelClassName} mt-3`}>
-        Övriga anteckningar till årsrapporten
-        <span className="text-xs font-normal text-slate-600">
-          Valfritt fält för kompletterande information till tillsynsmyndigheten.
-        </span>
-        <textarea
-          className={signingTextareaClassName}
-          maxLength={2000}
-          onChange={(event) => onReportNotesChange(event.target.value)}
-          value={reportNotes}
-        />
-      </label>
-
-      <div className="mt-3 flex flex-col gap-3 border-t border-slate-200 pt-3 sm:flex-row sm:items-center sm:justify-between">
-        <label className="flex gap-2 text-sm font-medium text-slate-700">
-          <input
-            checked={signingForm.confirmed}
-            className="mt-1 h-4 w-4 rounded border-slate-300"
-            onChange={(event) =>
-              onChange((current) => ({
-                ...current,
-                confirmed: event.target.checked,
-              }))
-            }
-            type="checkbox"
-          />
-          <span>
-            Jag intygar att uppgifterna i rapporten är granskade utifrån tillgängliga underlag.
+        <label className={`${filterLabelClassName} mt-4`}>
+          Övriga anteckningar till årsrapporten
+          <span className="text-xs font-normal text-slate-600">
+            Valfritt fält för kompletterande information till tillsynsmyndigheten.
           </span>
+          <textarea
+            className={signingTextareaClassName}
+            maxLength={2000}
+            onChange={(event) => onReportNotesChange(event.target.value)}
+            value={reportNotes}
+          />
         </label>
-        <a
-          aria-disabled={!canExportSigned}
-          className={`${exportButtonClassName} ${
-            canExportSigned
-              ? "border-blue-600 bg-blue-600 text-white hover:bg-blue-700"
-              : "pointer-events-none opacity-50"
-          }`}
-          href={canExportSigned ? signedPdfExportHref : undefined}
-        >
-          Exportera signerad PDF
-        </a>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <button
+            className="rounded-lg border border-slate-300 bg-white px-4 py-3 text-left font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+            onClick={() => onExport(false)}
+            type="button"
+          >
+            Exportera utan signatur
+            <span className="mt-1 block text-xs font-normal text-slate-600">
+              PDF utan signatursektion eller signeringsmetadata.
+            </span>
+          </button>
+          <button
+            className="rounded-lg border border-blue-600 bg-blue-600 px-4 py-3 text-left font-semibold text-white shadow-sm hover:bg-blue-700"
+            onClick={() => onExport(true)}
+            type="button"
+          >
+            Signera och exportera PDF
+            <span className="mt-1 block text-xs font-normal text-blue-100">
+              Signeras med namn, e-post och tidpunkt från din inloggade användare.
+            </span>
+          </button>
+        </div>
       </div>
-    </section>
+    </div>
   )
 }
 
@@ -961,7 +896,6 @@ function SignedReportsHistory({
                     <div className="font-semibold text-slate-950">
                       {report.signerName}
                     </div>
-                    <div className="text-xs text-slate-600">{report.signerRole}</div>
                   </TableCell>
                   <TableCell>{formatDate(report.signingDate)}</TableCell>
                   <TableCell>
@@ -1099,30 +1033,30 @@ function formatTotalCo2eTon(metrics: ReportData["metrics"]) {
 function getEventAmountLabel(type: EventType) {
   return getInstallationEventAmountLabel(type) ?? "Mängd"
 }
-function buildSignedAnnualPdfHref({
+function buildAnnualPdfExportHref({
   baseHref,
-  signingForm,
+  reportNotes,
+  signed,
 }: {
   baseHref: string
-  signingForm: SigningFormState
+  reportNotes: string
+  signed: boolean
 }) {
   const params = new URLSearchParams(baseHref.split("?")[1] ?? "")
 
-  params.set("signed", "1")
-  params.set("signerName", signingForm.signerName.trim())
-  params.set("signerRole", signingForm.signerRole.trim())
-  params.set("signingDate", signingForm.signingDate)
-  if (signingForm.comment.trim()) {
-    params.set("signingComment", signingForm.comment.trim())
+  if (signed) {
+    params.set("signed", "1")
   } else {
-    params.delete("signingComment")
+    params.delete("signed")
+  }
+
+  if (reportNotes.trim()) {
+    params.set("reportNotes", reportNotes.trim())
+  } else {
+    params.delete("reportNotes")
   }
 
   return `/api/reports/annual-fgas?${params.toString()}`
-}
-
-function formatDateInputValue(date: Date) {
-  return date.toISOString().slice(0, 10)
 }
 
 function parseInitialReportYear(value: string | null, currentYear: number) {

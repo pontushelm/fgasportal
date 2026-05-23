@@ -71,10 +71,12 @@ export type AnnualFgasReportData = {
 
 export type AnnualFgasSigningMetadata = {
   signerName: string
+  signerEmail: string | null
   signerRole: string
   signingDate: Date
   comment: string | null
   attestationText: string
+  signedReportId?: string | null
 }
 
 export type AnnualFgasReportReadinessStatus =

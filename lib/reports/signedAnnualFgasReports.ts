@@ -119,14 +119,16 @@ export function buildSigningMetadataFromHistory(record: {
   signerRole: string
   signingDate: Date
   comment: string | null
+  user?: { email: string } | null
 }): AnnualFgasSigningMetadata {
   return {
     signerName: record.signerName,
+    signerEmail: record.user?.email ?? null,
     signerRole: record.signerRole,
     signingDate: record.signingDate,
     comment: record.comment,
     attestationText:
-      "Jag intygar att uppgifterna i rapporten är granskade utifrån tillgängliga underlag.",
+      "Rapporten har signerats elektroniskt av inloggad användare i FgasPortal. Signeringshändelsen loggas i systemets aktivitetslogg.",
   }
 }
 

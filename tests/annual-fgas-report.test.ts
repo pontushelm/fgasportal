@@ -4,7 +4,7 @@ import {
   buildAnnualFgasReportWarnings,
   buildRefrigerantHandlingRow,
 } from "@/lib/reports/annualFgasReportValidation"
-import { parseAnnualFgasSigningMetadata } from "@/lib/reports/annualFgasSigning"
+import { buildAnnualFgasSigningMetadata } from "@/lib/reports/annualFgasSigning"
 import {
   buildSignedAnnualReportCreateData,
   buildSignedAnnualReportHistoryWhere,
@@ -43,51 +43,47 @@ describe("annual F-gas report summary", () => {
 
 describe("annual F-gas report signing metadata", () => {
   it("allows unsigned exports without signing metadata", () => {
-    const result = parseAnnualFgasSigningMetadata(
-      new URLSearchParams("year=2026")
-    )
+    const result = buildAnnualFgasSigningMetadata({
+      searchParams: new URLSearchParams("year=2026"),
+      user: { name: "Anna Andersson", email: "anna@example.com" },
+    })
 
     expect(result).toEqual({ ok: true, metadata: null })
   })
 
-  it("validates signed export metadata", () => {
-    const result = parseAnnualFgasSigningMetadata(
-      new URLSearchParams({
+  it("builds signed export metadata from the authenticated user", () => {
+    const result = buildAnnualFgasSigningMetadata({
+      searchParams: new URLSearchParams({
         signed: "1",
-        signerName: "Anna Andersson",
-        signerRole: "Miljösamordnare",
-        signingDate: "2026-03-31",
-        signingComment: "Granskat mot tillgängligt underlag.",
-      })
-    )
+      }),
+      signedAt: new Date("2026-03-31T10:15:00.000Z"),
+      user: { name: "Anna Andersson", email: "anna@example.com" },
+    })
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.metadata).toMatchObject({
       signerName: "Anna Andersson",
-      signerRole: "Miljösamordnare",
-      comment: "Granskat mot tillgängligt underlag.",
+      signerEmail: "anna@example.com",
+      signerRole: "Operatör",
+      comment: null,
     })
     expect(result.metadata?.signingDate.toISOString()).toBe(
-      "2026-03-31T00:00:00.000Z"
+      "2026-03-31T10:15:00.000Z"
     )
   })
 
-  it("rejects incomplete signed export metadata without affecting unsigned exports", () => {
-    const result = parseAnnualFgasSigningMetadata(
-      new URLSearchParams({
+  it("rejects signed export when authenticated user metadata is incomplete", () => {
+    const result = buildAnnualFgasSigningMetadata({
+      searchParams: new URLSearchParams({
         signed: "1",
-        signerName: "",
-        signerRole: "",
-        signingDate: "inte-ett-datum",
-      })
-    )
+      }),
+      user: { name: null, email: "" },
+    })
 
     expect(result.ok).toBe(false)
     if (result.ok) return
-    expect(result.errors).toContain("Signeras av måste anges.")
-    expect(result.errors).toContain("Roll/titel måste anges.")
-    expect(result.errors).toContain("Signeringsdatum måste vara ett giltigt datum.")
+    expect(result.errors).toContain("Inloggad användare saknar e-postadress.")
   })
 })
 
@@ -190,6 +186,7 @@ describe("signed annual F-gas report history", () => {
       },
       signingMetadata: {
         signerName: "Anna Andersson",
+        signerEmail: "anna@example.com",
         signerRole: "Miljösamordnare",
         signingDate: new Date("2026-03-31"),
         comment: "Granskat mot tillgängligt underlag.",

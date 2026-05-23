@@ -7,7 +7,7 @@ import { authenticateApiRequest, isContractor } from "@/lib/auth"
 import { buildAnnualFgasReportData } from "@/lib/reports/buildAnnualFgasReportData"
 import { buildAnnualFgasReportFilename } from "@/lib/reports/annualFgasReportFilename"
 import { generatePdfFromHtml } from "@/lib/reports/generatePdf"
-import { parseAnnualFgasSigningMetadata } from "@/lib/reports/annualFgasSigning"
+import { buildAnnualFgasSigningMetadata } from "@/lib/reports/annualFgasSigning"
 import {
   buildSignedAnnualReportHistoryWhere,
   buildSignedAnnualReportCreateData,
@@ -42,6 +42,13 @@ export async function GET(request: NextRequest) {
                 userId: auth.user.userId,
               }),
             },
+            include: {
+              user: {
+                select: {
+                  email: true,
+                },
+              },
+            },
           })
       : null
 
@@ -61,12 +68,29 @@ export async function GET(request: NextRequest) {
       historyRecord?.propertyId ??
       request.nextUrl.searchParams.get("propertyId")?.trim()
     const reportNotes = parseReportNotes(request.nextUrl.searchParams.get("reportNotes"))
+    const signingUser = historyRecord
+      ? null
+      : await prisma.user.findUnique({
+          where: { id: auth.user.userId },
+          select: {
+            email: true,
+            name: true,
+          },
+        })
     const signing = historyRecord
       ? {
           ok: true as const,
           metadata: buildSigningMetadataFromHistory(historyRecord),
         }
-      : parseAnnualFgasSigningMetadata(request.nextUrl.searchParams)
+      : signingUser
+        ? buildAnnualFgasSigningMetadata({
+            searchParams: request.nextUrl.searchParams,
+            user: signingUser,
+          })
+        : {
+            ok: false as const,
+            errors: ["Inloggad användare hittades inte."],
+          }
 
     if (!year) {
       return NextResponse.json({ error: "Ogiltigt årtal" }, { status: 400 })
@@ -107,19 +131,6 @@ export async function GET(request: NextRequest) {
       scrappedEquipmentCount: report.scrappedEquipment.length,
     })
 
-    const html = `<!doctype html>${renderToString(
-      createElement(AnnualReportTemplate, { report })
-    )}`
-    logAnnualReportRoute(requestId, "React report template rendered", {
-      htmlLength: html.length,
-    })
-
-    const pdf = await generatePdfFromHtml(html, {
-      logger: (message, metadata) =>
-        logAnnualReportRoute(requestId, message, metadata),
-    })
-    const filename = buildAnnualFgasReportFilename(report, year)
-
     const signedHistoryData =
       !historyRecord && signing.metadata
         ? buildSignedAnnualReportCreateData({
@@ -135,6 +146,26 @@ export async function GET(request: NextRequest) {
       ? await prisma.signedAnnualFgasReport.create({ data: signedHistoryData })
       : historyRecord
 
+    if (report.signingMetadata && signedHistoryRecord) {
+      report.signingMetadata = {
+        ...report.signingMetadata,
+        signedReportId: signedHistoryRecord.id,
+      }
+    }
+
+    const html = `<!doctype html>${renderToString(
+      createElement(AnnualReportTemplate, { report })
+    )}`
+    logAnnualReportRoute(requestId, "React report template rendered", {
+      htmlLength: html.length,
+    })
+
+    const pdf = await generatePdfFromHtml(html, {
+      logger: (message, metadata) =>
+        logAnnualReportRoute(requestId, message, metadata),
+    })
+    const filename = buildAnnualFgasReportFilename(report, year)
+
     await logActivity({
       companyId: auth.user.companyId,
       userId: auth.user.userId,
@@ -149,6 +180,7 @@ export async function GET(request: NextRequest) {
         signed: Boolean(signing.metadata),
         signedReportId: signedHistoryRecord?.id ?? null,
         signerName: signing.metadata?.signerName ?? null,
+        signerEmail: signing.metadata?.signerEmail ?? null,
         regeneratedFromHistory: Boolean(historyRecord),
         format: "pdf",
       },
@@ -167,7 +199,7 @@ export async function GET(request: NextRequest) {
           municipality: municipality || null,
           propertyId: propertyId || null,
           signerName: signing.metadata?.signerName ?? null,
-          signerRole: signing.metadata?.signerRole ?? null,
+          signerEmail: signing.metadata?.signerEmail ?? null,
           readinessStatus: report.qualitySummary.status,
           blockingIssueCount: report.qualitySummary.blockingIssueCount,
           reviewWarningCount: report.qualitySummary.warningCount,

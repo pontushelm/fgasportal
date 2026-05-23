@@ -141,8 +141,6 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
           </ReportSection>
 
           {report.signingMetadata && <SigningMetadataSection report={report} />}
-
-          <SignatureSection />
         </main>
       </body>
     </html>
@@ -246,42 +244,25 @@ export function SummaryBox({
   )
 }
 
-export function SignatureSection() {
-  return (
-    <section className="signature-section">
-      <div>
-        <p>Operatörens underskrift:</p>
-        <div className="signature-line" />
-        <p>Namnförtydligande</p>
-      </div>
-      <div>
-        <p>Datum:</p>
-        <div className="signature-line" />
-      </div>
-    </section>
-  )
-}
-
 export function SigningMetadataSection({ report }: { report: AnnualFgasReportData }) {
   const signing = report.signingMetadata
   if (!signing) return null
 
   return (
-    <ReportSection title="Intygande och signering">
+    <ReportSection title="Elektronisk signering">
       <div className="signing-box">
-        <p className="strong">{signing.attestationText}</p>
+        <p className="strong">Elektroniskt signerad via FgasPortal</p>
+        <p className="signing-text">{signing.attestationText}</p>
         <div className="field-grid field-grid-2 signing-fields">
-          <Field label="Signeras av" value={signing.signerName} />
-          <Field label="Roll/titel" value={signing.signerRole} />
-          <Field label="Signeringsdatum" value={formatDate(signing.signingDate)} />
-          <Field label="FÃ¶retag" value={report.operator.name} />
+          <Field label="Signerad av" value={signing.signerName} />
+          <Field label="E-post" value={signing.signerEmail} />
+          <Field label="Operatör" value={report.operator.name} />
+          <Field label="Signerad" value={formatDateTime(signing.signingDate)} />
+          <Field label="Rapportår" value={report.reportYear} />
+          {signing.signedReportId ? (
+            <Field label="Signeringsreferens" value={signing.signedReportId} />
+          ) : null}
         </div>
-        {signing.comment && (
-          <div className="signing-comment">
-            <span>Kommentar:</span>
-            <p>{signing.comment}</p>
-          </div>
-        )}
       </div>
     </ReportSection>
   )
@@ -463,6 +444,16 @@ function formatDate(value: Date | string | null | undefined) {
   if (!value) return "-"
 
   return new Intl.DateTimeFormat("sv-SE").format(new Date(value))
+}
+
+function formatDateTime(value: Date | string | null | undefined) {
+  if (!value) return "-"
+
+  return new Intl.DateTimeFormat("sv-SE", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "Europe/Stockholm",
+  }).format(new Date(value))
 }
 
 function formatInteger(value: number) {
@@ -811,50 +802,19 @@ const annualReportPrintStyles = `
     height: 42px;
   }
 
-  .signature-section {
-    border: 1px solid #c9d0da;
-    break-inside: avoid;
-    display: grid;
-    gap: 22px;
-    grid-template-columns: 1fr 1fr;
-    margin-top: 14px;
-    padding: 10px;
-  }
-
-  .signature-section p {
-    color: #374151;
-    margin: 0 0 22px;
-  }
-
-  .signature-line {
-    border-bottom: 1px solid #6b7280;
-    height: 18px;
-    margin-bottom: 6px;
-  }
-
   .signing-box {
     border: 1px solid #94a3b8;
     break-inside: avoid;
     padding: 10px;
   }
 
+  .signing-text {
+    color: #4b5563;
+    margin: 4px 0 0;
+  }
+
   .signing-fields {
     margin-top: 8px;
-  }
-
-  .signing-comment {
-    border-top: 1px solid #d1d5db;
-    margin-top: 8px;
-    padding-top: 7px;
-  }
-
-  .signing-comment span {
-    color: #4b5563;
-    font-weight: 700;
-  }
-
-  .signing-comment p {
-    margin: 3px 0 0;
   }
 
   @media screen {
