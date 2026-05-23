@@ -345,6 +345,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
           name: installation.name,
           equipmentId: installation.equipmentId,
           propertyName: installation.property?.name ?? installation.propertyName,
+          refrigerantType: installation.refrigerantType,
+          refrigerantAmount: installation.refrigerantAmount,
           nextInspection: installation.nextInspection,
           inspectionInterval: compliance.inspectionIntervalMonths,
           complianceStatus: compliance.status,

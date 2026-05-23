@@ -52,6 +52,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 email: true,
               },
             },
+            assignedServicePartnerCompany: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
             property: {
               select: {
                 id: true,
@@ -241,10 +247,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
           nextInspection: installation.nextInspection,
           inspectionInterval: installation.inspectionIntervalMonths,
           complianceStatus: installation.complianceStatus,
+          refrigerantType: installation.refrigerantType,
+          refrigerantAmount: installation.refrigerantAmount,
           assignedContractorId: installation.assignedContractorId,
           assignedServiceContactId: installation.assignedContractor?.id ?? null,
           assignedServiceContactName: installation.assignedContractor?.name ?? null,
           assignedServiceContactEmail: installation.assignedContractor?.email ?? null,
+          servicePartnerCompanyId: installation.assignedServicePartnerCompany?.id ?? null,
+          servicePartnerCompanyName: installation.assignedServicePartnerCompany?.name ?? null,
           risk: {
             level: installation.riskLevel,
             score: installation.riskScore,

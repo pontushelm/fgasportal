@@ -248,6 +248,60 @@ describe("dashboard action generation", () => {
     )
   })
 
+  it("does not create property overview false positives when payload includes refrigerant and servicepartner", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-05-08T12:00:00"),
+      installations: [
+        {
+          id: "property-r410a",
+          name: "Fastighetsaggregat",
+          propertyId: "property-1",
+          propertyName: "Fastighet 1",
+          nextInspection: null,
+          inspectionInterval: 12,
+          complianceStatus: "OK",
+          refrigerantType: "R410A",
+          refrigerantAmount: 5,
+          assignedContractorId: null,
+          servicePartnerCompanyId: "service-company-1",
+          servicePartnerCompanyName: "Service AB",
+          risk: { level: "LOW", score: 1 },
+        },
+      ],
+      leakageEvents: [],
+    })
+
+    expect(
+      actions.some((action) => action.title === "Kontrollera okänt köldmedium")
+    ).toBe(false)
+    expect(actions.some((action) => action.type === "NO_SERVICE_PARTNER")).toBe(false)
+  })
+
+  it("keeps servicepartner detail refrigerant actions property-scoped", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-05-08T12:00:00"),
+      installations: [
+        {
+          id: "servicepartner-r404a",
+          name: "Servicepartneraggregat",
+          nextInspection: null,
+          inspectionInterval: 12,
+          complianceStatus: "OK",
+          refrigerantType: "R404A",
+          refrigerantAmount: 10,
+          assignedContractorId: "contractor-1",
+          servicePartnerCompanyId: "service-company-1",
+          servicePartnerCompanyName: "Service AB",
+          risk: { level: "LOW", score: 1 },
+        },
+      ],
+      leakageEvents: [],
+    })
+
+    expect(actions.some((action) => action.type === "REFRIGERANT_REVIEW")).toBe(false)
+    expect(actions.some((action) => action.type === "NO_SERVICE_PARTNER")).toBe(false)
+  })
+
   it("keeps deterministic action keys for future workflow state overlays", () => {
     const actions = generateDashboardActions({
       today: new Date("2026-05-08T12:00:00"),
