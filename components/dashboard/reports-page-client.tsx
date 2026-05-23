@@ -91,6 +91,12 @@ type SignedReportHistoryItem = {
   regenerateHref: string
 }
 
+type ExportFeedback = {
+  type: "success" | "error"
+  title: string
+  message: string
+}
+
 const EVENT_LABELS: Record<EventType, string> = {
   INSPECTION: "Kontroll",
   LEAK: "Läckage",
@@ -150,6 +156,11 @@ export default function ReportsPage() {
   const [error, setError] = useState("")
   const [reportNotes, setReportNotes] = useState("")
   const [isAnnualExportModalOpen, setIsAnnualExportModalOpen] = useState(false)
+  const [isAnnualPdfExporting, setIsAnnualPdfExporting] = useState(false)
+  const [annualPdfExportMode, setAnnualPdfExportMode] = useState<"signed" | "unsigned" | null>(null)
+  const [annualPdfExportError, setAnnualPdfExportError] = useState("")
+  const [exportFeedback, setExportFeedback] = useState<ExportFeedback | null>(null)
+  const [isExportFeedbackExiting, setIsExportFeedbackExiting] = useState(false)
   const router = useRouter()
   const municipalityOptions = useMemo(
     () =>
@@ -195,17 +206,78 @@ export default function ReportsPage() {
     [selectedReportType]
   )
   const canExportSelectedReport = pdfExportHref !== null
-  function handleAnnualPdfExport(signed: boolean) {
-    if (!pdfExportHref) return
+  function dismissExportFeedback() {
+    setIsExportFeedbackExiting(true)
+    window.setTimeout(() => {
+      setExportFeedback(null)
+      setIsExportFeedbackExiting(false)
+    }, 200)
+  }
 
-    window.location.assign(
-      buildAnnualPdfExportHref({
+  async function refreshSignedReportsHistory() {
+    const response = await fetch(`/api/reports/annual-fgas/history?${reportQuery}`, {
+      credentials: "include",
+    })
+
+    if (response.ok) {
+      const signedReportsData: SignedReportHistoryItem[] = await response.json()
+      setSignedReports(signedReportsData)
+    }
+  }
+
+  async function handleAnnualPdfExport(signed: boolean) {
+    if (!pdfExportHref || isAnnualPdfExporting) return
+
+    setAnnualPdfExportError("")
+    setAnnualPdfExportMode(signed ? "signed" : "unsigned")
+    setIsAnnualPdfExporting(true)
+
+    try {
+      const exportHref = buildAnnualPdfExportHref({
         baseHref: pdfExportHref,
         reportNotes,
         signed,
       })
-    )
-    setIsAnnualExportModalOpen(false)
+      const response = await fetch(exportHref, {
+        credentials: "include",
+      })
+
+      if (response.status === 401) {
+        router.push("/login")
+        return
+      }
+
+      if (!response.ok) {
+        throw new Error("PDF export failed")
+      }
+
+      const blob = await response.blob()
+      downloadBlob(blob, getFilenameFromContentDisposition(response.headers.get("Content-Disposition")) ?? `fgas-arsrapport-${selectedYear}.pdf`)
+
+      setIsAnnualExportModalOpen(false)
+      setIsExportFeedbackExiting(false)
+      setExportFeedback({
+        type: "success",
+        title: "Klart",
+        message: signed ? "Signerad PDF-export är klar." : "PDF-exporten är klar.",
+      })
+
+      if (signed) {
+        void refreshSignedReportsHistory()
+      }
+    } catch (error) {
+      console.error("Annual PDF export error:", error)
+      setAnnualPdfExportError("Kunde inte exportera PDF. Försök igen.")
+      setIsExportFeedbackExiting(false)
+      setExportFeedback({
+        type: "error",
+        title: "Kunde inte exportera PDF",
+        message: "Kunde inte exportera PDF. Försök igen.",
+      })
+    } finally {
+      setIsAnnualPdfExporting(false)
+      setAnnualPdfExportMode(null)
+    }
   }
 
   useEffect(() => {
@@ -262,6 +334,23 @@ export default function ReportsPage() {
       isMounted = false
     }
   }, [reportQuery, router])
+
+  useEffect(() => {
+    if (!exportFeedback) return
+
+    const exitTimer = window.setTimeout(() => {
+      setIsExportFeedbackExiting(true)
+    }, 4800)
+    const removeTimer = window.setTimeout(() => {
+      setExportFeedback(null)
+      setIsExportFeedbackExiting(false)
+    }, 5000)
+
+    return () => {
+      window.clearTimeout(exitTimer)
+      window.clearTimeout(removeTimer)
+    }
+  }, [exportFeedback])
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-neutral-950 sm:px-6 lg:px-8">
@@ -511,12 +600,45 @@ export default function ReportsPage() {
       )}
       {isAnnualExportModalOpen && selectedReportType === "annual" && (
         <AnnualPdfExportModal
-          onClose={() => setIsAnnualExportModalOpen(false)}
+          error={annualPdfExportError}
+          exportMode={annualPdfExportMode}
+          isExporting={isAnnualPdfExporting}
+          onClose={() => {
+            if (!isAnnualPdfExporting) setIsAnnualExportModalOpen(false)
+          }}
           onExport={handleAnnualPdfExport}
           onReportNotesChange={setReportNotes}
           reportNotes={reportNotes}
           status={reportData?.qualitySummary?.status}
         />
+      )}
+      {exportFeedback && (
+        <div
+          className={`fixed bottom-4 right-4 z-50 w-[calc(100%-2rem)] max-w-sm rounded-lg border bg-white p-4 text-sm shadow-xl transition-all duration-200 ease-out sm:bottom-6 sm:right-6 ${
+            exportFeedback.type === "success" ? "border-emerald-200" : "border-red-200"
+          } ${isExportFeedbackExiting ? "translate-y-2 opacity-0" : "translate-y-0 opacity-100"}`}
+          role="status"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p
+                className={`font-semibold ${
+                  exportFeedback.type === "success" ? "text-emerald-900" : "text-red-900"
+                }`}
+              >
+                {exportFeedback.title}
+              </p>
+              <p className="mt-1 text-slate-700">{exportFeedback.message}</p>
+            </div>
+            <button
+              className="rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+              onClick={dismissExportFeedback}
+              type="button"
+            >
+              Stäng
+            </button>
+          </div>
+        </div>
       )}
     </main>
   )
@@ -700,12 +822,18 @@ function ReportQualityPanel({ reportData }: { reportData: ReportData }) {
 }
 
 function AnnualPdfExportModal({
+  error,
+  exportMode,
+  isExporting,
   onClose,
   onExport,
   onReportNotesChange,
   reportNotes,
   status,
 }: {
+  error: string
+  exportMode: "signed" | "unsigned" | null
+  isExporting: boolean
   onClose: () => void
   onExport: (signed: boolean) => void
   onReportNotesChange: (value: string) => void
@@ -729,7 +857,8 @@ function AnnualPdfExportModal({
             </h2>
           </div>
           <button
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isExporting}
             onClick={onClose}
             type="button"
           >
@@ -742,24 +871,36 @@ function AnnualPdfExportModal({
             Rapporten innehåller uppgifter som bör kompletteras eller granskas innan den skickas till kommunen.
           </p>
         )}
+        {isExporting && (
+          <p className="mt-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-900">
+            Rapporten genereras. Det kan ta några sekunder.
+          </p>
+        )}
+        {error && (
+          <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-900">
+            {error}
+          </p>
+        )}
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <button
-            className="rounded-lg border border-slate-300 bg-white px-4 py-3 text-left font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+            className="rounded-lg border border-slate-300 bg-white px-4 py-3 text-left font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isExporting}
             onClick={() => onExport(false)}
             type="button"
           >
-            Exportera utan signatur
+            {isExporting && exportMode === "unsigned" ? "Genererar..." : "Exportera utan signatur"}
             <span className="mt-1 block text-xs font-normal text-slate-600">
               PDF utan signatursektion eller signeringsmetadata.
             </span>
           </button>
           <button
-            className="rounded-lg border border-blue-600 bg-blue-600 px-4 py-3 text-left font-semibold text-white shadow-sm hover:bg-blue-700"
+            className="rounded-lg border border-blue-600 bg-blue-600 px-4 py-3 text-left font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300"
+            disabled={isExporting}
             onClick={() => onExport(true)}
             type="button"
           >
-            Signera och exportera PDF
+            {isExporting && exportMode === "signed" ? "Genererar..." : "Signera och exportera PDF"}
             <span className="mt-1 block text-xs font-normal text-blue-100">
               Signeras med namn, e-post och tidpunkt från din inloggade användare.
             </span>
@@ -772,7 +913,8 @@ function AnnualPdfExportModal({
             Valfritt fält för kompletterande information till tillsynsmyndigheten.
           </span>
           <textarea
-            className={signingTextareaClassName}
+            className={`${signingTextareaClassName} disabled:cursor-not-allowed disabled:bg-slate-50`}
+            disabled={isExporting}
             maxLength={2000}
             onChange={(event) => onReportNotesChange(event.target.value)}
             value={reportNotes}
@@ -1051,6 +1193,30 @@ function buildAnnualPdfExportHref({
   }
 
   return `/api/reports/annual-fgas?${params.toString()}`
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement("a")
+
+  anchor.href = url
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(url)
+}
+
+function getFilenameFromContentDisposition(contentDisposition: string | null) {
+  if (!contentDisposition) return null
+
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (utf8Match?.[1]) {
+    return decodeURIComponent(utf8Match[1].replace(/"/g, ""))
+  }
+
+  const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i)
+  return filenameMatch?.[1] ?? null
 }
 
 function parseInitialReportYear(value: string | null, currentYear: number) {
