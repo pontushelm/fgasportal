@@ -460,7 +460,7 @@ export default function ReportsPage() {
           <section className="mt-10">
             <SectionHeader
               title="Köldmediesammanställning"
-              subtitle="Summerat per köldmedium för aktiva, ej arkiverade aggregat."
+              subtitle="Summerat per köldmedium för kontrollpliktiga aggregat."
             />
 
             {reportData.refrigerants.length === 0 ? (
@@ -727,9 +727,6 @@ function AnnualPdfExportModal({
             <h2 className="text-lg font-semibold text-slate-950">
               Exportera årsrapport
             </h2>
-            <p className="mt-1 text-slate-600">
-              Välj om PDF:en ska exporteras utan signatur eller signeras elektroniskt med din inloggade användare.
-            </p>
           </div>
           <button
             className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
@@ -745,19 +742,6 @@ function AnnualPdfExportModal({
             Rapporten innehåller uppgifter som bör kompletteras eller granskas innan den skickas till kommunen.
           </p>
         )}
-
-        <label className={`${filterLabelClassName} mt-4`}>
-          Övriga anteckningar till årsrapporten
-          <span className="text-xs font-normal text-slate-600">
-            Valfritt fält för kompletterande information till tillsynsmyndigheten.
-          </span>
-          <textarea
-            className={signingTextareaClassName}
-            maxLength={2000}
-            onChange={(event) => onReportNotesChange(event.target.value)}
-            value={reportNotes}
-          />
-        </label>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <button
@@ -781,6 +765,19 @@ function AnnualPdfExportModal({
             </span>
           </button>
         </div>
+
+        <label className={`${filterLabelClassName} mt-4`}>
+          Övriga anteckningar till årsrapporten
+          <span className="text-xs font-normal text-slate-600">
+            Valfritt fält för kompletterande information till tillsynsmyndigheten.
+          </span>
+          <textarea
+            className={signingTextareaClassName}
+            maxLength={2000}
+            onChange={(event) => onReportNotesChange(event.target.value)}
+            value={reportNotes}
+          />
+        </label>
       </div>
     </div>
   )
@@ -864,7 +861,7 @@ function SignedReportsHistory({
         <div>
           <h2 className="font-semibold">Signerade rapporter</h2>
           <p className="text-slate-600">
-            PDF återskapas utifrån nuvarande systemdata och sparad signeringsinformation.
+            Signeringsinformation finns sparad, men signerad PDF sparas inte historiskt ännu.
           </p>
         </div>
       </div>
@@ -884,7 +881,7 @@ function SignedReportsHistory({
                 <TableHeader>Signeringsdatum</TableHeader>
                 <TableHeader>Status</TableHeader>
                 <TableHeader>Skapad</TableHeader>
-                <TableHeader>Åtgärd</TableHeader>
+                <TableHeader>Information</TableHeader>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -907,12 +904,9 @@ function SignedReportsHistory({
                   </TableCell>
                   <TableCell>{formatDate(report.createdAt)}</TableCell>
                   <TableCell>
-                    <a
-                      className="inline-flex h-8 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-50"
-                      href={report.regenerateHref}
-                    >
-                      Återskapa PDF
-                    </a>
+                    <span className="text-xs text-slate-600">
+                      Signerad PDF sparas inte historiskt ännu.
+                    </span>
                   </TableCell>
                 </tr>
               ))}

@@ -334,8 +334,14 @@ function mapAnnualReportDataToPreview(
   report: AnnualFgasReportData
 ): FgasReportData {
   const refrigerantMap = new Map<string, RefrigerantSummary>()
+  const controlRequiredEquipment = report.equipment.filter(
+    (equipment) => equipment.controlRequired
+  )
+  const controlRequiredInstallationIds = new Set(
+    controlRequiredEquipment.map((equipment) => equipment.id)
+  )
 
-  report.equipment.forEach((equipment) => {
+  controlRequiredEquipment.forEach((equipment) => {
     const refrigerantType = equipment.refrigerantType || UNKNOWN_REFRIGERANT
     const summary = refrigerantMap.get(refrigerantType) ?? {
       refrigerantType,
@@ -354,23 +360,29 @@ function mapAnnualReportDataToPreview(
     refrigerantMap.set(refrigerantType, summary)
   })
 
-  report.refrigerantHandlingLog.forEach((row) => {
-    const refrigerantType = row.refrigerantType || UNKNOWN_REFRIGERANT
-    const summary = refrigerantMap.get(refrigerantType) ?? {
-      refrigerantType,
-      installationCount: 0,
-      totalAmountKg: 0,
-      totalCo2eTon: null,
-      refilledAmountKg: 0,
-      leakageEvents: 0,
-    }
+  report.refrigerantHandlingLog
+    .filter((row) =>
+      row.installationId
+        ? controlRequiredInstallationIds.has(row.installationId)
+        : false
+    )
+    .forEach((row) => {
+      const refrigerantType = row.refrigerantType || UNKNOWN_REFRIGERANT
+      const summary = refrigerantMap.get(refrigerantType) ?? {
+        refrigerantType,
+        installationCount: 0,
+        totalAmountKg: 0,
+        totalCo2eTon: null,
+        refilledAmountKg: 0,
+        leakageEvents: 0,
+      }
 
-    summary.refilledAmountKg += row.addedKg ?? 0
-    if (row.eventType === ANNUAL_FGAS_EVENT_LABELS.LEAK) {
-      summary.leakageEvents += 1
-    }
-    refrigerantMap.set(refrigerantType, summary)
-  })
+      summary.refilledAmountKg += row.addedKg ?? 0
+      if (row.eventType === ANNUAL_FGAS_EVENT_LABELS.LEAK) {
+        summary.leakageEvents += 1
+      }
+      refrigerantMap.set(refrigerantType, summary)
+    })
 
   return {
     year: report.reportYear,
