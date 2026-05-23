@@ -3,6 +3,7 @@
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui"
+import { RefrigerantCombobox } from "@/components/installations/refrigerant-combobox"
 import type { CertificationStatusResult } from "@/lib/certification-status"
 import {
   calculateCO2e,
@@ -475,7 +476,6 @@ export default function InstallationDetailPage() {
   const [editSuccess, setEditSuccess] = useState("")
   const [isEditing, setIsEditing] = useState(false)
   const [isSavingEdit, setIsSavingEdit] = useState(false)
-  const [showRefrigerantEditHelp, setShowRefrigerantEditHelp] = useState(false)
   const [archiveError, setArchiveError] = useState("")
   const [isArchiving, setIsArchiving] = useState(false)
   const [permanentDeleteConfirmation, setPermanentDeleteConfirmation] = useState("")
@@ -723,6 +723,13 @@ export default function InstallationDetailPage() {
 
       return next
     })
+  }
+
+  function handleEditRefrigerantChange(value: string) {
+    setEditForm((current) => ({
+      ...current,
+      refrigerantType: value,
+    }))
   }
 
   function openEventModal(type?: EventFormType) {
@@ -1756,41 +1763,15 @@ export default function InstallationDetailPage() {
                 Operatör
                 <input className={formControlClassName} name="operatorName" value={editForm.operatorName} onChange={handleEditChange} />
               </label>
-              <label
-                className={fieldClassName}
-                onBlur={(event) => {
-                  if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-                    setShowRefrigerantEditHelp(false)
-                  }
-                }}
-              >
-                <span>Köldmedium <RequiredMark /></span>
-                <div className="flex gap-2">
-                  <input
-                    className={`${formControlClassName} flex-1`}
-                    name="refrigerantType"
-                    value={editForm.refrigerantType}
-                    readOnly
-                    onClick={() => setShowRefrigerantEditHelp(true)}
-                    onFocus={() => setShowRefrigerantEditHelp(true)}
-                  />
-                  <button
-                    className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                    type="button"
-                    aria-label="Information om köldmedium"
-                    onClick={() => setShowRefrigerantEditHelp((current) => !current)}
-                  >
-                    i
-                  </button>
-                </div>
-                {showRefrigerantEditHelp && (
-                  <span className="text-xs font-normal text-amber-700">
-                    Ändring av köldmedium påverkar CO₂e, kontrollplikt och
-                    historik. Registrera normalt ändringen via händelsen “Byte
-                    av köldmedium”.
-                  </span>
-                )}
-              </label>
+              <RefrigerantCombobox
+                className={formControlClassName}
+                label="Köldmedium"
+                name="refrigerantType"
+                value={editForm.refrigerantType}
+                onChange={handleEditRefrigerantChange}
+                helpText="Använd endast detta för att korrigera uppgifter. Faktiskt byte av köldmedium ska registreras som händelse."
+                required
+              />
               <label className={fieldClassName}>
                 <span>Mängd kg <RequiredMark /></span>
                 <input className={formControlClassName} name="refrigerantAmount" value={editForm.refrigerantAmount} onChange={handleEditChange} required />

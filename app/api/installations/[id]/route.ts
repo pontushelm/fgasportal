@@ -14,6 +14,7 @@ import { editInstallationSchema } from "@/lib/validations"
 import { logActivity } from "@/lib/activity-log"
 import { notifyContractorsAboutNewAssignments } from "@/lib/contractor-assignment-notifications"
 import { toServiceOrganizationBackedCompany } from "@/lib/service-organizations"
+import { normalizeRefrigerantCode } from "@/lib/refrigerants"
 
 type RouteContext = {
   params: Promise<{
@@ -304,8 +305,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       validatedData.lastInspection !== undefined
         ? validatedData.lastInspection
         : installation.lastInspection
+    const refrigerantType =
+      normalizeRefrigerantCode(validatedData.refrigerantType) ??
+      validatedData.refrigerantType.trim()
     const compliance = calculateInstallationCompliance(
-      installation.refrigerantType,
+      refrigerantType,
       validatedData.refrigerantAmount,
       validatedData.hasLeakDetectionSystem ?? false,
       lastInspection
@@ -343,7 +347,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         operatorName: emptyToNull(validatedData.operatorName),
         ...assignedContractorUpdate,
         ...assignedServicePartnerCompanyUpdate,
-        refrigerantType: installation.refrigerantType,
+        refrigerantType,
         refrigerantAmount: validatedData.refrigerantAmount,
         hasLeakDetectionSystem: validatedData.hasLeakDetectionSystem ?? false,
         installationDate:

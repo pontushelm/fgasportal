@@ -153,6 +153,101 @@ describe("dashboard action generation", () => {
     )
   })
 
+  it("does not create an unknown refrigerant action for R410A with known GWP", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-05-08T12:00:00"),
+      installations: [
+        {
+          id: "r410a",
+          name: "Kylaggregat R410A",
+          equipmentId: "KA-R410A",
+          propertyId: "property-1",
+          propertyName: "Fastighet 1",
+          nextInspection: null,
+          inspectionInterval: null,
+          complianceStatus: "NOT_REQUIRED",
+          refrigerantType: "R410A",
+          refrigerantAmount: 5,
+          assignedContractorId: null,
+          servicePartnerCompanyId: "service-company-1",
+          risk: { level: "LOW", score: 1 },
+        },
+      ],
+      leakageEvents: [],
+    })
+
+    expect(
+      actions.some((action) => action.title === "Kontrollera okänt köldmedium")
+    ).toBe(false)
+    expect(
+      actions.some((action) => action.description.includes("saknar känt GWP"))
+    ).toBe(false)
+  })
+
+  it("creates an unknown refrigerant action when refrigerant cannot be matched", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-05-08T12:00:00"),
+      installations: [
+        {
+          id: "unknown-refrigerant",
+          name: "Okänt aggregat",
+          propertyId: "property-1",
+          propertyName: "Fastighet 1",
+          nextInspection: null,
+          inspectionInterval: null,
+          complianceStatus: "NOT_REQUIRED",
+          refrigerantType: "R999X",
+          refrigerantAmount: 5,
+          assignedContractorId: null,
+          servicePartnerCompanyId: "service-company-1",
+          risk: { level: "LOW", score: 1 },
+        },
+      ],
+      leakageEvents: [],
+    })
+
+    expect(actions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "REFRIGERANT_REVIEW",
+          title: "Kontrollera okänt köldmedium",
+        }),
+      ])
+    )
+  })
+
+  it("creates an unknown refrigerant action when refrigerant is missing", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-05-08T12:00:00"),
+      installations: [
+        {
+          id: "missing-refrigerant",
+          name: "Aggregat utan köldmedium",
+          propertyId: "property-1",
+          propertyName: "Fastighet 1",
+          nextInspection: null,
+          inspectionInterval: null,
+          complianceStatus: "NOT_REQUIRED",
+          refrigerantType: "",
+          refrigerantAmount: 5,
+          assignedContractorId: null,
+          servicePartnerCompanyId: "service-company-1",
+          risk: { level: "LOW", score: 1 },
+        },
+      ],
+      leakageEvents: [],
+    })
+
+    expect(actions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "REFRIGERANT_REVIEW",
+          title: "Kontrollera okänt köldmedium",
+        }),
+      ])
+    )
+  })
+
   it("keeps deterministic action keys for future workflow state overlays", () => {
     const actions = generateDashboardActions({
       today: new Date("2026-05-08T12:00:00"),

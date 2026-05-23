@@ -8,6 +8,7 @@ import {
 } from "@/lib/fgas-calculations"
 import type { InspectionReminderStatus } from "@/lib/inspection-reminders"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
+import { RefrigerantCombobox } from "@/components/installations/refrigerant-combobox"
 
 type InstallationFormData = {
   name: string
@@ -182,6 +183,13 @@ export default function CreateInstallationForm({
     })
   }
 
+  function handleRefrigerantChange(value: string) {
+    setFormData((current) => ({
+      ...current,
+      refrigerantType: value,
+    }))
+  }
+
   const inspectionPreview = calculateInspectionPreview(
     formData.refrigerantType,
     formData.refrigerantAmount,
@@ -290,10 +298,14 @@ export default function CreateInstallationForm({
         </select>
       </label>
 
-      <label className={labelClassName}>
-        <span>Köldmedium <RequiredMark /></span>
-        <input className={inputClassName} name="refrigerantType" placeholder="Köldmedium, t.ex. R410A" value={formData.refrigerantType} onChange={handleChange} required />
-      </label>
+      <RefrigerantCombobox
+        className={inputClassName}
+        label="Köldmedium"
+        name="refrigerantType"
+        value={formData.refrigerantType}
+        onChange={handleRefrigerantChange}
+        required
+      />
 
       <label className={labelClassName}>
         <span>Mängd kg <RequiredMark /></span>

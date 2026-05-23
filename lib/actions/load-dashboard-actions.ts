@@ -94,6 +94,8 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
       nextInspection: installation.nextInspection,
       inspectionInterval: compliance.inspectionIntervalMonths,
       complianceStatus: compliance.status,
+      refrigerantType: installation.refrigerantType,
+      refrigerantAmount: installation.refrigerantAmount,
       assignedContractorId: installation.assignedContractorId,
       assignedServiceContactId: installation.assignedContractor?.id ?? null,
       assignedServiceContactName: installation.assignedContractor?.name ?? null,
