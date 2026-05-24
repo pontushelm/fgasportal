@@ -46,12 +46,7 @@ type ServicePartnerCompany = {
 
 type ServicePartnerCompanyForm = {
   name: string
-  organizationNumber: string
-  contactEmail: string
-  phone: string
-  certificateNumber: string
-  responsibleContactEmail: string
-  notes: string
+  email: string
 }
 
 type ContractorsOverviewResponse = {
@@ -95,12 +90,7 @@ type ServicePartnerFeedback = {
 
 const emptyCompanyForm: ServicePartnerCompanyForm = {
   name: "",
-  organizationNumber: "",
-  contactEmail: "",
-  phone: "",
-  certificateNumber: "",
-  responsibleContactEmail: "",
-  notes: "",
+  email: "",
 }
 
 const inputClassName =
@@ -210,12 +200,7 @@ export default function ContractorsOverviewPageClient() {
     setFeedback(null)
     setCompanyForm({
       name: company.name,
-      organizationNumber: company.organizationNumber ?? "",
-      contactEmail: company.contactEmail ?? "",
-      phone: company.phone ?? "",
-      certificateNumber: company.certificateNumber ?? "",
-      responsibleContactEmail: "",
-      notes: company.notes ?? "",
+      email: company.contactEmail ?? "",
     })
   }
 
@@ -248,7 +233,18 @@ export default function ContractorsOverviewPageClient() {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify(companyForm),
+        body: JSON.stringify(
+          editingCompanyId
+            ? {
+                name: companyForm.name,
+                contactEmail: companyForm.email,
+              }
+            : {
+                name: companyForm.name,
+                contactEmail: companyForm.email,
+                responsibleContactEmail: companyForm.email,
+              }
+        ),
       }
     )
     const result: {
@@ -292,7 +288,7 @@ export default function ContractorsOverviewPageClient() {
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 dark:text-slate-100 sm:px-6 lg:px-8">
       <PageHeader
         title="Servicepartners"
-        subtitle="Koppla servicepartner, följ certifiering och se operativ status för tilldelade aggregat."
+        subtitle="Bjud in servicepartner, följ certifiering och se operativ status för tilldelade aggregat."
       />
 
       {isLoading && (
@@ -396,7 +392,7 @@ export default function ContractorsOverviewPageClient() {
 
               <form className="grid gap-3" onSubmit={handleCompanySubmit}>
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  {editingCompanyId ? "Redigera servicepartner" : "Koppla servicepartner"}
+                  {editingCompanyId ? "Redigera servicepartner" : "Bjud in servicepartner"}
                 </h3>
                 <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
                   Företag
@@ -408,72 +404,21 @@ export default function ContractorsOverviewPageClient() {
                     required
                   />
                 </label>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
-                    Organisationsnummer
-                    <input
-                      className={inputClassName}
-                      name="organizationNumber"
-                      value={companyForm.organizationNumber}
-                      onChange={updateCompanyForm}
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
-                    Telefon
-                    <input
-                      className={inputClassName}
-                      name="phone"
-                      value={companyForm.phone}
-                      onChange={updateCompanyForm}
-                    />
-                  </label>
-                </div>
                 <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
-                  Företagscertifikat nr
+                  E-post till serviceansvarig
                   <input
                     className={inputClassName}
-                    name="certificateNumber"
-                    value={companyForm.certificateNumber}
-                    onChange={updateCompanyForm}
-                  />
-                  <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
-                    Valfritt certifikatnummer för servicepartnerföretaget, inte enskild tekniker.
-                  </span>
-                </label>
-                <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
-                  Kontakt e-post
-                  <input
-                    className={inputClassName}
-                    name="contactEmail"
+                    name="email"
                     type="email"
-                    value={companyForm.contactEmail}
+                    value={companyForm.email}
                     onChange={updateCompanyForm}
+                    required={!editingCompanyId}
                   />
-                </label>
-                {!editingCompanyId && (
-                  <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
-                    Ansvarig kontaktperson e-post
-                    <input
-                      className={inputClassName}
-                      name="responsibleContactEmail"
-                      type="email"
-                      value={companyForm.responsibleContactEmail}
-                      onChange={updateCompanyForm}
-                    />
+                  {!editingCompanyId && (
                     <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
-                      Valfritt. Skapar en serviceansvarig inbjudan till serviceorganisationen.
+                      Den inbjudna personen blir serviceansvarig och kan komplettera företagsuppgifter senare.
                     </span>
-                  </label>
-                )}
-                <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
-                  Anteckningar
-                  <textarea
-                    className={inputClassName}
-                    name="notes"
-                    rows={3}
-                    value={companyForm.notes}
-                    onChange={updateCompanyForm}
-                  />
+                  )}
                 </label>
                 <div className="flex flex-wrap justify-end gap-2">
                   {editingCompanyId && (
@@ -495,7 +440,7 @@ export default function ContractorsOverviewPageClient() {
                       ? "Sparar..."
                       : editingCompanyId
                         ? "Spara ändringar"
-                        : "Koppla servicepartner"}
+                        : "Bjud in servicepartner"}
                   </button>
                 </div>
               </form>
@@ -508,7 +453,11 @@ export default function ContractorsOverviewPageClient() {
               subtitle="Relationer, certifiering och driftstatus per servicepartner."
             />
             <div className="mt-4 grid gap-3 lg:grid-cols-2">
-              {visibleServicePartners.map((company) => (
+              {visibleServicePartners.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
+                  Inga servicepartners har kopplats ännu.
+                </p>
+              ) : visibleServicePartners.map((company) => (
                 <div
                   className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
                   key={company.id ?? "unlinked"}
@@ -837,25 +786,30 @@ function MetricCard({
   const tooltipId = useId()
 
   return (
-    <Card
-      aria-describedby={tooltipId}
-      aria-label={`${label}. ${description}`}
-      className={`group relative border-l-4 p-5 ${accentClassName}`}
-      tabIndex={0}
-    >
+    <Card className={`relative border-l-4 p-5 ${accentClassName}`}>
+      <div className="group absolute right-3 top-3">
+        <button
+          aria-describedby={tooltipId}
+          aria-label={`Mer information om ${label}`}
+          className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-xs font-bold text-slate-500 shadow-sm transition hover:border-blue-300 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300"
+          type="button"
+        >
+          i
+        </button>
+        <span
+          className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-64 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+          id={tooltipId}
+          role="tooltip"
+        >
+          {description}
+        </span>
+      </div>
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
         {label}
       </p>
       <p className="mt-3 text-3xl font-bold text-slate-950 dark:text-slate-100">
         {formatNumber(value)}
       </p>
-      <span
-        className="pointer-events-none absolute left-4 right-4 top-full z-20 mt-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus:opacity-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
-        id={tooltipId}
-        role="tooltip"
-      >
-        {description}
-      </span>
     </Card>
   )
 }
