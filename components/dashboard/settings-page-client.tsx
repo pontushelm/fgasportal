@@ -34,25 +34,30 @@ type NotificationPreferences = Pick<
   | "notifyLeakEmails"
 >
 
+type NotificationPreferenceGroup = {
+  title: string
+  keys: Array<keyof NotificationPreferences>
+}
+
 const notificationLabels: Record<keyof NotificationPreferences, string> = {
   notifyAssignmentEmails: "Nya tilldelningar",
   notifyInspectionReminderEmails: "Kommande och försenade kontroller",
   notifyDocumentEmails: "Dokument kopplade till aggregat",
-  notifyAnnualReportDeadlineEmails: "Kommande deadline för årsrapport",
+  notifyAnnualReportDeadlineEmails: "Årsrapport redo för signering",
   notifyLeakEmails: "Nya läckage",
 }
 
 const notificationDescriptions: Record<keyof NotificationPreferences, string> = {
   notifyAssignmentEmails:
-    "E-post när aggregat eller åtkomst tilldelas dig som servicepartner.",
+    "Samlad e-post när aggregat eller åtkomst tilldelas dig som servicepartner.",
   notifyInspectionReminderEmails:
-    "E-post om kontroller som är försenade eller behöver göras inom 30 dagar.",
+    "Samlad e-post om kontroller som är försenade eller behöver göras inom 30 dagar.",
   notifyDocumentEmails:
     "E-post när nya dokument kopplas till aggregat.",
   notifyAnnualReportDeadlineEmails:
-    "E-post inför kommande årsrapportering.",
+    "E-post inför årsrapportering och signering.",
   notifyLeakEmails:
-    "E-post när nya läckage registreras.",
+    "Samlad e-post när nya läckage registreras.",
 }
 
 export default function SettingsPageClient() {
@@ -123,26 +128,41 @@ export default function SettingsPageClient() {
     }
   }, [router])
 
-  const visibleNotificationKeys = useMemo(() => {
+  const notificationGroups = useMemo(() => {
     if (!currentUser) return []
 
     if (currentUser.role === "CONTRACTOR") {
       return [
-        "notifyAssignmentEmails",
-        "notifyInspectionReminderEmails",
-      ] satisfies Array<keyof NotificationPreferences>
+        {
+          title: "Operativ uppföljning",
+          keys: ["notifyInspectionReminderEmails"],
+        },
+        {
+          title: "Servicepartner och samarbete",
+          keys: ["notifyAssignmentEmails"],
+        },
+      ] satisfies Array<NotificationPreferenceGroup>
     }
 
     if (currentUser.role === "MEMBER") {
       return [
-        "notifyInspectionReminderEmails",
-      ] satisfies Array<keyof NotificationPreferences>
+        {
+          title: "Operativ uppföljning",
+          keys: ["notifyInspectionReminderEmails"],
+        },
+      ] satisfies Array<NotificationPreferenceGroup>
     }
 
     return [
-      "notifyInspectionReminderEmails",
-      "notifyLeakEmails",
-    ] satisfies Array<keyof NotificationPreferences>
+      {
+        title: "Operativ uppföljning",
+        keys: ["notifyInspectionReminderEmails", "notifyLeakEmails"],
+      },
+      {
+        title: "Rapportering",
+        keys: ["notifyAnnualReportDeadlineEmails"],
+      },
+    ] satisfies Array<NotificationPreferenceGroup>
   }, [currentUser])
 
   async function handleProfileSubmit(event: React.FormEvent) {
@@ -519,18 +539,32 @@ export default function SettingsPageClient() {
           <Card className="p-5">
             <SectionHeader
               title="Notifieringar"
-              subtitle="Välj vilka e-postnotiser du vill få"
+              subtitle="Välj vilka notifieringar du vill få via e-post."
             />
             <form className="mt-5 grid gap-4" onSubmit={handleNotificationSubmit}>
-              {visibleNotificationKeys.length > 0 ? (
-                visibleNotificationKeys.map((key) => (
-                  <NotificationToggle
-                    checked={notifications[key]}
-                    description={notificationDescriptions[key]}
-                    key={key}
-                    label={notificationLabels[key]}
-                    onChange={(value) => updateNotificationPreference(key, value)}
-                  />
+              {notificationGroups.length > 0 ? (
+                notificationGroups.map((group) => (
+                  <section
+                    className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950"
+                    key={group.title}
+                  >
+                    <h3 className="text-sm font-semibold text-slate-950 dark:text-slate-100">
+                      {group.title}
+                    </h3>
+                    <div className="grid gap-3">
+                      {group.keys.map((key) => (
+                        <NotificationToggle
+                          checked={notifications[key]}
+                          description={notificationDescriptions[key]}
+                          key={key}
+                          label={notificationLabels[key]}
+                          onChange={(value) =>
+                            updateNotificationPreference(key, value)
+                          }
+                        />
+                      ))}
+                    </div>
+                  </section>
                 ))
               ) : (
                 <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">

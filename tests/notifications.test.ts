@@ -8,6 +8,7 @@ import {
 import {
   buildContractorAssignmentEmailText,
   buildInspectionReminderEmailText,
+  buildOperationalDigestEmailText,
 } from "@/lib/email"
 import {
   getReminderRecipients,
@@ -73,6 +74,43 @@ describe("notification action deep links", () => {
 })
 
 describe("service partner notification copy", () => {
+  it("summarizes multiple operational notifications in one digest", () => {
+    const text = buildOperationalDigestEmailText({
+      actionQueueUrl: "https://app.example.com/dashboard/actions",
+      inspectionReminders: [
+        {
+          installationName: "Kyl A",
+          location: "Plan 2",
+          nextInspection: new Date("2026-06-01T00:00:00.000Z"),
+          status: "OVERDUE",
+          installationUrl: "https://app.example.com/dashboard/installations/1",
+        },
+        {
+          installationName: "Kyl B",
+          location: null,
+          nextInspection: new Date("2026-06-15T00:00:00.000Z"),
+          status: "DUE_SOON",
+          installationUrl: "https://app.example.com/dashboard/installations/2",
+        },
+      ],
+      leakEvents: [
+        {
+          installationName: "Kyl C",
+          equipmentId: "KC-1",
+          propertyName: "Stadshuset",
+          eventDate: new Date("2026-05-20T00:00:00.000Z"),
+          leakageAmountKg: 1.5,
+          installationUrl: "https://app.example.com/dashboard/installations/3",
+        },
+      ],
+    })
+
+    expect(text).toContain("• 1 aggregat har försenad kontroll")
+    expect(text).toContain("• 1 aggregat behöver kontroll inom 30 dagar")
+    expect(text).toContain("• 1 nytt läckage har registrerats")
+    expect(text).toContain("https://app.example.com/dashboard/actions")
+  })
+
   it("adds service partner company context to inspection reminder emails", () => {
     const text = buildInspectionReminderEmailText({
       installationName: "Kyl A",

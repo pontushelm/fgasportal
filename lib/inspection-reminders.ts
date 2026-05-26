@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client"
-import { getInspectionActionQueueUrl } from "@/lib/actions/action-links"
+import { buildActionQueueUrl } from "@/lib/actions/action-links"
 import { prisma } from "@/lib/db"
-import { sendInspectionReminderEmail } from "@/lib/email"
+import { sendOperationalDigestEmail } from "@/lib/email"
 import {
   addDays,
   classifyInspectionStatus,
@@ -102,10 +102,24 @@ export async function sendInspectionReminders(
     errors: [],
   }
   const appUrl = getAppUrl()
-  const servicePartnerCompanySummaries = buildServicePartnerCompanyReminderSummaries(
-    installations,
-    currentDate
-  )
+  const digestByEmail = new Map<
+    string,
+    {
+      userId: string
+      email: string
+      actionQueueUrl: string
+      items: Array<{
+        installationId: string
+        installationName: string
+        location: string | null
+        nextInspection: Date
+        status: ReminderType
+        reminderKey: string
+        installationUrl: string
+        servicePartnerCompanyName?: string | null
+      }>
+    }
+  >()
 
   for (const installation of installations) {
     if (!installation.nextInspection) {
@@ -136,9 +150,6 @@ export async function sendInspectionReminders(
         isAssignedContractor
           ? getAssignedServicePartnerCompany(installation)
           : null
-      const servicePartnerCompanySummary = servicePartnerCompany
-        ? servicePartnerCompanySummaries.get(servicePartnerCompany.id) ?? null
-        : null
       const reminderKey = createReminderKey(status, installation.nextInspection)
       const alreadySent = await prisma.reminderLog.findUnique({
         where: {
@@ -156,53 +167,74 @@ export async function sendInspectionReminders(
         continue
       }
 
-      try {
-        await sendInspectionReminderEmail({
-          to: user.email,
-          installationName: installation.name,
-          location: installation.location,
-          nextInspection: installation.nextInspection,
-          status,
-          installationUrl: `${appUrl}/dashboard/installations/${installation.id}`,
-          actionQueueUrl: getInspectionActionQueueUrl({
-            appUrl,
-            status,
-            serviceContactId: isAssignedContractor ? user.id : null,
-            servicePartnerCompanyId: servicePartnerCompany?.id ?? null,
-          }),
-          servicePartnerCompanyName: servicePartnerCompany?.name ?? null,
-          servicePartnerCompanySummary,
-        })
-
-        await prisma.reminderLog.create({
-          data: {
-            installationId: installation.id,
-            userId: user.id,
-            email: user.email,
-            type: status,
-            reminderKey,
-          },
-        })
-
-        summary.sent += 1
-      } catch (error) {
-        if (isUniqueConstraintError(error)) {
-          summary.skipped += 1
-          continue
-        }
-
-        console.error("Inspection reminder email failed", {
-          installationId: installation.id,
-          userId: user.id,
-          email: user.email,
-          error,
-        })
-
-        summary.errors.push({
-          installationId: installation.id,
-          error: error instanceof Error ? error.message : "Unknown error",
-        })
+      const emailKey = user.email.toLowerCase()
+      const digest = digestByEmail.get(emailKey) ?? {
+        userId: user.id,
+        email: user.email,
+        actionQueueUrl: buildActionQueueUrl(appUrl, {
+          serviceContactId: isAssignedContractor ? user.id : null,
+          servicePartnerCompanyId: servicePartnerCompany?.id ?? null,
+        }),
+        items: [],
       }
+
+      digest.items.push({
+        installationId: installation.id,
+        installationName: installation.name,
+        location: installation.location,
+        nextInspection: installation.nextInspection,
+        status,
+        reminderKey,
+        installationUrl: `${appUrl}/dashboard/installations/${installation.id}`,
+        servicePartnerCompanyName: servicePartnerCompany?.name ?? null,
+      })
+      digestByEmail.set(emailKey, digest)
+    }
+  }
+
+  for (const digest of digestByEmail.values()) {
+    try {
+      await sendOperationalDigestEmail({
+        to: digest.email,
+        actionQueueUrl: digest.actionQueueUrl,
+        inspectionReminders: digest.items.map((item) => ({
+          installationName: item.installationName,
+          location: item.location,
+          nextInspection: item.nextInspection,
+          status: item.status,
+          installationUrl: item.installationUrl,
+          servicePartnerCompanyName: item.servicePartnerCompanyName,
+        })),
+      })
+
+      await prisma.reminderLog.createMany({
+        data: digest.items.map((item) => ({
+          installationId: item.installationId,
+          userId: digest.userId,
+          email: digest.email,
+          type: item.status,
+          reminderKey: item.reminderKey,
+        })),
+        skipDuplicates: true,
+      })
+
+      summary.sent += 1
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        summary.skipped += digest.items.length
+        continue
+      }
+
+      console.error("Inspection reminder digest email failed", {
+        userId: digest.userId,
+        email: digest.email,
+        error,
+      })
+
+      summary.errors.push({
+        installationId: "digest",
+        error: error instanceof Error ? error.message : "Unknown error",
+      })
     }
   }
 
@@ -223,43 +255,6 @@ type ReminderInstallation = {
       } | null
     }>
   } | null
-}
-
-function buildServicePartnerCompanyReminderSummaries(
-  installations: ReminderInstallation[],
-  currentDate: Date
-) {
-  const summaries = new Map<
-    string,
-    { overdueCount: number; dueSoonCount: number }
-  >()
-
-  installations.forEach((installation) => {
-    if (!installation.nextInspection) return
-    const servicePartnerCompany = getAssignedServicePartnerCompany(installation)
-    if (!servicePartnerCompany) return
-
-    const status = classifyInspectionReminderStatus(
-      installation.nextInspection,
-      currentDate
-    )
-    if (status === "OK") return
-
-    const currentSummary = summaries.get(servicePartnerCompany.id) ?? {
-      overdueCount: 0,
-      dueSoonCount: 0,
-    }
-
-    if (status === "OVERDUE") {
-      currentSummary.overdueCount += 1
-    } else {
-      currentSummary.dueSoonCount += 1
-    }
-
-    summaries.set(servicePartnerCompany.id, currentSummary)
-  })
-
-  return summaries
 }
 
 function getAssignedServicePartnerCompany(installation: ReminderInstallation) {

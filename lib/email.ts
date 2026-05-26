@@ -33,6 +33,31 @@ type SendLeakNotificationEmailInput = {
   actionQueueUrl: string
 }
 
+type OperationalDigestInspectionItem = {
+  installationName: string
+  location: string | null
+  nextInspection: Date
+  status: "DUE_SOON" | "OVERDUE"
+  installationUrl: string
+  servicePartnerCompanyName?: string | null
+}
+
+type OperationalDigestLeakItem = {
+  installationName: string
+  equipmentId: string | null
+  propertyName: string | null
+  eventDate: Date
+  leakageAmountKg: number | null
+  installationUrl: string
+}
+
+type SendOperationalDigestEmailInput = {
+  to: string
+  actionQueueUrl: string
+  inspectionReminders?: OperationalDigestInspectionItem[]
+  leakEvents?: OperationalDigestLeakItem[]
+}
+
 type SendPasswordResetEmailInput = {
   to: string
   resetUrl: string
@@ -97,6 +122,117 @@ export async function sendInspectionReminderEmail({
   }
 
   return result.data
+}
+
+export async function sendOperationalDigestEmail({
+  to,
+  ...input
+}: SendOperationalDigestEmailInput) {
+  const apiKey = requireEnv("RESEND_API_KEY")
+  const from = requireEnv("REMINDER_FROM_EMAIL")
+  const inspectionReminders = input.inspectionReminders ?? []
+  const leakEvents = input.leakEvents ?? []
+  const totalItems = inspectionReminders.length + leakEvents.length
+  const text = buildOperationalDigestEmailText({
+    ...input,
+    inspectionReminders,
+    leakEvents,
+  })
+
+  resend ??= new Resend(apiKey)
+
+  const result = await resend.emails.send({
+    from,
+    to,
+    subject: `FgasPortal – ${totalItems} aggregat kräver uppföljning`,
+    text,
+  })
+
+  if (result.error) {
+    throw new Error(result.error.message)
+  }
+
+  return result.data
+}
+
+export function buildOperationalDigestEmailText({
+  actionQueueUrl,
+  inspectionReminders = [],
+  leakEvents = [],
+}: Omit<SendOperationalDigestEmailInput, "to">) {
+  const overdueCount = inspectionReminders.filter(
+    (item) => item.status === "OVERDUE"
+  ).length
+  const dueSoonCount = inspectionReminders.filter(
+    (item) => item.status === "DUE_SOON"
+  ).length
+  const summaryRows = [
+    overdueCount > 0
+      ? `• ${overdueCount} aggregat har försenad kontroll`
+      : null,
+    dueSoonCount > 0
+      ? `• ${dueSoonCount} aggregat behöver kontroll inom 30 dagar`
+      : null,
+    leakEvents.length > 0
+      ? `• ${leakEvents.length} nytt läckage har registrerats`
+      : null,
+  ].filter(Boolean)
+  const inspectionRows = inspectionReminders.slice(0, 10).map((item) =>
+    [
+      `• ${item.installationName}`,
+      item.location ? `Placering: ${item.location}` : null,
+      `Status: ${item.status === "OVERDUE" ? "Försenad" : "Inom 30 dagar"}`,
+      `Nästa kontroll: ${formatDate(item.nextInspection)}`,
+      item.servicePartnerCompanyName
+        ? `Servicepartner: ${item.servicePartnerCompanyName}`
+        : null,
+      item.installationUrl,
+    ]
+      .filter(Boolean)
+      .join(" | ")
+  )
+  const leakRows = leakEvents.slice(0, 10).map((item) =>
+    [
+      `• ${item.installationName}`,
+      item.equipmentId ? `Aggregat-ID: ${item.equipmentId}` : null,
+      item.propertyName ? `Fastighet: ${item.propertyName}` : null,
+      `Händelsedatum: ${formatDate(item.eventDate)}`,
+      item.leakageAmountKg != null
+        ? `Läckagemängd: ${formatNumber(item.leakageAmountKg)} kg`
+        : "Läckagemängd: Ej angiven",
+      item.installationUrl,
+    ]
+      .filter(Boolean)
+      .join(" | ")
+  )
+
+  return [
+    "Hej,",
+    "",
+    "Följande kräver uppföljning:",
+    "",
+    ...summaryRows,
+    "",
+    inspectionRows.length > 0 ? "Kontroller:" : null,
+    ...inspectionRows,
+    inspectionReminders.length > inspectionRows.length
+      ? `Ytterligare ${inspectionReminders.length - inspectionRows.length} kontrollpunkter finns i FgasPortal.`
+      : null,
+    "",
+    leakRows.length > 0 ? "Läckage:" : null,
+    ...leakRows,
+    leakEvents.length > leakRows.length
+      ? `Ytterligare ${leakEvents.length - leakRows.length} läckage finns i FgasPortal.`
+      : null,
+    "",
+    "Öppna FgasPortal för att se detaljer och åtgärder:",
+    actionQueueUrl,
+    "",
+    "Vänliga hälsningar,",
+    "FgasPortal",
+  ]
+    .filter(Boolean)
+    .join("\n")
 }
 
 export function buildInspectionReminderEmailText({
