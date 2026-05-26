@@ -16,6 +16,8 @@ export async function GET(request: NextRequest) {
     const municipality = request.nextUrl.searchParams.get("municipality")?.trim()
     const propertyId = request.nextUrl.searchParams.get("propertyId")?.trim()
     const reportType = request.nextUrl.searchParams.get("reportType")?.trim()
+    const includeAnnualOverview =
+      request.nextUrl.searchParams.get("includeAnnualOverview") !== "0"
 
     if (!year) {
       return NextResponse.json({ error: "Ogiltigt årtal" }, { status: 400 })
@@ -33,7 +35,7 @@ export async function GET(request: NextRequest) {
         ? await getAnnualFgasReportPreview(reportParams)
         : await getFgasAnnualReport(reportParams)
     const annualReportOverview =
-      reportType === "annual"
+      reportType === "annual" && includeAnnualOverview
         ? await getAnnualFgasReportPropertyOverview({
             companyId: auth.user.companyId,
             assignedContractorId: isContractor(auth.user) ? auth.user.userId : undefined,

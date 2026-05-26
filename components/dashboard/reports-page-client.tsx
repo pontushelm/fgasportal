@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useEffect, useId, useMemo, useState } from "react"
+import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { Badge, Card, EmptyState as UiEmptyState, PageHeader, SectionHeader } from "@/components/ui"
 import { getInstallationEventAmountLabel } from "@/lib/installation-events"
 import {
@@ -84,6 +84,7 @@ type ReportData = {
     }>
   }
 }
+type AnnualReportOverview = NonNullable<ReportData["annualReportOverview"]>
 
 type PropertyOption = {
   id: string
@@ -166,7 +167,9 @@ export default function ReportsPage() {
   const [properties, setProperties] = useState<PropertyOption[]>([])
   const [signedReports, setSignedReports] = useState<SignedReportHistoryItem[]>([])
   const [reportData, setReportData] = useState<ReportData | null>(null)
+  const annualReportOverviewRef = useRef<AnnualReportOverview | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isDetailLoading, setIsDetailLoading] = useState(false)
   const [error, setError] = useState("")
   const [reportNotes, setReportNotes] = useState("")
   const [isAnnualExportModalOpen, setIsAnnualExportModalOpen] = useState(false)
@@ -305,11 +308,20 @@ export default function ReportsPage() {
     let isMounted = true
 
     async function fetchReport() {
-      setIsLoading(true)
+      const canReuseAnnualOverview =
+        isAnnualReport && selectedPropertyId && annualReportOverviewRef.current
+      const requestParams = new URLSearchParams(reportQuery)
+
+      if (canReuseAnnualOverview) {
+        requestParams.set("includeAnnualOverview", "0")
+        setIsDetailLoading(true)
+      } else {
+        setIsLoading(true)
+      }
       setError("")
 
       const [response, propertiesResponse, signedReportsResponse] = await Promise.all([
-        fetch(`/api/reports/fgas?${reportQuery}`, {
+        fetch(`/api/reports/fgas?${requestParams.toString()}`, {
           credentials: "include",
         }),
         fetch("/api/properties", {
@@ -333,6 +345,7 @@ export default function ReportsPage() {
         if (!isMounted) return
         setError("Kunde inte hämta årsrapporten")
         setIsLoading(false)
+        setIsDetailLoading(false)
         return
       }
 
@@ -343,10 +356,16 @@ export default function ReportsPage() {
 
       if (!isMounted) return
 
+      if (data.annualReportOverview) {
+        annualReportOverviewRef.current = data.annualReportOverview
+      } else if (annualReportOverviewRef.current) {
+        data.annualReportOverview = annualReportOverviewRef.current
+      }
       setReportData(data)
       setProperties(propertiesData)
       setSignedReports(signedReportsData)
       setIsLoading(false)
+      setIsDetailLoading(false)
     }
 
     void fetchReport()
@@ -354,7 +373,7 @@ export default function ReportsPage() {
     return () => {
       isMounted = false
     }
-  }, [reportQuery, router])
+  }, [isAnnualReport, reportQuery, router, selectedPropertyId])
 
   useEffect(() => {
     if (!exportFeedback) return
@@ -452,7 +471,7 @@ export default function ReportsPage() {
                   value={selectedPropertyId}
                 >
                   {isAnnualReport ? (
-                    <option value="">VÃ¤lj fastighet</option>
+                    <option value="">Välj fastighet</option>
                   ) : (
                     <option value="">Alla fastigheter</option>
                   )}
@@ -500,7 +519,7 @@ export default function ReportsPage() {
                   )}
                   {isAnnualReport && !selectedPropertyId && (
                     <span className="self-center text-xs font-medium text-slate-600">
-                      VÃ¤lj en fastighet fÃ¶r att exportera Ã¥rsrapport.
+                      Välj en fastighet för att exportera årsrapport.
                     </span>
                   )}
                 </>
@@ -537,7 +556,14 @@ export default function ReportsPage() {
                 />
               )}
               {selectedPropertyId ? (
-                <ReportQualityPanel reportData={reportData} />
+                <>
+                  {isDetailLoading && (
+                    <section className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm font-medium text-blue-900">
+                      Laddar rapportstatus för vald fastighet...
+                    </section>
+                  )}
+                  <ReportQualityPanel reportData={reportData} />
+                </>
               ) : (
                 <section className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm font-medium text-blue-900">
                   Välj en fastighet i översikten för att se rapportstatus och exportera årsrapport.
@@ -861,10 +887,9 @@ function AnnualReportPropertyOverview({
               <TableHeader>Fastighet</TableHeader>
               <TableHeader>Kommun</TableHeader>
               <TableHeader>Installerad CO₂e</TableHeader>
-              <TableHeader>Krav</TableHeader>
+              <TableHeader>Årsrapport</TableHeader>
               <TableHeader>Signering</TableHeader>
               <TableHeader>Status</TableHeader>
-              <TableHeader>Välj</TableHeader>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
@@ -874,10 +899,21 @@ function AnnualReportPropertyOverview({
                 key={property.id}
               >
                 <TableCell>
-                  <div className="font-semibold text-slate-950">{property.name}</div>
+                  <button
+                    className="text-left font-semibold text-blue-700 underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                    onClick={() => onSelectProperty(property.id)}
+                    type="button"
+                  >
+                    {property.name}
+                  </button>
+                  {property.id === selectedPropertyId && (
+                    <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                      Vald
+                    </span>
+                  )}
                 </TableCell>
                 <TableCell>{property.municipality || "-"}</TableCell>
-                <TableCell>{formatNullableCo2eTon(property.installedCo2eTon)}</TableCell>
+                <TableCell>{formatWholeCo2eTon(property.installedCo2eTon)}</TableCell>
                 <TableCell>
                   <AnnualRequirementBadge status={property.annualReportRequirement} />
                 </TableCell>
@@ -896,15 +932,6 @@ function AnnualReportPropertyOverview({
                     {property.blockingIssueCount} kräver komplettering,{" "}
                     {property.reviewWarningCount} bör granskas
                   </span>
-                </TableCell>
-                <TableCell>
-                  <button
-                    className="inline-flex h-8 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-50"
-                    onClick={() => onSelectProperty(property.id)}
-                    type="button"
-                  >
-                    {property.id === selectedPropertyId ? "Vald" : "Välj"}
-                  </button>
                 </TableCell>
               </tr>
             ))}
@@ -1337,8 +1364,10 @@ function formatCo2eTon(value: number | null) {
   return value === null ? "Okänt GWP-värde" : formatNumber(value)
 }
 
-function formatNullableCo2eTon(value: number | null) {
-  return value === null ? "Okänt" : `${formatNumber(value)} ton`
+function formatWholeCo2eTon(value: number | null) {
+  return value === null
+    ? "Okänt"
+    : `${new Intl.NumberFormat("sv-SE", { maximumFractionDigits: 0 }).format(value)} t`
 }
 
 function formatTotalCo2eTon(metrics: ReportData["metrics"]) {
