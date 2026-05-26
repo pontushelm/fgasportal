@@ -96,6 +96,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Ogiltigt årtal" }, { status: 400 })
     }
 
+    if (!historyRecord && !propertyId) {
+      return NextResponse.json(
+        { error: "VÃ¤lj en fastighet innan Ã¥rsrapporten exporteras" },
+        { status: 400 }
+      )
+    }
+
     if (!signing.ok) {
       return NextResponse.json(
         { error: "Ogiltiga signeringsuppgifter", details: signing.errors },

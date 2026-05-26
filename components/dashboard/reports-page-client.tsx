@@ -69,6 +69,20 @@ type ReportData = {
     recoveredAmountKg?: number | null
     notes: string | null
   }>
+  annualReportOverview?: {
+    year: number
+    properties: Array<{
+      id: string
+      name: string
+      municipality: string | null
+      installedCo2eTon: number | null
+      annualReportRequirement: "REQUIRED" | "NOT_REQUIRED" | "UNCERTAIN"
+      signedStatus: "SIGNED" | "NOT_SIGNED"
+      signedAt: string | null
+      blockingIssueCount: number
+      reviewWarningCount: number
+    }>
+  }
 }
 
 type PropertyOption = {
@@ -162,6 +176,7 @@ export default function ReportsPage() {
   const [exportFeedback, setExportFeedback] = useState<ExportFeedback | null>(null)
   const [isExportFeedbackExiting, setIsExportFeedbackExiting] = useState(false)
   const router = useRouter()
+  const isAnnualReport = selectedReportType === "annual"
   const municipalityOptions = useMemo(
     () =>
       Array.from(
@@ -179,33 +194,39 @@ export default function ReportsPage() {
       year: String(selectedYear),
     })
 
-    if (selectedMunicipality) params.set("municipality", selectedMunicipality)
+    if (selectedMunicipality && !isAnnualReport) {
+      params.set("municipality", selectedMunicipality)
+    }
     if (selectedPropertyId) params.set("propertyId", selectedPropertyId)
 
     return params.toString()
-  }, [selectedMunicipality, selectedPropertyId, selectedReportType, selectedYear])
+  }, [isAnnualReport, selectedMunicipality, selectedPropertyId, selectedReportType, selectedYear])
   const pdfExportHref = useMemo(() => {
     if (!isReportExportAvailable(selectedReportType)) {
       return null
     }
 
-    if (selectedReportType !== "annual") {
+    if (!isAnnualReport) {
       return `/api/reports/fgas/export?${reportQuery}&format=pdf`
     }
+
+    if (!selectedPropertyId) return null
 
     const params = new URLSearchParams({
       year: String(selectedYear),
     })
 
-    if (selectedMunicipality) params.set("municipality", selectedMunicipality)
     if (selectedPropertyId) params.set("propertyId", selectedPropertyId)
     return `/api/reports/annual-fgas?${params.toString()}`
-  }, [reportQuery, selectedMunicipality, selectedPropertyId, selectedReportType, selectedYear])
+  }, [isAnnualReport, reportQuery, selectedPropertyId, selectedReportType, selectedYear])
   const selectedReport = useMemo(
     () => getReportTypeMetadata(selectedReportType),
     [selectedReportType]
   )
-  const canExportSelectedReport = pdfExportHref !== null
+  const canExportSelectedReport =
+    isReportExportAvailable(selectedReportType) &&
+    (!isAnnualReport || Boolean(selectedPropertyId))
+  const shouldShowReportDetails = !isAnnualReport || Boolean(selectedPropertyId)
   function dismissExportFeedback() {
     setIsExportFeedbackExiting(true)
     window.setTimeout(() => {
@@ -357,14 +378,22 @@ export default function ReportsPage() {
       <PageHeader
         actions={
           <div className="flex flex-col gap-3">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(320px,2fr)_96px_minmax(160px,1fr)_minmax(160px,1fr)]">
+            <div className={`grid gap-3 sm:grid-cols-2 ${
+              isAnnualReport
+                ? "xl:grid-cols-[minmax(320px,2fr)_96px_minmax(220px,1fr)]"
+                : "xl:grid-cols-[minmax(320px,2fr)_96px_minmax(160px,1fr)_minmax(160px,1fr)]"
+            }`}>
               <label className={`${filterLabelClassName} min-w-0`}>
                 Rapporttyp
                 <select
                   className={filterSelectClassName}
-                  onChange={(event) =>
-                    setSelectedReportType(event.target.value as ReportType)
-                  }
+                  onChange={(event) => {
+                    const nextReportType = event.target.value as ReportType
+                    setSelectedReportType(nextReportType)
+                    if (nextReportType === "annual") {
+                      setSelectedMunicipality("")
+                    }
+                  }}
                   value={selectedReportType}
                 >
                   {REPORT_TYPE_OPTIONS.map((option) => (
@@ -395,24 +424,26 @@ export default function ReportsPage() {
                   value={selectedYear}
                 />
               </label>
-              <label className={`${filterLabelClassName} min-w-0`}>
-                Kommun
-                <select
-                  className={filterSelectClassName}
-                  onChange={(event) => {
-                    setSelectedMunicipality(event.target.value)
-                    setSelectedPropertyId("")
-                  }}
-                  value={selectedMunicipality}
-                >
-                  <option value="">Alla kommuner</option>
-                  {municipalityOptions.map((municipality) => (
-                    <option key={municipality} value={municipality}>
-                      {municipality}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {!isAnnualReport && (
+                <label className={`${filterLabelClassName} min-w-0`}>
+                  Kommun
+                  <select
+                    className={filterSelectClassName}
+                    onChange={(event) => {
+                      setSelectedMunicipality(event.target.value)
+                      setSelectedPropertyId("")
+                    }}
+                    value={selectedMunicipality}
+                  >
+                    <option value="">Alla kommuner</option>
+                    {municipalityOptions.map((municipality) => (
+                      <option key={municipality} value={municipality}>
+                        {municipality}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <label className={`${filterLabelClassName} min-w-0`}>
                 Fastighet
                 <select
@@ -420,7 +451,11 @@ export default function ReportsPage() {
                   onChange={(event) => setSelectedPropertyId(event.target.value)}
                   value={selectedPropertyId}
                 >
-                  <option value="">Alla fastigheter</option>
+                  {isAnnualReport ? (
+                    <option value="">VÃ¤lj fastighet</option>
+                  ) : (
+                    <option value="">Alla fastigheter</option>
+                  )}
                   {properties
                     .filter((property) =>
                       selectedMunicipality
@@ -436,17 +471,20 @@ export default function ReportsPage() {
               </label>
             </div>
             <div className="flex flex-wrap justify-start gap-2 border-t border-slate-200 pt-3 lg:justify-end">
-              {canExportSelectedReport ? (
+              {isReportExportAvailable(selectedReportType) ? (
                 <>
-                  <a
-                    className={exportButtonClassName}
-                    href={`/api/reports/fgas/export?${reportQuery}&format=csv`}
-                  >
-                    Exportera Excel
-                  </a>
-                  {selectedReportType === "annual" ? (
-                    <button
+                  {!isAnnualReport && (
+                    <a
                       className={exportButtonClassName}
+                      href={`/api/reports/fgas/export?${reportQuery}&format=csv`}
+                    >
+                      Exportera Excel
+                    </a>
+                  )}
+                  {isAnnualReport ? (
+                    <button
+                      className={`${exportButtonClassName} disabled:cursor-not-allowed disabled:opacity-60`}
+                      disabled={!canExportSelectedReport}
                       onClick={() => setIsAnnualExportModalOpen(true)}
                       type="button"
                     >
@@ -455,10 +493,15 @@ export default function ReportsPage() {
                   ) : (
                     <a
                       className={exportButtonClassName}
-                      href={pdfExportHref}
+                      href={pdfExportHref ?? ""}
                     >
                       Exportera PDF
                     </a>
+                  )}
+                  {isAnnualReport && !selectedPropertyId && (
+                    <span className="self-center text-xs font-medium text-slate-600">
+                      VÃ¤lj en fastighet fÃ¶r att exportera Ã¥rsrapport.
+                    </span>
                   )}
                 </>
               ) : (
@@ -486,7 +529,20 @@ export default function ReportsPage() {
         <>
           {selectedReportType === "annual" && (
             <>
-              <ReportQualityPanel reportData={reportData} />
+              {reportData.annualReportOverview && (
+                <AnnualReportPropertyOverview
+                  overview={reportData.annualReportOverview}
+                  selectedPropertyId={selectedPropertyId}
+                  onSelectProperty={setSelectedPropertyId}
+                />
+              )}
+              {selectedPropertyId ? (
+                <ReportQualityPanel reportData={reportData} />
+              ) : (
+                <section className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm font-medium text-blue-900">
+                  Välj en fastighet i översikten för att se rapportstatus och exportera årsrapport.
+                </section>
+              )}
             </>
           )}
           {selectedReportType !== "annual" && (
@@ -496,6 +552,8 @@ export default function ReportsPage() {
             />
           )}
 
+          {shouldShowReportDetails && (
+            <>
           <section className="mt-8 grid gap-4 md:grid-cols-3">
             <MetricCard
               description={METRIC_HELP.totalInstallations}
@@ -592,6 +650,8 @@ export default function ReportsPage() {
 
             <ReportEventsPreview key={reportQuery} events={reportData.events} />
           </section>
+            </>
+          )}
 
           {selectedReportType === "annual" && (
             <SignedReportsHistory key={reportQuery} reports={signedReports} />
@@ -758,7 +818,120 @@ function MetricCard({
   )
 }
 
+function AnnualReportPropertyOverview({
+  onSelectProperty,
+  overview,
+  selectedPropertyId,
+}: {
+  onSelectProperty: (propertyId: string) => void
+  overview: NonNullable<ReportData["annualReportOverview"]>
+  selectedPropertyId: string
+}) {
+  if (overview.properties.length === 0) {
+    return (
+      <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
+        <h2 className="text-sm font-semibold text-slate-950">
+          Årsrapportering {overview.year}
+        </h2>
+        <EmptyState text="Inga fastigheter med aggregat finns för valt år." />
+      </section>
+    )
+  }
+
+  return (
+    <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-950">
+            Årsrapportering {overview.year}
+          </h2>
+          <p className="text-sm text-slate-600">
+            Välj fastighet för export och signering av årsrapport.
+          </p>
+        </div>
+        <span className="text-xs font-semibold text-slate-500">
+          {overview.properties.length} fastigheter
+        </span>
+      </div>
+
+      <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+        <table className="min-w-full divide-y divide-slate-200 text-sm">
+          <thead className="bg-slate-50">
+            <tr>
+              <TableHeader>Fastighet</TableHeader>
+              <TableHeader>Kommun</TableHeader>
+              <TableHeader>Installerad CO₂e</TableHeader>
+              <TableHeader>Krav</TableHeader>
+              <TableHeader>Signering</TableHeader>
+              <TableHeader>Status</TableHeader>
+              <TableHeader>Välj</TableHeader>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200">
+            {overview.properties.map((property) => (
+              <tr
+                className={property.id === selectedPropertyId ? "bg-blue-50/60" : undefined}
+                key={property.id}
+              >
+                <TableCell>
+                  <div className="font-semibold text-slate-950">{property.name}</div>
+                </TableCell>
+                <TableCell>{property.municipality || "-"}</TableCell>
+                <TableCell>{formatNullableCo2eTon(property.installedCo2eTon)}</TableCell>
+                <TableCell>
+                  <AnnualRequirementBadge status={property.annualReportRequirement} />
+                </TableCell>
+                <TableCell>
+                  <div className="font-medium text-slate-800">
+                    {property.signedStatus === "SIGNED" ? "Signerad" : "Ej signerad"}
+                  </div>
+                  {property.signedAt && (
+                    <div className="text-xs text-slate-500">
+                      {formatDate(property.signedAt)}
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <span className="text-xs font-semibold text-slate-700">
+                    {property.blockingIssueCount} kräver komplettering,{" "}
+                    {property.reviewWarningCount} bör granskas
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <button
+                    className="inline-flex h-8 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+                    onClick={() => onSelectProperty(property.id)}
+                    type="button"
+                  >
+                    {property.id === selectedPropertyId ? "Vald" : "Välj"}
+                  </button>
+                </TableCell>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
+function AnnualRequirementBadge({
+  status,
+}: {
+  status: NonNullable<ReportData["annualReportOverview"]>["properties"][number]["annualReportRequirement"]
+}) {
+  if (status === "REQUIRED") {
+    return <Badge variant="warning">Krävs</Badge>
+  }
+  if (status === "UNCERTAIN") {
+    return <Badge variant="warning">Osäkert</Badge>
+  }
+
+  return <Badge variant="neutral">Krävs inte</Badge>
+}
+
 function ReportQualityPanel({ reportData }: { reportData: ReportData }) {
+  const [showAllWarnings, setShowAllWarnings] = useState(false)
   const summary =
     reportData.qualitySummary ??
     buildClientQualitySummary(reportData.warnings ?? [])
@@ -775,6 +948,8 @@ function ReportQualityPanel({ reportData }: { reportData: ReportData }) {
         ? "text-amber-900"
         : "text-emerald-800"
   const warnings = reportData.warnings ?? []
+  const visibleWarnings = showAllWarnings ? warnings : warnings.slice(0, 5)
+  const hiddenWarningCount = warnings.length - visibleWarnings.length
 
   return (
     <section className={`mt-6 rounded-lg border p-4 text-sm ${tone}`}>
@@ -799,7 +974,7 @@ function ReportQualityPanel({ reportData }: { reportData: ReportData }) {
       {warnings.length > 0 && (
         <>
           <ul className="mt-3 grid gap-1">
-            {warnings.slice(0, 5).map((warning) => (
+            {visibleWarnings.map((warning) => (
               <li key={warning.id}>
                 <span className="font-semibold">
                   {warning.severity === "blocking" ? "Kräver komplettering: " : "Bör granskas: "}
@@ -811,9 +986,13 @@ function ReportQualityPanel({ reportData }: { reportData: ReportData }) {
             ))}
           </ul>
           {warnings.length > 5 && (
-            <p className="mt-2 font-medium">
-              +{warnings.length - 5} fler punkter visas i PDF-underlaget.
-            </p>
+            <button
+              className="mt-3 inline-flex h-8 items-center justify-center rounded-md border border-slate-300 bg-white/80 px-3 text-xs font-semibold text-slate-800 hover:bg-white"
+              onClick={() => setShowAllWarnings((current) => !current)}
+              type="button"
+            >
+              {showAllWarnings ? "Visa färre" : `Visa fler (${hiddenWarningCount} till)`}
+            </button>
           )}
         </>
       )}
@@ -1156,6 +1335,10 @@ function formatNumber(value: number) {
 
 function formatCo2eTon(value: number | null) {
   return value === null ? "Okänt GWP-värde" : formatNumber(value)
+}
+
+function formatNullableCo2eTon(value: number | null) {
+  return value === null ? "Okänt" : `${formatNumber(value)} ton`
 }
 
 function formatTotalCo2eTon(metrics: ReportData["metrics"]) {

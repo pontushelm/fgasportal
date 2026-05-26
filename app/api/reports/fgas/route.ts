@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { authenticateApiRequest, isContractor } from "@/lib/auth"
 import {
+  getAnnualFgasReportPropertyOverview,
   getAnnualFgasReportPreview,
   getFgasAnnualReport,
   parseReportYear,
@@ -31,8 +32,20 @@ export async function GET(request: NextRequest) {
       reportType === "annual"
         ? await getAnnualFgasReportPreview(reportParams)
         : await getFgasAnnualReport(reportParams)
+    const annualReportOverview =
+      reportType === "annual"
+        ? await getAnnualFgasReportPropertyOverview({
+            companyId: auth.user.companyId,
+            assignedContractorId: isContractor(auth.user) ? auth.user.userId : undefined,
+            signedReportUserId: isContractor(auth.user) ? auth.user.userId : undefined,
+            year,
+          })
+        : undefined
 
-    return NextResponse.json(report, { status: 200 })
+    return NextResponse.json(
+      annualReportOverview ? { ...report, annualReportOverview } : report,
+      { status: 200 }
+    )
   } catch (error: unknown) {
     console.error("Get F-gas report error:", error)
 

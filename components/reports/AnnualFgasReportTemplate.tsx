@@ -78,10 +78,6 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
             </p>
           )}
 
-          {report.warnings.length > 0 && (
-            <ReportWarnings rows={report.warnings} />
-          )}
-
           <ReportSection title="Aggregatförteckning">
             <EquipmentList
               rows={report.equipment}

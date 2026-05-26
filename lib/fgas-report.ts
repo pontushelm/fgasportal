@@ -1,5 +1,6 @@
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
+import { ANNUAL_REPORT_CO2E_REQUIREMENT_THRESHOLD_TON } from "@/lib/dashboard/annual-report-status"
 import { buildAnnualFgasReportData } from "@/lib/reports/buildAnnualFgasReportData"
 import {
   ANNUAL_FGAS_EVENT_LABELS,
@@ -68,9 +69,25 @@ export type FgasReportData = {
     recoveredAmountKg: number | null
     notes: string | null
   }>
+  annualReportOverview?: AnnualFgasReportPropertyOverview
 }
 
 type RefrigerantSummary = FgasReportData["refrigerants"][number]
+
+export type AnnualFgasReportPropertyOverview = {
+  year: number
+  properties: Array<{
+    id: string
+    name: string
+    municipality: string | null
+    installedCo2eTon: number | null
+    annualReportRequirement: "REQUIRED" | "NOT_REQUIRED" | "UNCERTAIN"
+    signedStatus: "SIGNED" | "NOT_SIGNED"
+    signedAt: Date | null
+    blockingIssueCount: number
+    reviewWarningCount: number
+  }>
+}
 
 const ANNUAL_EVENT_TYPE_BY_LABEL = Object.fromEntries(
   Object.entries(ANNUAL_FGAS_EVENT_LABELS).map(([type, label]) => [label, type])
@@ -328,6 +345,126 @@ export async function getAnnualFgasReportPreview({
   })
 
   return mapAnnualReportDataToPreview(report)
+}
+
+export async function getAnnualFgasReportPropertyOverview({
+  assignedContractorId,
+  companyId,
+  signedReportUserId,
+  year,
+}: {
+  companyId: string
+  assignedContractorId?: string
+  signedReportUserId?: string
+  year: number
+}): Promise<AnnualFgasReportPropertyOverview> {
+  const startDate = new Date(Date.UTC(year, 0, 1))
+  const endDate = new Date(Date.UTC(year + 1, 0, 1))
+  const installations = await prisma.installation.findMany({
+    where: {
+      companyId,
+      propertyId: { not: null },
+      AND: [
+        {
+          OR: [
+            { installationDate: null },
+            { installationDate: { lt: endDate } },
+          ],
+        },
+        {
+          OR: [
+            { scrappedAt: null },
+            { scrappedAt: { gte: startDate } },
+          ],
+        },
+      ],
+      ...(assignedContractorId ? { assignedContractorId } : {}),
+    },
+    select: {
+      property: {
+        select: {
+          id: true,
+          name: true,
+          municipality: true,
+        },
+      },
+    },
+    orderBy: {
+      propertyName: "asc",
+    },
+  })
+  const properties = Array.from(
+    new Map(
+      installations
+        .map((installation) => installation.property)
+        .filter((property): property is NonNullable<typeof property> =>
+          Boolean(property)
+        )
+        .map((property) => [property.id, property])
+    ).values()
+  ).sort((first, second) => first.name.localeCompare(second.name, "sv"))
+  const signedReportRecords = await prisma.signedAnnualFgasReport.findMany({
+    where: {
+      companyId,
+      reportYear: year,
+      propertyId: { not: null },
+      ...(signedReportUserId ? { userId: signedReportUserId } : {}),
+    },
+    select: {
+      propertyId: true,
+      createdAt: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  })
+  const signedReportsByProperty = new Map<string, Date>()
+
+  for (const record of signedReportRecords) {
+    if (!record.propertyId || signedReportsByProperty.has(record.propertyId)) {
+      continue
+    }
+    signedReportsByProperty.set(record.propertyId, record.createdAt)
+  }
+
+  const propertyStatuses = await Promise.all(
+    properties.map(async (property) => {
+      const report = await buildAnnualFgasReportData({
+        assignedContractorId,
+        companyId,
+        propertyId: property.id,
+        year,
+      })
+      const installedCo2eTon =
+        report.summary.totalCo2eKg === null
+          ? null
+          : report.summary.totalCo2eKg / 1000
+      const annualReportRequirement =
+        installedCo2eTon === null
+          ? "UNCERTAIN"
+          : installedCo2eTon >= ANNUAL_REPORT_CO2E_REQUIREMENT_THRESHOLD_TON
+            ? "REQUIRED"
+            : "NOT_REQUIRED"
+      const signedAt = signedReportsByProperty.get(property.id) ?? null
+
+      return {
+        id: property.id,
+        name: property.name,
+        municipality: property.municipality,
+        installedCo2eTon,
+        annualReportRequirement,
+        signedStatus: signedAt ? "SIGNED" : "NOT_SIGNED",
+        signedAt,
+        blockingIssueCount: report.qualitySummary.blockingIssueCount,
+        reviewWarningCount: report.qualitySummary.warningCount,
+      } satisfies AnnualFgasReportPropertyOverview["properties"][number]
+    })
+  )
+
+  return {
+    year,
+    properties: propertyStatuses,
+  }
 }
 
 function mapAnnualReportDataToPreview(

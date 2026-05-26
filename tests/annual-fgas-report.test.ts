@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest"
+import { createElement } from "react"
+import { renderToStaticMarkup } from "react-dom/server"
+import { AnnualReportTemplate } from "@/components/reports/AnnualFgasReportTemplate"
 import {
   buildAnnualFgasReportQualitySummary,
   buildAnnualFgasReportWarnings,
@@ -538,5 +541,111 @@ describe("annual F-gas report filename", () => {
         2026
       )
     ).toBe("fgas-arsrapport-flera-fastigheter-2026.pdf")
+  })
+})
+
+describe("annual F-gas PDF template", () => {
+  it("does not render internal review warnings in the PDF", () => {
+    const html = renderToStaticMarkup(
+      createElement(AnnualReportTemplate, {
+        report: {
+          reportYear: 2026,
+          generatedAt: new Date("2026-03-31T10:00:00.000Z"),
+          period: {
+            startDate: new Date("2026-01-01T00:00:00.000Z"),
+            endDate: new Date("2027-01-01T00:00:00.000Z"),
+          },
+          operator: {
+            name: "Fastighetsbolaget AB",
+            organizationNumber: "556000-0000",
+            postalAddress: "Testgatan 1, 123 45 Teststad",
+            billingAddress: null,
+            contactPerson: null,
+            contactEmail: null,
+            contactPhone: null,
+          },
+          contact: {
+            name: "Anna Andersson",
+            email: "anna@example.com",
+            phone: null,
+          },
+          facility: {
+            name: "Skolan 1",
+            address: "Skolgatan 1, 123 45 Teststad",
+            municipality: "Malmö",
+            propertyDesignation: "Skolan 1:1",
+            propertyCount: 1,
+          },
+          responsibleContractor: {
+            name: null,
+            company: "Servicepartner AB",
+            email: null,
+            phone: null,
+            certificateNumber: null,
+          },
+          signingMetadata: null,
+          reportNotes: null,
+          certificateRegister: [],
+          summary: {
+            equipmentCount: 1,
+            controlRequiredCount: 1,
+            unknownCo2eEquipmentCount: 0,
+            totalRefrigerantKg: 10,
+            totalCo2eKg: 20880,
+            knownCo2eKg: 20880,
+            leakageCount: 0,
+            addedRefrigerantKg: 0,
+            recoveredRefrigerantKg: 0,
+            regeneratedReusedRefrigerantKg: null,
+            scrappedEquipmentCount: 0,
+          },
+          qualitySummary: {
+            status: "HAS_WARNINGS",
+            blockingIssueCount: 0,
+            warningCount: 1,
+            totalIssueCount: 1,
+          },
+          warnings: [
+            {
+              id: "missing-certificate-installation-a",
+              severity: "review",
+              message: "Tilldelad servicepartner saknar registrerat certifikatnummer.",
+              equipmentName: "Kyl A",
+              equipmentId: "KA1",
+            },
+          ],
+          equipment: [
+            {
+              id: "installation-a",
+              equipmentId: "KA1",
+              name: "Kyl A",
+              location: null,
+              propertyName: "Skolan 1",
+              equipmentType: "Kylaggregat",
+              refrigerantType: "R410A",
+              refrigerantAmountKg: 10,
+              co2eKg: 20880,
+              controlRequired: true,
+              inspectionIntervalMonths: 12,
+              leakDetectionSystem: false,
+              installedAt: null,
+              lastInspectionAt: null,
+              nextInspectionAt: null,
+              status: "active",
+            },
+          ],
+          leakageControls: [],
+          refrigerantHandlingLog: [],
+          scrappedEquipment: [],
+          notes: [],
+        },
+      })
+    )
+
+    expect(html).not.toContain("Rapportunderlag att kontrollera")
+    expect(html).not.toContain(
+      "Rapporten kan skapas, men följande uppgifter bör kontrolleras"
+    )
+    expect(html).toContain("Aggregatförteckning")
   })
 })
