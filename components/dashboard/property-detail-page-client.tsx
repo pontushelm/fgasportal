@@ -3,8 +3,9 @@
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useId, useState } from "react"
-import { Badge, buttonClassName, Card, EmptyState, PageHeader, SectionHeader } from "@/components/ui"
+import { Badge, buttonClassName, Card, EmptyState, PageHeader, SectionHeader, Toast, type ToastMessage } from "@/components/ui"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
+import type { UserRole } from "@/lib/auth"
 import type { InstallationRiskLevel } from "@/lib/risk-classification"
 
 type PropertyDetail = {
@@ -102,6 +103,23 @@ type PropertyDetail = {
   }>
 }
 
+type CurrentUser = {
+  userId: string
+  companyId: string
+  role: UserRole
+}
+
+type PropertyInfoFormData = {
+  name: string
+  propertyDesignation: string
+  municipality: string
+  city: string
+  address: string
+  postalCode: string
+  internalReference: string
+  description: string
+}
+
 const STATUS_LABELS: Record<ComplianceStatus, string> = {
   OK: "OK",
   DUE_SOON: "Inom 30 dagar",
@@ -117,13 +135,25 @@ const RISK_LABELS: Record<InstallationRiskLevel, string> = {
 }
 
 const installationPreviewLimit = 5
+const fieldClassName = "grid gap-1 text-sm font-medium text-slate-700"
+const inputClassName =
+  "rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400"
 
 export default function PropertyDetailPageClient() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const [data, setData] = useState<PropertyDetail | null>(null)
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
+  const [toast, setToast] = useState<ToastMessage | null>(null)
+  const [propertyForm, setPropertyForm] = useState<PropertyInfoFormData | null>(null)
+  const [editError, setEditError] = useState("")
+  const [isEditingProperty, setIsEditingProperty] = useState(false)
+  const [isSavingProperty, setIsSavingProperty] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [deleteError, setDeleteError] = useState("")
+  const [isDeletingProperty, setIsDeletingProperty] = useState(false)
   const [isInstallationListExpanded, setIsInstallationListExpanded] = useState(false)
 
   useEffect(() => {
@@ -133,16 +163,21 @@ export default function PropertyDetailPageClient() {
       setIsLoading(true)
       setError("")
 
-      const response = await fetch(`/api/properties/${params.id}/overview`, {
-        credentials: "include",
-      })
+      const [response, userResponse] = await Promise.all([
+        fetch(`/api/properties/${params.id}/overview`, {
+          credentials: "include",
+        }),
+        fetch("/api/auth/me", {
+          credentials: "include",
+        }),
+      ])
 
-      if (response.status === 401) {
+      if (response.status === 401 || userResponse.status === 401) {
         router.push("/login")
         return
       }
 
-      if (!response.ok) {
+      if (!response.ok || !userResponse.ok) {
         if (!isMounted) return
         setError(response.status === 404 ? "Fastigheten hittades inte" : "Kunde inte hämta fastigheten")
         setIsLoading(false)
@@ -150,9 +185,11 @@ export default function PropertyDetailPageClient() {
       }
 
       const propertyData: PropertyDetail = await response.json()
+      const userData: CurrentUser = await userResponse.json()
       if (!isMounted) return
 
       setData(propertyData)
+      setCurrentUser(userData)
       setIsLoading(false)
     }
 
@@ -168,6 +205,128 @@ export default function PropertyDetailPageClient() {
       ? data.installations
       : data.installations.slice(0, installationPreviewLimit)
     : []
+  const canEditProperty =
+    currentUser?.role === "OWNER" || currentUser?.role === "ADMIN"
+  const canDeleteProperty = currentUser?.role === "OWNER"
+
+  function startEditingProperty() {
+    if (!data) return
+    setPropertyForm(toPropertyInfoFormData(data.property))
+    setEditError("")
+    setIsEditingProperty(true)
+  }
+
+  function cancelEditingProperty() {
+    setPropertyForm(data ? toPropertyInfoFormData(data.property) : null)
+    setEditError("")
+    setIsEditingProperty(false)
+  }
+
+  function handlePropertyFormChange(
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) {
+    const { name, value } = event.target
+    setPropertyForm((current) =>
+      current
+        ? {
+            ...current,
+            [name]: value,
+          }
+        : current
+    )
+  }
+
+  async function handlePropertySubmit(event: React.FormEvent) {
+    event.preventDefault()
+    if (!propertyForm) return
+
+    setEditError("")
+    setIsSavingProperty(true)
+
+    const response = await fetch(`/api/properties/${params.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify(propertyForm),
+    })
+    const result: (PropertyDetail["property"] & { error?: string }) = await response.json()
+
+    if (response.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!response.ok) {
+      const message = result.error || "Kunde inte spara fastighetsinformationen."
+      setEditError(message)
+      setToast({
+        type: "error",
+        title: "Fel",
+        message,
+      })
+      setIsSavingProperty(false)
+      return
+    }
+
+    setData((current) =>
+      current
+        ? {
+            ...current,
+            property: {
+              ...current.property,
+              ...result,
+            },
+          }
+        : current
+    )
+    setPropertyForm(toPropertyInfoFormData(result))
+    setIsEditingProperty(false)
+    setIsSavingProperty(false)
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Fastighetsinformationen har sparats.",
+    })
+  }
+
+  async function handleDeleteProperty() {
+    setDeleteError("")
+    setIsDeletingProperty(true)
+
+    const response = await fetch(`/api/properties/${params.id}`, {
+      method: "DELETE",
+      credentials: "include",
+    })
+    const result: { error?: string } = await response.json()
+
+    if (response.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!response.ok) {
+      const message =
+        result.error ||
+        "Fastigheten kunde inte tas bort. Försök igen."
+      setDeleteError(message)
+      setToast({
+        type: "error",
+        title: "Fel",
+        message,
+      })
+      setIsDeletingProperty(false)
+      return
+    }
+
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Fastigheten har tagits bort.",
+    })
+    router.push("/dashboard/properties")
+  }
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
@@ -204,6 +363,7 @@ export default function PropertyDetailPageClient() {
 
       {isLoading && <p className="mt-8 text-sm text-slate-700">Laddar fastighet...</p>}
       {error && <p className="mt-8 font-semibold text-red-700">{error}</p>}
+      {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
 
       {data && !isLoading && (
         <>
@@ -389,15 +549,128 @@ export default function PropertyDetailPageClient() {
 
           <section className="mt-6 grid items-stretch gap-6 lg:grid-cols-2">
             <Card className="p-5">
-              <SectionHeader title="Fastighetsinformation" />
-              <dl className="mt-5 grid gap-3 text-sm">
-                <DetailItem label="Kommun" value={data.property.municipality} />
-                <DetailItem label="Ort" value={data.property.city} />
-                <DetailItem label="Adress" value={formatAddress(data.property)} />
-                <DetailItem label="Fastighetsbeteckning" value={data.property.propertyDesignation} />
-                <DetailItem label="Intern referens" value={data.property.internalReference} />
-                <DetailItem label="Kommentar" value={data.property.description} />
-              </dl>
+              <SectionHeader
+                actions={
+                  canEditProperty && !isEditingProperty ? (
+                    <button
+                      className={buttonClassName({ variant: "secondary" })}
+                      type="button"
+                      onClick={startEditingProperty}
+                    >
+                      Redigera
+                    </button>
+                  ) : null
+                }
+                title="Fastighetsinformation"
+              />
+              {isEditingProperty && propertyForm ? (
+                <form className="mt-5 grid gap-4 sm:grid-cols-2" onSubmit={handlePropertySubmit}>
+                  <label className={fieldClassName}>
+                    Namn
+                    <input
+                      className={inputClassName}
+                      name="name"
+                      value={propertyForm.name}
+                      onChange={handlePropertyFormChange}
+                      required
+                    />
+                  </label>
+                  <label className={fieldClassName}>
+                    Fastighetsbeteckning
+                    <input
+                      className={inputClassName}
+                      name="propertyDesignation"
+                      value={propertyForm.propertyDesignation}
+                      onChange={handlePropertyFormChange}
+                      required
+                    />
+                  </label>
+                  <label className={fieldClassName}>
+                    Kommun
+                    <input
+                      className={inputClassName}
+                      name="municipality"
+                      value={propertyForm.municipality}
+                      onChange={handlePropertyFormChange}
+                    />
+                  </label>
+                  <label className={fieldClassName}>
+                    Ort
+                    <input
+                      className={inputClassName}
+                      name="city"
+                      value={propertyForm.city}
+                      onChange={handlePropertyFormChange}
+                    />
+                  </label>
+                  <label className={fieldClassName}>
+                    Adress
+                    <input
+                      className={inputClassName}
+                      name="address"
+                      value={propertyForm.address}
+                      onChange={handlePropertyFormChange}
+                    />
+                  </label>
+                  <label className={fieldClassName}>
+                    Postnummer
+                    <input
+                      className={inputClassName}
+                      name="postalCode"
+                      value={propertyForm.postalCode}
+                      onChange={handlePropertyFormChange}
+                    />
+                  </label>
+                  <label className={`${fieldClassName} sm:col-span-2`}>
+                    Intern referens
+                    <input
+                      className={inputClassName}
+                      name="internalReference"
+                      value={propertyForm.internalReference}
+                      onChange={handlePropertyFormChange}
+                    />
+                  </label>
+                  <label className={`${fieldClassName} sm:col-span-2`}>
+                    Kommentar/beskrivning
+                    <textarea
+                      className={`${inputClassName} min-h-24`}
+                      name="description"
+                      value={propertyForm.description}
+                      onChange={handlePropertyFormChange}
+                    />
+                  </label>
+                  <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+                    <button
+                      className={buttonClassName({ variant: "primary" })}
+                      type="submit"
+                      disabled={isSavingProperty}
+                    >
+                      {isSavingProperty ? "Sparar..." : "Spara"}
+                    </button>
+                    <button
+                      className={buttonClassName({ variant: "secondary" })}
+                      type="button"
+                      disabled={isSavingProperty}
+                      onClick={cancelEditingProperty}
+                    >
+                      Avbryt
+                    </button>
+                    {editError && (
+                      <p className="text-sm font-semibold text-red-700">{editError}</p>
+                    )}
+                  </div>
+                </form>
+              ) : (
+                <dl className="mt-5 grid gap-3 text-sm">
+                  <DetailItem label="Namn" value={data.property.name} />
+                  <DetailItem label="Kommun" value={data.property.municipality} />
+                  <DetailItem label="Ort" value={data.property.city} />
+                  <DetailItem label="Adress" value={formatAddress(data.property)} />
+                  <DetailItem label="Fastighetsbeteckning" value={data.property.propertyDesignation} />
+                  <DetailItem label="Intern referens" value={data.property.internalReference} />
+                  <DetailItem label="Kommentar" value={data.property.description} />
+                </dl>
+              )}
             </Card>
 
             <Card className="p-5">
@@ -412,6 +685,27 @@ export default function PropertyDetailPageClient() {
               </div>
             </Card>
           </section>
+
+          {canDeleteProperty && (
+            <Card className="mt-6 border-red-200 bg-red-50/40 p-5">
+              <SectionHeader
+                title="Ta bort fastighet"
+                subtitle="Fastigheten kan bara tas bort om inga aggregat är kopplade till den."
+                actions={
+                  <button
+                    className="rounded-md border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
+                    type="button"
+                    onClick={() => {
+                      setDeleteError("")
+                      setIsDeleteModalOpen(true)
+                    }}
+                  >
+                    Ta bort fastighet
+                  </button>
+                }
+              />
+            </Card>
+          )}
 
           <section className="mt-6 grid gap-6 lg:grid-cols-3">
             <Card className="p-5">
@@ -550,6 +844,60 @@ export default function PropertyDetailPageClient() {
             )}
           </Card>
         </>
+      )}
+
+      {isDeleteModalOpen && data && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-950">
+                  Ta bort fastighet
+                </h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  Fastigheten tas bort permanent från registret. Om aggregat är
+                  kopplade till fastigheten behöver de flyttas eller tas bort först.
+                </p>
+              </div>
+              <button
+                aria-label="Stäng"
+                className="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                type="button"
+                disabled={isDeletingProperty}
+                onClick={() => setIsDeleteModalOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="mt-4 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-800">
+              Du tar bort <span className="font-semibold">{data.property.name}</span>.
+              Åtgärden kan inte ångras.
+            </div>
+            {deleteError && (
+              <p className="mt-3 text-sm font-semibold text-red-700">
+                {deleteError}
+              </p>
+            )}
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button
+                className={buttonClassName({ variant: "secondary" })}
+                type="button"
+                disabled={isDeletingProperty}
+                onClick={() => setIsDeleteModalOpen(false)}
+              >
+                Avbryt
+              </button>
+              <button
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:bg-slate-300"
+                type="button"
+                disabled={isDeletingProperty}
+                onClick={handleDeleteProperty}
+              >
+                {isDeletingProperty ? "Tar bort..." : "Ta bort fastighet"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   )
@@ -746,6 +1094,21 @@ function formatAddress(property: PropertyDetail["property"]) {
   return [property.address, property.postalCode, property.city]
     .filter(Boolean)
     .join(", ")
+}
+
+function toPropertyInfoFormData(
+  property: PropertyDetail["property"]
+): PropertyInfoFormData {
+  return {
+    name: property.name,
+    propertyDesignation: property.propertyDesignation ?? "",
+    municipality: property.municipality ?? "",
+    city: property.city ?? "",
+    address: property.address ?? "",
+    postalCode: property.postalCode ?? "",
+    internalReference: property.internalReference ?? "",
+    description: property.description ?? "",
+  }
 }
 
 function formatOptionalDate(value?: string | null) {
