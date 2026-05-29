@@ -338,6 +338,8 @@ model Property {
   city                String?
   municipality        String?
   propertyDesignation String?
+  internalReference   String?
+  description         String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

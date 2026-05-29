@@ -16,6 +16,8 @@ type PropertyDetail = {
     city: string | null
     municipality: string | null
     propertyDesignation: string | null
+    internalReference: string | null
+    description: string | null
   }
   summary: {
     installationsCount: number
@@ -393,6 +395,8 @@ export default function PropertyDetailPageClient() {
                 <DetailItem label="Ort" value={data.property.city} />
                 <DetailItem label="Adress" value={formatAddress(data.property)} />
                 <DetailItem label="Fastighetsbeteckning" value={data.property.propertyDesignation} />
+                <DetailItem label="Intern referens" value={data.property.internalReference} />
+                <DetailItem label="Kommentar" value={data.property.description} />
               </dl>
             </Card>
 

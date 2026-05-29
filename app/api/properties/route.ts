@@ -10,6 +10,8 @@ const propertySchema = z.object({
   city: optionalText(100),
   municipality: optionalText(100),
   propertyDesignation: optionalText(120),
+  internalReference: optionalText(120),
+  description: optionalText(500),
 })
 
 function optionalText(max: number) {

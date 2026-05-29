@@ -306,6 +306,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
           city: property.city,
           municipality: property.municipality,
           propertyDesignation: property.propertyDesignation,
+          internalReference: property.internalReference,
+          description: property.description,
         },
         summary: {
           installationsCount: installations.length,

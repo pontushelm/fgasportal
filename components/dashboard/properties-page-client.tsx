@@ -173,6 +173,16 @@ export default function PropertiesPageClient() {
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
       <PageHeader
+        actions={
+          canCreateProperties ? (
+            <Link
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+              href="/dashboard/properties/import"
+            >
+              Importera fastigheter
+            </Link>
+          ) : null
+        }
         title="Fastighetsöversikt"
         subtitle="Följ kontrollstatus, risk och klimatpåverkan per fastighet."
       />
