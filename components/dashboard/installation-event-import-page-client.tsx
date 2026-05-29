@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import * as XLSX from "xlsx"
 import {
   EVENT_IMPORT_FIELD_DEFINITIONS,
@@ -22,7 +22,6 @@ import {
 
 type WorksheetPreview = {
   name: string
-  rows: Record<string, unknown>[]
 }
 
 type PreviewResponse = {
@@ -86,6 +85,8 @@ const TEMPLATE_ROWS = [
   },
 ]
 
+const PREVIEW_ROW_LIMIT = 50
+
 export default function InstallationEventImportPageClient() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [fileInputKey, setFileInputKey] = useState(0)
@@ -102,6 +103,7 @@ export default function InstallationEventImportPageClient() {
   const [isParsing, setIsParsing] = useState(false)
   const [isPreviewing, setIsPreviewing] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
+  const workbookDataRef = useRef<ArrayBuffer | null>(null)
   const mappedFields = useMemo(
     () => Object.values(columnMapping).filter(Boolean) as EventImportFieldKey[],
     [columnMapping]
@@ -113,10 +115,26 @@ export default function InstallationEventImportPageClient() {
   )
   const hasBlockingMappingIssue =
     missingRequiredFields.length > 0 || duplicatedFields.length > 0
-  const importableRows = previewRows.filter((row) => row.status !== "blocked")
-  const warningRows = previewRows.filter((row) => row.status === "warning")
-  const blockedRows = previewRows.filter((row) => row.status === "blocked")
-  const visiblePreviewRows = filterEventImportPreviewRows(previewRows, previewFilter)
+  const importableRows = useMemo(
+    () => previewRows.filter((row) => row.status !== "blocked"),
+    [previewRows]
+  )
+  const warningRows = useMemo(
+    () => previewRows.filter((row) => row.status === "warning"),
+    [previewRows]
+  )
+  const blockedRows = useMemo(
+    () => previewRows.filter((row) => row.status === "blocked"),
+    [previewRows]
+  )
+  const filteredPreviewRows = useMemo(
+    () => filterEventImportPreviewRows(previewRows, previewFilter),
+    [previewRows, previewFilter]
+  )
+  const visiblePreviewRows = useMemo(
+    () => filteredPreviewRows.slice(0, PREVIEW_ROW_LIMIT),
+    [filteredPreviewRows]
+  )
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -132,17 +150,21 @@ export default function InstallationEventImportPageClient() {
     setImportSummary(null)
 
     try {
+      await yieldToBrowser()
+      startImportTimer("event-import:file-read")
       const data = await selectedFile.arrayBuffer()
-      const workbook = XLSX.read(data, {
+      endImportTimer("event-import:file-read")
+      workbookDataRef.current = data
+
+      startImportTimer("event-import:workbook-sheets")
+      const workbookInfo = XLSX.read(data, {
         type: "array",
-        cellDates: true,
+        bookSheets: true,
       })
-      const parsedWorksheets = workbook.SheetNames.map((name) => ({
-        name,
-        rows: readWorksheetRows(workbook.Sheets[name]),
-      }))
+      endImportTimer("event-import:workbook-sheets")
+      const parsedWorksheets = workbookInfo.SheetNames.map((name) => ({ name }))
       const firstWorksheet = parsedWorksheets[0]
-      const firstWorksheetRows = firstWorksheet?.rows ?? []
+      const firstWorksheetRows = await readSelectedWorksheetRows(firstWorksheet?.name ?? "")
       const firstWorksheetState = buildWorksheetState(firstWorksheetRows)
 
       setWorksheets(parsedWorksheets)
@@ -160,13 +182,28 @@ export default function InstallationEventImportPageClient() {
 
   async function handleWorksheetChange(event: React.ChangeEvent<HTMLSelectElement>) {
     const worksheetName = event.target.value
-    const worksheet = worksheets.find((item) => item.name === worksheetName)
-    const worksheetRows = worksheet?.rows ?? []
-    const worksheetState = buildWorksheetState(worksheetRows)
 
     setSelectedWorksheetName(worksheetName)
-    applyWorksheetRows(worksheetRows, worksheetState)
-    await submitRows("preview", worksheetRows, worksheetState.mapping)
+    setError("")
+    setIsParsing(true)
+
+    try {
+      const worksheetRows = await readSelectedWorksheetRows(worksheetName)
+      const worksheetState = buildWorksheetState(worksheetRows)
+
+      applyWorksheetRows(worksheetRows, worksheetState)
+      await submitRows("preview", worksheetRows, worksheetState.mapping)
+    } catch (err) {
+      console.error("Parse event import worksheet error:", err)
+      setRawRows([])
+      setDetectedColumns([])
+      setColumnMapping({})
+      setPreviewRows([])
+      setPreviewSummary(null)
+      setError("Kunde inte läsa arbetsbladet. Kontrollera filens innehåll.")
+    } finally {
+      setIsParsing(false)
+    }
   }
 
   function handleMappingChange(column: string, field: EventImportFieldKey | "") {
@@ -180,6 +217,25 @@ export default function InstallationEventImportPageClient() {
     setPreviewSummary(null)
     setImportSummary(null)
     void submitRows("preview", rawRows, nextMapping)
+  }
+
+  async function readSelectedWorksheetRows(worksheetName: string) {
+    if (!workbookDataRef.current || !worksheetName) return []
+
+    await yieldToBrowser()
+    startImportTimer("event-import:worksheet-parse")
+    const workbook = XLSX.read(workbookDataRef.current, {
+      type: "array",
+      cellDates: true,
+      sheetStubs: false,
+      sheets: worksheetName,
+    })
+    endImportTimer("event-import:worksheet-parse")
+    startImportTimer("event-import:rows-extraction")
+    const rows = readWorksheetRows(workbook.Sheets[worksheetName])
+    endImportTimer("event-import:rows-extraction")
+
+    return rows
   }
 
   async function handleImport() {
@@ -214,6 +270,7 @@ export default function InstallationEventImportPageClient() {
     if (mode === "preview") setIsPreviewing(true)
     if (mode === "import") setIsImporting(true)
 
+    startImportTimer(`event-import:${mode}-mapping-validation`)
     const response = await fetch("/api/installations/import-events", {
       method: "POST",
       headers: {
@@ -223,6 +280,7 @@ export default function InstallationEventImportPageClient() {
       body: JSON.stringify({ mode, rows }),
     })
     const result = await response.json()
+    endImportTimer(`event-import:${mode}-mapping-validation`)
 
     setIsPreviewing(false)
     setIsImporting(false)
@@ -298,6 +356,7 @@ export default function InstallationEventImportPageClient() {
     setPreviewSummary(null)
     setImportSummary(null)
     setError("")
+    workbookDataRef.current = null
   }
 
   function handleImportMore() {
@@ -535,6 +594,11 @@ export default function InstallationEventImportPageClient() {
             )}
           </div>
 
+          <p className="mt-4 text-xs text-slate-500">
+            Visar de första {Math.min(PREVIEW_ROW_LIMIT, filteredPreviewRows.length)} raderna
+            i aktuell vy. Totalt hittades {previewRows.length} rader. Importen använder alla importerbara rader inom importgränsen.
+          </p>
+
           <div className="mt-4 max-h-[55vh] overflow-auto rounded-lg border border-slate-200">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="sticky top-0 bg-slate-50">
@@ -639,7 +703,7 @@ export default function InstallationEventImportPageClient() {
 }
 
 function getDetectedColumns(rows: Record<string, unknown>[]) {
-  return Array.from(new Set(rows.flatMap((row) => Object.keys(row))))
+  return Object.keys(rows[0] ?? {})
 }
 
 function readWorksheetRows(worksheet: XLSX.WorkSheet | undefined) {
@@ -647,7 +711,46 @@ function readWorksheetRows(worksheet: XLSX.WorkSheet | undefined) {
 
   return XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
     defval: "",
+    raw: false,
+    range: getActualWorksheetRange(worksheet),
   })
+}
+
+function getActualWorksheetRange(worksheet: XLSX.WorkSheet) {
+  const cellAddresses = Object.keys(worksheet).filter(
+    (key) => key[0] !== "!" && worksheet[key]?.v !== undefined
+  )
+  if (cellAddresses.length === 0) return worksheet["!ref"]
+
+  let minRow = Number.POSITIVE_INFINITY
+  let maxRow = 0
+  let minColumn = Number.POSITIVE_INFINITY
+  let maxColumn = 0
+
+  for (const address of cellAddresses) {
+    const cell = XLSX.utils.decode_cell(address)
+    minRow = Math.min(minRow, cell.r)
+    maxRow = Math.max(maxRow, cell.r)
+    minColumn = Math.min(minColumn, cell.c)
+    maxColumn = Math.max(maxColumn, cell.c)
+  }
+
+  return XLSX.utils.encode_range({
+    s: { r: minRow, c: minColumn },
+    e: { r: maxRow, c: maxColumn },
+  })
+}
+
+function yieldToBrowser() {
+  return new Promise((resolve) => window.setTimeout(resolve, 0))
+}
+
+function startImportTimer(label: string) {
+  if (process.env.NODE_ENV !== "production") console.time(label)
+}
+
+function endImportTimer(label: string) {
+  if (process.env.NODE_ENV !== "production") console.timeEnd(label)
 }
 
 function formatEventType(type: EventImportPreviewRow["normalizedType"]) {

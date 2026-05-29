@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import * as XLSX from "xlsx"
 import {
   EVENT_HISTORY_IMPORT_MESSAGE,
@@ -38,7 +38,6 @@ type ImportInstallationsPageProps = {
 
 type WorksheetPreview = {
   name: string
-  rows: Record<string, unknown>[]
 }
 
 type PreviewImportRow = ParsedImportRow & {
@@ -104,6 +103,8 @@ const TEMPLATE_ROWS = [
   },
 ]
 
+const PREVIEW_ROW_LIMIT = 50
+
 export default function ImportInstallationsPage({
   embedded = false,
   onImported,
@@ -120,9 +121,23 @@ export default function ImportInstallationsPage({
   const [summary, setSummary] = useState<ImportSummary | null>(null)
   const [isParsing, setIsParsing] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
-  const validRows = rows.filter((row) => row.errors.length === 0)
-  const warningRows = validRows.filter((row) => row.warnings.length > 0)
-  const invalidRows = rows.filter((row) => row.errors.length > 0)
+  const workbookDataRef = useRef<ArrayBuffer | null>(null)
+  const validRows = useMemo(
+    () => rows.filter((row) => row.errors.length === 0),
+    [rows]
+  )
+  const warningRows = useMemo(
+    () => validRows.filter((row) => row.warnings.length > 0),
+    [validRows]
+  )
+  const invalidRows = useMemo(
+    () => rows.filter((row) => row.errors.length > 0),
+    [rows]
+  )
+  const previewRows = useMemo(
+    () => rows.slice(0, PREVIEW_ROW_LIMIT),
+    [rows]
+  )
   const mappedFields = useMemo(
     () => Object.values(columnMapping).filter(Boolean) as ImportFieldKey[],
     [columnMapping]
@@ -151,6 +166,7 @@ export default function ImportInstallationsPage({
     setProperties([])
     setError("")
     setSummary(null)
+    workbookDataRef.current = null
   }
 
   async function handlePreviewFile() {
@@ -161,27 +177,31 @@ export default function ImportInstallationsPage({
     setIsParsing(true)
 
     try {
+      await yieldToBrowser()
+      startImportTimer("installation-import:file-read")
       const data = await selectedFile.arrayBuffer()
-      const workbook = XLSX.read(data, {
+      endImportTimer("installation-import:file-read")
+      workbookDataRef.current = data
+
+      startImportTimer("installation-import:workbook-sheets")
+      const workbookInfo = XLSX.read(data, {
         type: "array",
-        cellDates: true,
+        bookSheets: true,
       })
+      endImportTimer("installation-import:workbook-sheets")
       const propertiesRes = await fetch("/api/properties", {
         credentials: "include",
       })
       const propertyData: ImportPropertyReference[] = propertiesRes.ok
         ? await propertiesRes.json()
         : []
-      const parsedWorksheets = workbook.SheetNames.map((name) => ({
-        name,
-        rows: readWorksheetRows(workbook.Sheets[name]),
-      }))
+      const parsedWorksheets = workbookInfo.SheetNames.map((name) => ({ name }))
       const firstWorksheet = parsedWorksheets[0]
 
       setProperties(propertyData)
       setWorksheets(parsedWorksheets)
       setSelectedWorksheetName(firstWorksheet?.name ?? "")
-      applyWorksheetPreview(firstWorksheet?.rows ?? [], propertyData)
+      await applyWorksheetPreview(firstWorksheet?.name ?? "", propertyData)
     } catch (err) {
       console.error("Parse import file error:", err)
       setWorksheets([])
@@ -191,25 +211,62 @@ export default function ImportInstallationsPage({
       setColumnMapping({})
       setRows([])
       setProperties([])
+      workbookDataRef.current = null
       setError("Kunde inte läsa filen. Kontrollera att den är en giltig .xlsx eller .csv.")
     } finally {
       setIsParsing(false)
     }
   }
 
-  function handleWorksheetChange(event: React.ChangeEvent<HTMLSelectElement>) {
+  async function handleWorksheetChange(event: React.ChangeEvent<HTMLSelectElement>) {
     const worksheetName = event.target.value
-    const worksheet = worksheets.find((item) => item.name === worksheetName)
 
     setSelectedWorksheetName(worksheetName)
-    applyWorksheetPreview(worksheet?.rows ?? [], properties)
+    setError("")
+    setSummary(null)
+    setIsParsing(true)
+
+    try {
+      await applyWorksheetPreview(worksheetName, properties)
+    } catch (err) {
+      console.error("Parse import worksheet error:", err)
+      setRawRows([])
+      setDetectedColumns([])
+      setColumnMapping({})
+      setRows([])
+      setError("Kunde inte läsa arbetsbladet. Kontrollera filens innehåll.")
+    } finally {
+      setIsParsing(false)
+    }
   }
 
-  function applyWorksheetPreview(
-    worksheetRows: Record<string, unknown>[],
+  async function applyWorksheetPreview(
+    worksheetName: string,
     propertyOptions: ImportPropertyReference[]
   ) {
+    if (!workbookDataRef.current || !worksheetName) {
+      setRawRows([])
+      setDetectedColumns([])
+      setColumnMapping({})
+      setRows([])
+      return
+    }
+
+    await yieldToBrowser()
+    startImportTimer("installation-import:worksheet-parse")
+    const workbook = XLSX.read(workbookDataRef.current, {
+      type: "array",
+      cellDates: true,
+      sheetStubs: false,
+      sheets: worksheetName,
+    })
+    endImportTimer("installation-import:worksheet-parse")
+    startImportTimer("installation-import:rows-extraction")
+    const worksheetRows = readWorksheetRows(workbook.Sheets[worksheetName])
+    endImportTimer("installation-import:rows-extraction")
+    startImportTimer("installation-import:mapping-validation")
     const preview = applyWorksheetPreviewRows(worksheetRows, propertyOptions)
+    endImportTimer("installation-import:mapping-validation")
 
     setRawRows(worksheetRows)
     setDetectedColumns(preview.columns)
@@ -535,6 +592,11 @@ export default function ImportInstallationsPage({
             </div>
           )}
 
+          <p className="mt-4 text-xs text-slate-500">
+            Visar de första {Math.min(PREVIEW_ROW_LIMIT, rows.length)} raderna.
+            Totalt hittades {rows.length} rader. Importen använder alla giltiga rader inom importgränsen.
+          </p>
+
           <div className="mt-4 max-h-[50vh] overflow-auto rounded-lg border border-slate-200">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="sticky top-0 bg-slate-50">
@@ -554,7 +616,7 @@ export default function ImportInstallationsPage({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
-                {rows.map((row) => (
+                {previewRows.map((row) => (
                   <tr key={row.row}>
                     <td className={tableCellClassName}>{row.row}</td>
                     <td className={tableCellClassName}>{row.equipmentId || "-"}</td>
@@ -680,7 +742,7 @@ function formatPropertyMatchStatus(row: PreviewImportRow) {
 }
 
 function getDetectedColumns(rows: Record<string, unknown>[]) {
-  return Array.from(new Set(rows.flatMap((row) => Object.keys(row))))
+  return Object.keys(rows[0] ?? {})
 }
 
 function readWorksheetRows(worksheet: XLSX.WorkSheet | undefined) {
@@ -688,7 +750,46 @@ function readWorksheetRows(worksheet: XLSX.WorkSheet | undefined) {
 
   return XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
     defval: "",
+    raw: false,
+    range: getActualWorksheetRange(worksheet),
   })
+}
+
+function getActualWorksheetRange(worksheet: XLSX.WorkSheet) {
+  const cellAddresses = Object.keys(worksheet).filter(
+    (key) => key[0] !== "!" && worksheet[key]?.v !== undefined
+  )
+  if (cellAddresses.length === 0) return worksheet["!ref"]
+
+  let minRow = Number.POSITIVE_INFINITY
+  let maxRow = 0
+  let minColumn = Number.POSITIVE_INFINITY
+  let maxColumn = 0
+
+  for (const address of cellAddresses) {
+    const cell = XLSX.utils.decode_cell(address)
+    minRow = Math.min(minRow, cell.r)
+    maxRow = Math.max(maxRow, cell.r)
+    minColumn = Math.min(minColumn, cell.c)
+    maxColumn = Math.max(maxColumn, cell.c)
+  }
+
+  return XLSX.utils.encode_range({
+    s: { r: minRow, c: minColumn },
+    e: { r: maxRow, c: maxColumn },
+  })
+}
+
+function yieldToBrowser() {
+  return new Promise((resolve) => window.setTimeout(resolve, 0))
+}
+
+function startImportTimer(label: string) {
+  if (process.env.NODE_ENV !== "production") console.time(label)
+}
+
+function endImportTimer(label: string) {
+  if (process.env.NODE_ENV !== "production") console.timeEnd(label)
 }
 
 const tableHeaderClassName =
