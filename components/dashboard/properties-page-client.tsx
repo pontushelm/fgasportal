@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Badge, Button, Card, EmptyState, PageHeader, Toast, type ToastMessage } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
 import { isAdminRole } from "@/lib/roles"
@@ -42,6 +42,16 @@ type PropertyFormData = {
   municipality: string
 }
 
+type SortDirection = "asc" | "desc"
+type PropertySortKey =
+  | "name"
+  | "designation"
+  | "municipality"
+  | "city"
+  | "installations"
+  | "co2e"
+  | "status"
+
 const initialPropertyFormData: PropertyFormData = {
   name: "",
   propertyDesignation: "",
@@ -67,6 +77,14 @@ export default function PropertiesPageClient() {
   const [error, setError] = useState("")
   const [createError, setCreateError] = useState("")
   const [toast, setToast] = useState<ToastMessage | null>(null)
+  const [sort, setSort] = useState<{
+    key: PropertySortKey | ""
+    direction: SortDirection | ""
+  }>({ key: "", direction: "" })
+  const sortedProperties = useMemo(
+    () => sortProperties(properties, sort.key, sort.direction),
+    [properties, sort.direction, sort.key]
+  )
 
   useEffect(() => {
     let isMounted = true
@@ -113,6 +131,18 @@ export default function PropertiesPageClient() {
   }, [router])
 
   const canCreateProperties = isAdminRole(currentUser?.role)
+
+  function updateSort(sortKey: PropertySortKey) {
+    setSort((current) => {
+      if (current.key !== sortKey || !current.direction) {
+        return { key: sortKey, direction: "asc" }
+      }
+      if (current.direction === "asc") {
+        return { key: sortKey, direction: "desc" }
+      }
+      return { key: "", direction: "" }
+    })
+  }
 
   function handlePropertyChange(event: React.ChangeEvent<HTMLInputElement>) {
     setPropertyForm({
@@ -295,16 +325,51 @@ export default function PropertiesPageClient() {
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50">
                 <tr>
-                  <TableHeader>Fastighet</TableHeader>
-                  <TableHeader>Kommun</TableHeader>
-                  <TableHeader>Antal aggregat</TableHeader>
+                  <TableHeader
+                    activeSortKey={sort.key}
+                    direction={sort.direction}
+                    onSort={updateSort}
+                    sortKey="name"
+                  >
+                    Fastighet
+                  </TableHeader>
+                  <TableHeader
+                    activeSortKey={sort.key}
+                    direction={sort.direction}
+                    onSort={updateSort}
+                    sortKey="municipality"
+                  >
+                    Kommun
+                  </TableHeader>
+                  <TableHeader
+                    activeSortKey={sort.key}
+                    direction={sort.direction}
+                    onSort={updateSort}
+                    sortKey="installations"
+                  >
+                    Antal aggregat
+                  </TableHeader>
                   <TableHeader>Försenade kontroller</TableHeader>
-                  <TableHeader>Total CO₂e</TableHeader>
-                  <TableHeader>Risk</TableHeader>
+                  <TableHeader
+                    activeSortKey={sort.key}
+                    direction={sort.direction}
+                    onSort={updateSort}
+                    sortKey="co2e"
+                  >
+                    Total CO₂e
+                  </TableHeader>
+                  <TableHeader
+                    activeSortKey={sort.key}
+                    direction={sort.direction}
+                    onSort={updateSort}
+                    sortKey="status"
+                  >
+                    Risk
+                  </TableHeader>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
-                {properties.map((property) => (
+                {sortedProperties.map((property) => (
                   <tr className="hover:bg-slate-50" key={property.id}>
                     <TableCell>
                       <Link
@@ -378,10 +443,39 @@ function RiskCount({ count, total }: { count: number; total: number }) {
   return <Badge variant="warning">{count} av {total} hög risk</Badge>
 }
 
-function TableHeader({ children }: { children: React.ReactNode }) {
+function TableHeader({
+  activeSortKey,
+  children,
+  direction,
+  onSort,
+  sortKey,
+}: {
+  activeSortKey?: PropertySortKey | ""
+  children: React.ReactNode
+  direction?: SortDirection | ""
+  onSort?: (sortKey: PropertySortKey) => void
+  sortKey?: PropertySortKey
+}) {
+  const isActive = Boolean(sortKey && activeSortKey === sortKey)
+
   return (
     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-      {children}
+      {sortKey && onSort ? (
+        <button
+          className="inline-flex items-center gap-1 rounded-sm text-left hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-100"
+          type="button"
+          onClick={() => onSort(sortKey)}
+        >
+          <span>{children}</span>
+          {isActive && direction && (
+            <span aria-hidden="true" className="text-slate-900">
+              {direction === "asc" ? "↑" : "↓"}
+            </span>
+          )}
+        </button>
+      ) : (
+        children
+      )}
     </th>
   )
 }
@@ -394,4 +488,49 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("sv-SE", {
     maximumFractionDigits: 2,
   }).format(value)
+}
+
+function sortProperties(
+  properties: PropertySummary[],
+  sortKey: PropertySortKey | "",
+  direction: SortDirection | ""
+) {
+  if (!sortKey || !direction) return properties
+
+  const multiplier = direction === "asc" ? 1 : -1
+
+  return [...properties].sort((first, second) => {
+    const firstValue = getPropertySortValue(first, sortKey)
+    const secondValue = getPropertySortValue(second, sortKey)
+
+    if (typeof firstValue === "number" && typeof secondValue === "number") {
+      return (firstValue - secondValue) * multiplier
+    }
+
+    return (
+      String(firstValue).localeCompare(String(secondValue), "sv", {
+        numeric: true,
+        sensitivity: "base",
+      }) * multiplier
+    )
+  })
+}
+
+function getPropertySortValue(property: PropertySummary, sortKey: PropertySortKey) {
+  switch (sortKey) {
+    case "name":
+      return property.name
+    case "designation":
+      return property.name
+    case "municipality":
+      return property.municipality || ""
+    case "city":
+      return property.city || ""
+    case "installations":
+      return property.installationsCount
+    case "co2e":
+      return property.totalCo2eTon
+    case "status":
+      return property.highRiskInstallations * 1000 + property.overdueInspections
+  }
 }

@@ -85,6 +85,15 @@ type ReportData = {
   }
 }
 type AnnualReportOverview = NonNullable<ReportData["annualReportOverview"]>
+type AnnualOverviewProperty = AnnualReportOverview["properties"][number]
+type SortDirection = "asc" | "desc"
+type AnnualOverviewSortKey =
+  | "property"
+  | "municipality"
+  | "co2e"
+  | "requirement"
+  | "signing"
+  | "status"
 
 type PropertyOption = {
   id: string
@@ -804,6 +813,31 @@ function AnnualReportPropertyOverview({
   overview: NonNullable<ReportData["annualReportOverview"]>
   selectedPropertyId: string
 }) {
+  const [sort, setSort] = useState<{
+    key: AnnualOverviewSortKey | ""
+    direction: SortDirection | ""
+  }>({ key: "", direction: "" })
+  const [showAllRows, setShowAllRows] = useState(false)
+  const sortedProperties = useMemo(
+    () => sortAnnualOverviewProperties(overview.properties, sort.key, sort.direction),
+    [overview.properties, sort.direction, sort.key]
+  )
+  const visibleProperties = showAllRows
+    ? sortedProperties
+    : sortedProperties.slice(0, 5)
+
+  function updateSort(sortKey: AnnualOverviewSortKey) {
+    setSort((current) => {
+      if (current.key !== sortKey || !current.direction) {
+        return { key: sortKey, direction: "asc" }
+      }
+      if (current.direction === "asc") {
+        return { key: sortKey, direction: "desc" }
+      }
+      return { key: "", direction: "" }
+    })
+  }
+
   if (overview.properties.length === 0) {
     return (
       <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
@@ -835,16 +869,58 @@ function AnnualReportPropertyOverview({
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50">
             <tr>
-              <TableHeader>Fastighet</TableHeader>
-              <TableHeader>Kommun</TableHeader>
-              <TableHeader>Installerad CO₂e</TableHeader>
-              <TableHeader>Årsrapport</TableHeader>
-              <TableHeader>Signering</TableHeader>
-              <TableHeader>Status</TableHeader>
+              <SortableReportTableHeader
+                activeSortKey={sort.key}
+                direction={sort.direction}
+                onSort={updateSort}
+                sortKey="property"
+              >
+                Fastighet
+              </SortableReportTableHeader>
+              <SortableReportTableHeader
+                activeSortKey={sort.key}
+                direction={sort.direction}
+                onSort={updateSort}
+                sortKey="municipality"
+              >
+                Kommun
+              </SortableReportTableHeader>
+              <SortableReportTableHeader
+                activeSortKey={sort.key}
+                direction={sort.direction}
+                onSort={updateSort}
+                sortKey="co2e"
+              >
+                Installerad CO₂e
+              </SortableReportTableHeader>
+              <SortableReportTableHeader
+                activeSortKey={sort.key}
+                direction={sort.direction}
+                onSort={updateSort}
+                sortKey="requirement"
+              >
+                Årsrapport
+              </SortableReportTableHeader>
+              <SortableReportTableHeader
+                activeSortKey={sort.key}
+                direction={sort.direction}
+                onSort={updateSort}
+                sortKey="signing"
+              >
+                Signering
+              </SortableReportTableHeader>
+              <SortableReportTableHeader
+                activeSortKey={sort.key}
+                direction={sort.direction}
+                onSort={updateSort}
+                sortKey="status"
+              >
+                Status
+              </SortableReportTableHeader>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
-            {overview.properties.map((property) => (
+            {visibleProperties.map((property) => (
               <tr
                 className={property.id === selectedPropertyId ? "bg-blue-50/60" : undefined}
                 key={property.id}
@@ -889,6 +965,20 @@ function AnnualReportPropertyOverview({
           </tbody>
         </table>
       </div>
+      {sortedProperties.length > 5 && (
+        <div className="mt-3 flex flex-col gap-2 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+          <span>
+            Visar {visibleProperties.length} av {sortedProperties.length} fastigheter.
+          </span>
+          <button
+            className="self-start rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+            type="button"
+            onClick={() => setShowAllRows((current) => !current)}
+          >
+            {showAllRows ? "Visa färre" : "Visa fler"}
+          </button>
+        </div>
+      )}
     </section>
   )
 }
@@ -906,6 +996,94 @@ function AnnualRequirementBadge({
   }
 
   return <Badge variant="neutral">Krävs inte</Badge>
+}
+
+function SortableReportTableHeader({
+  activeSortKey,
+  children,
+  direction,
+  onSort,
+  sortKey,
+}: {
+  activeSortKey: AnnualOverviewSortKey | ""
+  children: React.ReactNode
+  direction: SortDirection | ""
+  onSort: (sortKey: AnnualOverviewSortKey) => void
+  sortKey: AnnualOverviewSortKey
+}) {
+  const isActive = activeSortKey === sortKey
+
+  return (
+    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
+      <button
+        className="inline-flex items-center gap-1 rounded-sm text-left hover:text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-100"
+        type="button"
+        onClick={() => onSort(sortKey)}
+      >
+        <span>{children}</span>
+        {isActive && direction && (
+          <span aria-hidden="true" className="text-neutral-900">
+            {direction === "asc" ? "↑" : "↓"}
+          </span>
+        )}
+      </button>
+    </th>
+  )
+}
+
+function sortAnnualOverviewProperties(
+  properties: AnnualOverviewProperty[],
+  sortKey: AnnualOverviewSortKey | "",
+  direction: SortDirection | ""
+) {
+  if (!sortKey || !direction) return properties
+
+  const multiplier = direction === "asc" ? 1 : -1
+
+  return [...properties].sort((first, second) => {
+    const firstValue = getAnnualOverviewSortValue(first, sortKey)
+    const secondValue = getAnnualOverviewSortValue(second, sortKey)
+
+    if (typeof firstValue === "number" && typeof secondValue === "number") {
+      return (firstValue - secondValue) * multiplier
+    }
+
+    return (
+      String(firstValue).localeCompare(String(secondValue), "sv", {
+        numeric: true,
+        sensitivity: "base",
+      }) * multiplier
+    )
+  })
+}
+
+function getAnnualOverviewSortValue(
+  property: AnnualOverviewProperty,
+  sortKey: AnnualOverviewSortKey
+) {
+  switch (sortKey) {
+    case "property":
+      return property.name
+    case "municipality":
+      return property.municipality || ""
+    case "co2e":
+      return property.installedCo2eTon
+    case "requirement":
+      return annualRequirementSortRank[property.annualReportRequirement]
+    case "signing":
+      return property.signedStatus === "SIGNED" ? 1 : 0
+    case "status":
+      return property.blockingIssueCount * 1000 + property.reviewWarningCount
+  }
+}
+
+const annualRequirementSortRank: Record<
+  AnnualOverviewProperty["annualReportRequirement"],
+  number
+> = {
+  NOT_REQUIRED: 0,
+  UNCERTAIN: 1,
+  REQUIRED: 2,
 }
 
 function ReportQualityPanel({ reportData }: { reportData: ReportData }) {
