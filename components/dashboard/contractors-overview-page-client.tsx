@@ -9,6 +9,8 @@ import {
   Card,
   PageHeader,
   SectionHeader,
+  Toast,
+  type ToastMessage,
 } from "@/components/ui"
 import type { CertificationStatusResult } from "@/lib/certification-status"
 
@@ -82,9 +84,7 @@ type ServicePartnerCompanyMetrics = {
   contractorIds: string[]
 }
 
-type ServicePartnerFeedback = {
-  type: "success" | "error" | "info"
-  message: string
+type ServicePartnerFeedback = ToastMessage & {
   inviteLink?: string | null
 }
 
@@ -107,7 +107,6 @@ export default function ContractorsOverviewPageClient() {
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null)
   const [isSavingCompany, setIsSavingCompany] = useState(false)
   const [feedback, setFeedback] = useState<ServicePartnerFeedback | null>(null)
-  const [isFeedbackExiting, setIsFeedbackExiting] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -153,27 +152,6 @@ export default function ContractorsOverviewPageClient() {
     }
   }, [router])
 
-  useEffect(() => {
-    if (!feedback || feedback.inviteLink) return
-
-    const fadeTimeoutId = window.setTimeout(() => {
-      setIsFeedbackExiting(true)
-    }, 4600)
-
-    return () => window.clearTimeout(fadeTimeoutId)
-  }, [feedback])
-
-  useEffect(() => {
-    if (!feedback || !isFeedbackExiting) return
-
-    const removeTimeoutId = window.setTimeout(() => {
-      setFeedback(null)
-      setIsFeedbackExiting(false)
-    }, 250)
-
-    return () => window.clearTimeout(removeTimeoutId)
-  }, [feedback, isFeedbackExiting])
-
   async function refreshOverview() {
     const response = await fetch("/api/contractors/overview", {
       credentials: "include",
@@ -210,12 +188,11 @@ export default function ContractorsOverviewPageClient() {
   }
 
   function showFeedback(nextFeedback: ServicePartnerFeedback) {
-    setIsFeedbackExiting(false)
     setFeedback(nextFeedback)
   }
 
   function dismissFeedback() {
-    setIsFeedbackExiting(true)
+    setFeedback(null)
   }
 
   async function handleCompanySubmit(event: React.FormEvent) {
@@ -260,6 +237,7 @@ export default function ContractorsOverviewPageClient() {
     if (!response.ok) {
       showFeedback({
         type: "error",
+        title: "Fel",
         message: result.error || "Kunde inte lägga till servicepartner.",
       })
       setIsSavingCompany(false)
@@ -269,6 +247,7 @@ export default function ContractorsOverviewPageClient() {
     const inviteLink = result.responsibleInvitation?.inviteLink ?? null
     showFeedback({
       type: inviteLink ? "info" : "success",
+      title: inviteLink ? "Inbjudningslänk skapad" : "Klart",
       message: editingCompanyId
         ? "Servicepartnern har uppdaterats."
         : inviteLink
@@ -298,12 +277,32 @@ export default function ContractorsOverviewPageClient() {
       )}
       {error && <p className="mt-8 text-sm font-semibold text-red-700">{error}</p>}
       {feedback && (
-          <ServicePartnerFeedbackToast
-            feedback={feedback}
-            isExiting={isFeedbackExiting}
-            onDismiss={dismissFeedback}
-          />
-        )}
+        <Toast
+          autoDismissMs={feedback.inviteLink ? 0 : undefined}
+          onClose={dismissFeedback}
+          toast={feedback}
+        >
+          {feedback.inviteLink && (
+            <div className="mt-3 rounded-md bg-slate-50 p-2 dark:bg-slate-900">
+              <p className="mb-2 text-xs text-slate-600 dark:text-slate-400">
+                Kopiera inbjudningslänken och skicka den manuellt.
+              </p>
+              <code className="block break-all text-xs text-slate-900 dark:text-slate-100">
+                {feedback.inviteLink}
+              </code>
+              <div className="mt-2 flex justify-end">
+                <button
+                  className={buttonClassName({ variant: "secondary" })}
+                  type="button"
+                  onClick={() => void navigator.clipboard.writeText(feedback.inviteLink || "")}
+                >
+                  Kopiera länk
+                </button>
+              </div>
+            </div>
+          )}
+        </Toast>
+      )}
 
       {!isLoading && !error && data && (
         <>
@@ -811,89 +810,6 @@ function MetricCard({
         {formatNumber(value)}
       </p>
     </Card>
-  )
-}
-
-function ServicePartnerFeedbackToast({
-  feedback,
-  isExiting,
-  onDismiss,
-}: {
-  feedback: ServicePartnerFeedback
-  isExiting: boolean
-  onDismiss: () => void
-}) {
-  const toneClassNames = {
-    error: {
-      border: "border-red-200 dark:border-red-900/60",
-      heading: "text-red-900 dark:text-red-100",
-      title: "Kunde inte lägga till servicepartner",
-    },
-    info: {
-      border: "border-blue-200 dark:border-blue-900/60",
-      heading: "text-blue-950 dark:text-blue-100",
-      title: "Inbjudningslänk skapad",
-    },
-    success: {
-      border: "border-emerald-200 dark:border-emerald-900/60",
-      heading: "text-emerald-900 dark:text-emerald-100",
-      title: "Klart",
-    },
-  }[feedback.type]
-
-  async function copyInviteLink() {
-    if (!feedback.inviteLink) return
-    await navigator.clipboard.writeText(feedback.inviteLink)
-  }
-
-  return (
-    <div
-      className={`fixed bottom-4 right-4 z-50 w-[calc(100%-2rem)] max-w-md rounded-lg border bg-white p-4 text-sm shadow-xl transition-all duration-200 ease-out dark:bg-slate-950 sm:bottom-6 sm:right-6 ${toneClassNames.border} ${
-        isExiting ? "translate-y-2 opacity-0" : "translate-y-0 opacity-100"
-      }`}
-      role={feedback.type === "error" ? "alert" : "status"}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className={`font-semibold ${toneClassNames.heading}`}>
-            {toneClassNames.title}
-          </p>
-          <p className="mt-1 text-slate-700 dark:text-slate-300">
-            {feedback.message}
-          </p>
-          {feedback.inviteLink && (
-            <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
-              Kopiera inbjudningslänken och skicka den manuellt.
-            </p>
-          )}
-        </div>
-        <button
-          className="rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-900 dark:hover:text-slate-100"
-          type="button"
-          onClick={onDismiss}
-        >
-          Stäng
-        </button>
-      </div>
-      {feedback.inviteLink && (
-        <div className="mt-3 rounded-md bg-slate-50 p-2 dark:bg-slate-900">
-          <code className="block break-all text-xs text-slate-900 dark:text-slate-100">
-            {feedback.inviteLink}
-          </code>
-          <div className="mt-2 flex justify-end">
-            {feedback.inviteLink && (
-              <button
-                className={buttonClassName({ variant: "secondary" })}
-                type="button"
-                onClick={() => void copyInviteLink()}
-              >
-                Kopiera länk
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
   )
 }
 

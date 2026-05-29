@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { Badge } from "@/components/ui"
+import { Badge, Toast, type ToastMessage } from "@/components/ui"
 import type { CertificationStatusResult } from "@/lib/certification-status"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 import {
@@ -125,9 +125,8 @@ export default function ServiceDashboardPage() {
   const [assignmentFilter, setAssignmentFilter] =
     useState<"all" | "unassigned" | "assigned">("all")
   const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
   const [certificationError, setCertificationError] = useState("")
-  const [certificationSuccess, setCertificationSuccess] = useState("")
+  const [toast, setToast] = useState<ToastMessage | null>(null)
 
   useEffect(() => {
     let isMounted = true
@@ -201,7 +200,6 @@ export default function ServiceDashboardPage() {
 
   function startEvent(installationId: string, type: ServiceEventType) {
     setError("")
-    setSuccess("")
     setEventForm({
       installationId,
       type,
@@ -258,7 +256,6 @@ export default function ServiceDashboardPage() {
     if (!currentUser) return
 
     setCertificationError("")
-    setCertificationSuccess("")
     setIsSavingCertification(true)
 
     const response = await fetch(
@@ -281,20 +278,28 @@ export default function ServiceDashboardPage() {
 
     if (!response.ok) {
       setCertificationError(result.error || "Kunde inte spara certifieringen.")
+      setToast({
+        type: "error",
+        title: "Fel",
+        message: result.error || "Kunde inte spara certifieringen.",
+      })
       setIsSavingCertification(false)
       return
     }
 
     setCertification(result)
     setCertificationForm(toCertificationForm(result))
-    setCertificationSuccess("Certifieringen har sparats.")
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Certifieringen har sparats.",
+    })
     setIsSavingCertification(false)
   }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setError("")
-    setSuccess("")
 
     if (!eventForm.installationId) {
       setError("Välj ett aggregat först.")
@@ -330,18 +335,26 @@ export default function ServiceDashboardPage() {
 
     if (!response.ok) {
       setError(result.error || "Kunde inte registrera händelsen.")
+      setToast({
+        type: "error",
+        title: "Fel",
+        message: result.error || "Kunde inte registrera händelsen.",
+      })
       setIsSubmitting(false)
       return
     }
 
-    setSuccess("Händelsen har registrerats.")
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Händelsen har registrerats.",
+    })
     setEventForm(initialEventForm)
     setIsSubmitting(false)
   }
 
   async function assignTechnician(installationId: string, technicianId: string) {
     setError("")
-    setSuccess("")
     setAssigningInstallationId(installationId)
 
     const response = await fetch("/api/dashboard/service/assign-technician", {
@@ -369,6 +382,11 @@ export default function ServiceDashboardPage() {
 
     if (!response.ok || !result.installationId) {
       setError(result.error || "Kunde inte tilldela tekniker.")
+      setToast({
+        type: "error",
+        title: "Fel",
+        message: result.error || "Kunde inte tilldela tekniker.",
+      })
       setAssigningInstallationId("")
       return
     }
@@ -384,11 +402,13 @@ export default function ServiceDashboardPage() {
           : installation
       )
     )
-    setSuccess(
-      result.assignedContractor
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: result.assignedContractor
         ? "Teknikern har tilldelats aggregatet."
-        : "Teknikertilldelningen har tagits bort."
-    )
+        : "Teknikertilldelningen har tagits bort.",
+    })
     setAssigningInstallationId("")
   }
 
@@ -424,7 +444,7 @@ export default function ServiceDashboardPage() {
 
       {isLoading && <p className="mt-8 text-slate-700">Laddar serviceuppdrag...</p>}
       {error && <p className="mt-8 text-sm font-semibold text-red-700">{error}</p>}
-      {success && <p className="mt-8 text-sm font-semibold text-green-700">{success}</p>}
+      {toast && <Toast onClose={() => setToast(null)} toast={toast} />}
 
       {showCompanyCertificationPanel && !isLoading && !error && certification && !isServicePartnerAdmin && (
         <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5">
@@ -487,9 +507,6 @@ export default function ServiceDashboardPage() {
             <div className="flex flex-col gap-2 sm:justify-end">
               {certificationError && (
                 <p className="text-sm font-semibold text-red-700">{certificationError}</p>
-              )}
-              {certificationSuccess && (
-                <p className="text-sm font-semibold text-green-700">{certificationSuccess}</p>
               )}
               <button type="submit" disabled={isSavingCertification}>
                 {isSavingCertification ? "Sparar..." : "Spara certifiering"}

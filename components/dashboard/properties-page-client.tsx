@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { Badge, Button, Card, EmptyState, PageHeader } from "@/components/ui"
+import { Badge, Button, Card, EmptyState, PageHeader, Toast, type ToastMessage } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
 import { isAdminRole } from "@/lib/roles"
 
@@ -66,7 +66,7 @@ export default function PropertiesPageClient() {
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState("")
   const [createError, setCreateError] = useState("")
-  const [createSuccess, setCreateSuccess] = useState("")
+  const [toast, setToast] = useState<ToastMessage | null>(null)
 
   useEffect(() => {
     let isMounted = true
@@ -124,7 +124,6 @@ export default function PropertiesPageClient() {
   async function handlePropertySubmit(event: React.FormEvent) {
     event.preventDefault()
     setCreateError("")
-    setCreateSuccess("")
     setIsCreating(true)
 
     const response = await fetch("/api/properties", {
@@ -144,6 +143,11 @@ export default function PropertiesPageClient() {
 
     if (!response.ok) {
       setCreateError(result.error || "Kunde inte skapa fastigheten")
+      setToast({
+        type: "error",
+        title: "Fel",
+        message: result.error || "Kunde inte skapa fastigheten.",
+      })
       setIsCreating(false)
       return
     }
@@ -159,6 +163,11 @@ export default function PropertiesPageClient() {
 
     if (!overviewResponse.ok) {
       setCreateError("Fastigheten skapades, men listan kunde inte uppdateras")
+      setToast({
+        type: "warning",
+        title: "Varning",
+        message: "Fastigheten skapades, men listan kunde inte uppdateras.",
+      })
       setIsCreating(false)
       return
     }
@@ -166,7 +175,11 @@ export default function PropertiesPageClient() {
     const overviewData: PropertySummary[] = await overviewResponse.json()
     setProperties(overviewData)
     setPropertyForm(initialPropertyFormData)
-    setCreateSuccess("Fastigheten har lagts till")
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Fastigheten har lagts till.",
+    })
     setIsCreating(false)
   }
 
@@ -263,7 +276,6 @@ export default function PropertiesPageClient() {
                 {isCreating ? "Sparar..." : "Lägg till fastighet"}
               </Button>
               {createError && <p className="text-sm font-semibold text-red-700">{createError}</p>}
-              {createSuccess && <p className="text-sm font-semibold text-green-700">{createSuccess}</p>}
             </div>
           </form>
         </Card>
@@ -332,6 +344,7 @@ export default function PropertiesPageClient() {
           </div>
         </Card>
       )}
+      {toast && <Toast onClose={() => setToast(null)} toast={toast} />}
     </main>
   )
 }

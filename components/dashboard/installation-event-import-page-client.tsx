@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useMemo, useRef, useState } from "react"
 import * as XLSX from "xlsx"
+import { Toast, type ToastMessage } from "@/components/ui"
 import {
   EVENT_IMPORT_FIELD_DEFINITIONS,
   filterEventImportPreviewRows,
@@ -104,6 +105,7 @@ export default function InstallationEventImportPageClient() {
   const [previewFilter, setPreviewFilter] = useState<EventImportPreviewFilter>("all")
   const [previewSummary, setPreviewSummary] = useState<PreviewResponse["summary"] | null>(null)
   const [importSummary, setImportSummary] = useState<ImportSummary | null>(null)
+  const [toast, setToast] = useState<ToastMessage | null>(null)
   const [error, setError] = useState("")
   const [isParsing, setIsParsing] = useState(false)
   const [isPreviewing, setIsPreviewing] = useState(false)
@@ -302,6 +304,13 @@ export default function InstallationEventImportPageClient() {
             .join("; ")
         : ""
       setError(details ? `${result.error || "Importen misslyckades"}: ${details}` : result.error || "Importen misslyckades")
+      if (mode === "import") {
+        setToast({
+          type: "error",
+          title: "Fel",
+          message: "Kunde inte importera händelser.",
+        })
+      }
       return
     }
 
@@ -313,6 +322,14 @@ export default function InstallationEventImportPageClient() {
     }
 
     setImportSummary(result)
+    setToast({
+      type: result.skipped > 0 || result.errors?.length > 0 ? "warning" : "success",
+      title: result.skipped > 0 || result.errors?.length > 0 ? "Import klar" : "Klart",
+      message:
+        result.skipped > 0 || result.errors?.length > 0
+          ? `${result.created} händelser importerades. ${result.skipped} rader kunde inte importeras.`
+          : `${result.created} händelser importerades.`,
+    })
   }
 
   function handleDownloadTemplate() {
@@ -717,6 +734,7 @@ export default function InstallationEventImportPageClient() {
           </div>
         </div>
       )}
+      {toast && <Toast onClose={() => setToast(null)} toast={toast} />}
     </main>
   )
 }

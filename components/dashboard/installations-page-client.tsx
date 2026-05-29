@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import ImportInstallationsPage from "@/components/dashboard/installations-import-page-client"
 import CreateInstallationForm from "@/components/installations/create-installation-form"
-import { Button, Card, PageHeader } from "@/components/ui"
+import { Button, Card, PageHeader, Toast } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 import {
@@ -215,7 +215,6 @@ export default function InstallationsPageClient() {
     type: "success" | "error"
     message: string
   } | null>(null)
-  const [isFeedbackExiting, setIsFeedbackExiting] = useState(false)
   const [isBulkPanelFloating, setIsBulkPanelFloating] = useState(false)
   const bulkPanelSentinelRef = useRef<HTMLDivElement | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -233,7 +232,6 @@ export default function InstallationsPageClient() {
   const [saveFilterName, setSaveFilterName] = useState("")
   const [isSavingFilter, setIsSavingFilter] = useState(false)
   const [savedFilterError, setSavedFilterError] = useState("")
-  const [savedFilterSuccess, setSavedFilterSuccess] = useState("")
   const [searchInputState, setSearchInputState] = useState({
     sourceValue: searchValue,
     value: searchValue,
@@ -380,27 +378,6 @@ export default function InstallationsPageClient() {
   }, [router, selectedInstallation])
 
   useEffect(() => {
-    if (!feedback) return
-
-    const fadeTimeoutId = window.setTimeout(() => {
-      setIsFeedbackExiting(true)
-    }, 4600)
-
-    return () => window.clearTimeout(fadeTimeoutId)
-  }, [feedback])
-
-  useEffect(() => {
-    if (!feedback || !isFeedbackExiting) return
-
-    const removeTimeoutId = window.setTimeout(() => {
-      setFeedback(null)
-      setIsFeedbackExiting(false)
-    }, 250)
-
-    return () => window.clearTimeout(removeTimeoutId)
-  }, [feedback, isFeedbackExiting])
-
-  useEffect(() => {
     const sentinel = bulkPanelSentinelRef.current
 
     if (!canSelectInstallations || !sentinel) {
@@ -432,14 +409,13 @@ export default function InstallationsPageClient() {
   }, [canSelectInstallations, installations.length, isLoading])
 
   function dismissFeedback() {
-    setIsFeedbackExiting(true)
+    setFeedback(null)
   }
 
   function showFeedback(nextFeedback: {
     type: "success" | "error"
     message: string
   }) {
-    setIsFeedbackExiting(false)
     setFeedback(nextFeedback)
   }
 
@@ -519,7 +495,6 @@ export default function InstallationsPageClient() {
   const updateQueryParam = useCallback((name: string, value: string) => {
     const params = getFilterParamsWithoutColumnSort(searchParams)
     setSelectedSavedFilterId("")
-    setSavedFilterSuccess("")
 
     if (value) {
       params.set(name, value)
@@ -543,7 +518,6 @@ export default function InstallationsPageClient() {
 
   function updateColumnSort(sortKey: InstallationSortKey) {
     setSelectedSavedFilterId("")
-    setSavedFilterSuccess("")
 
     setColumnSort((current) => {
       if (current.key !== sortKey || !current.direction) {
@@ -561,7 +535,6 @@ export default function InstallationsPageClient() {
   function updateStatusFilter(value: string) {
     const params = getFilterParamsWithoutColumnSort(searchParams)
     setSelectedSavedFilterId("")
-    setSavedFilterSuccess("")
 
     params.delete("status")
     params.delete("archived")
@@ -609,7 +582,6 @@ export default function InstallationsPageClient() {
   async function handleSaveFilter(event: React.FormEvent) {
     event.preventDefault()
     setSavedFilterError("")
-    setSavedFilterSuccess("")
 
     const trimmedName = saveFilterName.trim()
 
@@ -645,6 +617,10 @@ export default function InstallationsPageClient() {
 
     if (!res.ok) {
       setSavedFilterError(result.error || "Kunde inte spara filtret")
+      showFeedback({
+        type: "error",
+        message: result.error || "Kunde inte spara filtret.",
+      })
       setIsSavingFilter(false)
       return
     }
@@ -653,7 +629,10 @@ export default function InstallationsPageClient() {
     setSelectedSavedFilterId(result.id)
     setSaveFilterName("")
     setIsSaveFilterOpen(false)
-    setSavedFilterSuccess("Filtret har sparats")
+    showFeedback({
+      type: "success",
+      message: "Filtret har sparats.",
+    })
     setIsSavingFilter(false)
   }
 
@@ -1267,7 +1246,6 @@ export default function InstallationsPageClient() {
                   onClick={() => {
                     setIsSaveFilterOpen(true)
                     setSavedFilterError("")
-                    setSavedFilterSuccess("")
                   }}
                 >
                   Spara filter
@@ -1281,10 +1259,6 @@ export default function InstallationsPageClient() {
         {savedFilterError && (
           <p className="mt-3 text-sm font-semibold text-red-700">{savedFilterError}</p>
         )}
-        {savedFilterSuccess && (
-          <p className="mt-3 text-sm font-semibold text-green-700">{savedFilterSuccess}</p>
-        )}
-
         {hasActiveFilters && (
           <button
             className="mt-4 text-sm font-semibold text-slate-700 underline-offset-4 hover:underline"
@@ -1299,32 +1273,14 @@ export default function InstallationsPageClient() {
       {isLoading && <p className="mt-8 text-slate-700">Laddar...</p>}
       {error && <p className="mt-8 font-semibold text-red-700">{error}</p>}
       {feedback && (
-        <div
-          className={`fixed bottom-4 right-4 z-50 w-[calc(100%-2rem)] max-w-sm rounded-lg border bg-white p-4 text-sm shadow-xl transition-all duration-200 ease-out sm:bottom-6 sm:right-6 ${
-            feedback.type === "success" ? "border-emerald-200" : "border-red-200"
-          } ${isFeedbackExiting ? "translate-y-2 opacity-0" : "translate-y-0 opacity-100"}`}
-          role="status"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p
-                className={`font-semibold ${
-                  feedback.type === "success" ? "text-emerald-900" : "text-red-900"
-                }`}
-              >
-                {feedback.type === "success" ? "Klart" : "Kunde inte utföra åtgärden"}
-              </p>
-              <p className="mt-1 text-slate-700">{feedback.message}</p>
-            </div>
-            <button
-              className="rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-              type="button"
-              onClick={dismissFeedback}
-            >
-              Stäng
-            </button>
-          </div>
-        </div>
+        <Toast
+          onClose={dismissFeedback}
+          toast={{
+            type: feedback.type,
+            title: feedback.type === "success" ? "Klart" : "Kunde inte utföra åtgärden",
+            message: feedback.message,
+          }}
+        />
       )}
 
       {!isLoading && canSelectInstallations && (

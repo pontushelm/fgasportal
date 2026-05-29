@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useMemo, useRef, useState } from "react"
 import * as XLSX from "xlsx"
+import { Toast, type ToastMessage } from "@/components/ui"
 import {
   PROPERTY_IMPORT_FIELD_DEFINITIONS,
   getDuplicatePropertyMappedFields,
@@ -68,6 +69,7 @@ export default function PropertiesImportPageClient() {
   const [columnMapping, setColumnMapping] = useState<PropertyColumnMapping>({})
   const [error, setError] = useState("")
   const [summary, setSummary] = useState<ImportSummary | null>(null)
+  const [toast, setToast] = useState<ToastMessage | null>(null)
   const [isParsing, setIsParsing] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
   const workbookDataRef = useRef<ArrayBuffer | null>(null)
@@ -137,6 +139,7 @@ export default function PropertiesImportPageClient() {
     setColumnMapping({})
     setError("")
     setSummary(null)
+    setToast(null)
     workbookDataRef.current = null
   }
 
@@ -267,11 +270,23 @@ export default function PropertiesImportPageClient() {
     setIsImporting(false)
 
     if (!response.ok) {
-      setError(result.error || "Importen misslyckades")
+      setToast({
+        type: "error",
+        title: "Fel",
+        message: result.error || "Importen misslyckades.",
+      })
       return
     }
 
     setSummary(result)
+    setToast({
+      type: result.invalid > 0 || result.skippedDuplicates > 0 ? "warning" : "success",
+      title: result.invalid > 0 || result.skippedDuplicates > 0 ? "Import klar" : "Klart",
+      message:
+        result.invalid > 0 || result.skippedDuplicates > 0
+          ? `${result.created} fastigheter importerades. ${result.skippedDuplicates} dubbletter och ${result.invalid} ogiltiga rader hoppades över.`
+          : `${result.created} fastigheter importerades.`,
+    })
   }
 
   return (
@@ -539,8 +554,8 @@ export default function PropertiesImportPageClient() {
       )}
 
       {summary && (
-        <section className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-          <h2 className="font-semibold">Import klar</h2>
+        <section className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800">
+          <h2 className="font-semibold text-slate-950">Importsammanfattning</h2>
           <p className="mt-2">Importerade: {summary.created}</p>
           <p>Hoppade över dubbletter: {summary.skippedDuplicates}</p>
           <p>Ogiltiga rader: {summary.invalid}</p>
@@ -561,6 +576,7 @@ export default function PropertiesImportPageClient() {
           </Link>
         </section>
       )}
+      {toast && <Toast onClose={() => setToast(null)} toast={toast} />}
     </main>
   )
 }

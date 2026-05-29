@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Badge, Button, Card, PageHeader } from "@/components/ui"
+import { Badge, Button, Card, PageHeader, Toast, type ToastMessage } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
 import {
   formatRoleDescription,
@@ -169,24 +169,19 @@ export default function CompanySettingsPage() {
   const [isSubmittingInvite, setIsSubmittingInvite] = useState(false)
   const [error, setError] = useState("")
   const [profileError, setProfileError] = useState("")
-  const [profileSuccess, setProfileSuccess] = useState("")
   const [billingError, setBillingError] = useState("")
-  const [billingSuccess, setBillingSuccess] = useState("")
   const [servicePartnerSettingsError, setServicePartnerSettingsError] =
     useState("")
-  const [servicePartnerSettingsSuccess, setServicePartnerSettingsSuccess] =
-    useState("")
   const [inviteError, setInviteError] = useState("")
-  const [inviteSuccess, setInviteSuccess] = useState("")
   const [inviteWarning, setInviteWarning] = useState("")
   const [inviteLink, setInviteLink] = useState("")
   const [userManagementError, setUserManagementError] = useState("")
-  const [userManagementSuccess, setUserManagementSuccess] = useState("")
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null)
   const [transferTargetUser, setTransferTargetUser] =
     useState<CompanyUser | null>(null)
   const [removeTargetUser, setRemoveTargetUser] = useState<CompanyUser | null>(null)
   const [isTransferringOwnership, setIsTransferringOwnership] = useState(false)
+  const [toast, setToast] = useState<ToastMessage | null>(null)
 
   useEffect(() => {
     let isMounted = true
@@ -353,7 +348,6 @@ export default function CompanySettingsPage() {
   async function handleProfileSubmit(event: React.FormEvent) {
     event.preventDefault()
     setProfileError("")
-    setProfileSuccess("")
     setIsSavingProfile(true)
 
     const res = await fetch("/api/company", {
@@ -372,7 +366,9 @@ export default function CompanySettingsPage() {
     }
 
     if (!res.ok) {
-      setProfileError(result.error || "Kunde inte spara företagsuppgifter")
+      const message = result.error || "Kunde inte spara företagsuppgifter"
+      setProfileError(message)
+      setToast({ type: "error", title: "Fel", message })
       setIsSavingProfile(false)
       return
     }
@@ -380,14 +376,17 @@ export default function CompanySettingsPage() {
     setCompanyProfile(result)
     setProfileForm(toProfileFormData(result))
     setIsEditingProfile(false)
-    setProfileSuccess("Företagsuppgifter har sparats")
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Företagsuppgifter har sparats.",
+    })
     setIsSavingProfile(false)
   }
 
   async function handleBillingSubmit(event: React.FormEvent) {
     event.preventDefault()
     setBillingError("")
-    setBillingSuccess("")
     setIsSavingBilling(true)
 
     const res = await fetch("/api/company/billing", {
@@ -406,7 +405,9 @@ export default function CompanySettingsPage() {
     }
 
     if (!res.ok) {
-      setBillingError(result.error || "Kunde inte spara fakturauppgifter")
+      const message = result.error || "Kunde inte spara fakturauppgifter"
+      setBillingError(message)
+      setToast({ type: "error", title: "Fel", message })
       setIsSavingBilling(false)
       return
     }
@@ -418,14 +419,17 @@ export default function CompanySettingsPage() {
     setCompanyProfile(updatedCompany)
     setBillingForm(toBillingFormData(updatedCompany))
     setIsEditingBilling(false)
-    setBillingSuccess("Fakturauppgifter har sparats")
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Fakturauppgifter har sparats.",
+    })
     setIsSavingBilling(false)
   }
 
   async function handleServicePartnerSettingsSubmit(event: React.FormEvent) {
     event.preventDefault()
     setServicePartnerSettingsError("")
-    setServicePartnerSettingsSuccess("")
     setIsSavingServicePartnerSettings(true)
 
     const res = await fetch("/api/dashboard/service/company", {
@@ -444,9 +448,9 @@ export default function CompanySettingsPage() {
     }
 
     if (!res.ok) {
-      setServicePartnerSettingsError(
-        result.error || "Kunde inte spara servicepartneruppgifter"
-      )
+      const message = result.error || "Kunde inte spara servicepartneruppgifter"
+      setServicePartnerSettingsError(message)
+      setToast({ type: "error", title: "Fel", message })
       setIsSavingServicePartnerSettings(false)
       return
     }
@@ -454,14 +458,17 @@ export default function CompanySettingsPage() {
     setServicePartnerSettings(result)
     setServicePartnerSettingsForm(toServicePartnerSettingsFormData(result))
     setIsEditingServicePartnerSettings(false)
-    setServicePartnerSettingsSuccess("Servicepartneruppgifterna har sparats")
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Servicepartneruppgifterna har sparats.",
+    })
     setIsSavingServicePartnerSettings(false)
   }
 
   async function handleInviteSubmit(event: React.FormEvent) {
     event.preventDefault()
     setInviteError("")
-    setInviteSuccess("")
     setInviteWarning("")
     setInviteLink("")
     setIsSubmittingInvite(true)
@@ -491,7 +498,9 @@ export default function CompanySettingsPage() {
     }
 
     if (!res.ok) {
-      setInviteError(result.error || "Kunde inte skapa inbjudan")
+      const message = result.error || "Kunde inte skapa inbjudan"
+      setInviteError(message)
+      setToast({ type: "error", title: "Fel", message })
       setIsSubmittingInvite(false)
       return
     }
@@ -501,8 +510,19 @@ export default function CompanySettingsPage() {
         result.message ||
           "Inbjudan skapad, men e-post kunde inte skickas. Använd inbjudningslänken nedan."
       )
+      setToast({
+        type: "warning",
+        title: "Inbjudan skapad",
+        message:
+          result.message ||
+          "Inbjudan skapad, men e-post kunde inte skickas. Använd inbjudningslänken nedan.",
+      })
     } else {
-      setInviteSuccess(result.message || "Inbjudan skapad och e-post har skickats.")
+      setToast({
+        type: "success",
+        title: "Klart",
+        message: result.message || "Inbjudan skapad och e-post har skickats.",
+      })
     }
     setInviteLink(result.inviteLink || "")
     setInvitationForm(initialInvitationFormData)
@@ -521,7 +541,6 @@ export default function CompanySettingsPage() {
   async function handleTechnicianInviteSubmit(event: React.FormEvent) {
     event.preventDefault()
     setInviteError("")
-    setInviteSuccess("")
     setInviteWarning("")
     setInviteLink("")
     setIsSubmittingInvite(true)
@@ -550,7 +569,9 @@ export default function CompanySettingsPage() {
     }
 
     if (!res.ok) {
-      setInviteError(result.error || "Kunde inte bjuda in tekniker")
+      const message = result.error || "Kunde inte bjuda in tekniker"
+      setInviteError(message)
+      setToast({ type: "error", title: "Fel", message })
       setIsSubmittingInvite(false)
       return
     }
@@ -560,8 +581,19 @@ export default function CompanySettingsPage() {
         result.message ||
           "Inbjudan skapad, men e-post kunde inte skickas. Använd inbjudningslänken nedan."
       )
+      setToast({
+        type: "warning",
+        title: "Inbjudan skapad",
+        message:
+          result.message ||
+          "Inbjudan skapad, men e-post kunde inte skickas. Använd inbjudningslänken nedan.",
+      })
     } else {
-      setInviteSuccess(result.message || "Teknikern har bjudits in.")
+      setToast({
+        type: "success",
+        title: "Klart",
+        message: result.message || "Teknikern har bjudits in.",
+      })
     }
     setInviteLink(result.inviteLink || "")
     setInvitationForm(initialInvitationFormData)
@@ -578,7 +610,6 @@ export default function CompanySettingsPage() {
     if (user.id === currentUser?.userId) return
 
     setUserManagementError("")
-    setUserManagementSuccess("")
     setUpdatingUserId(user.id)
 
     const res = await fetch(`/api/company/users/${user.id}/role`, {
@@ -597,7 +628,9 @@ export default function CompanySettingsPage() {
     }
 
     if (!res.ok) {
-      setUserManagementError(result.error || "Kunde inte ändra roll")
+      const message = result.error || "Kunde inte ändra roll"
+      setUserManagementError(message)
+      setToast({ type: "error", title: "Fel", message })
       setUpdatingUserId(null)
       return
     }
@@ -608,14 +641,17 @@ export default function CompanySettingsPage() {
         currentUser.id === result.id ? result : currentUser
       ),
     }))
-    setUserManagementSuccess("Användarrollen har uppdaterats")
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Användarrollen har uppdaterats.",
+    })
     setUpdatingUserId(null)
   }
 
   function handleRemoveUser(user: CompanyUser) {
     if (isTransferringOwnership) return
     setUserManagementError("")
-    setUserManagementSuccess("")
     setRemoveTargetUser(user)
   }
 
@@ -623,7 +659,6 @@ export default function CompanySettingsPage() {
     if (!removeTargetUser) return
 
     setUserManagementError("")
-    setUserManagementSuccess("")
     setUpdatingUserId(removeTargetUser.id)
 
     const res = await fetch(`/api/company/users/${removeTargetUser.id}`, {
@@ -638,7 +673,9 @@ export default function CompanySettingsPage() {
     }
 
     if (!res.ok) {
-      setUserManagementError(result.error || "Kunde inte ta bort användaren")
+      const message = result.error || "Kunde inte ta bort användaren"
+      setUserManagementError(message)
+      setToast({ type: "error", title: "Fel", message })
       setUpdatingUserId(null)
       setRemoveTargetUser(null)
       return
@@ -650,7 +687,11 @@ export default function CompanySettingsPage() {
         currentUser.id === result.id ? result : currentUser
       ),
     }))
-    setUserManagementSuccess("Användaren har inaktiverats")
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Användaren har inaktiverats.",
+    })
     setUpdatingUserId(null)
     setRemoveTargetUser(null)
   }
@@ -659,7 +700,6 @@ export default function CompanySettingsPage() {
     if (!transferTargetUser) return
 
     setUserManagementError("")
-    setUserManagementSuccess("")
     setIsTransferringOwnership(true)
     setUpdatingUserId(transferTargetUser.id)
 
@@ -683,7 +723,9 @@ export default function CompanySettingsPage() {
     }
 
     if (!res.ok || !result.newOwner || !result.previousOwner) {
-      setUserManagementError(result.error || "Kunde inte överföra ägarskap")
+      const message = result.error || "Kunde inte överföra ägarskap"
+      setUserManagementError(message)
+      setToast({ type: "error", title: "Fel", message })
       setIsTransferringOwnership(false)
       setUpdatingUserId(null)
       return
@@ -701,7 +743,11 @@ export default function CompanySettingsPage() {
     setTransferTargetUser(null)
     setIsTransferringOwnership(false)
     setUpdatingUserId(null)
-    setUserManagementSuccess("Ägarskapet har överförts. Du är nu Ansvarig.")
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Ägarskapet har överförts. Du är nu Ansvarig.",
+    })
     router.refresh()
     window.setTimeout(() => {
       window.location.assign("/dashboard/company")
@@ -732,6 +778,7 @@ export default function CompanySettingsPage() {
 
       {isLoading && <p className="mt-8 text-slate-700">Laddar...</p>}
       {error && <p className="mt-8 font-semibold text-red-700">{error}</p>}
+      {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
 
       {!isLoading &&
         !error &&
@@ -745,7 +792,6 @@ export default function CompanySettingsPage() {
             isEditing={isEditingServicePartnerSettings}
             isSaving={isSavingServicePartnerSettings}
             settings={servicePartnerSettings}
-            success={servicePartnerSettingsSuccess}
             onCancel={() => {
               setServicePartnerSettingsForm(
                 toServicePartnerSettingsFormData(servicePartnerSettings)
@@ -763,7 +809,6 @@ export default function CompanySettingsPage() {
               error={inviteError}
               inviteLink={inviteLink}
               isSubmitting={isSubmittingInvite}
-              success={inviteSuccess}
               warning={inviteWarning}
               onChange={(email) =>
                 setInvitationForm({ ...initialInvitationFormData, email })
@@ -866,9 +911,6 @@ export default function CompanySettingsPage() {
               </dl>
             )}
 
-            {profileSuccess && !isEditingProfile && (
-              <p className="mt-4 text-sm font-semibold text-green-700">{profileSuccess}</p>
-            )}
           </Card>
 
           {canViewBilling && (
@@ -962,9 +1004,6 @@ export default function CompanySettingsPage() {
               </dl>
             )}
 
-            {billingSuccess && !isEditingBilling && (
-              <p className="mt-4 text-sm font-semibold text-green-700">{billingSuccess}</p>
-            )}
           </Card>
           )}
 
@@ -987,11 +1026,6 @@ export default function CompanySettingsPage() {
                 {userManagementError && (
                   <p className="mt-4 font-semibold text-red-700">
                     {userManagementError}
-                  </p>
-                )}
-                {userManagementSuccess && (
-                  <p className="mt-4 font-semibold text-green-700">
-                    {userManagementSuccess}
                   </p>
                 )}
               </>
@@ -1042,7 +1076,6 @@ export default function CompanySettingsPage() {
                 </label>
 
                 {inviteError && <p className="font-semibold text-red-700">{inviteError}</p>}
-                {inviteSuccess && <p className="font-semibold text-green-700">{inviteSuccess}</p>}
                 {inviteWarning && <p className="font-semibold text-amber-700">{inviteWarning}</p>}
                 {inviteLink && (
                   <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-700">
@@ -1187,7 +1220,6 @@ function ServicePartnerSettingsPanel({
   onEdit,
   onSubmit,
   settings,
-  success,
 }: {
   canEdit: boolean
   error: string
@@ -1199,7 +1231,6 @@ function ServicePartnerSettingsPanel({
   onEdit: () => void
   onSubmit: (event: React.FormEvent) => void
   settings: ServicePartnerSettings
-  success: string
 }) {
   return (
     <Card className="mt-8 p-5">
@@ -1291,10 +1322,6 @@ function ServicePartnerSettingsPanel({
           <ProfileItem label="Företagscertifikat nr" value={settings.certificateNumber} />
         </dl>
       )}
-
-      {success && !isEditing && (
-        <p className="mt-4 text-sm font-semibold text-green-700">{success}</p>
-      )}
     </Card>
   )
 }
@@ -1306,7 +1333,6 @@ function ServicePartnerTechnicianInvitePanel({
   isSubmitting,
   onChange,
   onSubmit,
-  success,
   warning,
 }: {
   email: string
@@ -1315,7 +1341,6 @@ function ServicePartnerTechnicianInvitePanel({
   isSubmitting: boolean
   onChange: (email: string) => void
   onSubmit: (event: React.FormEvent) => void
-  success: string
   warning: string
 }) {
   return (
@@ -1336,7 +1361,6 @@ function ServicePartnerTechnicianInvitePanel({
           />
         </label>
         {error && <p className="font-semibold text-red-700">{error}</p>}
-        {success && <p className="font-semibold text-green-700">{success}</p>}
         {warning && <p className="font-semibold text-amber-700">{warning}</p>}
         {inviteLink && (
           <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-700">

@@ -2,7 +2,7 @@
 
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
-import { Badge } from "@/components/ui"
+import { Badge, Toast, type ToastMessage } from "@/components/ui"
 import { RefrigerantCombobox } from "@/components/installations/refrigerant-combobox"
 import type { CertificationStatusResult } from "@/lib/certification-status"
 import {
@@ -459,10 +459,9 @@ export default function InstallationDetailPage() {
   )
   const [documentFile, setDocumentFile] = useState<File | null>(null)
   const [eventError, setEventError] = useState("")
-  const [eventSuccess, setEventSuccess] = useState("")
   const [correctingEvent, setCorrectingEvent] = useState<InstallationEvent | null>(null)
   const [documentError, setDocumentError] = useState("")
-  const [documentSuccess, setDocumentSuccess] = useState("")
+  const [toast, setToast] = useState<ToastMessage | null>(null)
   const [isSubmittingEvent, setIsSubmittingEvent] = useState(false)
   const [isEventModalOpen, setIsEventModalOpen] = useState(false)
   const [handledEventParam, setHandledEventParam] = useState("")
@@ -473,7 +472,6 @@ export default function InstallationDetailPage() {
     initialEditFormData
   )
   const [editError, setEditError] = useState("")
-  const [editSuccess, setEditSuccess] = useState("")
   const [isEditing, setIsEditing] = useState(false)
   const [isSavingEdit, setIsSavingEdit] = useState(false)
   const [archiveError, setArchiveError] = useState("")
@@ -736,7 +734,6 @@ export default function InstallationDetailPage() {
     const nextType = type ?? eventForm.type
     setCorrectingEvent(null)
     setEventError("")
-    setEventSuccess("")
     setArchiveError("")
     setScrapError("")
     setLifecycleConfirmed(false)
@@ -778,7 +775,6 @@ export default function InstallationDetailPage() {
 
     setCorrectingEvent(event)
     setEventError("")
-    setEventSuccess("")
     setArchiveError("")
     setScrapError("")
     setLifecycleConfirmed(false)
@@ -822,7 +818,6 @@ export default function InstallationDetailPage() {
 
   function openDocumentModal() {
     setDocumentError("")
-    setDocumentSuccess("")
     setDocumentFile(null)
     setDocumentForm(initialDocumentFormData)
     setIsDocumentModalOpen(true)
@@ -849,14 +844,12 @@ export default function InstallationDetailPage() {
 
   function openEditModal() {
     setEditError("")
-    setEditSuccess("")
     setIsEditing(true)
   }
 
   async function handleEditSubmit(event: React.FormEvent) {
     event.preventDefault()
     setEditError("")
-    setEditSuccess("")
     setIsSavingEdit(true)
 
     const res = await fetch(`/api/installations/${params.id}`, {
@@ -881,12 +874,18 @@ export default function InstallationDetailPage() {
     }
 
     if (!res.ok) {
-      setEditError(result.error || "Kunde inte uppdatera aggregatet")
+      const message = result.error || "Kunde inte uppdatera aggregatet"
+      setEditError(message)
+      setToast({ type: "error", title: "Fel", message })
       setIsSavingEdit(false)
       return
     }
 
-    setEditSuccess("Aggregatet har uppdaterats")
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Aggregatet har uppdaterats.",
+    })
     setIsEditing(false)
     setRefreshKey((current) => current + 1)
     setIsSavingEdit(false)
@@ -926,7 +925,11 @@ export default function InstallationDetailPage() {
       return
     }
 
-    setEventSuccess("Aggregatet har arkiverats")
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Aggregatet har arkiverats.",
+    })
     setIsEventModalOpen(false)
     router.push("/dashboard")
   }
@@ -971,7 +974,11 @@ export default function InstallationDetailPage() {
       return
     }
 
-    setEventSuccess("Aggregatet har skrotats")
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Aggregatet har skrotats.",
+    })
     setIsEventModalOpen(false)
     setEventForm(initialEventFormData)
     setScrapForm(initialScrapFormData)
@@ -983,7 +990,6 @@ export default function InstallationDetailPage() {
   async function handleEventSubmit(event: React.FormEvent) {
     event.preventDefault()
     setEventError("")
-    setEventSuccess("")
     setArchiveError("")
     setScrapError("")
 
@@ -1086,9 +1092,13 @@ export default function InstallationDetailPage() {
     }
 
     setEventForm(initialEventFormData)
-    setEventSuccess(
-      correctingEvent ? "Händelsen har korrigerats" : "Händelsen har lagts till"
-    )
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: correctingEvent
+        ? "Händelsen har korrigerats."
+        : "Händelsen har lagts till.",
+    })
     setCorrectingEvent(null)
     setIsEventModalOpen(false)
     setRefreshKey((current) => current + 1)
@@ -1098,7 +1108,6 @@ export default function InstallationDetailPage() {
   async function handleDocumentSubmit(event: React.FormEvent) {
     event.preventDefault()
     setDocumentError("")
-    setDocumentSuccess("")
 
     if (!documentFile) {
       setDocumentError("Välj en fil att ladda upp")
@@ -1126,7 +1135,9 @@ export default function InstallationDetailPage() {
     }
 
     if (!res.ok) {
-      setDocumentError(result.error || "Kunde inte ladda upp dokumentet")
+      const message = result.error || "Kunde inte ladda upp dokumentet"
+      setDocumentError(message)
+      setToast({ type: "error", title: "Fel", message })
       setIsUploadingDocument(false)
       return
     }
@@ -1134,7 +1145,11 @@ export default function InstallationDetailPage() {
     setDocuments((current) => [result, ...current])
     setDocumentForm(initialDocumentFormData)
     setDocumentFile(null)
-    setDocumentSuccess("Dokumentet har laddats upp")
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Dokumentet har laddats upp.",
+    })
     setIsDocumentModalOpen(false)
     setRefreshKey((current) => current + 1)
     setIsUploadingDocument(false)
@@ -1142,7 +1157,6 @@ export default function InstallationDetailPage() {
 
   async function handleDeleteDocument(documentId: string) {
     setDocumentError("")
-    setDocumentSuccess("")
     setDeletingDocumentId(documentId)
 
     const res = await fetch(`/api/installations/${params.id}/documents/${documentId}`, {
@@ -1157,13 +1171,19 @@ export default function InstallationDetailPage() {
 
     if (!res.ok) {
       const result: { error?: string } = await res.json()
-      setDocumentError(result.error || "Kunde inte ta bort dokumentet")
+      const message = result.error || "Kunde inte ta bort dokumentet"
+      setDocumentError(message)
+      setToast({ type: "error", title: "Fel", message })
       setDeletingDocumentId(null)
       return
     }
 
     setDocuments((current) => current.filter((document) => document.id !== documentId))
-    setDocumentSuccess("Dokumentet har tagits bort")
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Dokumentet har tagits bort.",
+    })
     setRefreshKey((current) => current + 1)
     setDeletingDocumentId(null)
   }
@@ -1218,7 +1238,6 @@ export default function InstallationDetailPage() {
       setHandledEventParam(eventKey)
       setCorrectingEvent(null)
       setEventError("")
-      setEventSuccess("")
       setArchiveError("")
       setScrapError("")
       setLifecycleConfirmed(false)
@@ -1364,14 +1383,12 @@ export default function InstallationDetailPage() {
           </div>
         )}
 
-        {(editSuccess || eventSuccess || documentSuccess || archiveError) && (
+        {archiveError && (
           <div className="mt-4 grid gap-2 text-sm font-semibold">
-            {editSuccess && <p className="text-green-700">{editSuccess}</p>}
-            {eventSuccess && <p className="text-green-700">{eventSuccess}</p>}
-            {documentSuccess && <p className="text-green-700">{documentSuccess}</p>}
             {archiveError && <p className="text-red-700">{archiveError}</p>}
           </div>
         )}
+        {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <SummaryItem label="Köldmedium" value={installation.refrigerantType} />
@@ -1528,7 +1545,6 @@ export default function InstallationDetailPage() {
           </p>
         )}
         {documentError && <p className="mt-3 text-sm font-semibold text-red-700">{documentError}</p>}
-        {documentSuccess && <p className="mt-3 text-sm font-semibold text-green-700">{documentSuccess}</p>}
 
         {documents.length === 0 ? (
           <p className="mt-6 text-sm text-slate-600">Inga dokument uppladdade ännu.</p>

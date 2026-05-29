@@ -4,7 +4,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { type FormEvent, useEffect, useMemo, useState } from "react"
-import { Badge, Button } from "@/components/ui"
+import { Badge, Button, Toast, type ToastMessage } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
 import { formatRoleLabel } from "@/lib/roles"
 import { formatServicepartnerRoleLabel } from "@/lib/servicepartner-role-labels"
@@ -351,7 +351,7 @@ function FeedbackDialog({
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
+  const [toast, setToast] = useState<ToastMessage | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (!isOpen) return null
@@ -359,7 +359,6 @@ function FeedbackDialog({
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError("")
-    setSuccess("")
     setIsSubmitting(true)
 
     const response = await fetch("/api/feedback", {
@@ -384,11 +383,20 @@ function FeedbackDialog({
 
     if (!response.ok) {
       setError(result.error || "Kunde inte skicka feedback")
+      setToast({
+        type: "error",
+        title: "Fel",
+        message: result.error || "Kunde inte skicka feedback.",
+      })
       setIsSubmitting(false)
       return
     }
 
-    setSuccess(result.message || "Tack, din feedback har skickats.")
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: result.message || "Tack, din feedback har skickats.",
+    })
     setTitle("")
     setDescription("")
     setType("BUG")
@@ -466,12 +474,6 @@ function FeedbackDialog({
               {error}
             </p>
           )}
-          {success && (
-            <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">
-              {success}
-            </p>
-          )}
-
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button type="button" variant="secondary" onClick={onClose}>
               Avbryt
@@ -482,6 +484,7 @@ function FeedbackDialog({
           </div>
         </form>
       </div>
+      {toast && <Toast onClose={() => setToast(null)} toast={toast} />}
     </div>
   )
 }

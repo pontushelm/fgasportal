@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Badge, Button, Card, PageHeader, PasswordInput, SectionHeader } from "@/components/ui"
+import { Badge, Button, Card, PageHeader, PasswordInput, SectionHeader, Toast, type ToastMessage } from "@/components/ui"
 import { ThemeSelect } from "@/components/theme/theme-select"
 import type { UserRole } from "@/lib/auth"
 import { formatRoleLabel } from "@/lib/roles"
@@ -81,11 +81,9 @@ export default function SettingsPageClient() {
   const [isSavingPassword, setIsSavingPassword] = useState(false)
   const [isSavingNotifications, setIsSavingNotifications] = useState(false)
   const [error, setError] = useState("")
-  const [profileMessage, setProfileMessage] = useState("")
-  const [passwordMessage, setPasswordMessage] = useState("")
   const [passwordError, setPasswordError] = useState("")
-  const [notificationMessage, setNotificationMessage] = useState("")
   const [notificationError, setNotificationError] = useState("")
+  const [toast, setToast] = useState<ToastMessage | null>(null)
 
   useEffect(() => {
     let isMounted = true
@@ -167,7 +165,6 @@ export default function SettingsPageClient() {
 
   async function handleProfileSubmit(event: React.FormEvent) {
     event.preventDefault()
-    setProfileMessage("")
     setError("")
     setIsSavingProfile(true)
 
@@ -198,7 +195,11 @@ export default function SettingsPageClient() {
     } = await response.json()
 
     if (!response.ok) {
-      setError(result.error || "Kunde inte spara profilen")
+      setToast({
+        type: "error",
+        title: "Fel",
+        message: result.error || "Kunde inte spara profilen.",
+      })
       setIsSavingProfile(false)
       return
     }
@@ -220,14 +221,17 @@ export default function SettingsPageClient() {
           }
         : user
     )
-    setProfileMessage("Profilen har sparats.")
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Profilen har sparats.",
+    })
     setIsSavingProfile(false)
   }
 
   async function handlePasswordSubmit(event: React.FormEvent) {
     event.preventDefault()
     setPasswordError("")
-    setPasswordMessage("")
 
     if (passwordForm.newPassword !== passwordForm.confirmNewPassword) {
       setPasswordError("Lösenorden matchar inte")
@@ -249,6 +253,11 @@ export default function SettingsPageClient() {
 
     if (!response.ok) {
       setPasswordError(result.error || "Kunde inte byta lösenord")
+      setToast({
+        type: "error",
+        title: "Fel",
+        message: result.error || "Kunde inte byta lösenord.",
+      })
       setIsSavingPassword(false)
       return
     }
@@ -258,7 +267,11 @@ export default function SettingsPageClient() {
       newPassword: "",
       confirmNewPassword: "",
     })
-    setPasswordMessage("Lösenordet har uppdaterats.")
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Lösenordet har uppdaterats.",
+    })
     setIsSavingPassword(false)
   }
 
@@ -267,7 +280,6 @@ export default function SettingsPageClient() {
     if (!notifications) return
 
     setNotificationError("")
-    setNotificationMessage("")
     setIsSavingNotifications(true)
 
     const response = await fetch("/api/user/notifications", {
@@ -286,6 +298,11 @@ export default function SettingsPageClient() {
       setNotificationError(
         result.error || "Kunde inte spara notifieringsinställningar"
       )
+      setToast({
+        type: "error",
+        title: "Fel",
+        message: result.error || "Kunde inte spara notifieringsinställningar.",
+      })
       setIsSavingNotifications(false)
       return
     }
@@ -294,7 +311,11 @@ export default function SettingsPageClient() {
     setCurrentUser((user) =>
       user ? { ...user, ...(result as NotificationPreferences) } : user
     )
-    setNotificationMessage("Notifieringar har sparats.")
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Notifieringar har sparats.",
+    })
     setIsSavingNotifications(false)
   }
 
@@ -444,11 +465,6 @@ export default function SettingsPageClient() {
                 >
                   {isSavingProfile ? "Sparar..." : "Spara profil"}
                 </Button>
-                {profileMessage && (
-                  <p className="text-sm font-semibold text-emerald-700">
-                    {profileMessage}
-                  </p>
-                )}
               </div>
             </form>
           </Card>
@@ -512,11 +528,6 @@ export default function SettingsPageClient() {
                 >
                   {isSavingPassword ? "Sparar..." : "Byt lösenord"}
                 </Button>
-                {passwordMessage && (
-                  <p className="text-sm font-semibold text-emerald-700">
-                    {passwordMessage}
-                  </p>
-                )}
                 {passwordError && (
                   <p className="text-sm font-semibold text-red-700">
                     {passwordError}
@@ -581,11 +592,6 @@ export default function SettingsPageClient() {
                     ? "Sparar..."
                     : "Spara notifieringar"}
                 </Button>
-                {notificationMessage && (
-                  <p className="text-sm font-semibold text-emerald-700">
-                    {notificationMessage}
-                  </p>
-                )}
                 {notificationError && (
                   <p className="text-sm font-semibold text-red-700">
                     {notificationError}
@@ -596,6 +602,7 @@ export default function SettingsPageClient() {
           </Card>
         </div>
       )}
+      {toast && <Toast onClose={() => setToast(null)} toast={toast} />}
     </main>
   )
 }

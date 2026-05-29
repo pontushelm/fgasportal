@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useId, useMemo, useRef, useState } from "react"
-import { Badge, Card, EmptyState as UiEmptyState, PageHeader, SectionHeader } from "@/components/ui"
+import { Badge, Card, EmptyState as UiEmptyState, PageHeader, SectionHeader, Toast } from "@/components/ui"
 import { getInstallationEventAmountLabel } from "@/lib/installation-events"
 import {
   getReportTypeMetadata,
@@ -177,7 +177,6 @@ export default function ReportsPage() {
   const [annualPdfExportMode, setAnnualPdfExportMode] = useState<"signed" | "unsigned" | null>(null)
   const [annualPdfExportError, setAnnualPdfExportError] = useState("")
   const [exportFeedback, setExportFeedback] = useState<ExportFeedback | null>(null)
-  const [isExportFeedbackExiting, setIsExportFeedbackExiting] = useState(false)
   const router = useRouter()
   const isAnnualReport = selectedReportType === "annual"
   const municipalityOptions = useMemo(
@@ -231,11 +230,7 @@ export default function ReportsPage() {
     (!isAnnualReport || Boolean(selectedPropertyId))
   const shouldShowReportDetails = !isAnnualReport || Boolean(selectedPropertyId)
   function dismissExportFeedback() {
-    setIsExportFeedbackExiting(true)
-    window.setTimeout(() => {
-      setExportFeedback(null)
-      setIsExportFeedbackExiting(false)
-    }, 200)
+    setExportFeedback(null)
   }
 
   async function refreshSignedReportsHistory() {
@@ -279,7 +274,6 @@ export default function ReportsPage() {
       downloadBlob(blob, getFilenameFromContentDisposition(response.headers.get("Content-Disposition")) ?? `fgas-arsrapport-${selectedYear}.pdf`)
 
       setIsAnnualExportModalOpen(false)
-      setIsExportFeedbackExiting(false)
       setExportFeedback({
         type: "success",
         title: "Klart",
@@ -292,7 +286,6 @@ export default function ReportsPage() {
     } catch (error) {
       console.error("Annual PDF export error:", error)
       setAnnualPdfExportError("Kunde inte exportera PDF. Försök igen.")
-      setIsExportFeedbackExiting(false)
       setExportFeedback({
         type: "error",
         title: "Kunde inte exportera PDF",
@@ -374,23 +367,6 @@ export default function ReportsPage() {
       isMounted = false
     }
   }, [isAnnualReport, reportQuery, router, selectedPropertyId])
-
-  useEffect(() => {
-    if (!exportFeedback) return
-
-    const exitTimer = window.setTimeout(() => {
-      setIsExportFeedbackExiting(true)
-    }, 4800)
-    const removeTimer = window.setTimeout(() => {
-      setExportFeedback(null)
-      setIsExportFeedbackExiting(false)
-    }, 5000)
-
-    return () => {
-      window.clearTimeout(exitTimer)
-      window.clearTimeout(removeTimer)
-    }
-  }, [exportFeedback])
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-neutral-950 sm:px-6 lg:px-8">
@@ -699,32 +675,7 @@ export default function ReportsPage() {
         />
       )}
       {exportFeedback && (
-        <div
-          className={`fixed bottom-4 right-4 z-50 w-[calc(100%-2rem)] max-w-sm rounded-lg border bg-white p-4 text-sm shadow-xl transition-all duration-200 ease-out sm:bottom-6 sm:right-6 ${
-            exportFeedback.type === "success" ? "border-emerald-200" : "border-red-200"
-          } ${isExportFeedbackExiting ? "translate-y-2 opacity-0" : "translate-y-0 opacity-100"}`}
-          role="status"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p
-                className={`font-semibold ${
-                  exportFeedback.type === "success" ? "text-emerald-900" : "text-red-900"
-                }`}
-              >
-                {exportFeedback.title}
-              </p>
-              <p className="mt-1 text-slate-700">{exportFeedback.message}</p>
-            </div>
-            <button
-              className="rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-              onClick={dismissExportFeedback}
-              type="button"
-            >
-              Stäng
-            </button>
-          </div>
-        </div>
+        <Toast onClose={dismissExportFeedback} toast={exportFeedback} />
       )}
     </main>
   )

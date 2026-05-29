@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useId, useMemo, useState } from "react"
-import { Badge, Card, PageHeader } from "@/components/ui"
+import { Badge, Card, PageHeader, Toast, type ToastMessage } from "@/components/ui"
 import {
   ACTION_SAVED_FILTER_PAGE,
   filterActionWorkQueue,
@@ -181,8 +181,8 @@ export default function ActionsPageClient() {
   const [isSaveViewOpen, setIsSaveViewOpen] = useState(false)
   const [saveViewName, setSaveViewName] = useState("")
   const [isSavingView, setIsSavingView] = useState(false)
-  const [savedViewMessage, setSavedViewMessage] = useState("")
   const [savedViewError, setSavedViewError] = useState("")
+  const [toast, setToast] = useState<ToastMessage | null>(null)
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
@@ -310,7 +310,6 @@ export default function ActionsPageClient() {
   function updateParam(key: string, value: string, emptyValue = "ALL") {
     const params = new URLSearchParams(searchParams.toString())
     setSelectedSavedViewId("")
-    setSavedViewMessage("")
 
     if (!value || value === emptyValue) {
       params.delete(key)
@@ -325,12 +324,10 @@ export default function ActionsPageClient() {
   function clearFilters() {
     router.replace("/dashboard/actions")
     setSelectedSavedViewId("")
-    setSavedViewMessage("")
   }
 
   function applySavedView(savedViewId: string) {
     setSelectedSavedViewId(savedViewId)
-    setSavedViewMessage("")
     setSavedViewError("")
 
     if (!savedViewId) return
@@ -345,7 +342,6 @@ export default function ActionsPageClient() {
   async function handleSaveView(event: React.FormEvent) {
     event.preventDefault()
     setSavedViewError("")
-    setSavedViewMessage("")
 
     const trimmedName = saveViewName.trim()
     if (!trimmedName) {
@@ -376,6 +372,11 @@ export default function ActionsPageClient() {
 
     if (!response.ok) {
       setSavedViewError(result.error || "Kunde inte spara vyn")
+      setToast({
+        type: "error",
+        title: "Fel",
+        message: result.error || "Kunde inte spara vyn.",
+      })
       setIsSavingView(false)
       return
     }
@@ -384,7 +385,11 @@ export default function ActionsPageClient() {
     setSelectedSavedViewId(result.id)
     setSaveViewName("")
     setIsSaveViewOpen(false)
-    setSavedViewMessage("Vyn har sparats")
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Vyn har sparats.",
+    })
     setIsSavingView(false)
   }
 
@@ -392,7 +397,6 @@ export default function ActionsPageClient() {
     if (!selectedSavedViewId) return
 
     setSavedViewError("")
-    setSavedViewMessage("")
 
     const response = await fetch("/api/saved-filters", {
       method: "DELETE",
@@ -413,12 +417,21 @@ export default function ActionsPageClient() {
 
     if (!response.ok) {
       setSavedViewError(result.error || "Kunde inte ta bort vyn")
+      setToast({
+        type: "error",
+        title: "Fel",
+        message: result.error || "Kunde inte ta bort vyn.",
+      })
       return
     }
 
     setSavedViews((current) => current.filter((view) => view.id !== selectedSavedViewId))
     setSelectedSavedViewId("")
-    setSavedViewMessage("Vyn har tagits bort")
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Vyn har tagits bort.",
+    })
   }
 
   return (
@@ -669,7 +682,6 @@ export default function ActionsPageClient() {
                   onClick={() => {
                     setIsSaveViewOpen(true)
                     setSavedViewError("")
-                    setSavedViewMessage("")
                   }}
                 >
                   Spara aktuell vy
@@ -689,9 +701,6 @@ export default function ActionsPageClient() {
 
           {savedViewError ? (
             <p className="mt-3 text-sm font-semibold text-red-700">{savedViewError}</p>
-          ) : null}
-          {savedViewMessage ? (
-            <p className="mt-3 text-sm font-semibold text-green-700">{savedViewMessage}</p>
           ) : null}
 
           </div>
@@ -722,6 +731,7 @@ export default function ActionsPageClient() {
           </Card>
         )}
       </div>
+      {toast && <Toast onClose={() => setToast(null)} toast={toast} />}
     </main>
   )
 }
