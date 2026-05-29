@@ -6,7 +6,6 @@ import * as XLSX from "xlsx"
 import {
   PROPERTY_IMPORT_FIELD_DEFINITIONS,
   getDuplicatePropertyMappedFields,
-  getMaxPropertyImportRows,
   getMissingRequiredPropertyImportFields,
   getPropertyImportFieldLabel,
   getSuggestedPropertyImportField,
@@ -30,10 +29,6 @@ type ImportSummary = {
 type WorksheetPreview = {
   name: string
   rows: Record<string, unknown>[]
-}
-
-type PreviewPropertyRow = ParsedPropertyImportRow & {
-  duplicateInFile: boolean
 }
 
 const TEMPLATE_COLUMNS = [
@@ -63,6 +58,7 @@ const TEMPLATE_ROWS = [
 const tableHeaderClassName =
   "px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600"
 const tableCellClassName = "whitespace-nowrap px-4 py-3 text-slate-800"
+const PREVIEW_ROW_LIMIT = 50
 
 export default function PropertiesImportPageClient() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -71,7 +67,6 @@ export default function PropertiesImportPageClient() {
   const [rawRows, setRawRows] = useState<Record<string, unknown>[]>([])
   const [detectedColumns, setDetectedColumns] = useState<string[]>([])
   const [columnMapping, setColumnMapping] = useState<PropertyColumnMapping>({})
-  const [rows, setRows] = useState<PreviewPropertyRow[]>([])
   const [error, setError] = useState("")
   const [summary, setSummary] = useState<ImportSummary | null>(null)
   const [isParsing, setIsParsing] = useState(false)
@@ -87,13 +82,38 @@ export default function PropertiesImportPageClient() {
   )
   const hasBlockingMappingIssue =
     missingRequiredFields.length > 0 || duplicatedFields.length > 0
-  const validRows = rows.filter(
-    (row) => row.errors.length === 0 && !row.duplicateInFile
+  const rows = useMemo(
+    () => buildPreviewRows(rawRows, columnMapping),
+    [rawRows, columnMapping]
   )
-  const invalidRows = rows.filter(
-    (row) => row.errors.length > 0 || row.duplicateInFile
+  const rowSummary = useMemo(() => {
+    const validRows = rows.filter(
+      (row) => row.errors.length === 0 && !row.duplicateInFile
+    )
+    const invalidRows = rows.filter(
+      (row) => row.errors.length > 0 || row.duplicateInFile
+    )
+    const warningRows = validRows.filter((row) => row.warnings.length > 0)
+    const missingDesignationRows = rows.filter((row) =>
+      row.errors.includes("Saknar fastighetsbeteckning")
+    )
+    const duplicateRowsInFile = rows.filter((row) => row.duplicateInFile)
+
+    return {
+      validRows,
+      invalidRows,
+      warningRows,
+      missingDesignationRows,
+      duplicateRowsInFile,
+    }
+  }, [rows])
+  const validRows = rowSummary.validRows
+  const invalidRows = rowSummary.invalidRows
+  const warningRows = rowSummary.warningRows
+  const previewRows = useMemo(
+    () => rows.slice(0, PREVIEW_ROW_LIMIT),
+    [rows]
   )
-  const warningRows = validRows.filter((row) => row.warnings.length > 0)
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -103,7 +123,6 @@ export default function PropertiesImportPageClient() {
     setRawRows([])
     setDetectedColumns([])
     setColumnMapping({})
-    setRows([])
     setError("")
     setSummary(null)
   }
@@ -116,6 +135,7 @@ export default function PropertiesImportPageClient() {
     setIsParsing(true)
 
     try {
+      await new Promise((resolve) => window.setTimeout(resolve, 0))
       const data = await selectedFile.arrayBuffer()
       const workbook = XLSX.read(data, {
         type: "array",
@@ -137,7 +157,6 @@ export default function PropertiesImportPageClient() {
       setRawRows([])
       setDetectedColumns([])
       setColumnMapping({})
-      setRows([])
       setError("Kunde inte läsa filen. Kontrollera att den är en giltig .xlsx eller .csv.")
     } finally {
       setIsParsing(false)
@@ -158,17 +177,13 @@ export default function PropertiesImportPageClient() {
     setRawRows(worksheetRows)
     setDetectedColumns(preview.columns)
     setColumnMapping(preview.suggestedMapping)
-    setRows(preview.parsedRows)
   }
 
   function handleMappingChange(column: string, field: PropertyImportFieldKey | "") {
-    const nextMapping = {
+    setColumnMapping({
       ...columnMapping,
       [column]: field,
-    }
-
-    setColumnMapping(nextMapping)
-    setRows(buildPreviewRows(rawRows, nextMapping))
+    })
   }
 
   function handleDownloadTemplate() {
@@ -403,6 +418,28 @@ export default function PropertiesImportPageClient() {
             </button>
           </div>
 
+          <div className="mt-4 grid gap-2 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-5">
+            <ImportMetric label="Rader i filen" value={rows.length} />
+            <ImportMetric label="Giltiga" value={validRows.length} />
+            <ImportMetric
+              label="Saknar fastighetsbeteckning"
+              value={rowSummary.missingDesignationRows.length}
+            />
+            <ImportMetric
+              label="Dubbletter i filen"
+              value={rowSummary.duplicateRowsInFile.length}
+            />
+            <ImportMetric
+              label="Finns redan i registret"
+              value={summary?.skippedDuplicates ?? "Efter import"}
+            />
+          </div>
+
+          <p className="mt-4 text-xs text-slate-500">
+            Visar de första {Math.min(PREVIEW_ROW_LIMIT, rows.length)} raderna.
+            Totalt hittades {rows.length} rader. Importen använder alla giltiga rader.
+          </p>
+
           <div className="mt-4 max-h-[50vh] overflow-auto rounded-lg border border-slate-200">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="sticky top-0 bg-slate-50">
@@ -417,7 +454,7 @@ export default function PropertiesImportPageClient() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
-                {rows.map((row) => (
+                {previewRows.map((row) => (
                   <tr key={row.row}>
                     <td className={tableCellClassName}>{row.row}</td>
                     <td className={tableCellClassName}>{row.propertyDesignation || "-"}</td>
@@ -486,8 +523,22 @@ function applyWorksheetPreviewRows(rows: Record<string, unknown>[]) {
   return {
     columns,
     suggestedMapping,
-    parsedRows: buildPreviewRows(rows, suggestedMapping),
   }
+}
+
+function ImportMetric({
+  label,
+  value,
+}: {
+  label: string
+  value: number | string
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+      <div className="text-xs font-medium text-slate-500">{label}</div>
+      <div className="mt-1 text-base font-semibold text-slate-950">{value}</div>
+    </div>
+  )
 }
 
 function buildPreviewRows(
@@ -496,7 +547,6 @@ function buildPreviewRows(
 ) {
   const mappedRows = mapPropertyRowsWithMapping(rows, mapping)
     .filter((row) => !isEmptyPropertyImportRow(row))
-    .slice(0, getMaxPropertyImportRows())
   const parsedRows = parsePropertyImportRows(mappedRows)
   const seenDesignations = new Set<string>()
 

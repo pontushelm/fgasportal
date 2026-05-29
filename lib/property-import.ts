@@ -28,8 +28,6 @@ export type ParsedPropertyImportRow = ImportPropertyInput & {
   warnings: string[]
 }
 
-const MAX_PROPERTY_IMPORT_ROWS = 500
-
 export const PROPERTY_IMPORT_FIELD_DEFINITIONS: PropertyImportFieldDefinition[] = [
   {
     key: "propertyDesignation",
@@ -161,7 +159,7 @@ export function mapPropertyRowsWithMapping(
 }
 
 export function parsePropertyImportRows(rows: Record<string, unknown>[]) {
-  return rows.slice(0, MAX_PROPERTY_IMPORT_ROWS).map((row, index) =>
+  return rows.map((row, index) =>
     normalizePropertyImportRow(row, index + 2)
   )
 }
@@ -216,10 +214,6 @@ export function normalizePropertyDesignation(value: string | null | undefined) {
     .toLowerCase()
     .replace(/\s+/g, " ")
     .replace(/\s*:\s*/g, ":") ?? ""
-}
-
-export function getMaxPropertyImportRows() {
-  return MAX_PROPERTY_IMPORT_ROWS
 }
 
 function getOptionalString(

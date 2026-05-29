@@ -3,7 +3,6 @@ import { ZodError, z } from "zod"
 import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import {
-  getMaxPropertyImportRows,
   normalizePropertyDesignation,
   normalizePropertyImportRow,
 } from "@/lib/property-import"
@@ -21,7 +20,7 @@ const propertyImportRequestSchema = z.object({
       internalReference: z.string().nullable().optional(),
       description: z.string().nullable().optional(),
     })
-  ).max(getMaxPropertyImportRows()),
+  ),
 })
 
 type ImportError = {
