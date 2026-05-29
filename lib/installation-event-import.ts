@@ -18,6 +18,7 @@ export type EventImportFieldKey =
   | "propertyName"
   | "eventType"
   | "eventDate"
+  | "eventYear"
   | "amountKg"
   | "previousRefrigerantType"
   | "newRefrigerantType"
@@ -39,6 +40,8 @@ export type EventImportInputRow = {
   propertyName: string | null
   eventType: string
   eventDate: string | null
+  eventYear: number | null
+  datePrecision: "exact" | "year"
   amountKg: number | null
   previousRefrigerantType: string | null
   newRefrigerantType: string | null
@@ -140,14 +143,17 @@ export const EVENT_IMPORT_FIELD_DEFINITIONS: EventImportFieldDefinition[] = [
   {
     key: "eventType",
     label: "Händelsetyp",
-    required: true,
     aliases: ["händelsetyp", "handelsetyp", "händelse typ", "event type", "typ"],
   },
   {
     key: "eventDate",
     label: "Händelsedatum",
-    required: true,
     aliases: ["händelsedatum", "handelsedatum", "datum", "event date", "date"],
+  },
+  {
+    key: "eventYear",
+    label: "Händelseår",
+    aliases: ["händelseår", "handelsear", "år", "ar", "rapportår", "report year", "year"],
   },
   {
     key: "amountKg",
@@ -262,14 +268,44 @@ export function isEventImportFieldSelectedByAnotherColumn(
 
 export function mapEventImportRowsWithMapping(
   rows: Record<string, unknown>[],
-  mapping: EventImportColumnMapping
+  mapping: EventImportColumnMapping,
+  options: { worksheetName?: string } = {}
 ) {
+  const inferredSheetYear = inferEventYearFromText(options.worksheetName)
+  const inferredEventColumns = Object.keys(rows[0] ?? {})
+    .map((header) => ({
+      header,
+      inference: inferEventColumnFromHeader(header),
+    }))
+    .filter((item) => item.inference)
+
   return rows.map((row, index) => {
     const mappedRow: Record<string, unknown> = { row: index + 2 }
 
     Object.entries(mapping).forEach(([header, key]) => {
       if (key) mappedRow[key] = row[header]
     })
+
+    const populatedInferredColumns = inferredEventColumns.filter((item) =>
+      hasValue(row[item.header])
+    )
+    if (populatedInferredColumns.length === 1) {
+      const { header, inference } = populatedInferredColumns[0]
+
+      if (inference && !hasValue(mappedRow.eventType)) {
+        mappedRow.eventType = inference.eventType
+      }
+      if (inference && !hasValue(mappedRow.eventYear)) {
+        mappedRow.eventYear = inference.eventYear
+      }
+      if (inference?.amountField && !hasValue(mappedRow[inference.amountField])) {
+        mappedRow[inference.amountField] = row[header]
+      }
+    }
+
+    if (!hasValue(mappedRow.eventYear) && inferredSheetYear) {
+      mappedRow.eventYear = inferredSheetYear
+    }
 
     return mappedRow
   })
@@ -281,6 +317,7 @@ export function isEmptyEventImportRow(row: Record<string, unknown>) {
     "propertyName",
     "eventType",
     "eventDate",
+    "eventYear",
     "amountKg",
     "previousRefrigerantType",
     "newRefrigerantType",
@@ -299,7 +336,10 @@ export function normalizeEventImportRow(
   const propertyName = getOptionalString(rawRow, "propertyName")
   const eventType = getString(rawRow, "eventType")
   const normalizedType = normalizeEventType(eventType)
-  const eventDate = parseDateValue(rawRow.eventDate)
+  const exactEventDate = parseDateValue(rawRow.eventDate)
+  const eventYear = parseEventYear(rawRow.eventYear)
+  const eventDate = exactEventDate ?? (eventYear ? `${eventYear}-12-31` : null)
+  const datePrecision = exactEventDate ? "exact" : "year"
   const amountKg = parseNumber(rawRow.amountKg)
   const previousRefrigerantType = getOptionalString(rawRow, "previousRefrigerantType")
   const newRefrigerantType = getOptionalString(rawRow, "newRefrigerantType")
@@ -314,7 +354,16 @@ export function normalizeEventImportRow(
   } else if (!normalizedType) {
     errors.push("Ogiltig händelsetyp")
   }
-  if (!eventDate) errors.push("Saknar eller har ogiltigt händelsedatum")
+  if (hasValue(rawRow.eventYear) && !eventYear) {
+    errors.push("Ogiltigt händelseår")
+  }
+  if (!eventDate) {
+    errors.push("Saknar händelsedatum eller händelseår")
+  } else if (!exactEventDate && eventYear) {
+    warnings.push(
+      "Exakt händelsedatum saknas - händelsen registreras på årets sista dag"
+    )
+  }
   if (hasValue(rawRow.amountKg) && amountKg === null) {
     errors.push("Ogiltig mängd")
   }
@@ -327,8 +376,10 @@ export function normalizeEventImportRow(
   if (recoveredKg !== null && recoveredKg < 0) {
     errors.push("Omhändertagen mängd måste vara 0 eller högre")
   }
-  if (normalizedType === "LEAK" && !notes) {
+  if (normalizedType === "LEAK" && !notes && datePrecision === "exact") {
     errors.push("Anteckningar krävs för läckagehändelser")
+  } else if (normalizedType === "LEAK" && !notes) {
+    warnings.push("Anteckningar saknas för läckagehändelsen")
   }
   if (normalizedType === "LEAK" && amountKg === null) {
     warnings.push("Saknar läckagemängd - händelsen importeras utan mängd")
@@ -358,6 +409,8 @@ export function normalizeEventImportRow(
     propertyName,
     eventType,
     eventDate,
+    eventYear,
+    datePrecision,
     amountKg,
     previousRefrigerantType,
     newRefrigerantType,
@@ -747,6 +800,43 @@ function parseDateValue(value: unknown) {
   const date = new Date(Number(fullYear), Number(month) - 1, Number(day))
 
   return Number.isNaN(date.getTime()) ? null : formatDate(date)
+}
+
+function parseEventYear(value: unknown) {
+  if (!hasValue(value)) return null
+  const text = String(value).trim()
+  const matches = Array.from(text.matchAll(/\b(19\d{2}|20\d{2}|21\d{2})\b/g))
+  if (matches.length !== 1) return null
+
+  const year = Number(matches[0][1])
+  return Number.isInteger(year) ? year : null
+}
+
+function inferEventYearFromText(value: string | null | undefined) {
+  return parseEventYear(value)
+}
+
+function inferEventColumnFromHeader(header: string) {
+  const eventYear = inferEventYearFromText(header)
+  if (!eventYear) return null
+
+  const normalizedHeader = normalizeHeader(header.replace(String(eventYear), ""))
+  const eventType = normalizeEventType(normalizedHeader)
+  if (!eventType) return null
+
+  return {
+    eventType,
+    eventYear,
+    amountField: getInferredEventAmountField(eventType),
+  }
+}
+
+function getInferredEventAmountField(type: SupportedEventImportType) {
+  if (type === "LEAK" || type === "REFILL" || type === "REFRIGERANT_CHANGE") {
+    return "amountKg" as const
+  }
+  if (type === "RECOVERY") return "recoveredKg" as const
+  return null
 }
 
 function excelSerialDateToDate(serialDate: number) {

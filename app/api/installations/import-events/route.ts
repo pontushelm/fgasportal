@@ -125,6 +125,8 @@ export async function POST(request: NextRequest) {
 
     let created = 0
     let skipped = 0
+    let createdWithExactDate = 0
+    let createdWithYearOnlyDate = 0
     const errors: Array<{ row: number; message: string }> = []
     const installationsById = new Map(installations.map((installation) => [
       installation.id,
@@ -183,12 +185,19 @@ export async function POST(request: NextRequest) {
         event: validation.data,
       })
       created += 1
+      if (row.datePrecision === "year") {
+        createdWithYearOnlyDate += 1
+      } else {
+        createdWithExactDate += 1
+      }
     }
 
     return NextResponse.json(
       {
         created,
         skipped,
+        createdWithExactDate,
+        createdWithYearOnlyDate,
         errors,
       },
       { status: 200 }
@@ -233,6 +242,9 @@ function getAmountForImportedEvent(row: EventImportPreviewRow) {
 
 function buildImportedEventNotes(row: EventImportPreviewRow) {
   const notes = [
+    row.datePrecision === "year"
+      ? "Exakt händelsedatum saknades i importfilen. Händelsen har registrerats på rapportårets sista dag."
+      : null,
     row.previousRefrigerantType
       ? `Tidigare köldmedium enligt import: ${row.previousRefrigerantType}.`
       : null,
@@ -254,6 +266,11 @@ function summarizePreview(rows: EventImportPreviewRow[]) {
     importable: rows.filter((row) => row.status !== "blocked").length,
     warnings: rows.filter((row) => row.status === "warning").length,
     blocked: rows.filter((row) => row.status === "blocked").length,
+    exactDate: rows.filter((row) => row.eventDate && row.datePrecision === "exact").length,
+    yearOnlyDate: rows.filter((row) => row.eventDate && row.datePrecision === "year").length,
+    missingDateOrYear: rows.filter((row) =>
+      row.errors.includes("Saknar händelsedatum eller händelseår")
+    ).length,
   }
 }
 

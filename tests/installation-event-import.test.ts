@@ -3,6 +3,7 @@ import {
   buildEventImportPreview,
   eventImportRequestSchema,
   filterEventImportPreviewRows,
+  mapEventImportRowsWithMapping,
   normalizeEventImportRow,
 } from "@/lib/installation-event-import"
 
@@ -461,6 +462,77 @@ describe("installation event import preview", () => {
     expect(row.status).not.toBe("blocked")
   })
 
+  it("keeps exact event dates as preferred import dates", () => {
+    const row = normalizeEventImportRow({
+      equipmentId: "FRYS-01",
+      eventType: "Service",
+      eventDate: "2025-06-15",
+    })
+
+    expect(row.eventDate).toBe("2025-06-15")
+    expect(row.datePrecision).toBe("exact")
+    expect(row.errors).not.toContain("Saknar händelsedatum eller händelseår")
+  })
+
+  it("accepts year-only event imports and uses the last day of the year", () => {
+    const row = normalizeEventImportRow({
+      equipmentId: "FRYS-01",
+      eventType: "Service",
+      eventYear: "år 2025",
+    })
+
+    expect(row.eventDate).toBe("2025-12-31")
+    expect(row.eventYear).toBe(2025)
+    expect(row.datePrecision).toBe("year")
+    expect(row.warnings).toContain(
+      "Exakt händelsedatum saknas - händelsen registreras på årets sista dag"
+    )
+  })
+
+  it("infers event type and year from clear annual event columns", () => {
+    const [mappedRow] = mapEventImportRowsWithMapping(
+      [
+        {
+          "Aggregat-ID": "FRYS-01",
+          "Läckage 2025": 1.25,
+        },
+      ],
+      {
+        "Aggregat-ID": "equipmentId",
+      }
+    )
+    const [row] = buildEventImportPreview({
+      rows: [mappedRow],
+      installations,
+      properties,
+    })
+
+    expect(row.normalizedType).toBe("LEAK")
+    expect(row.eventDate).toBe("2025-12-31")
+    expect(row.amountKg).toBe(1.25)
+    expect(row.status).not.toBe("blocked")
+  })
+
+  it("uses worksheet year as fallback when exact date is missing", () => {
+    const [mappedRow] = mapEventImportRowsWithMapping(
+      [
+        {
+          "Aggregat-ID": "FRYS-01",
+          Händelsetyp: "Service",
+        },
+      ],
+      {
+        "Aggregat-ID": "equipmentId",
+        Händelsetyp: "eventType",
+      },
+      { worksheetName: "År 2025" }
+    )
+    const row = normalizeEventImportRow(mappedRow)
+
+    expect(row.eventDate).toBe("2025-12-31")
+    expect(row.datePrecision).toBe("year")
+  })
+
   it("returns field-level details only when the request envelope is malformed", () => {
     const result = eventImportRequestSchema.safeParse({
       mode: "preview",
@@ -481,6 +553,6 @@ describe("installation event import preview", () => {
     })
 
     expect(row.errors).toContain("Ogiltig händelsetyp")
-    expect(row.errors).toContain("Saknar eller har ogiltigt händelsedatum")
+    expect(row.errors).toContain("Saknar händelsedatum eller händelseår")
   })
 })

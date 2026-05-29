@@ -31,12 +31,17 @@ type PreviewResponse = {
     importable: number
     warnings: number
     blocked: number
+    exactDate: number
+    yearOnlyDate: number
+    missingDateOrYear: number
   }
 }
 
 type ImportSummary = {
   created: number
   skipped: number
+  createdWithExactDate?: number
+  createdWithYearOnlyDate?: number
   errors: Array<{ row: number; message: string }>
 }
 
@@ -263,7 +268,9 @@ export default function InstallationEventImportPageClient() {
       return
     }
 
-    const rows = mapEventImportRowsWithMapping(sourceRows, sourceMapping)
+    const rows = mapEventImportRowsWithMapping(sourceRows, sourceMapping, {
+      worksheetName: selectedWorksheetName,
+    })
       .filter((row) => !isEmptyEventImportRow(row))
       .slice(0, getMaxEventImportRows())
 
@@ -389,6 +396,7 @@ export default function InstallationEventImportPageClient() {
             <ul className="grid gap-1.5">
               <li>Inläsning av kontroll, läckage, påfyllning, service, reparation, tömning/återvinning och köldmediebyte stöds.</li>
               <li>Händelser kopplas till befintliga aggregat via aggregat-ID.</li>
+              <li>Om exakt datum saknas kan du ange händelseår. Händelsen registreras då på årets sista dag och markeras som importerad utan exakt datum.</li>
               <li>Om samma aggregat-ID finns på flera platser kan fastighet användas för att hitta rätt aggregat.</li>
               <li>Aggregatet måste redan finnas i FgasPortal för att händelsen ska kunna kopplas. Nya aggregat skapas inte i den här importen.</li>
             </ul>
@@ -547,6 +555,13 @@ export default function InstallationEventImportPageClient() {
                 {previewSummary?.warnings ?? warningRows.length} med varningar,{" "}
                 {previewSummary?.blocked ?? blockedRows.length} blockerade.
               </p>
+              {previewSummary && (
+                <p className="mt-1 text-xs text-slate-500">
+                  {previewSummary.exactDate} med exakt datum,{" "}
+                  {previewSummary.yearOnlyDate} med endast händelseår,{" "}
+                  {previewSummary.missingDateOrYear} saknar datum/år.
+                </p>
+              )}
             </div>
             <button
               className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
@@ -661,6 +676,10 @@ export default function InstallationEventImportPageClient() {
             <h2 className="text-lg font-semibold text-slate-950">Importen är klar</h2>
             <p className="mt-3 text-base font-semibold text-emerald-800">
               {importSummary.created} händelser importerades.
+            </p>
+            <p className="mt-1">
+              {importSummary.createdWithExactDate ?? 0} med exakt datum,{" "}
+              {importSummary.createdWithYearOnlyDate ?? 0} med endast händelseår.
             </p>
             {importSummary.skipped > 0 && (
               <p className="mt-2">{importSummary.skipped} rader kunde inte importeras.</p>
