@@ -437,7 +437,22 @@ export async function GET(request: NextRequest) {
     const queryStartTime = getDevelopmentTimingStart()
     const installations = await prisma.installation.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        name: true,
+        location: true,
+        equipmentId: true,
+        serialNumber: true,
+        refrigerantType: true,
+        refrigerantAmount: true,
+        hasLeakDetectionSystem: true,
+        lastInspection: true,
+        nextInspection: true,
+        isActive: true,
+        archivedAt: true,
+        scrappedAt: true,
+        propertyId: true,
+        updatedAt: true,
         assignedContractor: {
           select: {
             id: true,
@@ -509,13 +524,14 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-        events: {
-          where: {
-            type: "LEAK",
-            supersededAt: null,
-          },
+        _count: {
           select: {
-            id: true,
+            events: {
+              where: {
+                type: "LEAK",
+                supersededAt: null,
+              },
+            },
           },
         },
       },
@@ -525,7 +541,7 @@ export async function GET(request: NextRequest) {
 
     const mappingStartTime = getDevelopmentTimingStart()
     const installationsWithCompliance = installations.map((installation) => {
-      const { assignedContractor, assignedServicePartnerCompany, events: leakEvents, ...installationData } = installation
+      const { assignedContractor, assignedServicePartnerCompany, _count, ...installationData } = installation
       const compliance = calculateInstallationCompliance(
         installation.refrigerantType,
         installation.refrigerantAmount,
@@ -538,7 +554,7 @@ export async function GET(request: NextRequest) {
         refrigerantAmount: installation.refrigerantAmount,
         gwp: compliance.gwp,
         hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
-        leakageEventsCount: leakEvents.length,
+        leakageEventsCount: _count.events,
         isInspectionOverdue: compliance.status === "OVERDUE",
       })
 

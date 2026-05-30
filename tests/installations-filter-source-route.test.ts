@@ -147,6 +147,70 @@ describe("installations filter-source API mode", () => {
       })
     )
   })
+
+  it("uses a narrow main-list select and counts leakage events without returning event rows", async () => {
+    const { GET } = await import("@/app/api/installations/route")
+    installationFindMany.mockResolvedValueOnce([
+      {
+        id: "installation-1",
+        name: "VP1",
+        location: "Tak",
+        equipmentId: "AGG-1",
+        serialNumber: "SN-1",
+        refrigerantType: "R410A",
+        refrigerantAmount: 10,
+        hasLeakDetectionSystem: false,
+        lastInspection: new Date("2025-01-10T00:00:00.000Z"),
+        nextInspection: new Date("2026-01-10T00:00:00.000Z"),
+        isActive: true,
+        archivedAt: null,
+        scrappedAt: null,
+        propertyId: "property-1",
+        updatedAt: new Date("2025-01-10T00:00:00.000Z"),
+        assignedContractor: null,
+        assignedServicePartnerCompany: null,
+        property: {
+          id: "property-1",
+          name: "Stadshuset",
+          municipality: "Stockholm",
+          city: "Stockholm",
+        },
+        _count: {
+          events: 2,
+        },
+      },
+    ])
+
+    const response = await GET(createRequest("/api/installations"))
+    const body = await response.json()
+    const query = installationFindMany.mock.calls[0][0]
+
+    expect(response.status).toBe(200)
+    expect(query.include).toBeUndefined()
+    expect(query.select.events).toBeUndefined()
+    expect(query.select._count).toEqual({
+      select: {
+        events: {
+          where: {
+            type: "LEAK",
+            supersededAt: null,
+          },
+        },
+      },
+    })
+    expect(query.select.notes).toBeUndefined()
+    expect(body[0]).toEqual(
+      expect.objectContaining({
+        id: "installation-1",
+        name: "VP1",
+        refrigerantType: "R410A",
+        assignedContractor: null,
+        assignedServicePartnerCompany: null,
+      })
+    )
+    expect(body[0]._count).toBeUndefined()
+    expect(body[0].events).toBeUndefined()
+  })
 })
 
 function createRequest(path: string) {
