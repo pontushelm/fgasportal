@@ -20,6 +20,7 @@ type Installation = {
   id: string
   name: string
   location: string
+  propertyName?: string | null
   propertyId?: string | null
   property?: PropertyOption | null
   equipmentId?: string | null
@@ -122,6 +123,12 @@ type InstallationSortKey =
 
 type SortDirection = "asc" | "desc"
 
+type SearchableFilterOption = {
+  value: string
+  label: string
+  description?: string
+}
+
 const STATUS_LABELS: Record<ComplianceStatus, string> = {
   OK: "OK",
   DUE_SOON: "Kontroll inom 30 dagar",
@@ -169,7 +176,6 @@ const bulkDestructiveButtonClassName =
 export default function InstallationsPageClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const queryString = searchParams.toString()
   const searchValue = searchParams.get("q") || ""
   const archivedValue = searchParams.get("archived") || ""
   const refrigerantValue = searchParams.get("refrigerantType") || ""
@@ -263,9 +269,8 @@ export default function InstallationsPageClient() {
       setIsLoading(true)
       setError("")
 
-      const installationsUrl = `/api/installations${queryString ? `?${queryString}` : ""}`
       const [installationsRes, userRes, filterSourceRes, savedFiltersRes, propertiesRes, servicePartnerCompaniesRes] = await Promise.all([
-        fetch(installationsUrl, {
+        fetch("/api/installations", {
           credentials: "include",
         }),
         fetch("/api/auth/me", {
@@ -341,7 +346,7 @@ export default function InstallationsPageClient() {
     return () => {
       isMounted = false
     }
-  }, [queryString, refreshKey, router])
+  }, [refreshKey, router])
 
   useEffect(() => {
     let isMounted = true
@@ -429,14 +434,38 @@ export default function InstallationsPageClient() {
   }
 
   const hasSelectedInstallations = selectedIds.length > 0
+  const filteredInstallations = useMemo(
+    () =>
+      filterInstallationsByQuery(installations, {
+        inspectionIntervalFilterValue,
+        municipalityFilterValue,
+        propertyFilterValue,
+        refrigerantValue,
+        riskFilterValue,
+        searchValue,
+        servicePartnerCompanyFilterValue,
+        statusFilterValue,
+      }),
+    [
+      installations,
+      inspectionIntervalFilterValue,
+      municipalityFilterValue,
+      propertyFilterValue,
+      refrigerantValue,
+      riskFilterValue,
+      searchValue,
+      servicePartnerCompanyFilterValue,
+      statusFilterValue,
+    ]
+  )
   const displayedInstallations = useMemo(
     () =>
       sortInstallations(
-        filterInstallationsByTechnician(installations, technicianFilterValue),
+        filterInstallationsByTechnician(filteredInstallations, technicianFilterValue),
         sortFieldValue,
         sortDirectionValue
       ),
-    [installations, sortDirectionValue, sortFieldValue, technicianFilterValue]
+    [filteredInstallations, sortDirectionValue, sortFieldValue, technicianFilterValue]
   )
   const allSelected = useMemo(
     () =>
@@ -453,8 +482,24 @@ export default function InstallationsPageClient() {
             .map((installation) => installation.refrigerantType)
             .filter(Boolean),
         ])
-      ).sort((first, second) => first.localeCompare(second, "sv")),
+      )
+        .sort((first, second) => first.localeCompare(second, "sv"))
+        .map((refrigerant) => ({
+          value: refrigerant,
+          label: refrigerant,
+        })),
     [filterSourceInstallations]
+  )
+  const propertyOptions = useMemo(
+    () =>
+      properties.map((property) => ({
+        value: property.id,
+        label: property.name,
+        description: [property.municipality, property.city]
+          .filter(Boolean)
+          .join(" · "),
+      })),
+    [properties]
   )
   const municipalityOptions = useMemo(
     () =>
@@ -478,6 +523,15 @@ export default function InstallationsPageClient() {
         servicePartnerCompanies
       ),
     [contractors, filterSourceInstallations, servicePartnerCompanies]
+  )
+  const servicePartnerFilterOptions = useMemo(
+    () =>
+      servicePartnerCompanyOptions.map((company) => ({
+        value: company.id,
+        label: company.name,
+        description: company.organizationNumber ?? undefined,
+      })),
+    [servicePartnerCompanyOptions]
   )
   const bulkContactOptions = useMemo(
     () =>
@@ -504,6 +558,7 @@ export default function InstallationsPageClient() {
   const updateQueryParam = useCallback((name: string, value: string) => {
     const params = getFilterParamsWithoutColumnSort(searchParams)
     setSelectedSavedFilterId("")
+    setSelectedIds([])
 
     if (value) {
       params.set(name, value)
@@ -544,6 +599,7 @@ export default function InstallationsPageClient() {
   function updateStatusFilter(value: string) {
     const params = getFilterParamsWithoutColumnSort(searchParams)
     setSelectedSavedFilterId("")
+    setSelectedIds([])
 
     params.delete("status")
     params.delete("archived")
@@ -563,10 +619,12 @@ export default function InstallationsPageClient() {
     router.replace("/dashboard/installations")
     setSelectedSavedFilterId("")
     setColumnSort({ key: "", direction: "" })
+    setSelectedIds([])
   }
 
   function applySavedFilter(savedFilterId: string) {
     setSelectedSavedFilterId(savedFilterId)
+    setSelectedIds([])
 
     if (!savedFilterId) return
 
@@ -1094,32 +1152,20 @@ export default function InstallationsPageClient() {
           />
 
           {!isServicePartnerUser && (
-            <FilterSelect
+            <SearchableFilterSelect
               label="Servicepartner"
+              options={servicePartnerFilterOptions}
               value={servicePartnerCompanyFilterValue}
               onChange={(value) => updateQueryParam("servicePartnerCompanyId", value)}
-            >
-              <option value="">Alla</option>
-              {servicePartnerCompanyOptions.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                </option>
-              ))}
-            </FilterSelect>
+            />
           )}
 
-          <FilterSelect
+          <SearchableFilterSelect
             label="Fastighet"
+            options={propertyOptions}
             value={propertyFilterValue}
             onChange={(value) => updateQueryParam("propertyId", value)}
-          >
-            <option value="">Alla</option>
-            {properties.map((property) => (
-              <option key={property.id} value={property.id}>
-                {property.name}
-              </option>
-            ))}
-          </FilterSelect>
+          />
 
           <FilterSelect
             label="Kommun"
@@ -1165,7 +1211,10 @@ export default function InstallationsPageClient() {
             <FilterSelect
               label="Tekniker"
               value={technicianFilterValue}
-              onChange={setTechnicianFilterValue}
+              onChange={(value) => {
+                setTechnicianFilterValue(value)
+                setSelectedIds([])
+              }}
             >
               <option value="">Alla</option>
               <option value="unassigned">Ej tilldelade</option>
@@ -2182,32 +2231,42 @@ function SearchableFilterSelect({
 }: {
   label: string
   onChange: (value: string) => void
-  options: string[]
+  options: SearchableFilterOption[]
   value: string
 }) {
   const inputId = useId()
   const listboxId = useId()
+  const selectedOption = useMemo(
+    () => options.find((option) => option.value === value) ?? null,
+    [options, value]
+  )
   const [isOpen, setIsOpen] = useState(false)
   const [searchState, setSearchState] = useState({
     sourceValue: value,
-    value,
+    value: selectedOption?.label ?? value,
   })
-  const search = searchState.sourceValue === value ? searchState.value : value
+  const search =
+    searchState.sourceValue === value
+      ? searchState.value
+      : selectedOption?.label ?? value
 
   const filteredOptions = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
     if (!normalizedSearch) return options
 
     return options.filter((option) =>
-      option.toLowerCase().includes(normalizedSearch)
+      [option.label, option.description]
+        .filter((text): text is string => Boolean(text))
+        .some((text) => text.toLowerCase().includes(normalizedSearch))
     )
   }, [options, search])
 
-  function selectValue(nextValue: string) {
+  function selectOption(option: SearchableFilterOption | null) {
+    const nextValue = option?.value ?? ""
     onChange(nextValue)
     setSearchState({
       sourceValue: nextValue,
-      value: nextValue,
+      value: option?.label ?? "",
     })
     setIsOpen(false)
   }
@@ -2220,7 +2279,7 @@ function SearchableFilterSelect({
           setIsOpen(false)
           setSearchState({
             sourceValue: value,
-            value,
+            value: selectedOption?.label ?? value,
           })
         }
       }}
@@ -2250,12 +2309,12 @@ function SearchableFilterSelect({
               setIsOpen(false)
               setSearchState({
                 sourceValue: value,
-                value,
+                value: selectedOption?.label ?? value,
               })
             }
             if (event.key === "Enter" && filteredOptions.length === 1) {
               event.preventDefault()
-              selectValue(filteredOptions[0])
+              selectOption(filteredOptions[0])
             }
           }}
         />
@@ -2263,7 +2322,7 @@ function SearchableFilterSelect({
           <button
             className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100"
             type="button"
-            onClick={() => selectValue("")}
+            onClick={() => selectOption(null)}
           >
             Alla
           </button>
@@ -2284,7 +2343,7 @@ function SearchableFilterSelect({
             role="option"
             aria-selected={!value}
             onMouseDown={(event) => event.preventDefault()}
-            onClick={() => selectValue("")}
+            onClick={() => selectOption(null)}
           >
             Alla
           </button>
@@ -2294,16 +2353,21 @@ function SearchableFilterSelect({
             filteredOptions.map((option) => (
               <button
                 className={`block w-full px-3 py-2 text-left text-sm hover:bg-blue-50 ${
-                  value === option ? "bg-blue-50 font-semibold text-blue-800" : "text-slate-700"
+                  value === option.value ? "bg-blue-50 font-semibold text-blue-800" : "text-slate-700"
                 }`}
-                key={option}
+                key={option.value}
                 type="button"
                 role="option"
-                aria-selected={value === option}
+                aria-selected={value === option.value}
                 onMouseDown={(event) => event.preventDefault()}
-                onClick={() => selectValue(option)}
+                onClick={() => selectOption(option)}
               >
-                {option}
+                <span>{option.label}</span>
+                {option.description ? (
+                  <span className="mt-0.5 block text-xs font-normal text-slate-500">
+                    {option.description}
+                  </span>
+                ) : null}
               </button>
             ))
           )}
@@ -2541,6 +2605,162 @@ function installationNameById(installationId: string, installations: Installatio
     installations.find((installation) => installation.id === installationId)
       ?.name ?? "Aggregatet"
   )
+}
+
+function filterInstallationsByQuery(
+  installations: Installation[],
+  filters: {
+    inspectionIntervalFilterValue: string
+    municipalityFilterValue: string
+    propertyFilterValue: string
+    refrigerantValue: string
+    riskFilterValue: string
+    searchValue: string
+    servicePartnerCompanyFilterValue: string
+    statusFilterValue: string
+  }
+) {
+  const normalizedSearch = filters.searchValue.trim().toLowerCase()
+
+  return installations.filter((installation) => {
+    if (
+      normalizedSearch &&
+      ![
+        installation.name,
+        installation.location,
+        installation.equipmentId,
+        installation.serialNumber,
+        installation.propertyName,
+        installation.property?.name,
+        installation.property?.municipality,
+        installation.property?.city,
+      ]
+        .filter((value): value is string => Boolean(value))
+        .some((value) => value.toLowerCase().includes(normalizedSearch))
+    ) {
+      return false
+    }
+
+    if (
+      filters.refrigerantValue &&
+      installation.refrigerantType !== filters.refrigerantValue
+    ) {
+      return false
+    }
+
+    if (
+      filters.propertyFilterValue &&
+      installation.propertyId !== filters.propertyFilterValue
+    ) {
+      return false
+    }
+
+    if (
+      filters.municipalityFilterValue &&
+      installation.property?.municipality !== filters.municipalityFilterValue
+    ) {
+      return false
+    }
+
+    if (
+      filters.servicePartnerCompanyFilterValue &&
+      getInstallationServicePartnerCompanyId(installation) !==
+        filters.servicePartnerCompanyFilterValue
+    ) {
+      return false
+    }
+
+    if (
+      filters.statusFilterValue &&
+      !matchesClientStatusFilter(installation, filters.statusFilterValue)
+    ) {
+      return false
+    }
+
+    if (
+      filters.riskFilterValue &&
+      !matchesRiskFilter(
+        installation.riskLevel,
+        installation.riskScore,
+        filters.riskFilterValue
+      )
+    ) {
+      return false
+    }
+
+    if (
+      filters.inspectionIntervalFilterValue &&
+      !matchesInspectionIntervalFilter(
+        installation.inspectionInterval ?? null,
+        filters.inspectionIntervalFilterValue
+      )
+    ) {
+      return false
+    }
+
+    return true
+  })
+}
+
+function getInstallationServicePartnerCompanyId(installation: Installation) {
+  return (
+    installation.assignedServicePartnerCompany?.id ??
+    installation.assignedContractor?.servicePartnerCompany?.id ??
+    null
+  )
+}
+
+function matchesClientStatusFilter(installation: Installation, filter: string) {
+  if (filter === "all") return true
+  if (filter === "active") return !installation.archivedAt && !installation.scrappedAt
+  if (filter === "archived") return Boolean(installation.archivedAt)
+  if (filter === "scrapped") return Boolean(installation.scrappedAt)
+  if (filter === "inactive") {
+    return !installation.isActive || Boolean(installation.archivedAt)
+  }
+
+  return matchesStatusFilter(
+    installation.complianceStatus,
+    installation.inspectionInterval ?? null,
+    installation.scrappedAt,
+    filter
+  )
+}
+
+function matchesStatusFilter(
+  status: ComplianceStatus,
+  inspectionInterval: number | null,
+  scrappedAt: string | null | undefined,
+  filter: string
+) {
+  if (filter === "scrapped") return Boolean(scrappedAt)
+  if (filter === "overdue") return status === "OVERDUE"
+  if (filter === "dueSoon") return status === "DUE_SOON"
+  if (filter === "ok") return status === "OK"
+  if (filter === "missing") return status === "NOT_INSPECTED"
+  if (filter === "required") return inspectionInterval !== null
+  if (filter === "notRequired") return inspectionInterval === null
+  if (filter === "archived" || filter === "inactive") return true
+  return true
+}
+
+function matchesRiskFilter(
+  riskLevel: InstallationRiskLevel | null | undefined,
+  riskScore: number | null | undefined,
+  filter: string
+) {
+  if (filter === "MISSING") return !riskLevel && !riskScore
+  return riskLevel === filter
+}
+
+function matchesInspectionIntervalFilter(
+  inspectionInterval: number | null,
+  filter: string
+) {
+  if (filter === "none") return inspectionInterval === null
+
+  const parsedFilter = Number(filter)
+  return Number.isFinite(parsedFilter) && inspectionInterval === parsedFilter
 }
 
 function filterInstallationsByTechnician(

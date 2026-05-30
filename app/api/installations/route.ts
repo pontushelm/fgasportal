@@ -443,6 +443,7 @@ export async function GET(request: NextRequest) {
         location: true,
         equipmentId: true,
         serialNumber: true,
+        propertyName: true,
         refrigerantType: true,
         refrigerantAmount: true,
         hasLeakDetectionSystem: true,
