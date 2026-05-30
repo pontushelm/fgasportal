@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
     const { companyId } = auth.user
 
     if (isContractor(auth.user)) {
+      const queryStartTime = getDevelopmentTimingStart()
       const installations = await prisma.installation.findMany({
         where: {
           AND: [
@@ -46,8 +47,20 @@ export async function GET(request: NextRequest) {
             },
           ],
         },
-        include: {
-          property: true,
+        select: {
+          refrigerantType: true,
+          refrigerantAmount: true,
+          hasLeakDetectionSystem: true,
+          lastInspection: true,
+          nextInspection: true,
+          property: {
+            select: {
+              id: true,
+              name: true,
+              municipality: true,
+              city: true,
+            },
+          },
           events: {
             where: {
               type: "LEAK",
@@ -66,24 +79,46 @@ export async function GET(request: NextRequest) {
           },
         },
       })
+      logDevelopmentTiming(
+        "GET /api/properties/overview contractor query",
+        queryStartTime
+      )
 
+      const aggregationStartTime = getDevelopmentTimingStart()
+      const summaries = Array.from(
+        aggregateInstallationsByProperty(installations).values()
+      )
+      logDevelopmentTiming(
+        "GET /api/properties/overview contractor aggregation",
+        aggregationStartTime
+      )
       return NextResponse.json(
-        Array.from(aggregateInstallationsByProperty(installations).values()),
+        summaries,
         { status: 200 }
       )
     }
 
+    const queryStartTime = getDevelopmentTimingStart()
     const properties = await prisma.property.findMany({
       where: {
         companyId,
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        municipality: true,
+        city: true,
         installations: {
           where: {
             archivedAt: null,
             scrappedAt: null,
           },
-          include: {
+          select: {
+            refrigerantType: true,
+            refrigerantAmount: true,
+            hasLeakDetectionSystem: true,
+            lastInspection: true,
+            nextInspection: true,
             events: {
               where: {
                 type: "LEAK",
@@ -102,7 +137,9 @@ export async function GET(request: NextRequest) {
         name: "asc",
       },
     })
+    logDevelopmentTiming("GET /api/properties/overview query", queryStartTime)
 
+    const aggregationStartTime = getDevelopmentTimingStart()
     const summaries = properties.map((property) => {
       const summary = createEmptyPropertySummary(property)
 
@@ -112,6 +149,10 @@ export async function GET(request: NextRequest) {
 
       return summary
     })
+    logDevelopmentTiming(
+      "GET /api/properties/overview aggregation",
+      aggregationStartTime
+    )
 
     return NextResponse.json(summaries, { status: 200 })
   } catch (error: unknown) {
@@ -122,6 +163,15 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+function getDevelopmentTimingStart() {
+  return process.env.NODE_ENV === "development" ? performance.now() : null
+}
+
+function logDevelopmentTiming(label: string, startTime: number | null) {
+  if (startTime === null) return
+  console.info(`[perf] ${label}: ${Math.round(performance.now() - startTime)}ms`)
 }
 
 function aggregateInstallationsByProperty(

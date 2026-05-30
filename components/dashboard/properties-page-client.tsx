@@ -230,7 +230,7 @@ export default function PropertiesPageClient() {
         subtitle="Följ kontrollstatus, risk och klimatpåverkan per fastighet."
       />
 
-      {isLoading && <p className="mt-8 text-sm text-slate-700">Laddar fastigheter...</p>}
+      {isLoading && <PropertiesLoadingSkeleton />}
       {error && <p className="mt-8 font-semibold text-red-700">{error}</p>}
 
       {!isLoading && !error && canCreateProperties && (
@@ -441,6 +441,68 @@ function ControlStatusSummary({ property }: { property: PropertySummary }) {
 function RiskCount({ count, total }: { count: number; total: number }) {
   if (count === 0) return <Badge variant="success">Ingen hög risk</Badge>
   return <Badge variant="warning">{count} av {total} hög risk</Badge>
+}
+
+function PropertiesLoadingSkeleton() {
+  return (
+    <div className="mt-6 space-y-6" aria-live="polite" aria-busy="true">
+      <Card className="p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="h-5 w-44 animate-pulse rounded bg-slate-200" />
+            <div className="mt-2 h-4 w-72 max-w-full animate-pulse rounded bg-slate-100" />
+          </div>
+          <div className="h-9 w-40 animate-pulse rounded-lg bg-slate-100" />
+        </div>
+        <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div
+              className="h-16 animate-pulse rounded-lg border border-slate-200 bg-slate-50"
+              key={index}
+            />
+          ))}
+        </div>
+      </Card>
+
+      <Card className="overflow-hidden">
+        <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="text-sm font-medium text-slate-700">
+            Laddar fastigheter...
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Hämtar fastigheter och beräknar kontrollstatus.
+          </p>
+        </div>
+        <div className="hidden divide-y divide-slate-200 md:block">
+          {Array.from({ length: 7 }).map((_, rowIndex) => (
+            <div className="grid grid-cols-6 gap-4 px-4 py-4" key={rowIndex}>
+              {Array.from({ length: 6 }).map((__, cellIndex) => (
+                <div
+                  className="h-4 animate-pulse rounded bg-slate-100"
+                  key={cellIndex}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+        <div className="grid gap-3 p-4 md:hidden">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div
+              className="rounded-lg border border-slate-200 bg-white p-4"
+              key={index}
+            >
+              <div className="h-4 w-2/3 animate-pulse rounded bg-slate-200" />
+              <div className="mt-3 h-3 w-1/2 animate-pulse rounded bg-slate-100" />
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="h-8 animate-pulse rounded bg-slate-100" />
+                <div className="h-8 animate-pulse rounded bg-slate-100" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  )
 }
 
 function TableHeader({

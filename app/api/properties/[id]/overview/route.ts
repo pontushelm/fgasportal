@@ -28,12 +28,22 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const { companyId, userId } = auth.user
     const { id } = await context.params
+    const queryStartTime = getDevelopmentTimingStart()
     const property = await prisma.property.findFirst({
       where: {
         id,
         companyId,
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        postalCode: true,
+        city: true,
+        municipality: true,
+        propertyDesignation: true,
+        internalReference: true,
+        description: true,
         installations: {
           where: {
             AND: [
@@ -44,7 +54,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
               },
             ],
           },
-          include: {
+          select: {
+            id: true,
+            name: true,
+            equipmentId: true,
+            location: true,
+            refrigerantType: true,
+            refrigerantAmount: true,
+            hasLeakDetectionSystem: true,
+            lastInspection: true,
+            nextInspection: true,
+            assignedContractorId: true,
             assignedContractor: {
               select: {
                 id: true,
@@ -56,14 +76,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
               select: {
                 id: true,
                 name: true,
-              },
-            },
-            property: {
-              select: {
-                id: true,
-                name: true,
-                municipality: true,
-                city: true,
               },
             },
             events: {
@@ -98,6 +110,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         },
       },
     })
+    logDevelopmentTiming("GET /api/properties/[id]/overview query", queryStartTime)
 
     if (!property) {
       return NextResponse.json({ error: "Fastigheten hittades inte" }, { status: 404 })
@@ -185,6 +198,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         inspections,
       }
     })
+    const aggregationStartTime = getDevelopmentTimingStart()
     const reportOverview = buildPropertyReportOverview({
       installations,
       propertyHasMunicipality: Boolean(property.municipality?.trim()),
@@ -295,6 +309,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
       complianceStatus: installation.complianceStatus,
       riskLevel: installation.riskLevel,
     }))
+    logDevelopmentTiming(
+      "GET /api/properties/[id]/overview aggregation",
+      aggregationStartTime
+    )
 
     return NextResponse.json(
       {
@@ -337,4 +355,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
       { status: 500 }
     )
   }
+}
+
+function getDevelopmentTimingStart() {
+  return process.env.NODE_ENV === "development" ? performance.now() : null
+}
+
+function logDevelopmentTiming(label: string, startTime: number | null) {
+  if (startTime === null) return
+  console.info(`[perf] ${label}: ${Math.round(performance.now() - startTime)}ms`)
 }
