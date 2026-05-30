@@ -30,10 +30,14 @@ export async function GET(request: NextRequest) {
       propertyId: propertyId || undefined,
       year,
     }
+    const reportStartTime = getDevelopmentTimingStart()
     const report =
       reportType === "annual"
         ? await getAnnualFgasReportPreview(reportParams)
         : await getFgasAnnualReport(reportParams)
+    logDevelopmentTiming("GET /api/reports/fgas report data", reportStartTime)
+
+    const overviewStartTime = getDevelopmentTimingStart()
     const annualReportOverview =
       reportType === "annual" && includeAnnualOverview
         ? await getAnnualFgasReportPropertyOverview({
@@ -43,6 +47,7 @@ export async function GET(request: NextRequest) {
             year,
           })
         : undefined
+    logDevelopmentTiming("GET /api/reports/fgas annual overview", overviewStartTime)
 
     return NextResponse.json(
       annualReportOverview ? { ...report, annualReportOverview } : report,
@@ -56,4 +61,13 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+function getDevelopmentTimingStart() {
+  return process.env.NODE_ENV === "development" ? performance.now() : null
+}
+
+function logDevelopmentTiming(label: string, startTime: number | null) {
+  if (startTime === null) return
+  console.info(`[perf] ${label}: ${Math.round(performance.now() - startTime)}ms`)
 }

@@ -177,6 +177,8 @@ export default function ReportsPage() {
   const [signedReports, setSignedReports] = useState<SignedReportHistoryItem[]>([])
   const [reportData, setReportData] = useState<ReportData | null>(null)
   const annualReportOverviewRef = useRef<AnnualReportOverview | null>(null)
+  const propertiesRef = useRef<PropertyOption[]>([])
+  const hasLoadedPropertiesRef = useRef(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isDetailLoading, setIsDetailLoading] = useState(false)
   const [error, setError] = useState("")
@@ -313,6 +315,7 @@ export default function ReportsPage() {
       const canReuseAnnualOverview =
         isAnnualReport && selectedPropertyId && annualReportOverviewRef.current
       const requestParams = new URLSearchParams(reportQuery)
+      const shouldFetchProperties = !hasLoadedPropertiesRef.current
 
       if (canReuseAnnualOverview) {
         requestParams.set("includeAnnualOverview", "0")
@@ -326,9 +329,11 @@ export default function ReportsPage() {
         fetch(`/api/reports/fgas?${requestParams.toString()}`, {
           credentials: "include",
         }),
-        fetch("/api/properties", {
-          credentials: "include",
-        }),
+        shouldFetchProperties
+          ? fetch("/api/properties", {
+              credentials: "include",
+            })
+          : Promise.resolve(null),
         fetch(`/api/reports/annual-fgas/history?${reportQuery}`, {
           credentials: "include",
         }),
@@ -336,14 +341,14 @@ export default function ReportsPage() {
 
       if (
         response.status === 401 ||
-        propertiesResponse.status === 401 ||
+        propertiesResponse?.status === 401 ||
         signedReportsResponse.status === 401
       ) {
         router.push("/login")
         return
       }
 
-      if (!response.ok || !propertiesResponse.ok || !signedReportsResponse.ok) {
+      if (!response.ok || propertiesResponse?.ok === false || !signedReportsResponse.ok) {
         if (!isMounted) return
         setError("Kunde inte hämta årsrapporten")
         setIsLoading(false)
@@ -352,7 +357,9 @@ export default function ReportsPage() {
       }
 
       const data: ReportData = await response.json()
-      const propertiesData: PropertyOption[] = await propertiesResponse.json()
+      const propertiesData: PropertyOption[] = propertiesResponse
+        ? await propertiesResponse.json()
+        : propertiesRef.current
       const signedReportsData: SignedReportHistoryItem[] =
         await signedReportsResponse.json()
 
@@ -364,7 +371,11 @@ export default function ReportsPage() {
         data.annualReportOverview = annualReportOverviewRef.current
       }
       setReportData(data)
-      setProperties(propertiesData)
+      if (propertiesResponse) {
+        propertiesRef.current = propertiesData
+        hasLoadedPropertiesRef.current = true
+        setProperties(propertiesData)
+      }
       setSignedReports(signedReportsData)
       setIsLoading(false)
       setIsDetailLoading(false)
@@ -526,7 +537,7 @@ export default function ReportsPage() {
         <ReportModuleStatusPanel report={selectedReport} />
       )}
 
-      {isLoading && <p className="mt-8 text-neutral-600">Laddar rapport...</p>}
+      {isLoading && <ReportsLoadingSkeleton isAnnualReport={isAnnualReport} />}
       {error && <p className="mt-8 text-red-700">{error}</p>}
 
       {reportData && !isLoading && (
@@ -710,6 +721,90 @@ function ReportModuleStatusPanel({ report }: { report: ReportTypeMetadata }) {
         </Badge>
       </div>
     </section>
+  )
+}
+
+function ReportsLoadingSkeleton({ isAnnualReport }: { isAnnualReport: boolean }) {
+  return (
+    <div aria-busy="true" aria-live="polite" className="mt-8">
+      <Card className="p-4">
+        <p className="text-sm font-semibold text-slate-900">Laddar rapport...</p>
+        <p className="mt-1 text-sm text-slate-600">
+          Hämtar underlag och sammanställer rapportstatus.
+        </p>
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <SkeletonBlock className="h-28 rounded-xl" key={index} />
+          ))}
+        </div>
+      </Card>
+
+      {isAnnualReport ? (
+        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <SkeletonBlock className="h-6 w-48" />
+              <SkeletonBlock className="mt-2 h-4 w-72 max-w-full" />
+            </div>
+            <SkeletonBlock className="h-6 w-28 rounded-full" />
+          </div>
+          <div className="mt-5 overflow-hidden rounded-lg border border-slate-200">
+            <div className="grid grid-cols-[minmax(14rem,1.4fr)_minmax(8rem,0.8fr)_minmax(8rem,0.7fr)_minmax(8rem,0.8fr)_minmax(9rem,0.8fr)_minmax(10rem,1fr)] gap-0 bg-slate-50 px-4 py-3">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <SkeletonBlock className="h-3 w-4/5" key={index} />
+              ))}
+            </div>
+            <div className="divide-y divide-slate-200">
+              {Array.from({ length: 5 }).map((_, rowIndex) => (
+                <div
+                  className="grid grid-cols-[minmax(14rem,1.4fr)_minmax(8rem,0.8fr)_minmax(8rem,0.7fr)_minmax(8rem,0.8fr)_minmax(9rem,0.8fr)_minmax(10rem,1fr)] gap-0 px-4 py-3"
+                  key={rowIndex}
+                >
+                  {Array.from({ length: 6 }).map((__, cellIndex) => (
+                    <SkeletonBlock className="h-4 w-4/5" key={cellIndex} />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : (
+        <section className="mt-8">
+          <SkeletonBlock className="h-6 w-56" />
+          <SkeletonBlock className="mt-2 h-4 w-96 max-w-full" />
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <SkeletonBlock className="h-28 rounded-xl" key={index} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="mt-10">
+        <SkeletonBlock className="h-6 w-56" />
+        <SkeletonBlock className="mt-2 h-4 w-80 max-w-full" />
+        <div className="mt-5 overflow-hidden rounded-lg border border-slate-200 bg-white">
+          <div className="divide-y divide-slate-200">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div className="grid grid-cols-4 gap-4 px-4 py-3" key={index}>
+                <SkeletonBlock className="h-4 w-4/5" />
+                <SkeletonBlock className="h-4 w-3/5" />
+                <SkeletonBlock className="h-4 w-3/5" />
+                <SkeletonBlock className="h-4 w-4/5" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function SkeletonBlock({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`block animate-pulse rounded bg-slate-200/80 ${className}`}
+    />
   )
 }
 
