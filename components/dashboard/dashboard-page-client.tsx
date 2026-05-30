@@ -244,7 +244,7 @@ export default function DashboardPage() {
 
       </section>
 
-      {isLoading && <p className="mx-auto mt-8 max-w-7xl text-slate-700">Laddar...</p>}
+      {isLoading && <DashboardLoadingSkeleton />}
       {error && <p className="mx-auto mt-8 max-w-7xl text-red-700">{error}</p>}
 
       {dashboardData && (
@@ -445,6 +445,116 @@ function SectionHeader({
         <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
       ) : null}
     </div>
+  )
+}
+
+function DashboardLoadingSkeleton() {
+  return (
+    <div
+      aria-busy="true"
+      aria-live="polite"
+      className="mx-auto mt-6 max-w-7xl"
+    >
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <p className="text-sm font-semibold text-slate-900">Laddar dashboard...</p>
+        <p className="mt-1 text-sm text-slate-600">
+          Hämtar register, åtgärder och rapportstatus.
+        </p>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div
+              className="min-h-28 rounded-xl border border-slate-200 border-l-4 border-l-slate-200 bg-white px-3 py-3 shadow-sm"
+              key={index}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <SkeletonBlock className="h-3 w-32" />
+                <SkeletonBlock className="h-5 w-5 rounded-full" />
+              </div>
+              <SkeletonBlock className="mt-4 h-8 w-20" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
+        <Card className="border-blue-100 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <SkeletonBlock className="h-6 w-28" />
+            </div>
+            <SkeletonBlock className="h-10 w-36 rounded-lg" />
+          </div>
+          <div className="mt-5 grid gap-3">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div
+                className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+                key={index}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="grid flex-1 gap-2">
+                    <div className="flex items-center gap-2">
+                      <SkeletonBlock className="h-6 w-16 rounded-full" />
+                      <SkeletonBlock className="h-4 w-44" />
+                    </div>
+                    <SkeletonBlock className="h-4 w-3/5" />
+                    <SkeletonBlock className="h-4 w-4/5" />
+                  </div>
+                  <SkeletonBlock className="h-10 w-16 rounded-lg" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card className="p-4 sm:p-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <SkeletonBlock className="h-6 w-44" />
+            <SkeletonBlock className="h-10 w-32 rounded-lg" />
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <SkeletonBlock className="h-20 rounded-lg" key={index} />
+            ))}
+          </div>
+          <div className="mt-4 grid gap-2">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <SkeletonBlock className="h-16 rounded-lg" key={index} />
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      <div className="mt-8">
+        <SkeletonBlock className="h-6 w-36" />
+        <SkeletonBlock className="mt-2 h-4 w-80 max-w-full" />
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <SkeletonBlock className="h-20 rounded-lg" key={index} />
+          ))}
+        </div>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <SkeletonBlock className="h-52 rounded-xl" />
+          <SkeletonBlock className="h-52 rounded-xl" />
+        </div>
+      </div>
+
+      <div className="mt-8 rounded-xl border border-slate-200 bg-white/70 p-4 sm:p-5">
+        <SkeletonBlock className="h-6 w-64" />
+        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+          <SkeletonBlock className="h-56 rounded-xl" />
+          <SkeletonBlock className="h-56 rounded-xl" />
+          <SkeletonBlock className="h-56 rounded-xl" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SkeletonBlock({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`block animate-pulse rounded bg-slate-200/80 ${className}`}
+    />
   )
 }
 

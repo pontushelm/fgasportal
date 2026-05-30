@@ -36,14 +36,6 @@ type RiskSummary = {
   low: number
 }
 
-const STATUS_SORT_ORDER: Record<ComplianceStatus, number> = {
-  OVERDUE: 1,
-  DUE_SOON: 2,
-  NOT_INSPECTED: 3,
-  OK: 4,
-  NOT_REQUIRED: 5,
-}
-
 const ACTION_PREVIEW_LIMIT = 4
 
 export async function GET(request: NextRequest) {
@@ -53,6 +45,7 @@ export async function GET(request: NextRequest) {
 
     const { companyId, userId } = auth.user
     const currentYearRange = getCurrentYearRange()
+    const queryStartTime = getDevelopmentTimingStart()
     const installations = await prisma.installation.findMany({
       where: {
         AND: [
@@ -63,11 +56,28 @@ export async function GET(request: NextRequest) {
           },
         ],
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        equipmentId: true,
+        location: true,
+        refrigerantType: true,
+        refrigerantAmount: true,
+        hasLeakDetectionSystem: true,
+        lastInspection: true,
+        nextInspection: true,
+        assignedContractorId: true,
+        propertyName: true,
         events: {
           where: {
             type: "LEAK",
             supersededAt: null,
+          },
+          select: {
+            id: true,
+            installationId: true,
+            date: true,
+            refrigerantAddedKg: true,
           },
           orderBy: {
             date: "desc",
@@ -114,7 +124,9 @@ export async function GET(request: NextRequest) {
         createdAt: "desc",
       },
     })
+    logDevelopmentTiming("GET /api/dashboard/compliance prisma query", queryStartTime)
 
+    const mappingStartTime = getDevelopmentTimingStart()
     const statusCounts: Record<ComplianceStatus, number> = {
       OK: 0,
       DUE_SOON: 0,
@@ -225,6 +237,7 @@ export async function GET(request: NextRequest) {
         equipmentId: installation.equipmentId,
         installationLocation: installation.location,
         refrigerantType: installation.refrigerantType,
+        propertyId: installation.property?.id ?? null,
         propertyName: installation.property?.name ?? installation.propertyName,
       }))
     )
@@ -308,6 +321,7 @@ export async function GET(request: NextRequest) {
       records: signedReportRecords,
       year: currentYearRange.startDate.getFullYear(),
     })
+    logDevelopmentTiming("GET /api/dashboard/compliance mapping", mappingStartTime)
 
     return NextResponse.json(
       {
@@ -339,7 +353,6 @@ export async function GET(request: NextRequest) {
         refrigerantDistribution: Array.from(refrigerantMap.values()).sort(
           (first, second) => second.count - first.count
         ),
-        installations: installationRows.sort(compareInstallations),
         actionItemTotal: allActionItems.length,
         actionItems,
       },
@@ -355,28 +368,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-
-function compareInstallations(
-  first: { complianceStatus: ComplianceStatus; nextInspection?: Date | null },
-  second: { complianceStatus: ComplianceStatus; nextInspection?: Date | null }
-) {
-  const statusDiff =
-    STATUS_SORT_ORDER[first.complianceStatus] -
-    STATUS_SORT_ORDER[second.complianceStatus]
-
-  if (statusDiff !== 0) return statusDiff
-
-  return compareOptionalDates(first.nextInspection, second.nextInspection)
-}
-
-function compareOptionalDates(firstDate?: Date | null, secondDate?: Date | null) {
-  if (!firstDate && !secondDate) return 0
-  if (!firstDate) return 1
-  if (!secondDate) return -1
-
-  return firstDate.getTime() - secondDate.getTime()
-}
-
 function incrementRiskSummary(
   summary: RiskSummary,
   level: InstallationRiskLevel
@@ -384,4 +375,13 @@ function incrementRiskSummary(
   if (level === "HIGH") summary.high += 1
   if (level === "MEDIUM") summary.medium += 1
   if (level === "LOW") summary.low += 1
+}
+
+function getDevelopmentTimingStart() {
+  return process.env.NODE_ENV === "development" ? performance.now() : null
+}
+
+function logDevelopmentTiming(label: string, startTime: number | null) {
+  if (startTime === null) return
+  console.info(`[perf] ${label}: ${Math.round(performance.now() - startTime)}ms`)
 }
