@@ -166,6 +166,7 @@ const REGULATORY_STATUS_TONE: Record<RefrigerantRegulatoryStatus, string> = {
 }
 
 const SAVED_FILTER_PAGE = "installations"
+const INITIAL_VISIBLE_INSTALLATION_COUNT = 50
 const filterControlClassName =
   "h-10 w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400"
 const bulkSecondaryButtonClassName =
@@ -212,6 +213,9 @@ export default function InstallationsPageClient() {
   const [properties, setProperties] = useState<PropertyOption[]>([])
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [visibleInstallationCount, setVisibleInstallationCount] = useState(
+    INITIAL_VISIBLE_INSTALLATION_COUNT
+  )
   const [bulkServicePartnerCompanyId, setBulkServicePartnerCompanyId] = useState("")
   const [contractorId, setContractorId] = useState("")
   const [bulkPropertyId, setBulkPropertyId] = useState("")
@@ -338,6 +342,7 @@ export default function InstallationsPageClient() {
       setProperties(propertiesData)
       setSavedFilters(savedFiltersData)
       setSelectedIds([])
+      setVisibleInstallationCount(INITIAL_VISIBLE_INSTALLATION_COUNT)
       setIsLoading(false)
     }
 
@@ -467,11 +472,19 @@ export default function InstallationsPageClient() {
       ),
     [filteredInstallations, sortDirectionValue, sortFieldValue, technicianFilterValue]
   )
+  const visibleInstallations = useMemo(
+    () => displayedInstallations.slice(0, visibleInstallationCount),
+    [displayedInstallations, visibleInstallationCount]
+  )
+  const hasMoreInstallationsToShow =
+    visibleInstallations.length < displayedInstallations.length
   const allSelected = useMemo(
     () =>
-      displayedInstallations.length > 0 &&
-      selectedIds.length === displayedInstallations.length,
-    [displayedInstallations.length, selectedIds.length]
+      visibleInstallations.length > 0 &&
+      visibleInstallations.every((installation) =>
+        selectedIds.includes(installation.id)
+      ),
+    [selectedIds, visibleInstallations]
   )
   const refrigerantOptions = useMemo(
     () =>
@@ -559,6 +572,7 @@ export default function InstallationsPageClient() {
     const params = getFilterParamsWithoutColumnSort(searchParams)
     setSelectedSavedFilterId("")
     setSelectedIds([])
+    setVisibleInstallationCount(INITIAL_VISIBLE_INSTALLATION_COUNT)
 
     if (value) {
       params.set(name, value)
@@ -600,6 +614,7 @@ export default function InstallationsPageClient() {
     const params = getFilterParamsWithoutColumnSort(searchParams)
     setSelectedSavedFilterId("")
     setSelectedIds([])
+    setVisibleInstallationCount(INITIAL_VISIBLE_INSTALLATION_COUNT)
 
     params.delete("status")
     params.delete("archived")
@@ -620,11 +635,13 @@ export default function InstallationsPageClient() {
     setSelectedSavedFilterId("")
     setColumnSort({ key: "", direction: "" })
     setSelectedIds([])
+    setVisibleInstallationCount(INITIAL_VISIBLE_INSTALLATION_COUNT)
   }
 
   function applySavedFilter(savedFilterId: string) {
     setSelectedSavedFilterId(savedFilterId)
     setSelectedIds([])
+    setVisibleInstallationCount(INITIAL_VISIBLE_INSTALLATION_COUNT)
 
     if (!savedFilterId) return
 
@@ -704,8 +721,14 @@ export default function InstallationsPageClient() {
   }
 
   function toggleAll() {
+    const visibleInstallationIds = visibleInstallations.map(
+      (installation) => installation.id
+    )
+
     setSelectedIds(
-      allSelected ? [] : displayedInstallations.map((installation) => installation.id)
+      allSelected
+        ? selectedIds.filter((id) => !visibleInstallationIds.includes(id))
+        : Array.from(new Set([...selectedIds, ...visibleInstallationIds]))
     )
   }
 
@@ -1214,6 +1237,7 @@ export default function InstallationsPageClient() {
               onChange={(value) => {
                 setTechnicianFilterValue(value)
                 setSelectedIds([])
+                setVisibleInstallationCount(INITIAL_VISIBLE_INSTALLATION_COUNT)
               }}
             >
               <option value="">Alla</option>
@@ -1406,7 +1430,7 @@ export default function InstallationsPageClient() {
 
       {!isLoading && displayedInstallations.length > 0 && (
         <div className="mt-6 grid gap-3 lg:hidden">
-          {displayedInstallations.map((installation) => (
+          {visibleInstallations.map((installation) => (
             <InstallationMobileCard
               canManage={canSelectInstallations}
               canAssignTechnician={isServicePartnerAdmin}
@@ -1445,7 +1469,7 @@ export default function InstallationsPageClient() {
                   <th className="px-1.5 py-2 text-left">
                     <label className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-md border border-transparent hover:border-slate-300 hover:bg-white">
                       <input
-                        aria-label="Välj alla aggregat"
+                        aria-label="Välj synliga aggregat"
                         checked={allSelected}
                         className="h-5 w-5 rounded border-slate-300 text-blue-600"
                         onChange={toggleAll}
@@ -1534,7 +1558,7 @@ export default function InstallationsPageClient() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {displayedInstallations.map((installation) => (
+              {visibleInstallations.map((installation) => (
                 <tr
                   className="cursor-pointer hover:bg-slate-50"
                   key={installation.id}
@@ -1628,6 +1652,39 @@ export default function InstallationsPageClient() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {!isLoading && hasMoreInstallationsToShow && (
+        <div className="mt-4 flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            Visar {visibleInstallations.length} av {displayedInstallations.length} aggregat
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 font-semibold text-slate-800 hover:bg-slate-50"
+              type="button"
+              onClick={() =>
+                setVisibleInstallationCount((current) =>
+                  Math.min(
+                    current + INITIAL_VISIBLE_INSTALLATION_COUNT,
+                    displayedInstallations.length
+                  )
+                )
+              }
+            >
+              Visa 50 till
+            </button>
+            <button
+              className="rounded-md bg-blue-600 px-3 py-2 font-semibold text-white hover:bg-blue-700"
+              type="button"
+              onClick={() =>
+                setVisibleInstallationCount(displayedInstallations.length)
+              }
+            >
+              Visa alla
+            </button>
+          </div>
         </div>
       )}
 
