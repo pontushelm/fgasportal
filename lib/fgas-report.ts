@@ -1,15 +1,21 @@
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
+import type { Prisma } from "@prisma/client"
 import { ANNUAL_REPORT_CO2E_REQUIREMENT_THRESHOLD_TON } from "@/lib/dashboard/annual-report-status"
 import { buildAnnualFgasReportData } from "@/lib/reports/buildAnnualFgasReportData"
 import {
   ANNUAL_FGAS_EVENT_LABELS,
   buildAnnualFgasReportQualitySummary,
+  buildAnnualFgasReportWarnings,
 } from "@/lib/reports/annualFgasReportValidation"
+import { summarizeAnnualFgasCo2e } from "@/lib/reports/annualFgasReportSummary"
 import type {
+  AnnualFgasCertificateEntry,
+  AnnualFgasEquipmentRow,
   AnnualFgasReportData,
   AnnualFgasReportQualitySummary,
   AnnualFgasReportWarningSeverity,
+  AnnualFgasScrappedEquipmentRow,
 } from "@/lib/reports/annualFgasReportTypes"
 
 export type FgasReportEventType =
@@ -94,6 +100,103 @@ const ANNUAL_EVENT_TYPE_BY_LABEL = Object.fromEntries(
 ) as Record<string, FgasReportEventType>
 
 const UNKNOWN_REFRIGERANT = "Okänt köldmedium"
+
+const annualOverviewInstallationSelect = {
+  id: true,
+  name: true,
+  equipmentId: true,
+  location: true,
+  propertyName: true,
+  equipmentType: true,
+  refrigerantType: true,
+  refrigerantAmount: true,
+  hasLeakDetectionSystem: true,
+  installationDate: true,
+  lastInspection: true,
+  nextInspection: true,
+  isActive: true,
+  archivedAt: true,
+  scrappedAt: true,
+  recoveredRefrigerantKg: true,
+  scrapCertificateFileName: true,
+  scrapComment: true,
+  assignedContractorId: true,
+  assignedServicePartnerCompanyId: true,
+  property: {
+    select: {
+      id: true,
+      name: true,
+      municipality: true,
+      propertyDesignation: true,
+    },
+  },
+  assignedServicePartnerCompany: {
+    select: {
+      name: true,
+      certificateNumber: true,
+      serviceOrganization: {
+        select: {
+          name: true,
+          certificateNumber: true,
+        },
+      },
+    },
+  },
+  assignedContractor: {
+    select: {
+      id: true,
+      name: true,
+      certificationNumber: true,
+      company: {
+        select: {
+          name: true,
+        },
+      },
+      memberships: {
+        select: {
+          certificationNumber: true,
+          certificationOrganization: true,
+          certificationValidUntil: true,
+          servicePartnerCompany: {
+            select: {
+              name: true,
+              certificateNumber: true,
+              serviceOrganization: {
+                select: {
+                  name: true,
+                  certificateNumber: true,
+                },
+              },
+            },
+          },
+        },
+        take: 1,
+      },
+    },
+  },
+  events: {
+    select: {
+      id: true,
+      type: true,
+      refrigerantAddedKg: true,
+      previousRefrigerantType: true,
+      newRefrigerantType: true,
+      previousAmountKg: true,
+      newAmountKg: true,
+      recoveredAmountKg: true,
+      notes: true,
+    },
+  },
+} satisfies Prisma.InstallationSelect
+
+type AnnualOverviewInstallation = Prisma.InstallationGetPayload<{
+  select: typeof annualOverviewInstallationSelect
+}>
+
+type AnnualOverviewSignedReportRecord = {
+  propertyId: string | null
+  createdAt: Date
+}
 
 export function parseReportYear(value: string | null) {
   const currentYear = new Date().getFullYear()
@@ -381,28 +484,69 @@ export async function getAnnualFgasReportPropertyOverview({
       ...(assignedContractorId ? { assignedContractorId } : {}),
     },
     select: {
-      property: {
+      ...annualOverviewInstallationSelect,
+      assignedContractor: {
         select: {
           id: true,
           name: true,
-          municipality: true,
+          certificationNumber: true,
+          company: {
+            select: {
+              name: true,
+            },
+          },
+          memberships: {
+            where: {
+              companyId,
+              isActive: true,
+            },
+            select: {
+              certificationNumber: true,
+              certificationOrganization: true,
+              certificationValidUntil: true,
+              servicePartnerCompany: {
+                select: {
+                  name: true,
+                  certificateNumber: true,
+                  serviceOrganization: {
+                    select: {
+                      name: true,
+                      certificateNumber: true,
+                    },
+                  },
+                },
+              },
+            },
+            take: 1,
+          },
         },
+      },
+      events: {
+        where: {
+          supersededAt: null,
+          date: {
+            gte: startDate,
+            lt: endDate,
+          },
+        },
+        select: {
+          id: true,
+          type: true,
+          refrigerantAddedKg: true,
+          previousRefrigerantType: true,
+          newRefrigerantType: true,
+          previousAmountKg: true,
+          newAmountKg: true,
+          recoveredAmountKg: true,
+          notes: true,
+        },
+        orderBy: { date: "asc" },
       },
     },
     orderBy: {
       propertyName: "asc",
     },
   })
-  const properties = Array.from(
-    new Map(
-      installations
-        .map((installation) => installation.property)
-        .filter((property): property is NonNullable<typeof property> =>
-          Boolean(property)
-        )
-        .map((property) => [property.id, property])
-    ).values()
-  ).sort((first, second) => first.name.localeCompare(second.name, "sv"))
   const signedReportRecords = await prisma.signedAnnualFgasReport.findMany({
     where: {
       companyId,
@@ -418,6 +562,55 @@ export async function getAnnualFgasReportPropertyOverview({
       createdAt: "desc",
     },
   })
+
+  return buildAnnualFgasReportPropertyOverviewFromLoadedData({
+    endDate,
+    installations,
+    signedReportRecords,
+    startDate,
+    year,
+  })
+}
+
+export function buildAnnualFgasReportPropertyOverviewFromLoadedData({
+  endDate,
+  installations,
+  signedReportRecords,
+  startDate,
+  year,
+}: {
+  endDate: Date
+  installations: AnnualOverviewInstallation[]
+  signedReportRecords: AnnualOverviewSignedReportRecord[]
+  startDate: Date
+  year: number
+}): AnnualFgasReportPropertyOverview {
+  const installationsByProperty = new Map<
+    string,
+    {
+      installations: AnnualOverviewInstallation[]
+      property: NonNullable<AnnualOverviewInstallation["property"]>
+    }
+  >()
+
+  for (const installation of installations) {
+    if (!installation.property) continue
+
+    const existing = installationsByProperty.get(installation.property.id)
+    if (existing) {
+      existing.installations.push(installation)
+    } else {
+      installationsByProperty.set(installation.property.id, {
+        installations: [installation],
+        property: installation.property,
+      })
+    }
+  }
+
+  const properties = Array.from(installationsByProperty.values()).sort(
+    (first, second) =>
+      first.property.name.localeCompare(second.property.name, "sv")
+  )
   const signedReportsByProperty = new Map<string, Date>()
 
   for (const record of signedReportRecords) {
@@ -427,44 +620,205 @@ export async function getAnnualFgasReportPropertyOverview({
     signedReportsByProperty.set(record.propertyId, record.createdAt)
   }
 
-  const propertyStatuses = await Promise.all(
-    properties.map(async (property) => {
-      const report = await buildAnnualFgasReportData({
-        assignedContractorId,
-        companyId,
-        propertyId: property.id,
-        year,
-      })
-      const installedCo2eTon =
-        report.summary.totalCo2eKg === null
-          ? null
-          : report.summary.totalCo2eKg / 1000
-      const annualReportRequirement =
-        installedCo2eTon === null
-          ? "UNCERTAIN"
-          : installedCo2eTon >= ANNUAL_REPORT_CO2E_REQUIREMENT_THRESHOLD_TON
-            ? "REQUIRED"
-            : "NOT_REQUIRED"
-      const signedAt = signedReportsByProperty.get(property.id) ?? null
-
-      return {
-        id: property.id,
-        name: property.name,
-        municipality: property.municipality,
-        installedCo2eTon,
-        annualReportRequirement,
-        signedStatus: signedAt ? "SIGNED" : "NOT_SIGNED",
-        signedAt,
-        blockingIssueCount: report.qualitySummary.blockingIssueCount,
-        reviewWarningCount: report.qualitySummary.warningCount,
-      } satisfies AnnualFgasReportPropertyOverview["properties"][number]
+  const propertyStatuses = properties.map(({ installations, property }) => {
+    const propertySummary = buildAnnualOverviewPropertySummary({
+      endDate,
+      installations,
+      startDate,
     })
-  )
+    const installedCo2eTon = propertySummary.installedCo2eTon
+    const annualReportRequirement =
+      installedCo2eTon === null
+        ? "UNCERTAIN"
+        : installedCo2eTon >= ANNUAL_REPORT_CO2E_REQUIREMENT_THRESHOLD_TON
+          ? "REQUIRED"
+          : "NOT_REQUIRED"
+    const signedAt = signedReportsByProperty.get(property.id) ?? null
+
+    return {
+      id: property.id,
+      name: property.name,
+      municipality: property.municipality,
+      installedCo2eTon,
+      annualReportRequirement,
+      signedStatus: signedAt ? "SIGNED" : "NOT_SIGNED",
+      signedAt,
+      blockingIssueCount: propertySummary.qualitySummary.blockingIssueCount,
+      reviewWarningCount: propertySummary.qualitySummary.warningCount,
+    } satisfies AnnualFgasReportPropertyOverview["properties"][number]
+  })
 
   return {
     year,
     properties: propertyStatuses,
   }
+}
+
+function buildAnnualOverviewPropertySummary({
+  endDate,
+  installations,
+  startDate,
+}: {
+  endDate: Date
+  installations: AnnualOverviewInstallation[]
+  startDate: Date
+}) {
+  const reportInstallations = installations.filter((installation) => {
+    const compliance = calculateInstallationCompliance(
+      installation.refrigerantType,
+      installation.refrigerantAmount,
+      installation.hasLeakDetectionSystem,
+      installation.lastInspection,
+      installation.nextInspection
+    )
+    const isControlRequired = Boolean(compliance.inspectionIntervalMonths)
+    const hasUnknownCo2e = compliance.co2eKg === null
+    const wasScrappedDuringYear =
+      installation.scrappedAt != null &&
+      installation.scrappedAt >= startDate &&
+      installation.scrappedAt < endDate
+
+    if (installation.isActive && !installation.archivedAt) {
+      return isControlRequired || hasUnknownCo2e
+    }
+
+    return isControlRequired || wasScrappedDuringYear
+  })
+
+  const equipment = reportInstallations.map((installation) =>
+    buildAnnualOverviewEquipmentRow(installation)
+  )
+  const scrappedEquipment = reportInstallations
+    .filter(
+      (installation) =>
+        installation.scrappedAt != null &&
+        installation.scrappedAt >= startDate &&
+        installation.scrappedAt < endDate
+    )
+    .map((installation) =>
+      buildAnnualOverviewScrappedEquipmentRow(installation)
+    )
+  const certificateRegister =
+    buildAnnualOverviewCertificateRegister(reportInstallations)
+  const co2eSummary = summarizeAnnualFgasCo2e(equipment)
+  const warnings = buildAnnualFgasReportWarnings({
+    certificateRegister,
+    co2eSummary,
+    equipment,
+    periodEndDate: endDate,
+    refrigerantHandlingLog: [],
+    reportInstallations,
+    scrappedEquipment,
+  })
+
+  return {
+    installedCo2eTon:
+      co2eSummary.totalCo2eKg === null ? null : co2eSummary.totalCo2eKg / 1000,
+    qualitySummary: buildAnnualFgasReportQualitySummary(warnings),
+  }
+}
+
+function buildAnnualOverviewEquipmentRow(
+  installation: AnnualOverviewInstallation
+): AnnualFgasEquipmentRow {
+  const refrigerantType =
+    installation.refrigerantType?.trim() || UNKNOWN_REFRIGERANT
+  const compliance = calculateInstallationCompliance(
+    refrigerantType,
+    installation.refrigerantAmount,
+    installation.hasLeakDetectionSystem,
+    installation.lastInspection,
+    installation.nextInspection
+  )
+
+  return {
+    id: installation.id,
+    equipmentId: installation.equipmentId,
+    name: installation.name,
+    location: installation.location,
+    propertyName: installation.property?.name ?? installation.propertyName,
+    equipmentType: installation.equipmentType,
+    refrigerantType,
+    refrigerantAmountKg: installation.refrigerantAmount,
+    co2eKg: compliance.co2eKg,
+    controlRequired: Boolean(compliance.inspectionIntervalMonths),
+    inspectionIntervalMonths: compliance.inspectionIntervalMonths,
+    leakDetectionSystem: installation.hasLeakDetectionSystem,
+    installedAt: installation.installationDate,
+    lastInspectionAt: installation.lastInspection,
+    nextInspectionAt: installation.nextInspection,
+    status: installation.scrappedAt
+      ? "scrapped"
+      : installation.archivedAt
+        ? "archived"
+        : "active",
+  }
+}
+
+function buildAnnualOverviewScrappedEquipmentRow(
+  installation: AnnualOverviewInstallation
+): AnnualFgasScrappedEquipmentRow {
+  return {
+    id: installation.id,
+    scrappedAt: installation.scrappedAt as Date,
+    equipmentName: installation.name,
+    equipmentId: installation.equipmentId,
+    refrigerantType:
+      installation.refrigerantType?.trim() || UNKNOWN_REFRIGERANT,
+    refrigerantAmountKg: installation.refrigerantAmount,
+    recoveredKg: installation.recoveredRefrigerantKg,
+    servicePartnerName:
+      installation.assignedServicePartnerCompany?.serviceOrganization?.name ??
+      installation.assignedServicePartnerCompany?.name ??
+      installation.assignedContractor?.memberships[0]?.servicePartnerCompany
+        ?.serviceOrganization?.name ??
+      installation.assignedContractor?.memberships[0]?.servicePartnerCompany?.name ??
+      installation.assignedContractor?.name ??
+      installation.assignedContractor?.company?.name ??
+      null,
+    certificateFileName: installation.scrapCertificateFileName,
+    notes: installation.scrapComment,
+  }
+}
+
+function buildAnnualOverviewCertificateRegister(
+  installations: AnnualOverviewInstallation[]
+): AnnualFgasCertificateEntry[] {
+  const entries = new Map<string, AnnualFgasCertificateEntry>()
+
+  installations.forEach((installation) => {
+    const contractor = installation.assignedContractor
+    if (!contractor) return
+
+    const certification = contractor.memberships[0]
+    entries.set(contractor.id, {
+      name: contractor.name,
+      role: "Ansvarig tekniker/servicepartner",
+      company:
+        installation.assignedServicePartnerCompany?.serviceOrganization?.name ??
+        installation.assignedServicePartnerCompany?.name ??
+        certification?.servicePartnerCompany?.serviceOrganization?.name ??
+        certification?.servicePartnerCompany?.name ??
+        contractor.company?.name ??
+        null,
+      certificateNumber:
+        installation.assignedServicePartnerCompany?.serviceOrganization
+          ?.certificateNumber ??
+        installation.assignedServicePartnerCompany?.certificateNumber ??
+        certification?.servicePartnerCompany?.serviceOrganization
+          ?.certificateNumber ??
+        certification?.servicePartnerCompany?.certificateNumber ??
+        contractor.certificationNumber ??
+        certification?.certificationNumber ??
+        null,
+      certificateOrganization: certification?.certificationOrganization ?? null,
+      validUntil: certification?.certificationValidUntil ?? null,
+    })
+  })
+
+  return Array.from(entries.values()).sort((first, second) =>
+    first.name.localeCompare(second.name, "sv")
+  )
 }
 
 function mapAnnualReportDataToPreview(

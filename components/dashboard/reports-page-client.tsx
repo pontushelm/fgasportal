@@ -317,6 +317,9 @@ export default function ReportsPage() {
       const requestParams = new URLSearchParams(reportQuery)
       const shouldFetchProperties = !hasLoadedPropertiesRef.current
 
+      if (isAnnualReport && !selectedPropertyId) {
+        requestParams.set("overviewOnly", "1")
+      }
       if (canReuseAnnualOverview) {
         requestParams.set("includeAnnualOverview", "0")
         setIsDetailLoading(true)

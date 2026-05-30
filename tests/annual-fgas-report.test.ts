@@ -1,7 +1,15 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { AnnualReportTemplate } from "@/components/reports/AnnualFgasReportTemplate"
+
+vi.mock("@/lib/db", () => ({
+  prisma: {},
+}))
+
+import {
+  buildAnnualFgasReportPropertyOverviewFromLoadedData,
+} from "@/lib/fgas-report"
 import {
   buildAnnualFgasReportQualitySummary,
   buildAnnualFgasReportWarnings,
@@ -17,6 +25,70 @@ import type { AnnualFgasReportData } from "@/lib/reports/annualFgasReportTypes"
 import { buildAnnualFgasReportFilename } from "@/lib/reports/annualFgasReportFilename"
 import { summarizeAnnualFgasCo2e } from "@/lib/reports/annualFgasReportSummary"
 import { selectPrimaryAnnualReportServicePartnerCompany } from "@/lib/reports/annualFgasServicePartner"
+
+type AnnualOverviewInput = Parameters<
+  typeof buildAnnualFgasReportPropertyOverviewFromLoadedData
+>[0]
+type AnnualOverviewInstallation = AnnualOverviewInput["installations"][number]
+
+const overviewStartDate = new Date("2026-01-01T00:00:00.000Z")
+const overviewEndDate = new Date("2027-01-01T00:00:00.000Z")
+
+function buildOverviewInstallation(
+  overrides: Partial<AnnualOverviewInstallation>
+): AnnualOverviewInstallation {
+  return {
+    id: "installation-1",
+    name: "Aggregat 1",
+    equipmentId: "AGG-1",
+    location: "Teknikrum",
+    propertyName: null,
+    equipmentType: "Kyl",
+    refrigerantType: "R134a",
+    refrigerantAmount: 10,
+    hasLeakDetectionSystem: false,
+    installationDate: new Date("2024-01-10T00:00:00.000Z"),
+    lastInspection: new Date("2026-03-01T00:00:00.000Z"),
+    nextInspection: new Date("2027-03-01T00:00:00.000Z"),
+    isActive: true,
+    archivedAt: null,
+    scrappedAt: null,
+    recoveredRefrigerantKg: null,
+    scrapCertificateFileName: null,
+    scrapComment: null,
+    assignedContractorId: "user-technician-1",
+    assignedServicePartnerCompanyId: "servicepartner-1",
+    property: {
+      id: "property-a",
+      name: "Fastighet A",
+      municipality: "Stockholm",
+      propertyDesignation: "A:1",
+    },
+    assignedServicePartnerCompany: {
+      name: "Kylservice AB",
+      certificateNumber: "FC-123",
+      serviceOrganization: null,
+    },
+    assignedContractor: {
+      id: "user-technician-1",
+      name: "Tekniker Ett",
+      certificationNumber: "PC-123",
+      company: {
+        name: "Kylservice AB",
+      },
+      memberships: [
+        {
+          certificationNumber: "PC-123",
+          certificationOrganization: null,
+          certificationValidUntil: null,
+          servicePartnerCompany: null,
+        },
+      ],
+    },
+    events: [],
+    ...overrides,
+  } as AnnualOverviewInstallation
+}
 
 describe("annual F-gas report summary", () => {
   it("returns a full CO2e total when all rows have known GWP values", () => {
@@ -41,6 +113,131 @@ describe("annual F-gas report summary", () => {
     expect(summary.knownCo2eKg).toBe(39220)
     expect(summary.hasUnknownCo2e).toBe(true)
     expect(summary.unknownCo2eEquipmentCount).toBe(1)
+  })
+})
+
+describe("annual F-gas property overview", () => {
+  it("builds the same overview-critical status from loaded company data", () => {
+    const overview = buildAnnualFgasReportPropertyOverviewFromLoadedData({
+      startDate: overviewStartDate,
+      endDate: overviewEndDate,
+      year: 2026,
+      signedReportRecords: [
+        {
+          propertyId: "property-a",
+          createdAt: new Date("2026-03-31T10:00:00.000Z"),
+        },
+      ],
+      installations: [
+        buildOverviewInstallation({
+          id: "valid-control-required",
+          name: "Kylrum A",
+          equipmentId: "A-1",
+          property: {
+            id: "property-a",
+            name: "Fastighet A",
+            municipality: "Stockholm",
+            propertyDesignation: "A:1",
+          },
+        }),
+        buildOverviewInstallation({
+          id: "unknown-refrigerant",
+          name: "Kylrum B",
+          equipmentId: "B-1",
+          property: {
+            id: "property-b",
+            name: "Fastighet B",
+            municipality: null,
+            propertyDesignation: null,
+          },
+          refrigerantType: "",
+          refrigerantAmount: 0,
+          lastInspection: null,
+          nextInspection: null,
+          assignedContractorId: null,
+          assignedServicePartnerCompanyId: null,
+          assignedContractor: null,
+          assignedServicePartnerCompany: null,
+          events: [
+            {
+              id: "leak-current-year",
+              type: "LEAK",
+              refrigerantAddedKg: null,
+              previousRefrigerantType: null,
+              newRefrigerantType: null,
+              previousAmountKg: null,
+              newAmountKg: null,
+              recoveredAmountKg: null,
+              notes: null,
+            },
+            {
+              id: "recovery-current-year",
+              type: "RECOVERY",
+              refrigerantAddedKg: null,
+              previousRefrigerantType: null,
+              newRefrigerantType: null,
+              previousAmountKg: null,
+              newAmountKg: null,
+              recoveredAmountKg: null,
+              notes: null,
+            },
+          ],
+        }),
+        buildOverviewInstallation({
+          id: "scrapped-during-year",
+          name: "Kylrum C",
+          equipmentId: "C-1",
+          property: {
+            id: "property-c",
+            name: "Fastighet C",
+            municipality: "Uppsala",
+            propertyDesignation: "C:1",
+          },
+          isActive: false,
+          scrappedAt: new Date("2026-06-15T00:00:00.000Z"),
+          recoveredRefrigerantKg: null,
+          scrapCertificateFileName: null,
+        }),
+      ],
+    })
+
+    expect(overview.year).toBe(2026)
+    expect(overview.properties.map((property) => property.id)).toEqual([
+      "property-a",
+      "property-b",
+      "property-c",
+    ])
+
+    const signedProperty = overview.properties.find(
+      (property) => property.id === "property-a"
+    )
+    expect(signedProperty).toMatchObject({
+      annualReportRequirement: "REQUIRED",
+      signedStatus: "SIGNED",
+      blockingIssueCount: 0,
+    })
+    expect(signedProperty?.installedCo2eTon).toBeCloseTo(14.3)
+    expect(signedProperty?.signedAt?.toISOString()).toBe(
+      "2026-03-31T10:00:00.000Z"
+    )
+
+    const missingDataProperty = overview.properties.find(
+      (property) => property.id === "property-b"
+    )
+    expect(missingDataProperty?.annualReportRequirement).toBe("UNCERTAIN")
+    expect(missingDataProperty?.installedCo2eTon).toBeNull()
+    expect(missingDataProperty?.blockingIssueCount).toBeGreaterThan(0)
+    expect(missingDataProperty?.reviewWarningCount).toBeGreaterThan(0)
+
+    const scrappedProperty = overview.properties.find(
+      (property) => property.id === "property-c"
+    )
+    expect(scrappedProperty).toMatchObject({
+      annualReportRequirement: "REQUIRED",
+      signedStatus: "NOT_SIGNED",
+      blockingIssueCount: 0,
+    })
+    expect(scrappedProperty?.reviewWarningCount).toBeGreaterThan(0)
   })
 })
 

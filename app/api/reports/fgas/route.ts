@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { authenticateApiRequest, isContractor } from "@/lib/auth"
 import {
+  type FgasReportData,
   getAnnualFgasReportPropertyOverview,
   getAnnualFgasReportPreview,
   getFgasAnnualReport,
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest) {
     const reportType = request.nextUrl.searchParams.get("reportType")?.trim()
     const includeAnnualOverview =
       request.nextUrl.searchParams.get("includeAnnualOverview") !== "0"
+    const overviewOnly = request.nextUrl.searchParams.get("overviewOnly") === "1"
 
     if (!year) {
       return NextResponse.json({ error: "Ogiltigt årtal" }, { status: 400 })
@@ -30,6 +32,28 @@ export async function GET(request: NextRequest) {
       propertyId: propertyId || undefined,
       year,
     }
+    if (reportType === "annual" && overviewOnly && includeAnnualOverview) {
+      const overviewStartTime = getDevelopmentTimingStart()
+      const annualReportOverview = await getAnnualFgasReportPropertyOverview({
+        companyId: auth.user.companyId,
+        assignedContractorId: isContractor(auth.user) ? auth.user.userId : undefined,
+        signedReportUserId: isContractor(auth.user) ? auth.user.userId : undefined,
+        year,
+      })
+      logDevelopmentTiming(
+        "GET /api/reports/fgas annual overview only",
+        overviewStartTime
+      )
+
+      return NextResponse.json(
+        {
+          ...buildOverviewOnlyReportData(year),
+          annualReportOverview,
+        },
+        { status: 200 }
+      )
+    }
+
     const reportStartTime = getDevelopmentTimingStart()
     const report =
       reportType === "annual"
@@ -70,4 +94,35 @@ function getDevelopmentTimingStart() {
 function logDevelopmentTiming(label: string, startTime: number | null) {
   if (startTime === null) return
   console.info(`[perf] ${label}: ${Math.round(performance.now() - startTime)}ms`)
+}
+
+function buildOverviewOnlyReportData(year: number): FgasReportData {
+  return {
+    year,
+    period: {
+      startDate: new Date(Date.UTC(year, 0, 1)),
+      endDate: new Date(Date.UTC(year + 1, 0, 1)),
+    },
+    metrics: {
+      totalInstallations: 0,
+      totalRefrigerantAmountKg: 0,
+      totalCo2eTon: 0,
+      knownCo2eTon: 0,
+      unknownCo2eInstallations: 0,
+      requiringInspection: 0,
+      inspectionsPerformed: 0,
+      leakageEvents: 0,
+      refilledAmountKg: 0,
+      serviceEvents: 0,
+    },
+    warnings: [],
+    qualitySummary: {
+      status: "READY",
+      blockingIssueCount: 0,
+      warningCount: 0,
+      totalIssueCount: 0,
+    },
+    refrigerants: [],
+    events: [],
+  }
 }
