@@ -269,6 +269,84 @@ export async function GET(request: NextRequest) {
 
     const { companyId } = auth.user
     const searchParams = request.nextUrl.searchParams
+    if (searchParams.get("mode") === "filter-source") {
+      const startTime = getDevelopmentTimingStart()
+      const filterSource = await prisma.installation.findMany({
+        where: {
+          AND: [getInstallationAccessWhereClause(auth.user)],
+        },
+        select: {
+          id: true,
+          refrigerantType: true,
+          property: {
+            select: {
+              id: true,
+              name: true,
+              municipality: true,
+              city: true,
+            },
+          },
+          assignedContractor: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              memberships: {
+                where: {
+                  companyId,
+                  role: "CONTRACTOR",
+                  isActive: true,
+                },
+                select: {
+                  servicePartnerCompany: {
+                    select: {
+                      id: true,
+                      name: true,
+                      organizationNumber: true,
+                    },
+                  },
+                },
+                take: 1,
+              },
+            },
+          },
+          assignedServicePartnerCompany: {
+            select: {
+              id: true,
+              name: true,
+              organizationNumber: true,
+            },
+          },
+        },
+        orderBy: {
+          updatedAt: "desc",
+        },
+      })
+
+      logDevelopmentTiming("GET /api/installations?mode=filter-source", startTime)
+
+      return NextResponse.json(
+        filterSource.map((installation) => ({
+          id: installation.id,
+          refrigerantType: installation.refrigerantType,
+          property: installation.property,
+          assignedContractor: installation.assignedContractor
+            ? {
+                id: installation.assignedContractor.id,
+                name: installation.assignedContractor.name,
+                email: installation.assignedContractor.email,
+                servicePartnerCompany:
+                  installation.assignedContractor.memberships[0]?.servicePartnerCompany ??
+                  null,
+              }
+            : null,
+          assignedServicePartnerCompany:
+            installation.assignedServicePartnerCompany ?? null,
+        })),
+        { status: 200 }
+      )
+    }
+
     const search = searchParams.get('q')?.trim()
     const archived = searchParams.get('archived') || 'all'
     const refrigerantType = normalizeRefrigerantCode(searchParams.get('refrigerantType')) ?? searchParams.get('refrigerantType')?.trim()
@@ -356,6 +434,7 @@ export async function GET(request: NextRequest) {
 
     const orderBy = getInstallationOrderBy(sort, direction)
 
+    const queryStartTime = getDevelopmentTimingStart()
     const installations = await prisma.installation.findMany({
       where,
       include: {
@@ -442,7 +521,9 @@ export async function GET(request: NextRequest) {
       },
       orderBy,
     })
+    logDevelopmentTiming("GET /api/installations prisma query", queryStartTime)
 
+    const mappingStartTime = getDevelopmentTimingStart()
     const installationsWithCompliance = installations.map((installation) => {
       const { assignedContractor, assignedServicePartnerCompany, events: leakEvents, ...installationData } = installation
       const compliance = calculateInstallationCompliance(
@@ -500,6 +581,7 @@ export async function GET(request: NextRequest) {
           : null,
       }
     })
+    logDevelopmentTiming("GET /api/installations compliance/risk mapping", mappingStartTime)
     const filteredInstallations = statusFilter
       ? installationsWithCompliance.filter((installation) =>
           matchesStatusFilter(
@@ -587,4 +669,13 @@ function matchesInspectionIntervalFilter(
 
   const parsedFilter = Number(filter)
   return Number.isFinite(parsedFilter) && inspectionInterval === parsedFilter
+}
+
+function getDevelopmentTimingStart() {
+  return process.env.NODE_ENV === "development" ? performance.now() : null
+}
+
+function logDevelopmentTiming(label: string, startTime: number | null) {
+  if (startTime === null) return
+  console.info(`[perf] ${label}: ${Math.round(performance.now() - startTime)}ms`)
 }

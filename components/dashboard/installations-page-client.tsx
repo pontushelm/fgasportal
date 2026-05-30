@@ -40,6 +40,15 @@ type Installation = {
   assignedServicePartnerCompany?: ServicePartnerCompanySummary | null
 }
 
+type FilterSourceInstallation = Pick<
+  Installation,
+  | "id"
+  | "refrigerantType"
+  | "property"
+  | "assignedContractor"
+  | "assignedServicePartnerCompany"
+>
+
 type CurrentUser = {
   userId: string
   companyId: string
@@ -190,7 +199,7 @@ export default function InstallationsPageClient() {
   const sortFieldValue = columnSort.key
   const sortDirectionValue = columnSort.direction
   const [installations, setInstallations] = useState<Installation[]>([])
-  const [filterSourceInstallations, setFilterSourceInstallations] = useState<Installation[]>([])
+  const [filterSourceInstallations, setFilterSourceInstallations] = useState<FilterSourceInstallation[]>([])
   const [contractors, setContractors] = useState<Contractor[]>([])
   const [technicians, setTechnicians] = useState<ServiceTechnician[]>([])
   const [servicePartnerCompanies, setServicePartnerCompanies] = useState<ServicePartnerCompanySummary[]>([])
@@ -262,7 +271,7 @@ export default function InstallationsPageClient() {
         fetch("/api/auth/me", {
           credentials: "include",
         }),
-        fetch("/api/installations?archived=all", {
+        fetch("/api/installations?mode=filter-source", {
           credentials: "include",
         }),
         fetch(`/api/saved-filters?page=${SAVED_FILTER_PAGE}`, {
@@ -295,7 +304,7 @@ export default function InstallationsPageClient() {
 
       const installationsData: Installation[] = await installationsRes.json()
       const userData: CurrentUser = await userRes.json()
-      const filterSourceData: Installation[] = await filterSourceRes.json()
+      const filterSourceData: FilterSourceInstallation[] = await filterSourceRes.json()
       const savedFiltersData: SavedFilter[] = await savedFiltersRes.json()
       const propertiesData: PropertyOption[] = await propertiesRes.json()
       const servicePartnerCompaniesData: ServicePartnerCompanySummary[] =
@@ -661,7 +670,6 @@ export default function InstallationsPageClient() {
       )
 
     setInstallations(updateList)
-    setFilterSourceInstallations(updateList)
     setSelectedInstallation((current) =>
       current && ids.has(current.id) ? updater(current) : current
     )
@@ -679,7 +687,6 @@ export default function InstallationsPageClient() {
           }
         : installation
 
-    setFilterSourceInstallations((current) => current.map(updateArchived))
     setSelectedInstallation((current) =>
       current && ids.has(current.id) ? updateArchived(current) : current
     )
@@ -2463,7 +2470,7 @@ function getLatestEvent(events: InstallationEvent[], type: InstallationEventType
   return events.find((event) => event.type === type)
 }
 
-function deriveContractors(installations: Installation[]) {
+function deriveContractors(installations: FilterSourceInstallation[]) {
   const contractors = new Map<string, Contractor>()
 
   for (const installation of installations) {
@@ -2479,7 +2486,7 @@ function deriveContractors(installations: Installation[]) {
 
 function deriveServicePartnerCompanies(
   contractors: Contractor[],
-  installations: Installation[] = [],
+  installations: FilterSourceInstallation[] = [],
   registeredCompanies: ServicePartnerCompanySummary[] = []
 ) {
   const companies = new Map<string, ServicePartnerCompanySummary>()
