@@ -1113,7 +1113,14 @@ export default function InstallationsPageClient() {
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
       <PageHeader
         actions={
-          <>
+          isLoading ? (
+            <div className="flex flex-wrap gap-2">
+              <SkeletonBlock className="h-10 w-28 rounded-lg" />
+              <SkeletonBlock className="h-10 w-36 rounded-lg" />
+              <SkeletonBlock className="h-10 w-36 rounded-lg" />
+            </div>
+          ) : (
+            <>
             {canManage && (
               <Button
                 type="button"
@@ -1140,7 +1147,8 @@ export default function InstallationsPageClient() {
                 </Link>
               </>
             )}
-          </>
+            </>
+          )
         }
         title={isServicePartnerUser ? "Tilldelade aggregat" : "Aggregat"}
         subtitle={
@@ -1149,6 +1157,9 @@ export default function InstallationsPageClient() {
             : "Översikt över organisationens köldmedieaggregat."
         }
       />
+      {isLoading ? (
+        <InstallationsLoadingSkeleton />
+      ) : (
       <Card className="mt-6 p-4">
         <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <label className="grid gap-1 text-sm font-medium text-slate-700">
@@ -1349,8 +1360,8 @@ export default function InstallationsPageClient() {
           </button>
         )}
       </Card>
+      )}
 
-      {isLoading && <p className="mt-8 text-slate-700">Laddar...</p>}
       {error && <p className="mt-8 font-semibold text-red-700">{error}</p>}
       {feedback && (
         <Toast
@@ -2014,6 +2025,106 @@ function InstallationQuickView({
         </div>
       </aside>
     </div>
+  )
+}
+
+function InstallationsLoadingSkeleton() {
+  return (
+    <div aria-busy="true" aria-live="polite">
+      <Card className="mt-6 p-4">
+        <div className="flex flex-col gap-1">
+          <p className="text-sm font-semibold text-slate-900">Laddar aggregat...</p>
+          <p className="text-sm text-slate-600">
+            Hämtar register och beräknar kontrollstatus.
+          </p>
+        </div>
+        <div className="mt-5 grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div className="grid gap-2" key={index}>
+              <SkeletonBlock className="h-3 w-24" />
+              <SkeletonBlock className="h-10 w-full rounded-md" />
+            </div>
+          ))}
+        </div>
+        <div className="mt-5 border-t border-slate-200 pt-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="grid gap-2 sm:w-72">
+              <SkeletonBlock className="h-3 w-28" />
+              <SkeletonBlock className="h-10 w-full rounded-md" />
+            </div>
+            <SkeletonBlock className="h-10 w-28 rounded-md" />
+          </div>
+        </div>
+      </Card>
+
+      <div className="mt-5 rounded-lg border border-slate-200 bg-white px-3 py-3 shadow-sm">
+        <SkeletonBlock className="h-4 w-32" />
+        <SkeletonBlock className="mt-2 h-3 w-56" />
+      </div>
+
+      <div className="mt-6 grid gap-3 lg:hidden">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+            key={index}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="grid flex-1 gap-2">
+                <SkeletonBlock className="h-5 w-3/5" />
+                <SkeletonBlock className="h-4 w-4/5" />
+              </div>
+              <SkeletonBlock className="h-11 w-11 rounded-md" />
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <SkeletonBlock className="h-7 w-24 rounded-full" />
+              <SkeletonBlock className="h-7 w-20 rounded-full" />
+              <SkeletonBlock className="h-7 w-28 rounded-full" />
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              {Array.from({ length: 4 }).map((__, itemIndex) => (
+                <div className="grid gap-2" key={itemIndex}>
+                  <SkeletonBlock className="h-3 w-20" />
+                  <SkeletonBlock className="h-4 w-28" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 hidden overflow-hidden rounded-lg border border-slate-200 bg-white lg:block">
+        <div className="grid grid-cols-[3.5%_15%_12%_12%_10%_6%_7%_9%_6%_1fr] gap-0 border-b border-slate-200 bg-slate-50 px-2 py-3">
+          {Array.from({ length: 10 }).map((_, index) => (
+            <SkeletonBlock className="h-3 w-4/5" key={index} />
+          ))}
+        </div>
+        <div className="divide-y divide-slate-200">
+          {Array.from({ length: 10 }).map((_, index) => (
+            <div
+              className="grid grid-cols-[3.5%_15%_12%_12%_10%_6%_7%_9%_6%_1fr] items-start gap-0 px-2 py-3"
+              key={index}
+            >
+              <SkeletonBlock className="h-5 w-5 rounded" />
+              <div className="grid gap-2 pr-3">
+                <SkeletonBlock className="h-4 w-4/5" />
+                <SkeletonBlock className="h-3 w-3/5" />
+              </div>
+              {Array.from({ length: 8 }).map((__, cellIndex) => (
+                <SkeletonBlock className="h-4 w-4/5" key={cellIndex} />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SkeletonBlock({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`block animate-pulse rounded bg-slate-200/80 ${className}`}
+    />
   )
 }
 
