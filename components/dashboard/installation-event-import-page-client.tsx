@@ -50,6 +50,7 @@ const TEMPLATE_COLUMNS = [
   "Fastighet",
   "Händelsetyp",
   "Händelsedatum",
+  "Händelseår",
   "Mängd",
   "Tidigare köldmedium",
   "Nytt köldmedium",
@@ -63,14 +64,28 @@ const TEMPLATE_ROWS = [
     Fastighet: "Stadshuset",
     Händelsetyp: "Kontroll",
     Händelsedatum: "2026-01-15",
+    Händelseår: "",
     Mängd: "",
     Kommentar: "Importerad historisk kontroll",
   },
   {
     "Aggregat-ID": "AGG-001",
     Fastighet: "Stadshuset",
+    Händelsetyp: "Läckage",
+    Händelsedatum: "",
+    Händelseår: 2025,
+    Mängd: 1.2,
+    "Tidigare köldmedium": "",
+    "Nytt köldmedium": "",
+    "Omhändertagen mängd": "",
+    Kommentar: "Exakt datum saknades i källfilen",
+  },
+  {
+    "Aggregat-ID": "AGG-001",
+    Fastighet: "Stadshuset",
     Händelsetyp: "Påfyllning",
     Händelsedatum: "2026-02-01",
+    Händelseår: "",
     Mängd: 2.5,
     "Tidigare köldmedium": "",
     "Nytt köldmedium": "",
@@ -82,6 +97,7 @@ const TEMPLATE_ROWS = [
     Fastighet: "Stadshuset",
     Händelsetyp: "Byte av köldmedium",
     Händelsedatum: "2026-03-01",
+    Händelseår: "",
     Mängd: 10,
     "Tidigare köldmedium": "R404A",
     "Nytt köldmedium": "R449A",
@@ -89,6 +105,20 @@ const TEMPLATE_ROWS = [
     Kommentar: "Historiskt köldmediebyte",
   },
 ]
+const TEMPLATE_REQUIRED_COLUMNS = ["Aggregat-ID", "Händelsetyp", "Händelsedatum eller Händelseår"]
+const TEMPLATE_RECOMMENDED_COLUMNS = ["Fastighet", "Mängd", "Kommentar"]
+const TEMPLATE_COLUMN_WIDTHS: Record<string, number> = {
+  "Aggregat-ID": 18,
+  Fastighet: 24,
+  Händelsetyp: 24,
+  Händelsedatum: 18,
+  Händelseår: 14,
+  Mängd: 14,
+  "Tidigare köldmedium": 22,
+  "Nytt köldmedium": 20,
+  "Omhändertagen mängd": 24,
+  Kommentar: 38,
+}
 
 const PREVIEW_ROW_LIMIT = 50
 const EVENT_REQUIRED_FIELD_KEYS: EventImportFieldKey[] = [
@@ -125,9 +155,11 @@ export default function InstallationEventImportPageClient() {
   const [isParsing, setIsParsing] = useState(false)
   const [isPreviewing, setIsPreviewing] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
+  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false)
   const [showAdvancedFields, setShowAdvancedFields] = useState(false)
   const [showIgnoredColumns, setShowIgnoredColumns] = useState(false)
   const workbookDataRef = useRef<ArrayBuffer | null>(null)
+  const templateDownloadInProgressRef = useRef(false)
   const mappedFields = useMemo(
     () => Object.values(columnMapping).filter(Boolean) as EventImportFieldKey[],
     [columnMapping]
@@ -293,7 +325,7 @@ export default function InstallationEventImportPageClient() {
       getDuplicateEventImportMappedFields(sourceMapping)
 
     if (sourceMissingRequiredFields.length > 0 || sourceDuplicatedFields.length > 0) {
-      setError("Kontrollera fältkopplingen innan du fortsätter.")
+      setError("Kontrollera de obligatoriska fälten och eventuella dubbla kopplingar innan du fortsätter.")
       return
     }
 
@@ -360,13 +392,63 @@ export default function InstallationEventImportPageClient() {
   }
 
   function handleDownloadTemplate() {
+    if (templateDownloadInProgressRef.current) return
+
+    templateDownloadInProgressRef.current = true
+    setIsDownloadingTemplate(true)
     const workbook = XLSX.utils.book_new()
+    const instructionSheet = XLSX.utils.aoa_to_sheet([
+      ["FgasPortal - importmall för händelser"],
+      [""],
+      ["Fyll i fliken Händelser och behåll rubrikraden överst."],
+      ["Obligatoriska fält", TEMPLATE_REQUIRED_COLUMNS.join(", ")],
+      ["Rekommenderade fält", TEMPLATE_RECOMMENDED_COLUMNS.join(", ")],
+      [
+        "Aggregat-ID",
+        "Måste matcha ett befintligt aggregat i FgasPortal. Nya aggregat skapas inte i händelseimporten.",
+      ],
+      [
+        "Händelsetyper",
+        "Kontroll, Läckage, Påfyllning, Service, Reparation, Tömning/återvinning och Byte av köldmedium stöds.",
+      ],
+      [
+        "Datum eller Händelseår",
+        "Exakt datum är bäst. Om bara år finns används Händelseår och händelsen registreras på årets sista dag.",
+      ],
+      [
+        "Historik",
+        "Använd händelseimporten för äldre kontroller, läckage, påfyllningar, service och annan historik.",
+      ],
+    ])
     const worksheet = XLSX.utils.json_to_sheet(TEMPLATE_ROWS, {
       header: TEMPLATE_COLUMNS,
     })
 
+    instructionSheet["!cols"] = [{ wch: 24 }, { wch: 118 }]
+    worksheet["!cols"] = TEMPLATE_COLUMNS.map((column) => ({
+      wch: TEMPLATE_COLUMN_WIDTHS[column] ?? 18,
+    }))
+    worksheet["!autofilter"] = {
+      ref: XLSX.utils.encode_range({
+        s: { r: 0, c: 0 },
+        e: { r: Math.max(TEMPLATE_ROWS.length, 1), c: TEMPLATE_COLUMNS.length - 1 },
+      }),
+    }
+    ;(worksheet as XLSX.WorkSheet & { "!freeze"?: unknown })["!freeze"] = {
+      xSplit: 0,
+      ySplit: 1,
+      topLeftCell: "A2",
+      activePane: "bottomLeft",
+      state: "frozen",
+    }
+
+    XLSX.utils.book_append_sheet(workbook, instructionSheet, "Läs först")
     XLSX.utils.book_append_sheet(workbook, worksheet, "Händelser")
     XLSX.writeFile(workbook, "fgasportal-importmall-handelser.xlsx")
+    window.setTimeout(() => {
+      templateDownloadInProgressRef.current = false
+      setIsDownloadingTemplate(false)
+    }, 700)
   }
 
   function buildWorksheetState(worksheetRows: Record<string, unknown>[]) {
@@ -429,8 +511,8 @@ export default function InstallationEventImportPageClient() {
           Importera händelser
         </h1>
         <p className="mt-2 max-w-3xl text-sm text-slate-700">
-          Importera strukturerad historik för befintliga aggregat. Händelser
-          kopplas med Aggregat-ID och vid behov fastighet.
+          Importera kontroller, läckage, service, påfyllningar och annan historik
+          för befintliga aggregat.
         </p>
       </div>
 
@@ -446,11 +528,12 @@ export default function InstallationEventImportPageClient() {
             </ul>
           </div>
           <button
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             type="button"
+            disabled={isDownloadingTemplate}
             onClick={handleDownloadTemplate}
           >
-            Ladda ner mall
+            {isDownloadingTemplate ? "Förbereder mall..." : "Ladda ner importmall"}
           </button>
         </div>
 
@@ -875,7 +958,7 @@ function EventMappingFieldGroup({
           const label = getEventImportFieldLabel(field)
 
           return (
-            <div className="grid gap-2 px-3 py-3 md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)_auto] md:items-center" key={field}>
+            <div className="grid gap-2 px-3 py-3 md:grid-cols-[minmax(0,1fr)_minmax(240px,320px)_5.5rem] md:items-center" key={field}>
               <div>
                 <div className="text-sm font-medium text-slate-900">{label}</div>
                 <div className="mt-0.5 text-xs text-slate-500">
@@ -884,10 +967,18 @@ function EventMappingFieldGroup({
               </div>
               <select
                 className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900"
-                value={selectedColumn}
-                onChange={(event) => onChange(field, event.target.value)}
+                value={selectedColumn || "__unmapped__"}
+                onChange={(event) =>
+                  onChange(
+                    field,
+                    event.target.value === "__ignore__" ? "" : event.target.value
+                  )
+                }
               >
-                <option value="">Importera inte</option>
+                <option disabled value="__unmapped__">
+                  Välj kolumn
+                </option>
+                <option value="__ignore__">Importera inte</option>
                 {columns.map((column) => (
                   <option key={column} value={column}>
                     {column}
@@ -898,7 +989,7 @@ function EventMappingFieldGroup({
                 ))}
               </select>
               <span
-                className={`text-xs font-semibold ${
+                className={`w-20 text-left text-xs font-semibold md:text-right ${
                   selectedColumn ? "text-emerald-700" : "text-slate-500"
                 }`}
               >

@@ -160,9 +160,11 @@ export default function ImportInstallationsPage({
   const [toast, setToast] = useState<ToastMessage | null>(null)
   const [isParsing, setIsParsing] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
+  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false)
   const [showAdvancedFields, setShowAdvancedFields] = useState(false)
   const [showIgnoredColumns, setShowIgnoredColumns] = useState(false)
   const workbookDataRef = useRef<ArrayBuffer | null>(null)
+  const templateDownloadInProgressRef = useRef(false)
   const validRows = useMemo(
     () => rows.filter((row) => row.errors.length === 0),
     [rows]
@@ -336,6 +338,10 @@ export default function ImportInstallationsPage({
   }
 
   function handleDownloadTemplate() {
+    if (templateDownloadInProgressRef.current) return
+
+    templateDownloadInProgressRef.current = true
+    setIsDownloadingTemplate(true)
     const workbook = XLSX.utils.book_new()
     const instructionSheet = XLSX.utils.aoa_to_sheet([
       ["FgasPortal - importmall för aggregat"],
@@ -378,6 +384,10 @@ export default function ImportInstallationsPage({
     XLSX.utils.book_append_sheet(workbook, instructionSheet, "Läs först")
     XLSX.utils.book_append_sheet(workbook, worksheet, "Aggregat")
     XLSX.writeFile(workbook, "fgasportal-importmall-aggregat.xlsx")
+    window.setTimeout(() => {
+      templateDownloadInProgressRef.current = false
+      setIsDownloadingTemplate(false)
+    }, 700)
   }
 
   async function handleImport() {
@@ -477,11 +487,12 @@ export default function ImportInstallationsPage({
             </details>
           </div>
           <button
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             type="button"
+            disabled={isDownloadingTemplate}
             onClick={handleDownloadTemplate}
           >
-            Ladda ner importmall
+            {isDownloadingTemplate ? "Förbereder mall..." : "Ladda ner importmall"}
           </button>
         </div>
         <div className="mt-4 grid gap-3">

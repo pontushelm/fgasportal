@@ -53,6 +53,18 @@ const TEMPLATE_ROWS = [
     Kommentar: "",
   },
 ]
+const TEMPLATE_REQUIRED_COLUMNS = ["Fastighetsbeteckning"]
+const TEMPLATE_RECOMMENDED_COLUMNS = ["Namn", "Kommun", "Ort", "Adress"]
+const TEMPLATE_COLUMN_WIDTHS: Record<string, number> = {
+  Fastighetsbeteckning: 24,
+  Namn: 30,
+  Kommun: 18,
+  Ort: 18,
+  Adress: 34,
+  Postnummer: 14,
+  "Intern referens": 20,
+  Kommentar: 34,
+}
 
 const tableHeaderClassName =
   "px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600"
@@ -86,9 +98,11 @@ export default function PropertiesImportPageClient() {
   const [toast, setToast] = useState<ToastMessage | null>(null)
   const [isParsing, setIsParsing] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
+  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false)
   const [showAdvancedFields, setShowAdvancedFields] = useState(false)
   const [showIgnoredColumns, setShowIgnoredColumns] = useState(false)
   const workbookDataRef = useRef<ArrayBuffer | null>(null)
+  const templateDownloadInProgressRef = useRef(false)
   const mappedFields = useMemo(
     () => Object.values(columnMapping).filter(Boolean) as PropertyImportFieldKey[],
     [columnMapping]
@@ -268,13 +282,59 @@ export default function PropertiesImportPageClient() {
   }
 
   function handleDownloadTemplate() {
+    if (templateDownloadInProgressRef.current) return
+
+    templateDownloadInProgressRef.current = true
+    setIsDownloadingTemplate(true)
     const workbook = XLSX.utils.book_new()
+    const instructionSheet = XLSX.utils.aoa_to_sheet([
+      ["FgasPortal - importmall för fastigheter"],
+      [""],
+      ["Fyll i fliken Fastigheter och behåll rubrikraden överst."],
+      ["Obligatoriska fält", TEMPLATE_REQUIRED_COLUMNS.join(", ")],
+      ["Rekommenderade fält", TEMPLATE_RECOMMENDED_COLUMNS.join(", ")],
+      [
+        "Fastighetsbeteckning",
+        "Använd den juridiskt relevanta beteckningen som ska synas i årsrapporten.",
+      ],
+      [
+        "Dubbletter",
+        "Fastigheter med samma fastighetsbeteckning i företaget importeras inte igen.",
+      ],
+      [
+        "Valfria uppgifter",
+        "Kommun, ort, adress, intern referens och kommentar kan lämnas tomma om de saknas.",
+      ],
+    ])
     const worksheet = XLSX.utils.json_to_sheet(TEMPLATE_ROWS, {
       header: TEMPLATE_COLUMNS,
     })
 
+    instructionSheet["!cols"] = [{ wch: 24 }, { wch: 110 }]
+    worksheet["!cols"] = TEMPLATE_COLUMNS.map((column) => ({
+      wch: TEMPLATE_COLUMN_WIDTHS[column] ?? 18,
+    }))
+    worksheet["!autofilter"] = {
+      ref: XLSX.utils.encode_range({
+        s: { r: 0, c: 0 },
+        e: { r: Math.max(TEMPLATE_ROWS.length, 1), c: TEMPLATE_COLUMNS.length - 1 },
+      }),
+    }
+    ;(worksheet as XLSX.WorkSheet & { "!freeze"?: unknown })["!freeze"] = {
+      xSplit: 0,
+      ySplit: 1,
+      topLeftCell: "A2",
+      activePane: "bottomLeft",
+      state: "frozen",
+    }
+
+    XLSX.utils.book_append_sheet(workbook, instructionSheet, "Läs först")
     XLSX.utils.book_append_sheet(workbook, worksheet, "Fastigheter")
     XLSX.writeFile(workbook, "fgasportal-importmall-fastigheter.xlsx")
+    window.setTimeout(() => {
+      templateDownloadInProgressRef.current = false
+      setIsDownloadingTemplate(false)
+    }, 700)
   }
 
   async function handleImport() {
@@ -343,11 +403,12 @@ export default function PropertiesImportPageClient() {
             </ul>
           </div>
           <button
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isDownloadingTemplate}
             onClick={handleDownloadTemplate}
             type="button"
           >
-            Ladda ner importmall
+            {isDownloadingTemplate ? "Förbereder mall..." : "Ladda ner importmall"}
           </button>
         </div>
 
@@ -628,7 +689,7 @@ function PropertyMappingFieldGroup({
           const label = getPropertyImportFieldLabel(field)
 
           return (
-            <div className="grid gap-2 px-3 py-3 md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)_auto] md:items-center" key={field}>
+            <div className="grid gap-2 px-3 py-3 md:grid-cols-[minmax(0,1fr)_minmax(240px,320px)_5.5rem] md:items-center" key={field}>
               <div>
                 <div className="text-sm font-medium text-slate-900">{label}</div>
                 <div className="mt-0.5 text-xs text-slate-500">
@@ -637,10 +698,18 @@ function PropertyMappingFieldGroup({
               </div>
               <select
                 className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900"
-                value={selectedColumn}
-                onChange={(event) => onChange(field, event.target.value)}
+                value={selectedColumn || "__unmapped__"}
+                onChange={(event) =>
+                  onChange(
+                    field,
+                    event.target.value === "__ignore__" ? "" : event.target.value
+                  )
+                }
               >
-                <option value="">Importera inte</option>
+                <option disabled value="__unmapped__">
+                  Välj kolumn
+                </option>
+                <option value="__ignore__">Importera inte</option>
                 {columns.map((column) => (
                   <option key={column} value={column}>
                     {column}
@@ -651,7 +720,7 @@ function PropertyMappingFieldGroup({
                 ))}
               </select>
               <span
-                className={`text-xs font-semibold ${
+                className={`w-20 text-left text-xs font-semibold md:text-right ${
                   selectedColumn ? "text-emerald-700" : "text-slate-500"
                 }`}
               >
