@@ -308,6 +308,7 @@ const servicePartnerFaqItems = [
 export default function HelpPageClient() {
   const router = useRouter()
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
+  const [isLoadingUser, setIsLoadingUser] = useState(true)
   const isServicePartnerUser = currentUser?.role === "CONTRACTOR"
   const sections = isServicePartnerUser ? servicePartnerHelpSections : helpSections
   const visibleFaqItems = isServicePartnerUser ? servicePartnerFaqItems : faqItems
@@ -329,7 +330,10 @@ export default function HelpPageClient() {
         return
       }
 
-      if (!response.ok) return
+      if (!response.ok) {
+        if (isMounted) setIsLoadingUser(false)
+        return
+      }
 
       const user: CurrentUser = await response.json()
       if (!isMounted) return
@@ -337,6 +341,7 @@ export default function HelpPageClient() {
       if (user.role === "CONTRACTOR") {
         setOpenSectionIds(["assigned-installations", "events"])
       }
+      setIsLoadingUser(false)
     }
 
     void fetchCurrentUser()
@@ -366,6 +371,9 @@ export default function HelpPageClient() {
           }
         />
 
+        {isLoadingUser ? (
+          <HelpLoadingSkeleton />
+        ) : (
         <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <section className="grid gap-3">
             {sections.map((section) => (
@@ -448,8 +456,45 @@ export default function HelpPageClient() {
             </Card>
           </aside>
         </div>
+        )}
       </section>
     </main>
+  )
+}
+
+function HelpLoadingSkeleton() {
+  return (
+    <div
+      className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <section className="grid gap-3">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <Card className="p-4" key={index}>
+            <div className="flex items-start gap-3">
+              <div className="h-9 w-9 animate-pulse rounded-lg bg-slate-100" />
+              <div className="min-w-0 flex-1">
+                <div className="h-5 w-48 animate-pulse rounded bg-slate-200" />
+                <div className="mt-2 h-4 w-full animate-pulse rounded bg-slate-100" />
+              </div>
+            </div>
+          </Card>
+        ))}
+      </section>
+      <aside className="grid content-start gap-4">
+        {Array.from({ length: 2 }).map((_, index) => (
+          <Card className="p-4" key={index}>
+            <div className="h-5 w-36 animate-pulse rounded bg-slate-200" />
+            <div className="mt-3 h-4 w-full animate-pulse rounded bg-slate-100" />
+            <div className="mt-4 grid gap-2">
+              <div className="h-9 animate-pulse rounded-lg bg-slate-100" />
+              <div className="h-9 animate-pulse rounded-lg bg-slate-100" />
+            </div>
+          </Card>
+        ))}
+      </aside>
+    </div>
   )
 }
 

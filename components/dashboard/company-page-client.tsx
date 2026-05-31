@@ -238,11 +238,8 @@ export default function CompanySettingsPage() {
         return
       }
 
-      const [companyRes, userRes, invitationsRes] = await Promise.all([
+      const [companyRes, invitationsRes] = await Promise.all([
         fetch("/api/company", {
-          credentials: "include",
-        }),
-        fetch("/api/auth/me", {
           credentials: "include",
         }),
         isAdminRole(accessUser.role)
@@ -254,14 +251,13 @@ export default function CompanySettingsPage() {
 
       if (
         companyRes.status === 401 ||
-        userRes.status === 401 ||
         invitationsRes?.status === 401
       ) {
         router.push("/login")
         return
       }
 
-      if (!companyRes.ok || !userRes.ok) {
+      if (!companyRes.ok) {
         if (!isMounted) return
         setError("Kunde inte hämta företagsinställningar")
         setIsLoading(false)
@@ -269,7 +265,6 @@ export default function CompanySettingsPage() {
       }
 
       const company: CompanyProfile = await companyRes.json()
-      const userData: CurrentUser = await userRes.json()
       const invitationsData: CompanySettingsData =
         invitationsRes?.ok ? await invitationsRes.json() : { users: [], invitations: [] }
 
@@ -278,7 +273,7 @@ export default function CompanySettingsPage() {
       setCompanyProfile(company)
       setProfileForm(toProfileFormData(company))
       setBillingForm(toBillingFormData(company))
-      setCurrentUser(userData)
+      setCurrentUser(accessUser)
       setData(invitationsData)
       setIsLoading(false)
     }
@@ -776,7 +771,7 @@ export default function CompanySettingsPage() {
         </p>
       </div>
 
-      {isLoading && <p className="mt-8 text-slate-700">Laddar...</p>}
+      {isLoading && <CompanySettingsLoadingSkeleton />}
       {error && <p className="mt-8 font-semibold text-red-700">{error}</p>}
       {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
 
@@ -1205,6 +1200,32 @@ function ProfileItem({
     <div className="rounded-md bg-slate-50 p-4">
       <dt className="text-sm font-medium text-slate-600">{label}</dt>
       <dd className="mt-1 font-semibold text-slate-950">{value || "-"}</dd>
+    </div>
+  )
+}
+
+function CompanySettingsLoadingSkeleton() {
+  return (
+    <div className="mt-8 grid gap-6" aria-live="polite" aria-busy="true">
+      {Array.from({ length: 3 }).map((_, sectionIndex) => (
+        <Card className="p-5" key={sectionIndex}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="h-5 w-48 animate-pulse rounded bg-slate-200" />
+              <div className="mt-2 h-4 w-80 max-w-full animate-pulse rounded bg-slate-100" />
+            </div>
+            <div className="h-9 w-24 animate-pulse rounded-lg bg-slate-100" />
+          </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: sectionIndex === 0 ? 6 : 4 }).map((__, index) => (
+              <div
+                className="h-20 animate-pulse rounded-lg bg-slate-50"
+                key={index}
+              />
+            ))}
+          </div>
+        </Card>
+      ))}
     </div>
   )
 }

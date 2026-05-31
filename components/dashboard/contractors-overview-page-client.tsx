@@ -271,9 +271,7 @@ export default function ContractorsOverviewPageClient() {
       />
 
       {isLoading && (
-        <p className="mt-8 text-sm text-slate-700 dark:text-slate-300">
-          Laddar servicepartners...
-        </p>
+        <ServicepartnersLoadingSkeleton />
       )}
       {error && <p className="mt-8 text-sm font-semibold text-red-700">{error}</p>}
       {feedback && (
@@ -810,6 +808,55 @@ function MetricCard({
         {formatNumber(value)}
       </p>
     </Card>
+  )
+}
+
+function ServicepartnersLoadingSkeleton() {
+  return (
+    <div className="mt-6 space-y-6" aria-live="polite" aria-busy="true">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <Card className="border-l-4 border-l-slate-200 p-5" key={index}>
+            <div className="h-3 w-28 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
+            <div className="mt-4 h-8 w-14 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+          </Card>
+        ))}
+      </section>
+      <Card className="p-5">
+        <div className="grid gap-5 lg:grid-cols-[1fr_1.1fr]">
+          <div>
+            <div className="h-5 w-48 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+            <div className="mt-4 grid gap-2">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div
+                  className="h-20 animate-pulse rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900"
+                  key={index}
+                />
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="h-4 w-40 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+            <div className="mt-4 grid gap-3">
+              <div className="h-16 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+              <div className="h-16 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+              <div className="h-10 w-44 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700" />
+            </div>
+          </div>
+        </div>
+      </Card>
+      <Card className="p-5">
+        <div className="h-5 w-64 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div
+              className="h-36 animate-pulse rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900"
+              key={index}
+            />
+          ))}
+        </div>
+      </Card>
+    </div>
   )
 }
 

@@ -16,89 +16,134 @@ export async function GET(request: NextRequest) {
     const yearStart = new Date(Date.UTC(currentYear, 0, 1))
     const nextYearStart = new Date(Date.UTC(currentYear + 1, 0, 1))
 
-    const memberships = await prisma.companyMembership.findMany({
-      where: {
-        companyId: auth.user.companyId,
-        role: "CONTRACTOR",
-        isActive: true,
-        user: {
+    const queryStartTime = getDevelopmentTimingStart()
+    const [memberships, servicePartnerCompanies] = await Promise.all([
+      prisma.companyMembership.findMany({
+        where: {
+          companyId: auth.user.companyId,
+          role: "CONTRACTOR",
           isActive: true,
+          user: {
+            isActive: true,
+          },
         },
-      },
-      include: {
-        servicePartnerCompany: {
-          select: {
-            id: true,
-            name: true,
-            organizationNumber: true,
-            contactEmail: true,
-            phone: true,
-            certificateNumber: true,
-            notes: true,
-            companyId: true,
-            serviceOrganizationId: true,
-            serviceOrganization: {
-              select: {
-                id: true,
-                name: true,
-                organizationNumber: true,
-                contactEmail: true,
-                phone: true,
-                certificateNumber: true,
+        include: {
+          servicePartnerCompany: {
+            select: {
+              id: true,
+              name: true,
+              organizationNumber: true,
+              contactEmail: true,
+              phone: true,
+              certificateNumber: true,
+              notes: true,
+              companyId: true,
+              serviceOrganizationId: true,
+              serviceOrganization: {
+                select: {
+                  id: true,
+                  name: true,
+                  organizationNumber: true,
+                  contactEmail: true,
+                  phone: true,
+                  certificateNumber: true,
+                },
               },
             },
           },
-        },
-        user: {
-          include: {
-            assignedInstallations: {
-              where: {
-                companyId: auth.user.companyId,
-                archivedAt: null,
-                scrappedAt: null,
-              },
-              include: {
-                events: {
-                  where: {
-                    type: "LEAK",
-                    supersededAt: null,
-                    date: {
-                      gte: yearStart,
-                      lt: nextYearStart,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              isActive: true,
+              assignedInstallations: {
+                where: {
+                  companyId: auth.user.companyId,
+                  archivedAt: null,
+                  scrappedAt: null,
+                },
+                select: {
+                  refrigerantType: true,
+                  refrigerantAmount: true,
+                  hasLeakDetectionSystem: true,
+                  lastInspection: true,
+                  nextInspection: true,
+                  events: {
+                    where: {
+                      type: "LEAK",
+                      supersededAt: null,
+                      date: {
+                        gte: yearStart,
+                        lt: nextYearStart,
+                      },
+                    },
+                    select: {
+                      id: true,
                     },
                   },
-                  select: {
-                    id: true,
+                  activityLogs: {
+                    orderBy: {
+                      createdAt: "desc",
+                    },
+                    select: {
+                      createdAt: true,
+                    },
+                    take: 1,
                   },
-                },
-                activityLogs: {
-                  orderBy: {
-                    createdAt: "desc",
-                  },
-                  select: {
-                    createdAt: true,
-                  },
-                  take: 1,
                 },
               },
             },
           },
         },
-      },
-      orderBy: [
-        {
-          user: {
-            name: "asc",
+        orderBy: [
+          {
+            user: {
+              name: "asc",
+            },
+          },
+          {
+            user: {
+              email: "asc",
+            },
+          },
+        ],
+      }),
+      prisma.servicePartnerCompany.findMany({
+        where: {
+          companyId: auth.user.companyId,
+        },
+        orderBy: {
+          name: "asc",
+        },
+        select: {
+          id: true,
+          companyId: true,
+          serviceOrganizationId: true,
+          name: true,
+          organizationNumber: true,
+          contactEmail: true,
+          phone: true,
+          certificateNumber: true,
+          notes: true,
+          createdAt: true,
+          updatedAt: true,
+          serviceOrganization: {
+            select: {
+              id: true,
+              name: true,
+              organizationNumber: true,
+              contactEmail: true,
+              phone: true,
+              certificateNumber: true,
+            },
           },
         },
-        {
-          user: {
-            email: "asc",
-          },
-        },
-      ],
-    })
+      }),
+    ])
+    logDevelopmentTiming("GET /api/contractors/overview queries", queryStartTime)
 
+    const calculationStartTime = getDevelopmentTimingStart()
     const rows = memberships.map((membership) => {
       const contractor = membership.user
       let overdueInspections = 0
@@ -196,37 +241,6 @@ export async function GET(request: NextRequest) {
       }
     )
 
-    const servicePartnerCompanies = await prisma.servicePartnerCompany.findMany({
-      where: {
-        companyId: auth.user.companyId,
-      },
-      orderBy: {
-        name: "asc",
-      },
-      select: {
-        id: true,
-        companyId: true,
-        serviceOrganizationId: true,
-        name: true,
-        organizationNumber: true,
-        contactEmail: true,
-        phone: true,
-        certificateNumber: true,
-        notes: true,
-        createdAt: true,
-        updatedAt: true,
-        serviceOrganization: {
-          select: {
-            id: true,
-            name: true,
-            organizationNumber: true,
-            contactEmail: true,
-            phone: true,
-            certificateNumber: true,
-          },
-        },
-      },
-    })
     const servicePartnerCompanyRows = servicePartnerCompanies.map(
       toServiceOrganizationBackedCompany
     )
@@ -234,6 +248,10 @@ export async function GET(request: NextRequest) {
       companies: servicePartnerCompanyRows,
       contractors: rows,
     })
+    logDevelopmentTiming(
+      "GET /api/contractors/overview calculations",
+      calculationStartTime
+    )
 
     return NextResponse.json(
       {
@@ -252,4 +270,13 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+function getDevelopmentTimingStart() {
+  return process.env.NODE_ENV === "development" ? performance.now() : null
+}
+
+function logDevelopmentTiming(label: string, startTime: number | null) {
+  if (startTime === null) return
+  console.info(`[perf] ${label}: ${Math.round(performance.now() - startTime)}ms`)
 }

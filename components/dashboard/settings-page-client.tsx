@@ -347,11 +347,7 @@ export default function SettingsPageClient() {
         subtitle="Hantera profil, säkerhet, utseende och notifieringar för ditt eget användarkonto."
       />
 
-      {isLoading && (
-        <p className="mt-8 text-sm text-slate-700 dark:text-slate-300">
-          Laddar inställningar...
-        </p>
-      )}
+      {isLoading && <SettingsLoadingSkeleton />}
       {error && <p className="mt-8 font-semibold text-red-700">{error}</p>}
 
       {!isLoading && currentUser && notifications && (
@@ -635,6 +631,29 @@ function NotificationToggle({
         </span>
       </span>
     </label>
+  )
+}
+
+function SettingsLoadingSkeleton() {
+  return (
+    <div className="mt-8 grid gap-6" aria-live="polite" aria-busy="true">
+      {Array.from({ length: 4 }).map((_, sectionIndex) => (
+        <Card className="p-5" key={sectionIndex}>
+          <div className="h-5 w-36 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+          <div className="mt-2 h-4 w-80 max-w-full animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
+          <div className="mt-5 grid gap-4">
+            {Array.from({ length: sectionIndex === 0 ? 4 : 3 }).map(
+              (__, index) => (
+                <div
+                  className="h-14 animate-pulse rounded-lg bg-slate-50 dark:bg-slate-900"
+                  key={index}
+                />
+              )
+            )}
+          </div>
+        </Card>
+      ))}
+    </div>
   )
 }
 

@@ -56,35 +56,56 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const entries = await prisma.activityLog.findMany({
-      where,
-      include: {
-        installation: {
-          select: {
-            id: true,
-            name: true,
-            location: true,
-            property: {
-              select: {
-                id: true,
-                name: true,
-                municipality: true,
-              },
+    const queryStartTime = getDevelopmentTimingStart()
+    const activitySelect = {
+      id: true,
+      action: true,
+      entityType: true,
+      entityId: true,
+      metadata: true,
+      createdAt: true,
+      installation: {
+        select: {
+          id: true,
+          name: true,
+          location: true,
+          property: {
+            select: {
+              id: true,
+              name: true,
+              municipality: true,
             },
           },
         },
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
+      },
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
         },
       },
+    } satisfies Prisma.ActivityLogSelect
+    const entries = await prisma.activityLog.findMany({
+      where,
+      select: activitySelect,
       orderBy: {
         createdAt: "desc",
       },
+      ...(search
+        ? {}
+        : {
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+          }),
     })
+    const totalEntries = search
+      ? null
+      : await prisma.activityLog.count({
+          where,
+        })
+    logDevelopmentTiming("GET /api/activity query", queryStartTime)
+    const mappingStartTime = getDevelopmentTimingStart()
     const mappedEntries = entries.map((entry) => {
       const metadata = toMetadataObject(entry.metadata)
 
@@ -109,10 +130,11 @@ export async function GET(request: NextRequest) {
     const filteredEntries = search
       ? mappedEntries.filter((entry) => matchesActivitySearch(entry, search))
       : mappedEntries
-    const paginatedEntries = filteredEntries.slice(
-      (page - 1) * pageSize,
-      page * pageSize
-    )
+    const paginatedEntries = search
+      ? filteredEntries.slice((page - 1) * pageSize, page * pageSize)
+      : filteredEntries
+    const total = totalEntries ?? filteredEntries.length
+    logDevelopmentTiming("GET /api/activity response mapping", mappingStartTime)
 
     return NextResponse.json(
       {
@@ -126,8 +148,8 @@ export async function GET(request: NextRequest) {
         pagination: {
           page,
           pageSize,
-          total: filteredEntries.length,
-          totalPages: Math.max(1, Math.ceil(filteredEntries.length / pageSize)),
+          total,
+          totalPages: Math.max(1, Math.ceil(total / pageSize)),
         },
       },
       { status: 200 }
@@ -140,6 +162,15 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+function getDevelopmentTimingStart() {
+  return process.env.NODE_ENV === "development" ? performance.now() : null
+}
+
+function logDevelopmentTiming(label: string, startTime: number | null) {
+  if (startTime === null) return
+  console.info(`[perf] ${label}: ${Math.round(performance.now() - startTime)}ms`)
 }
 
 function parsePositiveInteger(value: string | null, fallback: number) {
