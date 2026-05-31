@@ -48,60 +48,73 @@ type PreviewImportRow = ParsedImportRow & {
 const TEMPLATE_COLUMNS = [
   "Aggregat-ID / märkning",
   "Aggregatnamn / benämning",
-  "Plats",
+  "Placering",
   "Fastighet",
-  "Kommun",
   "Köldmedium",
-  "Fyllnadsmängd",
+  "Fyllnadsmängd kg",
   "Läckagevarningssystem",
   "Senaste kontroll",
   "Nästa kontroll",
-  "Kontrollintervall",
-  "Servicepartner",
   "Driftsättningsdatum",
   "Serienummer",
-  "Utrustningstyp",
-  "Operatör",
+  "Kommentar",
 ]
 
 const TEMPLATE_ROWS = [
   {
     "Aggregat-ID / märkning": "AGG-001",
     "Aggregatnamn / benämning": "Kylaggregat 1",
-    Plats: "Tak plan 3",
+    Placering: "Tak plan 3",
     Fastighet: "Stadshuset",
-    Kommun: "Stockholm",
     Köldmedium: "R410A",
-    Fyllnadsmängd: 12.5,
+    "Fyllnadsmängd kg": 12.5,
     Läckagevarningssystem: "Nej",
     "Senaste kontroll": "2026-01-15",
     "Nästa kontroll": "2027-01-15",
-    Kontrollintervall: 12,
-    Servicepartner: "Exempel Kyl AB",
     Driftsättningsdatum: "2021-05-01",
     Serienummer: "SN-12345",
-    Utrustningstyp: "Kylaggregat",
-    Operatör: "Fastighetsavdelningen",
+    Kommentar: "Exempelrad - byt ut eller ta bort",
   },
   {
     "Aggregat-ID / märkning": "AGG-002",
     "Aggregatnamn / benämning": "Frysrum",
-    Plats: "Källare",
+    Placering: "Källare",
     Fastighet: "Servicehuset",
-    Kommun: "Stockholm",
     Köldmedium: "R404A",
-    Fyllnadsmängd: 8,
+    "Fyllnadsmängd kg": 8,
     Läckagevarningssystem: "Ja",
     "Senaste kontroll": "2026-02-20",
     "Nästa kontroll": "",
-    Kontrollintervall: "",
-    Servicepartner: "",
     Driftsättningsdatum: "2020-09-10",
     Serienummer: "SN-67890",
-    Utrustningstyp: "Frys",
-    Operatör: "Måltidsservice",
+    Kommentar: "",
   },
 ]
+const TEMPLATE_REQUIRED_COLUMNS = [
+  "Aggregat-ID / märkning",
+  "Köldmedium",
+  "Fyllnadsmängd kg",
+]
+const TEMPLATE_RECOMMENDED_COLUMNS = [
+  "Fastighet",
+  "Placering",
+  "Senaste kontroll",
+  "Nästa kontroll",
+]
+const TEMPLATE_COLUMN_WIDTHS: Record<string, number> = {
+  "Aggregat-ID / märkning": 24,
+  "Aggregatnamn / benämning": 28,
+  Placering: 22,
+  Fastighet: 24,
+  Köldmedium: 16,
+  "Fyllnadsmängd kg": 18,
+  Läckagevarningssystem: 24,
+  "Senaste kontroll": 18,
+  "Nästa kontroll": 18,
+  Driftsättningsdatum: 20,
+  Serienummer: 20,
+  Kommentar: 34,
+}
 
 const PREVIEW_ROW_LIMIT = 50
 const INSTALLATION_REQUIRED_FIELD_KEYS: ImportFieldKey[] = [
@@ -324,10 +337,45 @@ export default function ImportInstallationsPage({
 
   function handleDownloadTemplate() {
     const workbook = XLSX.utils.book_new()
+    const instructionSheet = XLSX.utils.aoa_to_sheet([
+      ["FgasPortal - importmall för aggregat"],
+      [""],
+      ["Fyll i fliken Aggregat och behåll rubrikraden överst."],
+      ["Obligatoriska fält", TEMPLATE_REQUIRED_COLUMNS.join(", ")],
+      ["Rekommenderade fält", TEMPLATE_RECOMMENDED_COLUMNS.join(", ")],
+      ["Datumformat", "Använd helst ÅÅÅÅ-MM-DD, till exempel 2026-01-15."],
+      [
+        "Beräkningar",
+        "Importera normalt inte GWP eller CO₂e. FgasPortal beräknar detta från köldmedium och fyllnadsmängd.",
+      ],
+      [
+        "Historik",
+        "Kontroller, läckage, service och påfyllningar importeras via händelseimporten.",
+      ],
+    ])
     const worksheet = XLSX.utils.json_to_sheet(TEMPLATE_ROWS, {
       header: TEMPLATE_COLUMNS,
     })
 
+    instructionSheet["!cols"] = [{ wch: 24 }, { wch: 110 }]
+    worksheet["!cols"] = TEMPLATE_COLUMNS.map((column) => ({
+      wch: TEMPLATE_COLUMN_WIDTHS[column] ?? 18,
+    }))
+    worksheet["!autofilter"] = {
+      ref: XLSX.utils.encode_range({
+        s: { r: 0, c: 0 },
+        e: { r: Math.max(TEMPLATE_ROWS.length, 1), c: TEMPLATE_COLUMNS.length - 1 },
+      }),
+    }
+    ;(worksheet as XLSX.WorkSheet & { "!freeze"?: unknown })["!freeze"] = {
+      xSplit: 0,
+      ySplit: 1,
+      topLeftCell: "A2",
+      activePane: "bottomLeft",
+      state: "frozen",
+    }
+
+    XLSX.utils.book_append_sheet(workbook, instructionSheet, "Läs först")
     XLSX.utils.book_append_sheet(workbook, worksheet, "Aggregat")
     XLSX.writeFile(workbook, "fgasportal-importmall-aggregat.xlsx")
   }
@@ -727,6 +775,7 @@ export default function ImportInstallationsPage({
           )}
         </section>
       )}
+      {isImporting && <ImportInProgressOverlay />}
       {toast && <Toast onClose={() => setToast(null)} toast={toast} />}
     </>
   )
@@ -766,7 +815,7 @@ function ImportMappingFieldGroup({
           const label = getImportFieldLabel(field)
 
           return (
-            <div className="grid gap-2 px-3 py-3 md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)_auto] md:items-center" key={field}>
+            <div className="grid gap-2 px-3 py-3 md:grid-cols-[minmax(0,1fr)_minmax(240px,320px)_5.5rem] md:items-center" key={field}>
               <div>
                 <div className="text-sm font-medium text-slate-900">{label}</div>
                 <div className="mt-0.5 text-xs text-slate-500">
@@ -797,7 +846,7 @@ function ImportMappingFieldGroup({
                 ))}
               </select>
               <span
-                className={`text-xs font-semibold ${
+                className={`w-20 text-left text-xs font-semibold md:text-right ${
                   selectedColumn ? "text-emerald-700" : "text-slate-500"
                 }`}
               >
@@ -826,6 +875,33 @@ function ImportMetric({
     <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
       <div className="text-xs font-medium text-slate-500">{label}</div>
       <div className="mt-1 text-base font-semibold text-slate-950">{value}</div>
+    </div>
+  )
+}
+
+function ImportInProgressOverlay() {
+  return (
+    <div
+      aria-live="polite"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4"
+      role="dialog"
+    >
+      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 text-slate-900 shadow-2xl">
+        <h2 className="text-lg font-semibold text-slate-950">Importerar aggregat</h2>
+        <p className="mt-2 text-sm text-slate-600">
+          Vi läser in filen och skapar aggregat. Det kan ta en stund vid stora
+          register.
+        </p>
+        <div className="mt-5 overflow-hidden rounded-full bg-slate-100">
+          <div className="h-2 w-1/2 animate-pulse rounded-full bg-blue-600" />
+        </div>
+        <div className="mt-4 grid gap-1 text-xs text-slate-500">
+          <p>Validerar rader</p>
+          <p>Skapar aggregat</p>
+          <p>Sammanställer resultat</p>
+        </div>
+      </div>
     </div>
   )
 }
