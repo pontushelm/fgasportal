@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
+import { ImportDataWorkspace } from "@/components/dashboard/import-data-workspace"
 import { Badge, Button, Card, EmptyState, PageHeader, Toast, type ToastMessage } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
 import { isAdminRole } from "@/lib/roles"
@@ -74,9 +75,11 @@ export default function PropertiesPageClient() {
   )
   const [isLoading, setIsLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
+  const [isImportWorkspaceOpen, setIsImportWorkspaceOpen] = useState(false)
   const [error, setError] = useState("")
   const [createError, setCreateError] = useState("")
   const [toast, setToast] = useState<ToastMessage | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
   const [sort, setSort] = useState<{
     key: PropertySortKey | ""
     direction: SortDirection | ""
@@ -128,7 +131,7 @@ export default function PropertiesPageClient() {
     return () => {
       isMounted = false
     }
-  }, [router])
+  }, [refreshKey, router])
 
   const canCreateProperties = isAdminRole(currentUser?.role)
 
@@ -218,12 +221,13 @@ export default function PropertiesPageClient() {
       <PageHeader
         actions={
           canCreateProperties ? (
-            <Link
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-              href="/dashboard/properties/import"
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setIsImportWorkspaceOpen(true)}
             >
               Importera fastigheter
-            </Link>
+            </Button>
           ) : null
         }
         title="Fastighetsöversikt"
@@ -410,6 +414,15 @@ export default function PropertiesPageClient() {
         </Card>
       )}
       {toast && <Toast onClose={() => setToast(null)} toast={toast} />}
+      {isImportWorkspaceOpen && (
+        <ImportDataWorkspace
+          initialImportType="properties"
+          onClose={() => setIsImportWorkspaceOpen(false)}
+          onEventsImported={() => setRefreshKey((current) => current + 1)}
+          onInstallationsImported={() => setRefreshKey((current) => current + 1)}
+          onPropertiesImported={() => setRefreshKey((current) => current + 1)}
+        />
+      )}
     </main>
   )
 }

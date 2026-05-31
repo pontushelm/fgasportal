@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import * as XLSX from "xlsx"
 import { Toast, type ToastMessage } from "@/components/ui"
 import {
@@ -48,7 +48,14 @@ type ImportSummary = {
 type InstallationEventImportPageClientProps = {
   embedded?: boolean
   onClose?: () => void
+  onImportStateChange?: (state: ImportWorkspaceState) => void
   onImported?: () => void
+}
+
+type ImportWorkspaceState = {
+  hasProgress: boolean
+  isBusy: boolean
+  message?: string
 }
 
 const TEMPLATE_COLUMNS = [
@@ -147,6 +154,7 @@ const EVENT_ADVANCED_FIELD_KEYS: EventImportFieldKey[] =
 export default function InstallationEventImportPageClient({
   embedded = false,
   onClose,
+  onImportStateChange,
   onImported,
 }: InstallationEventImportPageClientProps = {}) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -208,6 +216,33 @@ export default function InstallationEventImportPageClient({
   const mappedAdvancedFieldCount = EVENT_ADVANCED_FIELD_KEYS.filter((field) =>
     mappedFields.includes(field)
   ).length
+  const hasImportProgress =
+    Boolean(selectedFile) ||
+    worksheets.length > 0 ||
+    detectedColumns.length > 0 ||
+    previewRows.length > 0 ||
+    Boolean(importSummary)
+  const isImportBusy = isParsing || isPreviewing || isImporting
+
+  useEffect(() => {
+    onImportStateChange?.({
+      hasProgress: hasImportProgress,
+      isBusy: isImportBusy,
+      message:
+        isParsing || isPreviewing
+          ? "Filen läses in. Vänta tills förhandsgranskningen är klar."
+          : isImporting
+            ? "Importen pågår. Vänta tills den är klar."
+            : undefined,
+    })
+  }, [
+    hasImportProgress,
+    isImportBusy,
+    isImporting,
+    isParsing,
+    isPreviewing,
+    onImportStateChange,
+  ])
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]

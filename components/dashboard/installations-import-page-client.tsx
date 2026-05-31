@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import * as XLSX from "xlsx"
 import { Toast, type ToastMessage } from "@/components/ui"
 import {
@@ -34,6 +34,13 @@ type ImportInstallationsPageProps = {
   embedded?: boolean
   onClose?: () => void
   onImported?: () => void
+  onImportStateChange?: (state: ImportWorkspaceState) => void
+}
+
+type ImportWorkspaceState = {
+  hasProgress: boolean
+  isBusy: boolean
+  message?: string
 }
 
 type WorksheetPreview = {
@@ -145,6 +152,7 @@ const INSTALLATION_ADVANCED_FIELD_KEYS: ImportFieldKey[] =
 
 export default function ImportInstallationsPage({
   embedded = false,
+  onImportStateChange,
   onImported,
 }: ImportInstallationsPageProps = {}) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -203,6 +211,25 @@ export default function ImportInstallationsPage({
   ).length
   const hasBlockingMappingIssue =
     missingRequiredFields.length > 0 || duplicatedFields.length > 0
+  const hasImportProgress =
+    Boolean(selectedFile) ||
+    worksheets.length > 0 ||
+    detectedColumns.length > 0 ||
+    rows.length > 0 ||
+    Boolean(summary)
+  const isImportBusy = isParsing || isImporting
+
+  useEffect(() => {
+    onImportStateChange?.({
+      hasProgress: hasImportProgress,
+      isBusy: isImportBusy,
+      message: isParsing
+        ? "Filen läses in. Vänta tills förhandsgranskningen är klar."
+        : isImporting
+          ? "Importen pågår. Vänta tills den är klar."
+          : undefined,
+    })
+  }, [hasImportProgress, isImportBusy, isImporting, isParsing, onImportStateChange])
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]

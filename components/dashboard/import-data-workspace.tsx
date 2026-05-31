@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import ImportInstallationsPage from "@/components/dashboard/installations-import-page-client"
 import InstallationEventImportPageClient from "@/components/dashboard/installation-event-import-page-client"
 import PropertiesImportPageClient from "@/components/dashboard/properties-import-page-client"
@@ -9,11 +9,22 @@ import { buttonClassName } from "@/components/ui"
 type ImportType = "installations" | "properties" | "events"
 
 type ImportDataWorkspaceProps = {
+  initialImportType?: ImportType
   onClose: () => void
   onEventsImported?: () => void
   onInstallationsImported?: () => void
   onPropertiesImported?: () => void
 }
+
+type ImportWorkspaceState = {
+  hasProgress: boolean
+  isBusy: boolean
+  message?: string
+}
+
+type PendingWorkspaceAction =
+  | { type: "close" }
+  | { type: "switch"; nextImportType: ImportType }
 
 const importOptions: Array<{
   type: ImportType
@@ -43,13 +54,93 @@ const importOptions: Array<{
 ]
 
 export function ImportDataWorkspace({
+  initialImportType,
   onClose,
   onEventsImported,
   onInstallationsImported,
   onPropertiesImported,
 }: ImportDataWorkspaceProps) {
-  const [activeImportType, setActiveImportType] = useState<ImportType | null>(null)
+  const [activeImportType, setActiveImportType] = useState<ImportType | null>(
+    initialImportType ?? null
+  )
+  const [importState, setImportState] = useState<ImportWorkspaceState>({
+    hasProgress: false,
+    isBusy: false,
+  })
+  const [pendingAction, setPendingAction] = useState<PendingWorkspaceAction | null>(null)
+  const [workspaceMessage, setWorkspaceMessage] = useState("")
   const closeButtonRef = useRef<HTMLButtonElement | null>(null)
+
+  const resetImportState = useCallback(() => {
+    setImportState({
+      hasProgress: false,
+      isBusy: false,
+    })
+    setWorkspaceMessage("")
+  }, [])
+
+  const requestClose = useCallback(() => {
+    if (importState.isBusy) {
+      setWorkspaceMessage(
+        importState.message || "Importen pågår. Vänta tills den är klar."
+      )
+      return
+    }
+
+    if (importState.hasProgress) {
+      setPendingAction({ type: "close" })
+      return
+    }
+
+    onClose()
+  }, [importState.hasProgress, importState.isBusy, importState.message, onClose])
+
+  const requestImportType = useCallback(
+    (nextImportType: ImportType) => {
+      if (nextImportType === activeImportType) return
+
+      if (importState.isBusy) {
+        setWorkspaceMessage(
+          importState.message || "Importen pågår. Vänta tills den är klar."
+        )
+        return
+      }
+
+      if (importState.hasProgress) {
+        setPendingAction({ type: "switch", nextImportType })
+        return
+      }
+
+      resetImportState()
+      setActiveImportType(nextImportType)
+    },
+    [
+      activeImportType,
+      importState.hasProgress,
+      importState.isBusy,
+      importState.message,
+      resetImportState,
+    ]
+  )
+
+  const handleImportStateChange = useCallback((state: ImportWorkspaceState) => {
+    setImportState(state)
+    if (!state.isBusy) setWorkspaceMessage("")
+  }, [])
+
+  function confirmPendingAction() {
+    const action = pendingAction
+    setPendingAction(null)
+
+    if (!action) return
+    if (action.type === "close") {
+      onClose()
+      return
+    }
+
+    resetImportState()
+    setActiveImportType(action.nextImportType)
+  }
 
   useEffect(() => {
     closeButtonRef.current?.focus()
@@ -57,12 +148,12 @@ export function ImportDataWorkspace({
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose()
+      if (event.key === "Escape") requestClose()
     }
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [onClose])
+  }, [requestClose])
 
   const activeOption = importOptions.find((option) => option.type === activeImportType)
 
@@ -92,11 +183,17 @@ export function ImportDataWorkspace({
               className={buttonClassName({ variant: "secondary" })}
               ref={closeButtonRef}
               type="button"
-              onClick={onClose}
+              onClick={requestClose}
             >
               Stäng
             </button>
           </div>
+
+          {workspaceMessage && (
+            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+              {workspaceMessage}
+            </p>
+          )}
 
           <nav className="mt-4 flex gap-2 overflow-x-auto pb-1" aria-label="Importtyper">
             {importOptions.map((option) => {
@@ -113,7 +210,7 @@ export function ImportDataWorkspace({
                   disabled={option.disabled}
                   key={option.type}
                   type="button"
-                  onClick={() => setActiveImportType(option.type)}
+                  onClick={() => requestImportType(option.type)}
                 >
                   <span>{option.title}</span>
                   {option.status && (
@@ -137,17 +234,20 @@ export function ImportDataWorkspace({
               {activeImportType === "installations" ? (
                 <ImportInstallationsPage
                   embedded
+                  onImportStateChange={handleImportStateChange}
                   onImported={onInstallationsImported}
                 />
               ) : activeImportType === "properties" ? (
                 <PropertiesImportPageClient
                   embedded
+                  onImportStateChange={handleImportStateChange}
                   onImported={onPropertiesImported}
                 />
               ) : (
                 <InstallationEventImportPageClient
                   embedded
                   onClose={onClose}
+                  onImportStateChange={handleImportStateChange}
                   onImported={onEventsImported}
                 />
               )}
@@ -164,7 +264,7 @@ export function ImportDataWorkspace({
                   disabled={option.disabled}
                   key={option.type}
                   type="button"
-                  onClick={() => setActiveImportType(option.type)}
+                  onClick={() => requestImportType(option.type)}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <h3 className="text-base font-semibold text-slate-950">
@@ -190,6 +290,39 @@ export function ImportDataWorkspace({
           )}
         </div>
       </div>
+      {pendingAction && (
+        <div
+          aria-labelledby="leave-import-title"
+          aria-modal="true"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 p-4"
+          role="dialog"
+        >
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-700 shadow-2xl">
+            <h3 className="text-lg font-semibold text-slate-950" id="leave-import-title">
+              Vill du lämna importen?
+            </h3>
+            <p className="mt-2">
+              Vald fil, fältkopplingar och förhandsgranskning sparas inte.
+            </p>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button
+                className={buttonClassName({ variant: "secondary" })}
+                type="button"
+                onClick={() => setPendingAction(null)}
+              >
+                Fortsätt importera
+              </button>
+              <button
+                className={buttonClassName({ variant: "danger" })}
+                type="button"
+                onClick={confirmPendingAction}
+              >
+                Lämna importen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
