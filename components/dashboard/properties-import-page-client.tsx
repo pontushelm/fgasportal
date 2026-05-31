@@ -30,6 +30,11 @@ type WorksheetPreview = {
   name: string
 }
 
+type PropertiesImportPageClientProps = {
+  embedded?: boolean
+  onImported?: () => void
+}
+
 const TEMPLATE_COLUMNS = [
   "Fastighetsbeteckning",
   "Namn",
@@ -86,7 +91,10 @@ const PROPERTY_ADVANCED_FIELD_KEYS: PropertyImportFieldKey[] =
       !PROPERTY_RECOMMENDED_FIELD_KEYS.includes(key)
   )
 
-export default function PropertiesImportPageClient() {
+export default function PropertiesImportPageClient({
+  embedded = false,
+  onImported,
+}: PropertiesImportPageClientProps = {}) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [worksheets, setWorksheets] = useState<WorksheetPreview[]>([])
   const [selectedWorksheetName, setSelectedWorksheetName] = useState("")
@@ -374,17 +382,20 @@ export default function PropertiesImportPageClient() {
           ? `${result.created} fastigheter importerades. ${result.skippedDuplicates} dubbletter och ${result.invalid} ogiltiga rader hoppades över.`
           : `${result.created} fastigheter importerades.`,
     })
+    onImported?.()
   }
 
-  return (
-    <main className="mx-auto max-w-6xl px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
+  const content = (
+    <>
       <div>
-        <Link
-          className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline"
-          href="/dashboard/properties"
-        >
-          Tillbaka till fastigheter
-        </Link>
+        {!embedded && (
+          <Link
+            className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline"
+            href="/dashboard/properties"
+          >
+            Tillbaka till fastigheter
+          </Link>
+        )}
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
           Importera fastigheter
         </h1>
@@ -659,6 +670,14 @@ export default function PropertiesImportPageClient() {
         </section>
       )}
       {toast && <Toast onClose={() => setToast(null)} toast={toast} />}
+    </>
+  )
+
+  if (embedded) return content
+
+  return (
+    <main className="mx-auto max-w-6xl px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
+      {content}
     </main>
   )
 }

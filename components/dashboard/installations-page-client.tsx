@@ -1846,6 +1846,7 @@ export default function InstallationsPageClient() {
         <ImportDataWorkspace
           onClose={() => setIsImportWorkspaceOpen(false)}
           onInstallationsImported={() => setRefreshKey((current) => current + 1)}
+          onPropertiesImported={() => setRefreshKey((current) => current + 1)}
         />
       )}
 

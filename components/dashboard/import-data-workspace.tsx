@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import ImportInstallationsPage from "@/components/dashboard/installations-import-page-client"
+import PropertiesImportPageClient from "@/components/dashboard/properties-import-page-client"
 import { buttonClassName } from "@/components/ui"
 
 type ImportType = "installations" | "properties" | "events"
@@ -9,6 +10,7 @@ type ImportType = "installations" | "properties" | "events"
 type ImportDataWorkspaceProps = {
   onClose: () => void
   onInstallationsImported?: () => void
+  onPropertiesImported?: () => void
 }
 
 const importOptions: Array<{
@@ -28,9 +30,7 @@ const importOptions: Array<{
     type: "properties",
     title: "Fastigheter",
     description:
-      "Importera fastighetsbeteckningar, namn, kommun, ort och adressuppgifter.",
-    status: "Kommer snart",
-    disabled: true,
+      "Importera fastighetsbeteckningar, adresser och grunduppgifter.",
   },
   {
     type: "events",
@@ -45,6 +45,7 @@ const importOptions: Array<{
 export function ImportDataWorkspace({
   onClose,
   onInstallationsImported,
+  onPropertiesImported,
 }: ImportDataWorkspaceProps) {
   const [activeImportType, setActiveImportType] = useState<ImportType | null>(null)
   const closeButtonRef = useRef<HTMLButtonElement | null>(null)
@@ -126,16 +127,23 @@ export function ImportDataWorkspace({
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
-          {activeImportType === "installations" ? (
+          {activeImportType === "installations" || activeImportType === "properties" ? (
             <div className="mx-auto max-w-6xl">
               <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-950">
                 <p className="font-semibold">{activeOption?.title}</p>
                 <p className="mt-1 text-blue-900">{activeOption?.description}</p>
               </div>
-              <ImportInstallationsPage
-                embedded
-                onImported={onInstallationsImported}
-              />
+              {activeImportType === "installations" ? (
+                <ImportInstallationsPage
+                  embedded
+                  onImported={onInstallationsImported}
+                />
+              ) : (
+                <PropertiesImportPageClient
+                  embedded
+                  onImported={onPropertiesImported}
+                />
+              )}
             </div>
           ) : (
             <div className="mx-auto grid max-w-5xl gap-4 lg:grid-cols-3">
