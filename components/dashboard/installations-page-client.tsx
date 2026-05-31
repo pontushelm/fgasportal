@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
-import ImportInstallationsPage from "@/components/dashboard/installations-import-page-client"
+import { ImportDataWorkspace } from "@/components/dashboard/import-data-workspace"
 import CreateInstallationForm from "@/components/installations/create-installation-form"
 import { Button, Card, PageHeader, Toast } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
@@ -223,7 +223,7 @@ export default function InstallationsPageClient() {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
   const [isPropertyModalOpen, setIsPropertyModalOpen] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false)
+  const [isImportWorkspaceOpen, setIsImportWorkspaceOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [pendingBulkAction, setPendingBulkAction] = useState<
@@ -1135,16 +1135,10 @@ export default function InstallationsPageClient() {
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={() => setIsImportModalOpen(true)}
+                  onClick={() => setIsImportWorkspaceOpen(true)}
                 >
-                  Importera aggregat
+                  Importera data
                 </Button>
-                <Link
-                  className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
-                  href="/dashboard/installations/import-events"
-                >
-                  Importera händelser
-                </Link>
               </>
             )}
             </>
@@ -1848,25 +1842,11 @@ export default function InstallationsPageClient() {
         </div>
       )}
 
-      {isImportModalOpen && (
-        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/40 px-4 py-8">
-          <div className="w-full max-w-5xl rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
-            <div className="mb-2 flex justify-end">
-              <button
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                type="button"
-                onClick={() => setIsImportModalOpen(false)}
-              >
-                Stäng
-              </button>
-            </div>
-            <ImportInstallationsPage
-              embedded
-              onClose={() => setIsImportModalOpen(false)}
-              onImported={() => setRefreshKey((current) => current + 1)}
-            />
-          </div>
-        </div>
+      {isImportWorkspaceOpen && (
+        <ImportDataWorkspace
+          onClose={() => setIsImportWorkspaceOpen(false)}
+          onInstallationsImported={() => setRefreshKey((current) => current + 1)}
+        />
       )}
 
       {selectedInstallation && (
