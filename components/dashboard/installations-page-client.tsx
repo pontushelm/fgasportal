@@ -1410,33 +1410,22 @@ export default function InstallationsPageClient() {
       <div ref={bulkPanelSentinelRef} className="h-px" />
 
       {!isLoading && canSelectInstallations && isBulkPanelFloating && (
-        <div className="fixed right-4 top-28 z-30 hidden w-52 rounded-lg border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur lg:block">
-          <p className="text-sm font-semibold text-slate-950">
-            {selectedIds.length} aggregat valda
-          </p>
-          {!hasSelectedInstallations && (
-            <p className="mt-1 text-xs text-slate-600">
-              Markera aggregat för att använda åtgärderna.
-            </p>
-          )}
-          <div className="mt-3">
-            <BulkActionControls
-              bulkTechnicianId={bulkTechnicianId}
-              canManage={canManage}
-              compact
-              hasSelectedInstallations={hasSelectedInstallations}
-              isServicePartnerAdmin={isServicePartnerAdmin}
-              isSubmitting={isSubmitting}
-              pendingBulkAction={pendingBulkAction}
-              technicians={technicians}
-              onArchiveSelected={handleArchiveSelected}
-              onBulkTechnicianChange={setBulkTechnicianId}
-              onOpenAssignModal={() => setIsAssignModalOpen(true)}
-              onOpenPropertyModal={() => setIsPropertyModalOpen(true)}
-              onSubmitBulkTechnician={handleBulkAssignTechnician}
-            />
-          </div>
-        </div>
+        <FloatingBulkActionCard
+          bulkTechnicianId={bulkTechnicianId}
+          canManage={canManage}
+          hasSelectedInstallations={hasSelectedInstallations}
+          isServicePartnerAdmin={isServicePartnerAdmin}
+          isSubmitting={isSubmitting}
+          pendingBulkAction={pendingBulkAction}
+          selectedCount={selectedIds.length}
+          technicians={technicians}
+          onArchiveSelected={handleArchiveSelected}
+          onBulkTechnicianChange={setBulkTechnicianId}
+          onClearSelection={() => setSelectedIds([])}
+          onOpenAssignModal={() => setIsAssignModalOpen(true)}
+          onOpenPropertyModal={() => setIsPropertyModalOpen(true)}
+          onSubmitBulkTechnician={handleBulkAssignTechnician}
+        />
       )}
 
       {!isLoading && displayedInstallations.length > 0 && (
@@ -2125,6 +2114,149 @@ function SkeletonBlock({ className = "" }: { className?: string }) {
     <span
       className={`block animate-pulse rounded bg-slate-200/80 ${className}`}
     />
+  )
+}
+
+function FloatingBulkActionCard({
+  bulkTechnicianId,
+  canManage,
+  hasSelectedInstallations,
+  isServicePartnerAdmin,
+  isSubmitting,
+  onArchiveSelected,
+  onBulkTechnicianChange,
+  onClearSelection,
+  onOpenAssignModal,
+  onOpenPropertyModal,
+  onSubmitBulkTechnician,
+  pendingBulkAction,
+  selectedCount,
+  technicians,
+}: {
+  bulkTechnicianId: string
+  canManage: boolean
+  hasSelectedInstallations: boolean
+  isServicePartnerAdmin: boolean
+  isSubmitting: boolean
+  onArchiveSelected: () => void
+  onBulkTechnicianChange: (technicianId: string) => void
+  onClearSelection: () => void
+  onOpenAssignModal: () => void
+  onOpenPropertyModal: () => void
+  onSubmitBulkTechnician: () => void
+  pendingBulkAction: "servicepartner" | "property" | "archive" | "technician" | null
+  selectedCount: number
+  technicians: ServiceTechnician[]
+}) {
+  const neutralActionClassName =
+    "inline-flex min-h-10 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+  const archiveActionClassName =
+    "inline-flex min-h-10 w-full items-center justify-center rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800 shadow-sm transition-colors hover:bg-red-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+
+  return (
+    <aside
+      aria-label="Bulkåtgärder för valda aggregat"
+      className="fixed right-4 top-28 z-30 hidden w-72 rounded-xl border border-slate-200 bg-white/95 p-4 shadow-2xl shadow-slate-900/10 backdrop-blur lg:block"
+    >
+      <div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-950">Valda aggregat</h2>
+          <p className="mt-1 text-xs text-slate-600">
+            {selectedCount} aggregat markerade
+          </p>
+        </div>
+        {hasSelectedInstallations && (
+          <button
+            className="text-xs font-semibold text-slate-600 underline-offset-4 hover:text-slate-950 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            type="button"
+            onClick={onClearSelection}
+          >
+            Rensa urval
+          </button>
+        )}
+      </div>
+
+      {!hasSelectedInstallations && (
+        <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+          Markera aggregat för att använda åtgärderna.
+        </p>
+      )}
+
+      {isServicePartnerAdmin ? (
+        <div className="mt-4 grid gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Tilldela tekniker
+            </p>
+            <label className="mt-2 grid gap-1 text-xs font-semibold text-slate-600">
+              Tekniker
+              <select
+                className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 disabled:bg-slate-100"
+                disabled={!hasSelectedInstallations || isSubmitting}
+                value={bulkTechnicianId}
+                onChange={(event) => onBulkTechnicianChange(event.target.value)}
+              >
+                <option value="">Ingen tekniker</option>
+                {technicians.map((technician) => (
+                  <option key={technician.id} value={technician.id}>
+                    {formatTechnicianName(technician)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <button
+            className={neutralActionClassName}
+            type="button"
+            disabled={!hasSelectedInstallations || isSubmitting}
+            onClick={onSubmitBulkTechnician}
+          >
+            {pendingBulkAction === "technician" ? "Tilldelar..." : "Spara tilldelning"}
+          </button>
+        </div>
+      ) : canManage ? (
+        <div className="mt-4 grid gap-4">
+          <section>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Tilldela
+            </p>
+            <div className="mt-2 grid gap-2">
+              <button
+                className={neutralActionClassName}
+                type="button"
+                disabled={!hasSelectedInstallations || isSubmitting}
+                onClick={onOpenAssignModal}
+              >
+                {pendingBulkAction === "servicepartner"
+                  ? "Tilldelar..."
+                  : "Tilldela servicepartner"}
+              </button>
+              <button
+                className={neutralActionClassName}
+                type="button"
+                disabled={!hasSelectedInstallations || isSubmitting}
+                onClick={onOpenPropertyModal}
+              >
+                {pendingBulkAction === "property" ? "Kopplar..." : "Tilldela fastighet"}
+              </button>
+            </div>
+          </section>
+          <section className="border-t border-slate-200 pt-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Arkivering
+            </p>
+            <button
+              className={`${archiveActionClassName} mt-2`}
+              type="button"
+              disabled={!hasSelectedInstallations || isSubmitting}
+              onClick={onArchiveSelected}
+            >
+              {pendingBulkAction === "archive" ? "Arkiverar..." : "Arkivera aggregat"}
+            </button>
+          </section>
+        </div>
+      ) : null}
+    </aside>
   )
 }
 
