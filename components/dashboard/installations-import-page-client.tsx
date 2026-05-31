@@ -114,11 +114,20 @@ const INSTALLATION_RECOMMENDED_FIELD_KEYS: ImportFieldKey[] = [
   "lastInspection",
   "nextInspection",
 ]
+const INSTALLATION_HIDDEN_MAPPING_FIELD_KEYS: ImportFieldKey[] = [
+  "municipality",
+  "inspectionIntervalMonths",
+  "servicePartner",
+  "status",
+  "equipmentType",
+  "operatorName",
+]
 const INSTALLATION_ADVANCED_FIELD_KEYS: ImportFieldKey[] =
   IMPORT_FIELD_DEFINITIONS.map((field) => field.key).filter(
     (key) =>
       !INSTALLATION_REQUIRED_FIELD_KEYS.includes(key) &&
-      !INSTALLATION_RECOMMENDED_FIELD_KEYS.includes(key)
+      !INSTALLATION_RECOMMENDED_FIELD_KEYS.includes(key) &&
+      !INSTALLATION_HIDDEN_MAPPING_FIELD_KEYS.includes(key)
   )
 
 export default function ImportInstallationsPage({
@@ -766,10 +775,18 @@ function ImportMappingFieldGroup({
               </div>
               <select
                 className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900"
-                value={selectedColumn}
-                onChange={(event) => onChange(field, event.target.value)}
+                value={selectedColumn || "__unmapped__"}
+                onChange={(event) =>
+                  onChange(
+                    field,
+                    event.target.value === "__ignore__" ? "" : event.target.value
+                  )
+                }
               >
-                <option value="">Importera inte</option>
+                <option disabled value="__unmapped__">
+                  Välj kolumn
+                </option>
+                <option value="__ignore__">Importera inte</option>
                 {columns.map((column) => (
                   <option key={column} value={column}>
                     {column}
@@ -815,7 +832,16 @@ function ImportMetric({
 
 function createSuggestedMapping(columns: string[]): ColumnMapping {
   return Object.fromEntries(
-    columns.map((column) => [column, getSuggestedImportField(column) ?? ""])
+    columns.map((column) => {
+      const suggestedField = getSuggestedImportField(column)
+
+      return [
+        column,
+        suggestedField && !INSTALLATION_HIDDEN_MAPPING_FIELD_KEYS.includes(suggestedField)
+          ? suggestedField
+          : "",
+      ]
+    })
   )
 }
 

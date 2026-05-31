@@ -60,7 +60,7 @@ export const UNMATCHED_PROPERTY_WARNING =
 export const EVENT_HISTORY_IMPORT_MESSAGE =
   "Filen verkar innehålla händelsehistorik. Den här importen skapar endast aggregat. Händelser som läckage, kontroller, service och påfyllningar importeras inte i detta steg."
 export const DUPLICATE_AGGREGAT_HISTORY_MESSAGE =
-  "Raden verkar vara ytterligare historik för samma aggregat och importerades inte som nytt aggregat. Händelseimport byggs separat."
+  "Raden verkar innehålla historik eller en tidigare händelse för ett aggregat som redan finns i filen. Den importerades därför inte som ett nytt aggregat. Importera kontroller, läckage, påfyllningar och annan historik via händelseimporten."
 
 const EVENT_HISTORY_COLUMN_ALIASES = [
   "händelsedatum",

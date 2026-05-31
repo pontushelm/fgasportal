@@ -273,7 +273,7 @@ describe("installation import parsing", () => {
 
   it("uses a clear duplicate message for likely historical rows", () => {
     expect(DUPLICATE_AGGREGAT_HISTORY_MESSAGE).toBe(
-      "Raden verkar vara ytterligare historik för samma aggregat och importerades inte som nytt aggregat. Händelseimport byggs separat."
+      "Raden verkar innehålla historik eller en tidigare händelse för ett aggregat som redan finns i filen. Den importerades därför inte som ett nytt aggregat. Importera kontroller, läckage, påfyllningar och annan historik via händelseimporten."
     )
   })
 
