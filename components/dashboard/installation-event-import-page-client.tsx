@@ -45,6 +45,12 @@ type ImportSummary = {
   errors: Array<{ row: number; message: string }>
 }
 
+type InstallationEventImportPageClientProps = {
+  embedded?: boolean
+  onClose?: () => void
+  onImported?: () => void
+}
+
 const TEMPLATE_COLUMNS = [
   "Aggregat-ID",
   "Fastighet",
@@ -138,7 +144,11 @@ const EVENT_ADVANCED_FIELD_KEYS: EventImportFieldKey[] =
       !EVENT_RECOMMENDED_FIELD_KEYS.includes(key)
   )
 
-export default function InstallationEventImportPageClient() {
+export default function InstallationEventImportPageClient({
+  embedded = false,
+  onClose,
+  onImported,
+}: InstallationEventImportPageClientProps = {}) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [fileInputKey, setFileInputKey] = useState(0)
   const [worksheets, setWorksheets] = useState<WorksheetPreview[]>([])
@@ -389,6 +399,7 @@ export default function InstallationEventImportPageClient() {
           ? `${result.created} händelser importerades. ${result.skipped} rader kunde inte importeras.`
           : `${result.created} händelser importerades.`,
     })
+    onImported?.()
   }
 
   function handleDownloadTemplate() {
@@ -498,15 +509,17 @@ export default function InstallationEventImportPageClient() {
     resetPreviewState()
   }
 
-  return (
-    <main className="mx-auto max-w-6xl px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
+  const content = (
+    <>
       <div>
-        <Link
-          className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline"
-          href="/dashboard/installations"
-        >
-          Tillbaka till aggregat
-        </Link>
+        {!embedded && (
+          <Link
+            className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline"
+            href="/dashboard/installations"
+          >
+            Tillbaka till aggregat
+          </Link>
+        )}
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
           Importera händelser
         </h1>
@@ -809,7 +822,16 @@ export default function InstallationEventImportPageClient() {
         </section>
       )}
 
-      {importSummary && (
+      {importSummary && embedded && (
+        <EventImportSuccessPanel
+          importSummary={importSummary}
+          warningCount={warningRows.length}
+          onClose={onClose}
+          onImportMore={handleImportMore}
+        />
+      )}
+
+      {importSummary && !embedded && (
         <div
           aria-modal="true"
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4"
@@ -861,7 +883,89 @@ export default function InstallationEventImportPageClient() {
         </div>
       )}
       {toast && <Toast onClose={() => setToast(null)} toast={toast} />}
+    </>
+  )
+
+  if (embedded) return content
+
+  return (
+    <main className="mx-auto max-w-6xl px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
+      {content}
     </main>
+  )
+}
+
+function EventImportSuccessPanel({
+  importSummary,
+  onClose,
+  onImportMore,
+  warningCount,
+}: {
+  importSummary: ImportSummary
+  onClose?: () => void
+  onImportMore: () => void
+  warningCount: number
+}) {
+  return (
+    <section className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
+      <h2 className="text-base font-semibold">Importen är klar</h2>
+      <p className="mt-2 text-lg font-semibold">
+        {importSummary.created} händelser importerades.
+      </p>
+      <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+        <ImportMetric
+          label="Importerade"
+          value={importSummary.created}
+        />
+        <ImportMetric
+          label="Exakt datum"
+          value={importSummary.createdWithExactDate ?? 0}
+        />
+        <ImportMetric
+          label="Endast händelseår"
+          value={importSummary.createdWithYearOnlyDate ?? 0}
+        />
+        <ImportMetric
+          label="Hoppades över"
+          value={importSummary.skipped}
+        />
+      </div>
+      {warningCount > 0 && (
+        <p className="mt-3 text-emerald-900">
+          {warningCount} rader hade varningar i förhandsgranskningen.
+        </p>
+      )}
+      {importSummary.errors.length > 0 && (
+        <div className="mt-3 max-h-36 overflow-auto rounded-lg border border-amber-200 bg-white p-3 text-amber-900">
+          <p className="font-semibold">Rader att kontrollera</p>
+          <ul className="mt-1 grid gap-1">
+            {importSummary.errors.map((item) => (
+              <li key={`${item.row}-${item.message}`}>
+                Rad {item.row}: {item.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <div className="mt-4 flex flex-wrap justify-end gap-2">
+        <button
+          className="rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-50"
+          type="button"
+          onClick={onImportMore}
+        >
+          Importera fler händelser
+        </button>
+        {onClose && (
+          <button
+            className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+            type="button"
+            onClick={onClose}
+          >
+            Stäng import
+          </button>
+        )}
+      </div>
+    </section>
   )
 }
 

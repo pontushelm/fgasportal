@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import ImportInstallationsPage from "@/components/dashboard/installations-import-page-client"
+import InstallationEventImportPageClient from "@/components/dashboard/installation-event-import-page-client"
 import PropertiesImportPageClient from "@/components/dashboard/properties-import-page-client"
 import { buttonClassName } from "@/components/ui"
 
@@ -9,6 +10,7 @@ type ImportType = "installations" | "properties" | "events"
 
 type ImportDataWorkspaceProps = {
   onClose: () => void
+  onEventsImported?: () => void
   onInstallationsImported?: () => void
   onPropertiesImported?: () => void
 }
@@ -37,13 +39,12 @@ const importOptions: Array<{
     title: "Händelser och historik",
     description:
       "Importera kontroller, läckage, service, påfyllningar och annan historik för befintliga aggregat.",
-    status: "Kommer snart",
-    disabled: true,
   },
 ]
 
 export function ImportDataWorkspace({
   onClose,
+  onEventsImported,
   onInstallationsImported,
   onPropertiesImported,
 }: ImportDataWorkspaceProps) {
@@ -127,7 +128,7 @@ export function ImportDataWorkspace({
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
-          {activeImportType === "installations" || activeImportType === "properties" ? (
+          {activeImportType ? (
             <div className="mx-auto max-w-6xl">
               <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-950">
                 <p className="font-semibold">{activeOption?.title}</p>
@@ -138,10 +139,16 @@ export function ImportDataWorkspace({
                   embedded
                   onImported={onInstallationsImported}
                 />
-              ) : (
+              ) : activeImportType === "properties" ? (
                 <PropertiesImportPageClient
                   embedded
                   onImported={onPropertiesImported}
+                />
+              ) : (
+                <InstallationEventImportPageClient
+                  embedded
+                  onClose={onClose}
+                  onImported={onEventsImported}
                 />
               )}
             </div>
