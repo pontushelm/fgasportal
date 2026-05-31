@@ -445,15 +445,25 @@ export default function ActionsPageClient() {
 
       <div className="mx-auto mt-6 max-w-7xl">
         <section className="grid gap-2 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-7 xl:gap-3">
-          {SUMMARY_CARDS.map((card) => (
-            <SummaryCard
-              key={card.key}
-              label={card.label}
-              tone={card.tone}
-              tooltip={card.tooltip}
-              value={summaryCounts[card.key]}
-            />
-          ))}
+          {isLoading
+            ? Array.from({ length: SUMMARY_CARDS.length }).map((_, index) => (
+                <Card
+                  className="border-l-4 border-l-slate-200 px-3 py-3"
+                  key={index}
+                >
+                  <div className="h-3 w-24 animate-pulse rounded bg-slate-100" />
+                  <div className="mt-3 h-7 w-12 animate-pulse rounded bg-slate-200" />
+                </Card>
+              ))
+            : SUMMARY_CARDS.map((card) => (
+                <SummaryCard
+                  key={card.key}
+                  label={card.label}
+                  tone={card.tone}
+                  tooltip={card.tooltip}
+                  value={summaryCounts[card.key]}
+                />
+              ))}
         </section>
 
         <Card className="sticky top-0 z-20 mt-4 p-3 shadow-sm sm:static sm:p-4 sm:shadow-none">
@@ -706,7 +716,7 @@ export default function ActionsPageClient() {
           </div>
         </Card>
 
-        {isLoading && <p className="mt-6 text-slate-700">Laddar åtgärder...</p>}
+        {isLoading && <ActionsLoadingSkeleton />}
         {error && <p className="mt-6 font-semibold text-red-700">{error}</p>}
 
         {!isLoading && !error && (
@@ -738,6 +748,51 @@ export default function ActionsPageClient() {
 
 const filterControlClassName =
   "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+
+function ActionsLoadingSkeleton() {
+  return (
+    <div className="mt-6 space-y-4" aria-live="polite" aria-busy="true">
+      <Card className="p-4">
+        <div>
+          <p className="text-sm font-medium text-slate-700">
+            Laddar åtgärder...
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Hämtar aggregat och beräknar prioriterade uppföljningar.
+          </p>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div
+              className="h-10 animate-pulse rounded-lg bg-slate-100"
+              key={index}
+            />
+          ))}
+        </div>
+      </Card>
+      <Card className="overflow-hidden">
+        <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+          <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
+        </div>
+        <div className="divide-y divide-slate-200">
+          {Array.from({ length: 7 }).map((_, index) => (
+            <div
+              className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(0,1fr)_9rem]"
+              key={index}
+            >
+              <div>
+                <div className="h-4 w-3/4 animate-pulse rounded bg-slate-200" />
+                <div className="mt-3 h-3 w-1/2 animate-pulse rounded bg-slate-100" />
+                <div className="mt-3 h-3 w-5/6 animate-pulse rounded bg-slate-100" />
+              </div>
+              <div className="h-9 animate-pulse rounded-md bg-slate-100" />
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  )
+}
 
 function SummaryCard({
   label,

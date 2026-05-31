@@ -6,6 +6,7 @@ import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { calculateInstallationRisk } from "@/lib/risk-classification"
 
 export async function loadDashboardActions(user: AuthenticatedUser) {
+  const queryStartTime = getDevelopmentTimingStart()
   const installations = await prisma.installation.findMany({
     where: {
       AND: [
@@ -16,11 +17,25 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
         },
       ],
     },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      equipmentId: true,
+      propertyName: true,
+      nextInspection: true,
+      refrigerantType: true,
+      refrigerantAmount: true,
+      hasLeakDetectionSystem: true,
+      lastInspection: true,
+      assignedContractorId: true,
       events: {
         where: {
           type: "LEAK",
           supersededAt: null,
+        },
+        select: {
+          id: true,
+          date: true,
         },
         orderBy: {
           date: "desc",
@@ -63,7 +78,9 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
       },
     },
   })
+  logDevelopmentTiming("loadDashboardActions installation query", queryStartTime)
 
+  const generationStartTime = getDevelopmentTimingStart()
   const actionInstallations = installations.map((installation) => {
     const compliance = calculateInstallationCompliance(
       installation.refrigerantType,
@@ -128,8 +145,20 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
     }))
   })
 
-  return generateDashboardActions({
+  const actions = generateDashboardActions({
     installations: actionInstallations,
     leakageEvents,
   })
+  logDevelopmentTiming("loadDashboardActions action generation", generationStartTime)
+
+  return actions
+}
+
+function getDevelopmentTimingStart() {
+  return process.env.NODE_ENV === "development" ? performance.now() : null
+}
+
+function logDevelopmentTiming(label: string, startTime: number | null) {
+  if (startTime === null) return
+  console.info(`[perf] ${label}: ${Math.round(performance.now() - startTime)}ms`)
 }

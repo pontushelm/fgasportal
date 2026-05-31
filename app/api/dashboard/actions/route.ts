@@ -7,7 +7,9 @@ export async function GET(request: NextRequest) {
     const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
+    const loadStartTime = getDevelopmentTimingStart()
     const actions = await loadDashboardActions(auth.user)
+    logDevelopmentTiming("GET /api/dashboard/actions load actions", loadStartTime)
 
     return NextResponse.json({ actions }, { status: 200 })
   } catch (error: unknown) {
@@ -18,4 +20,13 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+function getDevelopmentTimingStart() {
+  return process.env.NODE_ENV === "development" ? performance.now() : null
+}
+
+function logDevelopmentTiming(label: string, startTime: number | null) {
+  if (startTime === null) return
+  console.info(`[perf] ${label}: ${Math.round(performance.now() - startTime)}ms`)
 }
