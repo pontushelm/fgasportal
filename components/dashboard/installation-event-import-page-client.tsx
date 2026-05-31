@@ -13,7 +13,6 @@ import {
   getMissingRequiredEventImportFields,
   getSuggestedEventImportField,
   isEmptyEventImportRow,
-  isEventImportFieldSelectedByAnotherColumn,
   mapEventImportRowsWithMapping,
   type EventImportColumnMapping,
   type EventImportFieldKey,
@@ -92,6 +91,22 @@ const TEMPLATE_ROWS = [
 ]
 
 const PREVIEW_ROW_LIMIT = 50
+const EVENT_REQUIRED_FIELD_KEYS: EventImportFieldKey[] = [
+  "equipmentId",
+  "eventType",
+  "eventDate",
+  "eventYear",
+]
+const EVENT_RECOMMENDED_FIELD_KEYS: EventImportFieldKey[] = [
+  "amountKg",
+  "notes",
+]
+const EVENT_ADVANCED_FIELD_KEYS: EventImportFieldKey[] =
+  EVENT_IMPORT_FIELD_DEFINITIONS.map((field) => field.key).filter(
+    (key) =>
+      !EVENT_REQUIRED_FIELD_KEYS.includes(key) &&
+      !EVENT_RECOMMENDED_FIELD_KEYS.includes(key)
+  )
 
 export default function InstallationEventImportPageClient() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -110,6 +125,8 @@ export default function InstallationEventImportPageClient() {
   const [isParsing, setIsParsing] = useState(false)
   const [isPreviewing, setIsPreviewing] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
+  const [showAdvancedFields, setShowAdvancedFields] = useState(false)
+  const [showIgnoredColumns, setShowIgnoredColumns] = useState(false)
   const workbookDataRef = useRef<ArrayBuffer | null>(null)
   const mappedFields = useMemo(
     () => Object.values(columnMapping).filter(Boolean) as EventImportFieldKey[],
@@ -142,6 +159,13 @@ export default function InstallationEventImportPageClient() {
     () => filteredPreviewRows.slice(0, PREVIEW_ROW_LIMIT),
     [filteredPreviewRows]
   )
+  const ignoredColumns = useMemo(
+    () => detectedColumns.filter((column) => !columnMapping[column]),
+    [columnMapping, detectedColumns]
+  )
+  const mappedAdvancedFieldCount = EVENT_ADVANCED_FIELD_KEYS.filter((field) =>
+    mappedFields.includes(field)
+  ).length
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -213,11 +237,14 @@ export default function InstallationEventImportPageClient() {
     }
   }
 
-  function handleMappingChange(column: string, field: EventImportFieldKey | "") {
-    const nextMapping = {
-      ...columnMapping,
-      [column]: field,
-    }
+  function handleFieldMappingChange(field: EventImportFieldKey, column: string) {
+    const nextMapping = { ...columnMapping }
+
+    Object.keys(nextMapping).forEach((mappedColumn) => {
+      if (nextMapping[mappedColumn] === field) nextMapping[mappedColumn] = ""
+    })
+    if (column) nextMapping[column] = field
+
     setColumnMapping(nextMapping)
     setPreviewRows([])
     setPreviewFilter("all")
@@ -471,11 +498,14 @@ export default function InstallationEventImportPageClient() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold text-slate-950">
-                Koppla fält
+                Kontrollera fält
               </h2>
               <p className="mt-1 text-sm text-slate-600">
-                Koppla filens kolumner till händelsefält. Lämna irrelevanta
-                kolumner utan koppling.
+                FgasPortal föreslår matchningar baserat på kolumnnamn. Kontrollera
+                de viktigaste fälten först.
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Du behöver inte koppla alla kolumner. Omappade kolumner ignoreras.
               </p>
             </div>
             <div className="text-sm text-slate-600">
@@ -483,62 +513,68 @@ export default function InstallationEventImportPageClient() {
             </div>
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className={tableHeaderClassName}>Kolumn i filen</th>
-                  <th className={tableHeaderClassName}>Fält i FgasPortal</th>
-                  <th className={tableHeaderClassName}>Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 bg-white">
-                {detectedColumns.map((column) => {
-                  const mappedField = columnMapping[column]
-
-                  return (
-                    <tr key={column}>
-                      <td className={tableCellClassName}>{column}</td>
-                      <td className={tableCellClassName}>
-                        <select
-                          className="w-full min-w-56 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900"
-                          value={mappedField ?? ""}
-                          onChange={(event) =>
-                            handleMappingChange(
-                              column,
-                              event.target.value as EventImportFieldKey | ""
-                            )
-                          }
-                        >
-                          <option value="">Importera inte</option>
-                          {EVENT_IMPORT_FIELD_DEFINITIONS.map((field) => (
-                            <option
-                              disabled={isEventImportFieldSelectedByAnotherColumn(
-                                columnMapping,
-                                field.key,
-                                column
-                              )}
-                              key={field.key}
-                              value={field.key}
-                            >
-                              {field.label}
-                              {field.required ? " (krävs)" : ""}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className={tableCellClassName}>
-                        {mappedField ? (
-                          <span className="font-medium text-emerald-700">OK</span>
-                        ) : (
-                          <span className="text-slate-500">Inte kopplad</span>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <div className="mt-4 grid gap-4">
+            <EventMappingFieldGroup
+              columnMapping={columnMapping}
+              columns={detectedColumns}
+              fields={EVENT_REQUIRED_FIELD_KEYS}
+              onChange={handleFieldMappingChange}
+              title="Obligatoriska fält"
+            />
+            <p className="-mt-2 px-1 text-xs text-slate-500">
+              Datum är förstahandsval. Händelseår kan användas om exakt datum
+              saknas.
+            </p>
+            <EventMappingFieldGroup
+              columnMapping={columnMapping}
+              columns={detectedColumns}
+              fields={EVENT_RECOMMENDED_FIELD_KEYS}
+              onChange={handleFieldMappingChange}
+              title="Rekommenderade fält"
+            />
+            <details
+              className="rounded-lg border border-slate-200 bg-slate-50/70 p-3"
+              open={showAdvancedFields || mappedAdvancedFieldCount > 0}
+              onToggle={(event) => setShowAdvancedFields(event.currentTarget.open)}
+            >
+              <summary className="cursor-pointer text-sm font-semibold text-slate-800">
+                Avancerade fält
+                {mappedAdvancedFieldCount > 0 ? ` (${mappedAdvancedFieldCount} kopplade)` : ""}
+              </summary>
+              <div className="mt-3">
+                <EventMappingFieldGroup
+                  columnMapping={columnMapping}
+                  columns={detectedColumns}
+                  fields={EVENT_ADVANCED_FIELD_KEYS}
+                  onChange={handleFieldMappingChange}
+                  title=""
+                />
+              </div>
+            </details>
+            {ignoredColumns.length > 0 && (
+              <details
+                className="rounded-lg border border-slate-200 bg-white p-3"
+                open={showIgnoredColumns}
+                onToggle={(event) => setShowIgnoredColumns(event.currentTarget.open)}
+              >
+                <summary className="cursor-pointer text-sm font-semibold text-slate-700">
+                  Ignorerade kolumner ({ignoredColumns.length})
+                </summary>
+                <p className="mt-2 text-xs text-slate-500">
+                  Dessa kolumner importeras inte om de lämnas omappade.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {ignoredColumns.map((column) => (
+                    <span
+                      className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600"
+                      key={column}
+                    >
+                      {column}
+                    </span>
+                  ))}
+                </div>
+              </details>
+            )}
           </div>
 
           {hasBlockingMappingIssue && (
@@ -588,6 +624,13 @@ export default function InstallationEventImportPageClient() {
             >
               {isImporting ? "Importerar..." : `Importera ${importableRows.length} händelser`}
             </button>
+          </div>
+
+          <div className="mt-4 grid gap-2 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-4">
+            <ImportMetric label="Rader hittade" value={previewSummary?.total ?? previewRows.length} />
+            <ImportMetric label="Kan importeras" value={previewSummary?.importable ?? importableRows.length} />
+            <ImportMetric label="Har varningar" value={previewSummary?.warnings ?? warningRows.length} />
+            <ImportMetric label="Kommer hoppas över" value={previewSummary?.blocked ?? blockedRows.length} />
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -804,6 +847,91 @@ function formatEventType(type: EventImportPreviewRow["normalizedType"]) {
 function formatEventAmount(row: EventImportPreviewRow) {
   if (row.normalizedType === "RECOVERY") return row.recoveredKg ?? row.amountKg ?? "-"
   return row.amountKg ?? "-"
+}
+
+function EventMappingFieldGroup({
+  columnMapping,
+  columns,
+  fields,
+  onChange,
+  title,
+}: {
+  columnMapping: EventImportColumnMapping
+  columns: string[]
+  fields: EventImportFieldKey[]
+  onChange: (field: EventImportFieldKey, column: string) => void
+  title: string
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white">
+      {title && (
+        <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-900">
+          {title}
+        </div>
+      )}
+      <div className="divide-y divide-slate-200">
+        {fields.map((field) => {
+          const selectedColumn = getColumnForEventField(columnMapping, field)
+          const label = getEventImportFieldLabel(field)
+
+          return (
+            <div className="grid gap-2 px-3 py-3 md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)_auto] md:items-center" key={field}>
+              <div>
+                <div className="text-sm font-medium text-slate-900">{label}</div>
+                <div className="mt-0.5 text-xs text-slate-500">
+                  {selectedColumn ? `Kolumn: ${selectedColumn}` : "Ingen kolumn vald"}
+                </div>
+              </div>
+              <select
+                className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900"
+                value={selectedColumn}
+                onChange={(event) => onChange(field, event.target.value)}
+              >
+                <option value="">Importera inte</option>
+                {columns.map((column) => (
+                  <option key={column} value={column}>
+                    {column}
+                    {columnMapping[column] && columnMapping[column] !== field
+                      ? ` - används för ${getEventImportFieldLabel(columnMapping[column] as EventImportFieldKey)}`
+                      : ""}
+                  </option>
+                ))}
+              </select>
+              <span
+                className={`text-xs font-semibold ${
+                  selectedColumn ? "text-emerald-700" : "text-slate-500"
+                }`}
+              >
+                {selectedColumn ? "Kopplad" : "Saknas"}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function getColumnForEventField(
+  mapping: EventImportColumnMapping,
+  field: EventImportFieldKey
+) {
+  return Object.entries(mapping).find(([, mappedField]) => mappedField === field)?.[0] ?? ""
+}
+
+function ImportMetric({
+  label,
+  value,
+}: {
+  label: string
+  value: number | string
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+      <div className="text-xs font-medium text-slate-500">{label}</div>
+      <div className="mt-1 text-base font-semibold text-slate-950">{value}</div>
+    </div>
+  )
 }
 
 function PreviewFilterButton({

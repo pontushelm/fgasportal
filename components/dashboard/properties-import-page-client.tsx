@@ -11,7 +11,6 @@ import {
   getPropertyImportFieldLabel,
   getSuggestedPropertyImportField,
   isEmptyPropertyImportRow,
-  isPropertyFieldSelectedByAnotherColumn,
   mapPropertyRowsWithMapping,
   normalizePropertyDesignation,
   parsePropertyImportRows,
@@ -59,6 +58,21 @@ const tableHeaderClassName =
   "px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600"
 const tableCellClassName = "whitespace-nowrap px-4 py-3 text-slate-800"
 const PREVIEW_ROW_LIMIT = 50
+const PROPERTY_REQUIRED_FIELD_KEYS: PropertyImportFieldKey[] = [
+  "propertyDesignation",
+]
+const PROPERTY_RECOMMENDED_FIELD_KEYS: PropertyImportFieldKey[] = [
+  "name",
+  "municipality",
+  "city",
+  "address",
+]
+const PROPERTY_ADVANCED_FIELD_KEYS: PropertyImportFieldKey[] =
+  PROPERTY_IMPORT_FIELD_DEFINITIONS.map((field) => field.key).filter(
+    (key) =>
+      !PROPERTY_REQUIRED_FIELD_KEYS.includes(key) &&
+      !PROPERTY_RECOMMENDED_FIELD_KEYS.includes(key)
+  )
 
 export default function PropertiesImportPageClient() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -72,6 +86,8 @@ export default function PropertiesImportPageClient() {
   const [toast, setToast] = useState<ToastMessage | null>(null)
   const [isParsing, setIsParsing] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
+  const [showAdvancedFields, setShowAdvancedFields] = useState(false)
+  const [showIgnoredColumns, setShowIgnoredColumns] = useState(false)
   const workbookDataRef = useRef<ArrayBuffer | null>(null)
   const mappedFields = useMemo(
     () => Object.values(columnMapping).filter(Boolean) as PropertyImportFieldKey[],
@@ -84,6 +100,13 @@ export default function PropertiesImportPageClient() {
   )
   const hasBlockingMappingIssue =
     missingRequiredFields.length > 0 || duplicatedFields.length > 0
+  const ignoredColumns = useMemo(
+    () => detectedColumns.filter((column) => !columnMapping[column]),
+    [columnMapping, detectedColumns]
+  )
+  const mappedAdvancedFieldCount = PROPERTY_ADVANCED_FIELD_KEYS.filter((field) =>
+    mappedFields.includes(field)
+  ).length
   const rows = useMemo(
     () => buildPreviewRows(rawRows, columnMapping),
     [rawRows, columnMapping]
@@ -233,11 +256,15 @@ export default function PropertiesImportPageClient() {
     setColumnMapping(preview.suggestedMapping)
   }
 
-  function handleMappingChange(column: string, field: PropertyImportFieldKey | "") {
-    setColumnMapping({
-      ...columnMapping,
-      [column]: field,
+  function handleFieldMappingChange(field: PropertyImportFieldKey, column: string) {
+    const nextMapping = { ...columnMapping }
+
+    Object.keys(nextMapping).forEach((mappedColumn) => {
+      if (nextMapping[mappedColumn] === field) nextMapping[mappedColumn] = ""
     })
+    if (column) nextMapping[column] = field
+
+    setColumnMapping(nextMapping)
   }
 
   function handleDownloadTemplate() {
@@ -368,10 +395,14 @@ export default function PropertiesImportPageClient() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold text-slate-950">
-                Koppla fält
+                Kontrollera fält
               </h2>
               <p className="mt-1 text-sm text-slate-600">
-                Matcha kolumnerna i filen mot fastighetsfält i FgasPortal.
+                FgasPortal föreslår matchningar baserat på kolumnnamn. Kontrollera
+                de viktigaste fälten först.
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Du behöver inte koppla alla kolumner. Omappade kolumner ignoreras.
               </p>
             </div>
             <div className="text-sm text-slate-600">
@@ -379,64 +410,64 @@ export default function PropertiesImportPageClient() {
             </div>
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className={tableHeaderClassName}>Kolumn i filen</th>
-                  <th className={tableHeaderClassName}>Fält i FgasPortal</th>
-                  <th className={tableHeaderClassName}>Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 bg-white">
-                {detectedColumns.map((column) => {
-                  const mappedField = columnMapping[column]
-
-                  return (
-                    <tr key={column}>
-                      <td className={tableCellClassName}>{column}</td>
-                      <td className={tableCellClassName}>
-                        <select
-                          className="w-full min-w-56 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900"
-                          onChange={(event) =>
-                            handleMappingChange(
-                              column,
-                              event.target.value as PropertyImportFieldKey | ""
-                            )
-                          }
-                          value={mappedField ?? ""}
-                        >
-                          <option value="">Importera inte</option>
-                          {PROPERTY_IMPORT_FIELD_DEFINITIONS.map((field) => (
-                            <option
-                              disabled={isPropertyFieldSelectedByAnotherColumn(
-                                columnMapping,
-                                field.key,
-                                column
-                              )}
-                              key={field.key}
-                              value={field.key}
-                            >
-                              {field.label}
-                              {field.required ? " (krävs)" : ""}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className={tableCellClassName}>
-                        {mappedField ? (
-                          <span className="font-medium text-emerald-700">
-                            OK
-                          </span>
-                        ) : (
-                          <span className="text-slate-500">Inte kopplad</span>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <div className="mt-4 grid gap-4">
+            <PropertyMappingFieldGroup
+              columnMapping={columnMapping}
+              columns={detectedColumns}
+              fields={PROPERTY_REQUIRED_FIELD_KEYS}
+              onChange={handleFieldMappingChange}
+              title="Obligatoriska fält"
+            />
+            <PropertyMappingFieldGroup
+              columnMapping={columnMapping}
+              columns={detectedColumns}
+              fields={PROPERTY_RECOMMENDED_FIELD_KEYS}
+              onChange={handleFieldMappingChange}
+              title="Rekommenderade fält"
+            />
+            <details
+              className="rounded-lg border border-slate-200 bg-slate-50/70 p-3"
+              open={showAdvancedFields || mappedAdvancedFieldCount > 0}
+              onToggle={(event) => setShowAdvancedFields(event.currentTarget.open)}
+            >
+              <summary className="cursor-pointer text-sm font-semibold text-slate-800">
+                Avancerade fält
+                {mappedAdvancedFieldCount > 0 ? ` (${mappedAdvancedFieldCount} kopplade)` : ""}
+              </summary>
+              <div className="mt-3">
+                <PropertyMappingFieldGroup
+                  columnMapping={columnMapping}
+                  columns={detectedColumns}
+                  fields={PROPERTY_ADVANCED_FIELD_KEYS}
+                  onChange={handleFieldMappingChange}
+                  title=""
+                />
+              </div>
+            </details>
+            {ignoredColumns.length > 0 && (
+              <details
+                className="rounded-lg border border-slate-200 bg-white p-3"
+                open={showIgnoredColumns}
+                onToggle={(event) => setShowIgnoredColumns(event.currentTarget.open)}
+              >
+                <summary className="cursor-pointer text-sm font-semibold text-slate-700">
+                  Ignorerade kolumner ({ignoredColumns.length})
+                </summary>
+                <p className="mt-2 text-xs text-slate-500">
+                  Dessa kolumner importeras inte om de lämnas omappade.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {ignoredColumns.map((column) => (
+                    <span
+                      className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600"
+                      key={column}
+                    >
+                      {column}
+                    </span>
+                  ))}
+                </div>
+              </details>
+            )}
           </div>
 
           {hasBlockingMappingIssue && (
@@ -484,21 +515,11 @@ export default function PropertiesImportPageClient() {
             </button>
           </div>
 
-          <div className="mt-4 grid gap-2 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-5">
-            <ImportMetric label="Rader i filen" value={rows.length} />
-            <ImportMetric label="Giltiga" value={validRows.length} />
-            <ImportMetric
-              label="Saknar fastighetsbeteckning"
-              value={rowSummary.missingDesignationRows.length}
-            />
-            <ImportMetric
-              label="Dubbletter i filen"
-              value={rowSummary.duplicateRowsInFile.length}
-            />
-            <ImportMetric
-              label="Finns redan i registret"
-              value={summary?.skippedDuplicates ?? "Efter import"}
-            />
+          <div className="mt-4 grid gap-2 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-4">
+            <ImportMetric label="Rader hittade" value={rows.length} />
+            <ImportMetric label="Kan importeras" value={validRows.length} />
+            <ImportMetric label="Har varningar" value={warningRows.length} />
+            <ImportMetric label="Kommer hoppas över" value={invalidRows.length} />
           </div>
 
           <p className="mt-4 text-xs text-slate-500">
@@ -579,6 +600,76 @@ export default function PropertiesImportPageClient() {
       {toast && <Toast onClose={() => setToast(null)} toast={toast} />}
     </main>
   )
+}
+
+function PropertyMappingFieldGroup({
+  columnMapping,
+  columns,
+  fields,
+  onChange,
+  title,
+}: {
+  columnMapping: PropertyColumnMapping
+  columns: string[]
+  fields: PropertyImportFieldKey[]
+  onChange: (field: PropertyImportFieldKey, column: string) => void
+  title: string
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white">
+      {title && (
+        <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-900">
+          {title}
+        </div>
+      )}
+      <div className="divide-y divide-slate-200">
+        {fields.map((field) => {
+          const selectedColumn = getColumnForPropertyField(columnMapping, field)
+          const label = getPropertyImportFieldLabel(field)
+
+          return (
+            <div className="grid gap-2 px-3 py-3 md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)_auto] md:items-center" key={field}>
+              <div>
+                <div className="text-sm font-medium text-slate-900">{label}</div>
+                <div className="mt-0.5 text-xs text-slate-500">
+                  {selectedColumn ? `Kolumn: ${selectedColumn}` : "Ingen kolumn vald"}
+                </div>
+              </div>
+              <select
+                className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900"
+                value={selectedColumn}
+                onChange={(event) => onChange(field, event.target.value)}
+              >
+                <option value="">Importera inte</option>
+                {columns.map((column) => (
+                  <option key={column} value={column}>
+                    {column}
+                    {columnMapping[column] && columnMapping[column] !== field
+                      ? ` - används för ${getPropertyImportFieldLabel(columnMapping[column] as PropertyImportFieldKey)}`
+                      : ""}
+                  </option>
+                ))}
+              </select>
+              <span
+                className={`text-xs font-semibold ${
+                  selectedColumn ? "text-emerald-700" : "text-slate-500"
+                }`}
+              >
+                {selectedColumn ? "Kopplad" : "Saknas"}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function getColumnForPropertyField(
+  mapping: PropertyColumnMapping,
+  field: PropertyImportFieldKey
+) {
+  return Object.entries(mapping).find(([, mappedField]) => mappedField === field)?.[0] ?? ""
 }
 
 function applyWorksheetPreviewRows(rows: Record<string, unknown>[]) {
