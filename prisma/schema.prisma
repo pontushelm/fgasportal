@@ -44,6 +44,33 @@ enum ServiceOrganizationRole {
   TECHNICIAN
 }
 
+enum SignedReportType {
+  ANNUAL_FGAS
+  CLIMATE
+  COMPLIANCE
+  AUDIT
+  CUSTOMER_EXPORT
+}
+
+enum SignedReportScopeType {
+  PROPERTY
+  MUNICIPALITY
+  COMPANY
+  CUSTOM
+}
+
+enum SignedReportArtifactStatus {
+  STORED
+  METADATA_ONLY
+  SUPERSEDED
+  FAILED
+  DELETED
+}
+
+enum SignedReportSigningMethod {
+  FGASPORTAL_ELECTRONIC
+}
+
 model Company {
   id                                   String   @id @default(cuid())
   name                                 String
@@ -77,6 +104,7 @@ model Company {
   installationDocuments   InstallationDocument[]
   activityLogs            ActivityLog[]
   savedFilters            SavedFilter[]
+  signedReportArtifacts   SignedReportArtifact[]
   signedAnnualFgasReports SignedAnnualFgasReport[]
   servicePartnerCompanies ServicePartnerCompany[]
   companyServiceOrganizations CompanyServiceOrganization[]
@@ -118,6 +146,7 @@ model User {
   uploadedInstallationDocuments InstallationDocument[]
   activityLogs                  ActivityLog[]
   savedFilters                  SavedFilter[]
+  signedReportArtifacts         SignedReportArtifact[]
   signedAnnualFgasReports       SignedAnnualFgasReport[]
   passwordResetTokens           PasswordResetToken[]
   feedback                      Feedback[]
@@ -455,6 +484,8 @@ model ActivityLog {
   company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   installation Installation? @relation(fields: [installationId], references: [id], onDelete: Cascade)
   user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  signedReportArtifactsSigned SignedReportArtifact[] @relation("SignedReportArtifactSignedActivityLog")
+  signedReportArtifactsExported SignedReportArtifact[] @relation("SignedReportArtifactExportActivityLog")
 
   @@index([companyId])
   @@index([installationId])
@@ -481,10 +512,71 @@ model SavedFilter {
   @@map("saved_filters")
 }
 
+model SignedReportArtifact {
+  id                     String                    @id @default(cuid())
+  companyId              String
+  signedByUserId         String?
+  reportType             SignedReportType
+  scopeType              SignedReportScopeType
+  scopeId                String?
+  scopeLabel             String?
+  reportYear             Int?
+  periodStart            DateTime?
+  periodEnd              DateTime?
+  status                 SignedReportArtifactStatus @default(STORED)
+  signingMethod          SignedReportSigningMethod @default(FGASPORTAL_ELECTRONIC)
+  signerName             String
+  signerEmail            String?
+  signerRole             String?
+  signingText            String?
+  signedAt               DateTime
+  pdfStorageKey          String?
+  pdfFileName            String?
+  pdfContentType         String                    @default("application/pdf")
+  pdfSizeBytes           Int?
+  pdfSha256              String?
+  snapshot               Json?
+  snapshotSha256         String?
+  snapshotVersion        Int?
+  snapshotSchema         String
+  templateVersion        String
+  rendererVersion        String?
+  supersedesArtifactId   String?
+  supersededByArtifactId String?
+  correctionReason       String?
+  supersededAt           DateTime?
+  signedActivityLogId    String?
+  exportActivityLogId    String?
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+
+  company              Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  signedByUser         User?                  @relation(fields: [signedByUserId], references: [id], onDelete: SetNull)
+  supersedesArtifact   SignedReportArtifact?  @relation("SignedReportArtifactSupersedes", fields: [supersedesArtifactId], references: [id], onDelete: SetNull)
+  supersededArtifacts  SignedReportArtifact[] @relation("SignedReportArtifactSupersedes")
+  supersededByArtifact SignedReportArtifact?  @relation("SignedReportArtifactSupersededBy", fields: [supersededByArtifactId], references: [id], onDelete: SetNull)
+  supersedingArtifacts SignedReportArtifact[] @relation("SignedReportArtifactSupersededBy")
+  signedActivityLog    ActivityLog?           @relation("SignedReportArtifactSignedActivityLog", fields: [signedActivityLogId], references: [id], onDelete: SetNull)
+  exportActivityLog    ActivityLog?           @relation("SignedReportArtifactExportActivityLog", fields: [exportActivityLogId], references: [id], onDelete: SetNull)
+  annualFgasReport     SignedAnnualFgasReport?
+
+  @@index([companyId])
+  @@index([signedByUserId])
+  @@index([reportType])
+  @@index([reportYear])
+  @@index([scopeId])
+  @@index([createdAt])
+  @@index([status])
+  @@index([signedActivityLogId])
+  @@index([exportActivityLogId])
+  @@map("signed_report_artifacts")
+}
+
 model SignedAnnualFgasReport {
   id                 String   @id @default(cuid())
   companyId          String
   userId             String?
+  artifactId         String?  @unique
   reportYear         Int
   municipality       String?
   propertyId         String?
@@ -496,13 +588,16 @@ model SignedAnnualFgasReport {
   readinessStatus    String
   blockingIssueCount Int
   reviewWarningCount Int
+  legacyMetadataOnly Boolean  @default(false)
   createdAt          DateTime @default(now())
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  company  Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user     User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  artifact SignedReportArtifact? @relation(fields: [artifactId], references: [id], onDelete: SetNull)
 
   @@index([companyId])
   @@index([userId])
+  @@index([artifactId])
   @@index([reportYear])
   @@index([createdAt])
   @@map("signed_annual_fgas_reports")
