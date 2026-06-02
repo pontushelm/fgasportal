@@ -5,6 +5,13 @@ import { hashBuffer } from "@/lib/reports/hash"
 export const SIGNED_REPORT_PDF_CONTENT_TYPE = "application/pdf"
 export const SIGNED_REPORT_STORAGE_PROVIDER = "VERCEL_BLOB"
 
+export class SignedReportArtifactStorageConfigurationError extends Error {
+  constructor() {
+    super("BLOB_READ_WRITE_TOKEN is required to store signed report artifacts")
+    this.name = "SignedReportArtifactStorageConfigurationError"
+  }
+}
+
 export type SignedReportStorageReportType =
   | "ANNUAL_FGAS"
   | "CLIMATE"
@@ -50,7 +57,7 @@ const REPORT_TYPE_STORAGE_SEGMENTS: Record<SignedReportStorageReportType, string
 function requireBlobToken(token?: string): string {
   const resolvedToken = token ?? process.env.BLOB_READ_WRITE_TOKEN
   if (!resolvedToken) {
-    throw new Error("Blob storage is not configured")
+    throw new SignedReportArtifactStorageConfigurationError()
   }
 
   return resolvedToken

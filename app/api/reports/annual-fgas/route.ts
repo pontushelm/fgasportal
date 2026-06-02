@@ -12,6 +12,7 @@ import { buildAnnualFgasSigningMetadata } from "@/lib/reports/annualFgasSigning"
 import { buildAnnualFgasReportSnapshotHash, type ReportSnapshotScope } from "@/lib/reports/reportSnapshot"
 import {
   deleteSignedReportPdfArtifact,
+  SignedReportArtifactStorageConfigurationError,
   storeSignedReportPdfArtifact,
   type SignedReportPdfArtifactStorageMetadata,
 } from "@/lib/reports/reportArtifactStorage"
@@ -168,6 +169,13 @@ export async function GET(request: NextRequest) {
             year,
           })
         : null
+    if (artifactId) {
+      logAnnualReportRoute(requestId, "Building signed report snapshot", {
+        artifactId,
+        scopeType: artifactScope?.type ?? null,
+        scopeId: artifactScope?.id ?? null,
+      })
+    }
     const snapshotResult =
       artifactId && artifactScope && signingMetadataForReport
         ? buildAnnualFgasReportSnapshotHash(report, {
@@ -177,7 +185,18 @@ export async function GET(request: NextRequest) {
             signingMetadata: signingMetadataForReport,
           })
         : null
+    if (snapshotResult) {
+      logAnnualReportRoute(requestId, "Signed report snapshot built", {
+        artifactId,
+        snapshotSchema: snapshotResult.snapshot.snapshotSchema,
+        snapshotSha256: snapshotResult.snapshotSha256,
+      })
+    }
 
+    logAnnualReportRoute(requestId, "Rendering React report template", {
+      artifactId,
+      signed: Boolean(artifactId),
+    })
     const html = `<!doctype html>${renderToString(
       createElement(AnnualReportTemplate, { report })
     )}`
@@ -193,6 +212,10 @@ export async function GET(request: NextRequest) {
     let signedHistoryRecord = historyRecord
 
     if (artifactId && artifactScope && snapshotResult && signingMetadataForReport) {
+      logAnnualReportRoute(requestId, "Storing signed report PDF artifact", {
+        artifactId,
+        byteLength: pdf.length,
+      })
       const storedPdf = await storeSignedReportPdfArtifact({
         artifactId,
         companyId: auth.user.companyId,
@@ -201,8 +224,16 @@ export async function GET(request: NextRequest) {
         reportType: "ANNUAL_FGAS",
         reportYear: year,
       })
+      logAnnualReportRoute(requestId, "Signed report PDF artifact stored", {
+        artifactId,
+        pdfSha256: storedPdf.pdfSha256,
+        pdfStorageKey: storedPdf.pdfStorageKey,
+      })
 
       try {
+        logAnnualReportRoute(requestId, "Building signed annual report metadata", {
+          artifactId,
+        })
         const signedHistoryData = buildSignedAnnualReportCreateData({
           artifactId,
           companyId: auth.user.companyId,
@@ -217,6 +248,9 @@ export async function GET(request: NextRequest) {
           throw new Error("Signed annual report metadata could not be built")
         }
 
+        logAnnualReportRoute(requestId, "Persisting signed report artifact records", {
+          artifactId,
+        })
         signedHistoryRecord = await prisma.$transaction(async (tx) => {
           await tx.signedReportArtifact.create({
             data: {
@@ -262,7 +296,16 @@ export async function GET(request: NextRequest) {
             },
           })
         })
+        logAnnualReportRoute(requestId, "Signed report artifact records persisted", {
+          artifactId,
+          signedAnnualReportId: signedHistoryRecord.id,
+        })
       } catch (error) {
+        logAnnualReportRouteError(requestId, error, {
+          artifactId,
+          message: "Signed report artifact persistence failed; rolling back stored PDF",
+          pdfStorageKey: storedPdf.pdfStorageKey,
+        })
         await rollbackStoredSignedReportPdf(storedPdf)
         throw error
       }
@@ -349,6 +392,22 @@ export async function GET(request: NextRequest) {
     logAnnualReportRouteError(requestId, error, {
       durationMs: Date.now() - startedAt,
     })
+
+    if (error instanceof SignedReportArtifactStorageConfigurationError) {
+      return NextResponse.json(
+        {
+          error:
+            "Blob storage är inte konfigurerat. Signerade årsrapporter kräver BLOB_READ_WRITE_TOKEN.",
+          code: "SIGNED_REPORT_BLOB_STORAGE_NOT_CONFIGURED",
+        },
+        {
+          status: 500,
+          headers: {
+            "X-Annual-Fgas-Pdf-Request-Id": requestId,
+          },
+        }
+      )
+    }
 
     return NextResponse.json(
       { error: "Ett oväntat fel uppstod när årsrapporten skulle skapas" },
