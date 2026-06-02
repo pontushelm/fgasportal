@@ -30,6 +30,7 @@ export type SignedReportArtifactSigner = {
 }
 
 export type SignedReportArtifactDraft = {
+  id: string
   companyId: string
   signedByUserId: string | null
   reportType: typeof ANNUAL_FGAS_REPORT_TYPE
@@ -58,6 +59,7 @@ export type SignedReportArtifactDraft = {
 }
 
 export type BuildAnnualFgasSignedReportArtifactDraftInput = {
+  artifactId: string
   companyId: string
   report: AnnualFgasReportData
   scope: ReportSnapshotScope
@@ -72,6 +74,7 @@ function toDate(value: Date | string): Date {
 }
 
 export function buildAnnualFgasSignedReportArtifactDraft({
+  artifactId,
   companyId,
   report,
   scope,
@@ -84,6 +87,7 @@ export function buildAnnualFgasSignedReportArtifactDraft({
   snapshotResult: ReportSnapshotHashResult<AnnualFgasReportSnapshot>
 } {
   const snapshotResult = buildAnnualFgasReportSnapshotHash(report, {
+    artifactId,
     generatedAt,
     scope,
     signingMetadata: signingMetadata ?? report.signingMetadata,
@@ -91,6 +95,7 @@ export function buildAnnualFgasSignedReportArtifactDraft({
 
   return {
     artifact: {
+      id: artifactId,
       companyId,
       signedByUserId: signer.signedByUserId ?? null,
       reportType: ANNUAL_FGAS_REPORT_TYPE,

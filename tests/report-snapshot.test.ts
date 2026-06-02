@@ -130,11 +130,15 @@ describe("report hashing", () => {
 
 describe("annual F-gas report snapshots", () => {
   it("includes stable snapshot metadata", () => {
-    const snapshot = createAnnualFgasReportSnapshot(createReport(), { generatedAt })
+    const snapshot = createAnnualFgasReportSnapshot(createReport(), {
+      artifactId: "artifact-1",
+      generatedAt,
+    })
 
     expect(snapshot.snapshotVersion).toBe(ANNUAL_FGAS_SNAPSHOT_VERSION)
     expect(snapshot.snapshotSchema).toBe(ANNUAL_FGAS_SNAPSHOT_SCHEMA)
     expect(snapshot.reportType).toBe("ANNUAL_FGAS")
+    expect(snapshot.artifactId).toBe("artifact-1")
     expect(snapshot.generatedAt).toBe("2026-01-15T10:30:00.000Z")
   })
 
@@ -177,6 +181,7 @@ describe("annual F-gas report snapshots", () => {
 
   it("builds an annual artifact draft without storing anything", () => {
     const { artifact, snapshotResult } = buildAnnualFgasSignedReportArtifactDraft({
+      artifactId: "artifact-1",
       companyId: "company-1",
       report: createReport(),
       generatedAt,
@@ -196,10 +201,12 @@ describe("annual F-gas report snapshots", () => {
       },
     })
 
+    expect(artifact.id).toBe("artifact-1")
     expect(artifact.companyId).toBe("company-1")
     expect(artifact.reportType).toBe("ANNUAL_FGAS")
     expect(artifact.scopeType).toBe("PROPERTY")
     expect(artifact.snapshotSchema).toBe(ANNUAL_FGAS_SNAPSHOT_SCHEMA)
+    expect(snapshotResult.snapshot.artifactId).toBe("artifact-1")
     expect(artifact.snapshotSha256).toBe(snapshotResult.snapshotSha256)
     expect(artifact.pdfStorageKey).toBeNull()
   })

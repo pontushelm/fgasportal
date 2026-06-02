@@ -5,6 +5,7 @@ import type {
 } from "@/lib/reports/annualFgasReportTypes"
 
 type SignedAnnualReportCreateInput = {
+  artifactId?: string | null
   companyId: string
   userId: string | null
   report: AnnualFgasReportData
@@ -51,6 +52,7 @@ export function buildSignedAnnualReportHistoryWhere({
 }
 
 export function buildSignedAnnualReportCreateData({
+  artifactId,
   companyId,
   municipality,
   propertyId,
@@ -64,6 +66,7 @@ export function buildSignedAnnualReportCreateData({
   return {
     companyId,
     userId,
+    artifactId: artifactId ?? undefined,
     reportYear,
     municipality,
     propertyId,
@@ -75,6 +78,7 @@ export function buildSignedAnnualReportCreateData({
     readinessStatus: report.qualitySummary.status,
     blockingIssueCount: report.qualitySummary.blockingIssueCount,
     reviewWarningCount: report.qualitySummary.warningCount,
+    legacyMetadataOnly: false,
   }
 }
 

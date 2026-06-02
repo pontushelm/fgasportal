@@ -396,6 +396,7 @@ describe("signed annual F-gas report history", () => {
 
     expect(
       buildSignedAnnualReportCreateData({
+        artifactId: "artifact-a",
         companyId: "company-a",
         userId: "user-a",
         report,
@@ -404,6 +405,7 @@ describe("signed annual F-gas report history", () => {
         propertyId: "property-a",
       })
     ).toMatchObject({
+      artifactId: "artifact-a",
       companyId: "company-a",
       userId: "user-a",
       reportYear: 2026,
@@ -415,6 +417,7 @@ describe("signed annual F-gas report history", () => {
       readinessStatus: "HAS_WARNINGS",
       blockingIssueCount: 0,
       reviewWarningCount: 2,
+      legacyMetadataOnly: false,
     })
   })
 

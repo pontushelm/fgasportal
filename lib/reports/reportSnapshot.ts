@@ -20,6 +20,7 @@ export type AnnualFgasReportSnapshot = {
   snapshotVersion: number
   snapshotSchema: typeof ANNUAL_FGAS_SNAPSHOT_SCHEMA
   reportType: typeof ANNUAL_FGAS_REPORT_TYPE
+  artifactId: string | null
   generatedAt: string
   scope: ReturnType<typeof toStableJsonValue>
   signingMetadata: ReturnType<typeof toStableJsonValue>
@@ -33,6 +34,7 @@ export type ReportSnapshotHashResult<TSnapshot> = {
 }
 
 export type BuildAnnualFgasReportSnapshotOptions = {
+  artifactId?: string | null
   generatedAt?: Date | string
   scope?: ReportSnapshotScope
   signingMetadata?: AnnualFgasSigningMetadata | null
@@ -73,6 +75,7 @@ export function createAnnualFgasReportSnapshot(
     snapshotVersion: ANNUAL_FGAS_SNAPSHOT_VERSION,
     snapshotSchema: ANNUAL_FGAS_SNAPSHOT_SCHEMA,
     reportType: ANNUAL_FGAS_REPORT_TYPE,
+    artifactId: options.artifactId ?? signingMetadata?.signedReportId ?? null,
     generatedAt: timestampToIsoString(options.generatedAt),
     scope: toStableJsonValue(options.scope ?? inferAnnualFgasReportScope(report)),
     signingMetadata: toStableJsonValue(signingMetadata),

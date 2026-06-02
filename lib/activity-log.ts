@@ -21,7 +21,7 @@ export async function logActivity({
   metadata,
 }: LogActivityInput) {
   try {
-    await prisma.activityLog.create({
+    const activity = await prisma.activityLog.create({
       data: {
         companyId,
         installationId: installationId ?? null,
@@ -31,9 +31,15 @@ export async function logActivity({
         entityId: entityId ?? null,
         metadata: metadata ?? Prisma.JsonNull,
       },
+      select: {
+        id: true,
+      },
     })
+
+    return activity.id
   } catch (error) {
     console.error("Activity log failed:", error)
+    return null
   }
 }
 

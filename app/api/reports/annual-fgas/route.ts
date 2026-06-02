@@ -1,6 +1,7 @@
 import { createElement } from "react"
 import { renderToString } from "next/dist/server/ReactDOMServerPages"
 import { NextRequest, NextResponse } from "next/server"
+import type { Prisma } from "@prisma/client"
 import { AnnualReportTemplate } from "@/components/reports/AnnualFgasReportTemplate"
 import { logActivity } from "@/lib/activity-log"
 import { authenticateApiRequest, isContractor } from "@/lib/auth"
@@ -8,6 +9,16 @@ import { buildAnnualFgasReportData } from "@/lib/reports/buildAnnualFgasReportDa
 import { buildAnnualFgasReportFilename } from "@/lib/reports/annualFgasReportFilename"
 import { generatePdfFromHtml } from "@/lib/reports/generatePdf"
 import { buildAnnualFgasSigningMetadata } from "@/lib/reports/annualFgasSigning"
+import { buildAnnualFgasReportSnapshotHash, type ReportSnapshotScope } from "@/lib/reports/reportSnapshot"
+import {
+  deleteSignedReportPdfArtifact,
+  storeSignedReportPdfArtifact,
+  type SignedReportPdfArtifactStorageMetadata,
+} from "@/lib/reports/reportArtifactStorage"
+import {
+  ANNUAL_FGAS_TEMPLATE_VERSION,
+  SIGNED_REPORT_RENDERER_VERSION,
+} from "@/lib/reports/signedReportArtifacts"
 import {
   buildSignedAnnualReportHistoryWhere,
   buildSignedAnnualReportCreateData,
@@ -110,12 +121,22 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    const artifactId =
+      !historyRecord && signing.metadata ? crypto.randomUUID() : null
+    const signingMetadataForReport =
+      artifactId && signing.metadata
+        ? {
+            ...signing.metadata,
+            signedReportId: artifactId,
+          }
+        : signing.metadata
+
     logAnnualReportRoute(requestId, "Building report data", {
       companyId: auth.user.companyId,
       isContractor: isContractor(auth.user),
       municipality: municipality || null,
       propertyId: propertyId || null,
-      signed: Boolean(signing.metadata),
+      signed: Boolean(signingMetadataForReport),
       regeneratedFromHistory: Boolean(historyRecord),
       year,
     })
@@ -127,7 +148,7 @@ export async function GET(request: NextRequest) {
       municipality: municipality || undefined,
       propertyId: propertyId || undefined,
       reportNotes,
-      signingMetadata: signing.metadata,
+      signingMetadata: signingMetadataForReport,
       year,
     })
     logAnnualReportRoute(requestId, "Report data built", {
@@ -138,27 +159,24 @@ export async function GET(request: NextRequest) {
       scrappedEquipmentCount: report.scrappedEquipment.length,
     })
 
-    const signedHistoryData =
-      !historyRecord && signing.metadata
-        ? buildSignedAnnualReportCreateData({
-            companyId: auth.user.companyId,
-            userId: auth.user.userId,
-            report,
-            reportYear: year,
+    const artifactScope =
+      artifactId && signingMetadataForReport
+        ? buildAnnualFgasArtifactScope({
             municipality: municipality || null,
             propertyId: propertyId || null,
+            report,
+            year,
           })
         : null
-    const signedHistoryRecord = signedHistoryData
-      ? await prisma.signedAnnualFgasReport.create({ data: signedHistoryData })
-      : historyRecord
-
-    if (report.signingMetadata && signedHistoryRecord) {
-      report.signingMetadata = {
-        ...report.signingMetadata,
-        signedReportId: signedHistoryRecord.id,
-      }
-    }
+    const snapshotResult =
+      artifactId && artifactScope && signingMetadataForReport
+        ? buildAnnualFgasReportSnapshotHash(report, {
+            artifactId,
+            generatedAt: report.generatedAt,
+            scope: artifactScope,
+            signingMetadata: signingMetadataForReport,
+          })
+        : null
 
     const html = `<!doctype html>${renderToString(
       createElement(AnnualReportTemplate, { report })
@@ -172,20 +190,98 @@ export async function GET(request: NextRequest) {
         logAnnualReportRoute(requestId, message, metadata),
     })
     const filename = buildAnnualFgasReportFilename(report, year)
+    let signedHistoryRecord = historyRecord
 
-    await logActivity({
+    if (artifactId && artifactScope && snapshotResult && signingMetadataForReport) {
+      const storedPdf = await storeSignedReportPdfArtifact({
+        artifactId,
+        companyId: auth.user.companyId,
+        fileName: filename,
+        pdfBuffer: pdf,
+        reportType: "ANNUAL_FGAS",
+        reportYear: year,
+      })
+
+      try {
+        const signedHistoryData = buildSignedAnnualReportCreateData({
+          artifactId,
+          companyId: auth.user.companyId,
+          userId: auth.user.userId,
+          report,
+          reportYear: year,
+          municipality: municipality || null,
+          propertyId: propertyId || null,
+        })
+
+        if (!signedHistoryData) {
+          throw new Error("Signed annual report metadata could not be built")
+        }
+
+        signedHistoryRecord = await prisma.$transaction(async (tx) => {
+          await tx.signedReportArtifact.create({
+            data: {
+              id: artifactId,
+              companyId: auth.user.companyId,
+              signedByUserId: auth.user.userId,
+              reportType: "ANNUAL_FGAS",
+              scopeType: artifactScope.type,
+              scopeId: artifactScope.id ?? null,
+              scopeLabel: artifactScope.label ?? null,
+              reportYear: year,
+              periodStart: report.period.startDate,
+              periodEnd: report.period.endDate,
+              status: "STORED",
+              signingMethod: "FGASPORTAL_ELECTRONIC",
+              signerName: signingMetadataForReport.signerName,
+              signerEmail: signingMetadataForReport.signerEmail,
+              signerRole: signingMetadataForReport.signerRole,
+              signingText: signingMetadataForReport.attestationText,
+              signedAt: signingMetadataForReport.signingDate,
+              pdfStorageKey: storedPdf.pdfStorageKey,
+              pdfFileName: storedPdf.pdfFileName,
+              pdfContentType: storedPdf.pdfContentType,
+              pdfSizeBytes: storedPdf.pdfSizeBytes,
+              pdfSha256: storedPdf.pdfSha256,
+              snapshot: snapshotResult.snapshot as Prisma.InputJsonValue,
+              snapshotSha256: snapshotResult.snapshotSha256,
+              snapshotVersion: snapshotResult.snapshot.snapshotVersion,
+              snapshotSchema: snapshotResult.snapshot.snapshotSchema,
+              templateVersion: ANNUAL_FGAS_TEMPLATE_VERSION,
+              rendererVersion: SIGNED_REPORT_RENDERER_VERSION,
+            },
+          })
+
+          return tx.signedAnnualFgasReport.create({
+            data: signedHistoryData,
+            include: {
+              user: {
+                select: {
+                  email: true,
+                },
+              },
+            },
+          })
+        })
+      } catch (error) {
+        await rollbackStoredSignedReportPdf(storedPdf)
+        throw error
+      }
+    }
+
+    const exportActivityLogId = await logActivity({
       companyId: auth.user.companyId,
       userId: auth.user.userId,
       action: "report_exported",
       entityType: "report",
-      entityId: signedHistoryRecord?.id ?? `annual-fgas-${year}`,
+      entityId: artifactId ?? signedHistoryRecord?.id ?? `annual-fgas-${year}`,
       metadata: {
         reportType: "annual_fgas_control_required_equipment",
         year,
         municipality: municipality || null,
         propertyId: propertyId || null,
-        signed: Boolean(signing.metadata),
+        signed: Boolean(signingMetadataForReport),
         signedReportId: signedHistoryRecord?.id ?? null,
+        signedReportArtifactId: artifactId,
         signerName: signing.metadata?.signerName ?? null,
         signerEmail: signing.metadata?.signerEmail ?? null,
         regeneratedFromHistory: Boolean(historyRecord),
@@ -193,18 +289,21 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    let signedActivityLogId: string | null = null
     if (!historyRecord && signedHistoryRecord) {
-      await logActivity({
+      signedActivityLogId = await logActivity({
         companyId: auth.user.companyId,
         userId: auth.user.userId,
         action: "annual_report_signed",
         entityType: "report",
-        entityId: signedHistoryRecord.id,
+        entityId: artifactId ?? signedHistoryRecord.id,
         metadata: {
           reportType: "annual_fgas_control_required_equipment",
           year,
           municipality: municipality || null,
           propertyId: propertyId || null,
+          signedReportId: signedHistoryRecord.id,
+          signedReportArtifactId: artifactId,
           signerName: signing.metadata?.signerName ?? null,
           signerEmail: signing.metadata?.signerEmail ?? null,
           readinessStatus: report.qualitySummary.status,
@@ -212,6 +311,26 @@ export async function GET(request: NextRequest) {
           reviewWarningCount: report.qualitySummary.warningCount,
         },
       })
+    }
+
+    if (artifactId && (exportActivityLogId || signedActivityLogId)) {
+      try {
+        await prisma.signedReportArtifact.update({
+          where: {
+            id: artifactId,
+          },
+          data: {
+            exportActivityLogId,
+            signedActivityLogId,
+          },
+        })
+      } catch (activityReferenceError) {
+        console.error("[annual-fgas-pdf]", {
+          message: "Failed to attach activity log references to signed report artifact",
+          artifactId,
+          error: serializeError(activityReferenceError),
+        })
+      }
     }
     logAnnualReportRoute(requestId, "PDF response ready", {
       byteLength: pdf.length,
@@ -259,6 +378,72 @@ function parseReportNotes(value: string | null) {
   if (!text) return null
 
   return text.slice(0, 2000)
+}
+
+function buildAnnualFgasArtifactScope({
+  municipality,
+  propertyId,
+  report,
+  year,
+}: {
+  municipality: string | null
+  propertyId: string | null
+  report: {
+    facility: {
+      municipality: string | null
+      name: string
+      propertyDesignation: string | null
+    }
+  }
+  year: number
+}): ReportSnapshotScope {
+  if (propertyId) {
+    return {
+      type: "PROPERTY",
+      id: propertyId,
+      label: report.facility.name,
+      reportYear: year,
+      municipality: report.facility.municipality,
+      propertyName: report.facility.name,
+      propertyDesignation: report.facility.propertyDesignation,
+    }
+  }
+
+  if (municipality) {
+    return {
+      type: "MUNICIPALITY",
+      id: municipality,
+      label: municipality,
+      reportYear: year,
+      municipality,
+      propertyName: report.facility.name,
+      propertyDesignation: report.facility.propertyDesignation,
+    }
+  }
+
+  return {
+    type: "COMPANY",
+    id: null,
+    label: report.facility.name,
+    reportYear: year,
+    municipality: report.facility.municipality,
+    propertyName: report.facility.name,
+    propertyDesignation: report.facility.propertyDesignation,
+  }
+}
+
+async function rollbackStoredSignedReportPdf(
+  storedPdf: SignedReportPdfArtifactStorageMetadata
+) {
+  try {
+    await deleteSignedReportPdfArtifact(storedPdf.pdfStorageKey)
+  } catch (rollbackError) {
+    console.error("[annual-fgas-pdf]", {
+      message: "Failed to roll back stored signed report PDF",
+      storageKey: storedPdf.pdfStorageKey,
+      error: serializeError(rollbackError),
+    })
+  }
 }
 
 function logAnnualReportRoute(
