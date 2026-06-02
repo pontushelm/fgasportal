@@ -460,6 +460,9 @@ describe("signed annual F-gas report history", () => {
     expect(
       mapSignedAnnualReportHistoryItem({
         id: "history-a",
+        artifactId: null,
+        artifact: null,
+        legacyMetadataOnly: true,
         reportYear: 2026,
         municipality: "Malmö",
         propertyId: null,
@@ -478,6 +481,46 @@ describe("signed annual F-gas report history", () => {
       id: "history-a",
       scopeSummary: "Kommun: Malmö",
       regenerateHref: "/api/reports/annual-fgas?historyId=history-a",
+      hasStoredPdf: false,
+      legacyMetadataOnly: true,
+      downloadHref: null,
+    })
+  })
+
+  it("maps stored signed report artifacts with exact PDF download metadata", () => {
+    expect(
+      mapSignedAnnualReportHistoryItem({
+        id: "history-b",
+        artifactId: "artifact-b",
+        artifact: {
+          status: "STORED",
+          pdfStorageKey: "companies/company-a/reports/annual-fgas/2026/artifact-b.pdf",
+          pdfSha256: "pdf-hash",
+          supersededAt: null,
+        },
+        legacyMetadataOnly: false,
+        reportYear: 2026,
+        municipality: null,
+        propertyId: "property-b",
+        propertyName: "Skolan 1",
+        signerName: "Anna Andersson",
+        signerRole: "Miljösamordnare",
+        signingDate: new Date("2026-03-31"),
+        comment: null,
+        readinessStatus: "READY",
+        blockingIssueCount: 0,
+        reviewWarningCount: 0,
+        createdAt: new Date("2026-04-01"),
+        user: { name: "Anna Andersson", email: "anna@example.com" },
+      })
+    ).toMatchObject({
+      artifactId: "artifact-b",
+      artifactStatus: "STORED",
+      downloadHref: "/api/reports/artifacts/artifact-b/download",
+      hasStoredPdf: true,
+      legacyMetadataOnly: false,
+      pdfSha256: "pdf-hash",
+      scopeSummary: "Fastighet: Skolan 1",
     })
   })
 })

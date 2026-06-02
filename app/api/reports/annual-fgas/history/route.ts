@@ -27,6 +27,14 @@ export async function GET(request: NextRequest) {
         ...(!propertyId && municipality ? { municipality } : {}),
       },
       include: {
+        artifact: {
+          select: {
+            status: true,
+            pdfStorageKey: true,
+            pdfSha256: true,
+            supersededAt: true,
+          },
+        },
         user: {
           select: {
             name: true,

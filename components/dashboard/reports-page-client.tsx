@@ -103,6 +103,13 @@ type PropertyOption = {
 
 type SignedReportHistoryItem = {
   id: string
+  artifactId: string | null
+  artifactStatus: string | null
+  artifactSupersededAt: string | null
+  downloadHref: string | null
+  hasStoredPdf: boolean
+  legacyMetadataOnly: boolean
+  pdfSha256: string | null
   reportYear: number
   scopeSummary: string
   signerName: string
@@ -1436,7 +1443,7 @@ function SignedReportsHistory({
         <div>
           <h2 className="font-semibold">Signerade rapporter</h2>
           <p className="text-slate-600">
-            Signeringsinformation finns sparad, men signerad PDF sparas inte historiskt ännu.
+            Sparade signerade PDF:er kan laddas ner som den rapport som skapades vid signeringstillfället.
           </p>
         </div>
       </div>
@@ -1479,9 +1486,7 @@ function SignedReportsHistory({
                   </TableCell>
                   <TableCell>{formatDate(report.createdAt)}</TableCell>
                   <TableCell>
-                    <span className="text-xs text-slate-600">
-                      Signerad PDF sparas inte historiskt ännu.
-                    </span>
+                    <SignedReportHistoryAction report={report} />
                   </TableCell>
                 </tr>
               ))}
@@ -1501,6 +1506,62 @@ function SignedReportsHistory({
         </button>
       )}
     </section>
+  )
+}
+
+function SignedReportHistoryAction({
+  report,
+}: {
+  report: SignedReportHistoryItem
+}) {
+  if (report.hasStoredPdf && report.downloadHref) {
+    const isSuperseded = report.artifactStatus === "SUPERSEDED"
+
+    return (
+      <div className="min-w-48 space-y-2">
+        <div className="text-xs font-semibold text-emerald-700">
+          {isSuperseded ? "Ersatt signerad PDF sparad" : "Signerad PDF sparad"}
+        </div>
+        <a
+          className="inline-flex h-8 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"
+          href={report.downloadHref}
+        >
+          Ladda ner signerad PDF
+        </a>
+        <p className="text-xs text-slate-500">
+          {isSuperseded
+            ? "Detta är en tidigare signerad PDF som har ersatts av en nyare rapport."
+            : "Detta är den PDF som sparades vid signeringstillfället."}
+        </p>
+      </div>
+    )
+  }
+
+  if (report.legacyMetadataOnly) {
+    return (
+      <div className="min-w-56 space-y-2">
+        <p className="text-xs text-slate-600">
+          Signeringsinformation finns sparad, men signerad PDF sparades inte vid signeringstillfället.
+        </p>
+        <a
+          className="inline-flex h-8 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+          href={report.regenerateHref}
+        >
+          Skapa ny PDF från nuvarande data
+        </a>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-w-48 space-y-1">
+      <div className="text-xs font-semibold text-amber-700">
+        Signerad PDF saknas
+      </div>
+      <p className="text-xs text-slate-600">
+        Rapporten har signeringsmetadata, men ingen sparad PDF kunde hittas.
+      </p>
+    </div>
   )
 }
 

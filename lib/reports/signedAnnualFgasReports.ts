@@ -16,6 +16,13 @@ type SignedAnnualReportCreateInput = {
 
 export type SignedAnnualReportHistoryItem = {
   id: string
+  artifactId: string | null
+  artifactStatus: string | null
+  artifactSupersededAt: Date | null
+  downloadHref: string | null
+  hasStoredPdf: boolean
+  legacyMetadataOnly: boolean
+  pdfSha256: string | null
   reportYear: number
   municipality: string | null
   propertyId: string | null
@@ -84,6 +91,14 @@ export function buildSignedAnnualReportCreateData({
 
 export function mapSignedAnnualReportHistoryItem(record: {
   id: string
+  artifactId: string | null
+  artifact: {
+    status: string
+    pdfStorageKey: string | null
+    pdfSha256: string | null
+    supersededAt: Date | null
+  } | null
+  legacyMetadataOnly: boolean
   reportYear: number
   municipality: string | null
   propertyId: string | null
@@ -98,8 +113,23 @@ export function mapSignedAnnualReportHistoryItem(record: {
   createdAt: Date
   user: { name: string; email: string } | null
 }): SignedAnnualReportHistoryItem {
+  const hasStoredPdf =
+    Boolean(record.artifactId) &&
+    Boolean(record.artifact?.pdfStorageKey) &&
+    (record.artifact?.status === "STORED" || record.artifact?.status === "SUPERSEDED")
+
   return {
     id: record.id,
+    artifactId: record.artifactId,
+    artifactStatus: record.artifact?.status ?? null,
+    artifactSupersededAt: record.artifact?.supersededAt ?? null,
+    downloadHref:
+      hasStoredPdf && record.artifactId
+        ? `/api/reports/artifacts/${encodeURIComponent(record.artifactId)}/download`
+        : null,
+    hasStoredPdf,
+    legacyMetadataOnly: record.legacyMetadataOnly || !record.artifactId,
+    pdfSha256: record.artifact?.pdfSha256 ?? null,
     reportYear: record.reportYear,
     municipality: record.municipality,
     propertyId: record.propertyId,
