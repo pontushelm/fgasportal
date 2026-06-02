@@ -19,6 +19,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
     if (auth.response) return auth.response
 
     const { id } = await context.params
+    logSignedReportDownload("Looking up signed report artifact", {
+      artifactId: id,
+      companyId: auth.user.companyId,
+      isContractor: isContractor(auth.user),
+    })
     const artifact = await prisma.signedReportArtifact.findFirst({
       where: {
         id,
@@ -51,11 +56,25 @@ export async function GET(request: NextRequest, context: RouteContext) {
     })
 
     if (!artifact) {
+      logSignedReportDownload("Signed report artifact not found or not authorized", {
+        artifactId: id,
+        companyId: auth.user.companyId,
+        isContractor: isContractor(auth.user),
+      })
+
       return NextResponse.json(
         { error: "Signerad rapport hittades inte" },
         { status: 404 }
       )
     }
+
+    logSignedReportDownload("Signed report artifact loaded", {
+      artifactId: artifact.id,
+      reportType: artifact.reportType,
+      status: artifact.status,
+      hasPdfStorageKey: Boolean(artifact.pdfStorageKey),
+      hasAnnualFgasReport: Boolean(artifact.annualFgasReport),
+    })
 
     if (artifact.reportType === "ANNUAL_FGAS" && !artifact.annualFgasReport) {
       return NextResponse.json(
@@ -74,8 +93,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
       )
     }
 
+    logSignedReportDownload("Fetching signed report PDF from Blob storage", {
+      artifactId: artifact.id,
+      storageKeyLength: artifact.pdfStorageKey.length,
+    })
     const storedPdf = await getSignedReportPdfArtifact(artifact.pdfStorageKey)
     if (!storedPdf || storedPdf.statusCode !== 200 || !storedPdf.stream) {
+      logSignedReportDownload("Signed report PDF missing from Blob storage", {
+        artifactId: artifact.id,
+        blobStatusCode: storedPdf?.statusCode ?? null,
+        hasStream: Boolean(storedPdf?.stream),
+      })
+
       return NextResponse.json(
         { error: "Signerad PDF kunde inte hämtas från lagringen" },
         { status: 502 }
@@ -83,6 +112,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     const pdf = await streamToUint8Array(storedPdf.stream)
+    logSignedReportDownload("Signed report PDF read from Blob storage", {
+      artifactId: artifact.id,
+      byteLength: pdf.byteLength,
+      contentType: storedPdf.blob.contentType,
+    })
     const fileName = artifact.pdfFileName || buildFallbackFileName(artifact)
 
     await logActivity({
@@ -106,7 +140,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       },
     })
   } catch (error) {
-    console.error("Download signed report artifact error:", error)
+    console.error("Download signed report artifact error:", serializeDownloadError(error))
 
     return NextResponse.json(
       { error: "Kunde inte hämta signerad PDF" },
@@ -166,4 +200,23 @@ function safeFileNameSegment(value: string) {
 function sanitizeHeaderFileName(value: string) {
   const fileName = safeFileNameSegment(value)
   return fileName.endsWith(".pdf") ? fileName : `${fileName}.pdf`
+}
+
+function logSignedReportDownload(message: string, metadata: Record<string, unknown> = {}) {
+  console.info("[signed-report-download]", {
+    message,
+    ...metadata,
+  })
+}
+
+function serializeDownloadError(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+    }
+  }
+
+  return error
 }

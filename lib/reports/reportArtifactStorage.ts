@@ -159,11 +159,10 @@ export async function deleteSignedReportPdfArtifact(
 
 export async function getSignedReportPdfArtifact(
   storageKey: string,
-  options: { token?: string; useCache?: boolean } = {},
+  options: { token?: string } = {},
 ): Promise<GetBlobResult | null> {
   return get(storageKey, {
     access: SIGNED_REPORT_BLOB_ACCESS,
     token: requireBlobToken(options.token),
-    useCache: options.useCache ?? false,
   })
 }
