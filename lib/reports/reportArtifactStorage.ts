@@ -4,6 +4,7 @@ import { hashBuffer } from "@/lib/reports/hash"
 
 export const SIGNED_REPORT_PDF_CONTENT_TYPE = "application/pdf"
 export const SIGNED_REPORT_STORAGE_PROVIDER = "VERCEL_BLOB"
+export const SIGNED_REPORT_BLOB_ACCESS = "public"
 
 export class SignedReportArtifactStorageConfigurationError extends Error {
   constructor() {
@@ -132,7 +133,9 @@ export async function storeSignedReportPdfArtifact({
     : Buffer.from(args.pdfBuffer)
 
   const blob = await put(metadata.pdfStorageKey, pdfBody, {
-    access: "private",
+    // Current FgasPortal Blob store is public. Signed report access must still be
+    // enforced by future authenticated download routes; do not expose blob URLs.
+    access: SIGNED_REPORT_BLOB_ACCESS,
     addRandomSuffix: false,
     allowOverwrite: false,
     contentType: SIGNED_REPORT_PDF_CONTENT_TYPE,
@@ -159,7 +162,7 @@ export async function getSignedReportPdfArtifact(
   options: { token?: string; useCache?: boolean } = {},
 ): Promise<GetBlobResult | null> {
   return get(storageKey, {
-    access: "private",
+    access: SIGNED_REPORT_BLOB_ACCESS,
     token: requireBlobToken(options.token),
     useCache: options.useCache ?? false,
   })

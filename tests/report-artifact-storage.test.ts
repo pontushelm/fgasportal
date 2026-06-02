@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  SIGNED_REPORT_BLOB_ACCESS,
   SIGNED_REPORT_PDF_CONTENT_TYPE,
   SIGNED_REPORT_STORAGE_PROVIDER,
   SignedReportArtifactStorageConfigurationError,
@@ -10,6 +11,10 @@ import {
 } from "@/lib/reports/reportArtifactStorage"
 
 describe("signed report artifact storage helpers", () => {
+  it("uses the current app Blob store access mode", () => {
+    expect(SIGNED_REPORT_BLOB_ACCESS).toBe("public")
+  })
+
   it("builds stable tenant-scoped annual F-gas PDF storage keys", () => {
     const key = buildSignedReportPdfStorageKey({
       companyId: "company-123",
