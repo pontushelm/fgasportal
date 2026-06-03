@@ -11,7 +11,7 @@ export default async function DashboardPage() {
   const user = token ? verifyToken(token) : null
 
   if (user?.role === "CONTRACTOR") {
-    redirect("/dashboard/installations")
+    redirect("/dashboard/service")
   }
 
   return <DashboardPageClient />

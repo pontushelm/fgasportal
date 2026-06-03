@@ -2,9 +2,13 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Badge, Toast, type ToastMessage } from "@/components/ui"
 import type { CertificationStatusResult } from "@/lib/certification-status"
+import type {
+  DashboardActionSeverity,
+  DashboardActionType,
+} from "@/lib/actions/generate-actions"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 import {
   getInstallationEventAmountLabel,
@@ -27,6 +31,27 @@ type ServiceInstallation = {
     name: string | null
     email: string
   } | null
+}
+
+type ServiceAction = {
+  id: string
+  type: DashboardActionType
+  severity: DashboardActionSeverity
+  title: string
+  description: string
+  installationId: string
+  installationName: string
+  equipmentId: string | null
+  propertyName: string | null
+  assignedServiceContactName: string | null
+  href: string
+  dueDate?: string | null
+  createdAt?: string | null
+  sortPriority: number
+}
+
+type ActionsResponse = {
+  actions: ServiceAction[]
 }
 
 type ServiceEventType = Exclude<InstallationEventType, "REFRIGERANT_CHANGE">
@@ -94,6 +119,40 @@ const EVENT_LABELS: Record<ServiceEventType, string> = {
   RECOVERY: "Tömning / Återvinning",
 }
 
+const SERVICE_QUEUE_ACTION_TYPES = new Set<DashboardActionType>([
+  "OVERDUE_INSPECTION",
+  "DUE_SOON_INSPECTION",
+  "NOT_INSPECTED",
+  "HIGH_RISK",
+  "RECENT_LEAKAGE",
+  "REFRIGERANT_REVIEW",
+])
+
+const ACTION_TYPE_LABELS: Record<DashboardActionType, string> = {
+  OVERDUE_INSPECTION: "Försenad kontroll",
+  DUE_SOON_INSPECTION: "Kommande kontroll",
+  NOT_INSPECTED: "Saknar kontroll",
+  HIGH_RISK: "Hög risk",
+  NO_SERVICE_PARTNER: "Servicepartner saknas",
+  RECENT_LEAKAGE: "Läckage att följa upp",
+  REFRIGERANT_REVIEW: "Köldmedium bör granskas",
+}
+
+const SEVERITY_LABELS: Record<DashboardActionSeverity, string> = {
+  HIGH: "Hög",
+  MEDIUM: "Medel",
+  LOW: "Låg",
+}
+
+const SEVERITY_BADGE_VARIANTS: Record<
+  DashboardActionSeverity,
+  "danger" | "neutral" | "warning"
+> = {
+  HIGH: "danger",
+  MEDIUM: "warning",
+  LOW: "neutral",
+}
+
 const initialEventForm: EventFormData = {
   installationId: "",
   type: "INSPECTION",
@@ -112,6 +171,7 @@ const initialCertificationForm: CertificationFormData = {
 export default function ServiceDashboardPage() {
   const router = useRouter()
   const [installations, setInstallations] = useState<ServiceInstallation[]>([])
+  const [actions, setActions] = useState<ServiceAction[]>([])
   const [technicians, setTechnicians] = useState<ServiceTechnician[]>([])
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [certification, setCertification] = useState<CertificationData | null>(null)
@@ -135,16 +195,23 @@ export default function ServiceDashboardPage() {
       setIsLoading(true)
       setError("")
 
-      const [response, userResponse] = await Promise.all([
+      const [response, userResponse, actionsResponse] = await Promise.all([
         fetch("/api/dashboard/service", {
           credentials: "include",
         }),
         fetch("/api/auth/me", {
           credentials: "include",
         }),
+        fetch("/api/dashboard/actions", {
+          credentials: "include",
+        }),
       ])
 
-      if (response.status === 401 || userResponse.status === 401) {
+      if (
+        response.status === 401 ||
+        userResponse.status === 401 ||
+        actionsResponse.status === 401
+      ) {
         router.push("/login")
         return
       }
@@ -156,7 +223,7 @@ export default function ServiceDashboardPage() {
         return
       }
 
-      if (!response.ok || !userResponse.ok) {
+      if (!response.ok || !userResponse.ok || !actionsResponse.ok) {
         if (!isMounted) return
         setError("Kunde inte hämta serviceuppdrag.")
         setIsLoading(false)
@@ -165,6 +232,7 @@ export default function ServiceDashboardPage() {
 
       const data: ServiceInstallation[] = await response.json()
       const userData: CurrentUser = await userResponse.json()
+      const actionsData: ActionsResponse = await actionsResponse.json()
       const techniciansResponse = userData.isServicePartnerAdmin
         ? await fetch("/api/dashboard/service/technicians", {
             credentials: "include",
@@ -184,6 +252,7 @@ export default function ServiceDashboardPage() {
 
       if (!isMounted) return
       setInstallations(data)
+      setActions(actionsData.actions ?? [])
       setTechnicians(techniciansData ?? [])
       setCurrentUser(userData)
       setCertification(certificationData)
@@ -415,6 +484,33 @@ export default function ServiceDashboardPage() {
   const eventCertificationWarning = getCertificationWarning(null)
   const isServicePartnerAdmin = Boolean(currentUser?.isServicePartnerAdmin)
   const showCompanyCertificationPanel = false
+  const queueActions = useMemo(
+    () =>
+      actions
+        .filter((action) => SERVICE_QUEUE_ACTION_TYPES.has(action.type))
+        .sort((first, second) => first.sortPriority - second.sortPriority),
+    [actions]
+  )
+  const unassignedInstallations = useMemo(
+    () =>
+      installations.filter((installation) => !installation.assignedContractorId),
+    [installations]
+  )
+  const summaryCards = useMemo(
+    () =>
+      getServiceSummaryCards({
+        actions: queueActions,
+        installations,
+        isServicePartnerAdmin,
+        unassignedInstallationsCount: unassignedInstallations.length,
+      }),
+    [
+      installations,
+      isServicePartnerAdmin,
+      queueActions,
+      unassignedInstallations.length,
+    ]
+  )
   const visibleInstallations = isServicePartnerAdmin
     ? installations.filter((installation) => {
         if (assignmentFilter === "assigned") {
@@ -434,17 +530,88 @@ export default function ServiceDashboardPage() {
         <p className="text-sm font-semibold uppercase tracking-wide text-slate-600">
           Serviceportal
         </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight">Serviceuppdrag</h1>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight">
+          Servicepartnerdashboard
+        </h1>
         <p className="mt-2 max-w-2xl text-sm text-slate-700">
-          {isServicePartnerAdmin
-            ? "Fördela aggregat inom ert servicepartnerföretag och registrera händelser."
-            : "Registrera kontroller, läckage, påfyllningar och service för tilldelade aggregat."}
+          Vad behöver göras idag?
         </p>
       </div>
 
-      {isLoading && <p className="mt-8 text-slate-700">Laddar serviceuppdrag...</p>}
+      {isLoading && <ServiceDashboardLoadingSkeleton />}
       {error && <p className="mt-8 text-sm font-semibold text-red-700">{error}</p>}
       {toast && <Toast onClose={() => setToast(null)} toast={toast} />}
+
+      {!isLoading && !error && (
+        <>
+          <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            {summaryCards.map((card) => (
+              <SummaryCard key={card.label} {...card} />
+            ))}
+          </section>
+
+          <section className="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <div className="border-b border-slate-200 px-5 py-4">
+              <h2 className="text-lg font-semibold text-slate-950">Att göra</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Prioriterade uppdrag baserat på kontrollstatus, risk och registrerade händelser.
+              </p>
+            </div>
+            {queueActions.length === 0 ? (
+              <div className="p-5 text-sm text-slate-700">
+                Inga prioriterade uppdrag finns just nu.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-200">
+                {queueActions.slice(0, 10).map((action) => (
+                  <WorkQueueRow action={action} key={action.id} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          {isServicePartnerAdmin && unassignedInstallations.length > 0 && (
+            <section className="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-5">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-amber-950">
+                    Ej tilldelade uppdrag
+                  </h2>
+                  <p className="mt-1 text-sm text-amber-900">
+                    Aggregat som är kopplade till servicepartnern men saknar tekniker.
+                  </p>
+                </div>
+                <Badge variant="warning">
+                  {unassignedInstallations.length} aggregat
+                </Badge>
+              </div>
+              <div className="mt-4 grid gap-2">
+                {unassignedInstallations.slice(0, 5).map((installation) => (
+                  <div
+                    className="flex flex-col gap-2 rounded-md border border-amber-200 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                    key={installation.id}
+                  >
+                    <div>
+                      <p className="font-semibold text-slate-950">
+                        {installation.name}
+                      </p>
+                      <p className="text-sm text-slate-600">
+                        {installation.location || "Ingen plats angiven"} · {formatOptionalDate(installation.nextInspection)}
+                      </p>
+                    </div>
+                    <Link
+                      className="text-sm font-semibold text-blue-700 hover:text-blue-900"
+                      href={`/dashboard/installations/${installation.id}`}
+                    >
+                      Öppna aggregat
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </>
+      )}
 
       {showCompanyCertificationPanel && !isLoading && !error && certification && !isServicePartnerAdmin && (
         <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5">
@@ -708,6 +875,102 @@ function ActionButton({
   )
 }
 
+function SummaryCard({
+  label,
+  tone,
+  value,
+}: {
+  label: string
+  tone: "amber" | "red" | "slate"
+  value: number
+}) {
+  const toneClassName = {
+    amber: "border-l-amber-400",
+    red: "border-l-red-400",
+    slate: "border-l-slate-300",
+  }[tone]
+
+  return (
+    <div className={`rounded-lg border border-slate-200 border-l-4 bg-white p-4 ${toneClassName}`}>
+      <p className="text-sm font-medium text-slate-600">{label}</p>
+      <p className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
+        {value}
+      </p>
+    </div>
+  )
+}
+
+function WorkQueueRow({ action }: { action: ServiceAction }) {
+  return (
+    <article className="grid gap-3 px-5 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={SEVERITY_BADGE_VARIANTS[action.severity]}>
+            {SEVERITY_LABELS[action.severity]}
+          </Badge>
+          <Badge variant="neutral">{ACTION_TYPE_LABELS[action.type]}</Badge>
+          <h3 className="text-sm font-semibold text-slate-950">
+            {action.title}
+          </h3>
+        </div>
+        <p className="mt-2 text-sm font-semibold text-slate-900">
+          {action.installationName}
+          {action.equipmentId ? (
+            <span className="font-normal text-slate-600">
+              {" "}
+              · {action.equipmentId}
+            </span>
+          ) : null}
+        </p>
+        <p className="mt-1 text-sm text-slate-600">{action.description}</p>
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+          <span>Fastighet: {action.propertyName || "-"}</span>
+          <span>Tekniker: {action.assignedServiceContactName || "-"}</span>
+          <span>Datum: {formatActionDate(action)}</span>
+        </div>
+      </div>
+      <Link
+        className="inline-flex justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+        href={action.href}
+      >
+        Öppna aggregat
+      </Link>
+    </article>
+  )
+}
+
+function ServiceDashboardLoadingSkeleton() {
+  return (
+    <div className="mt-8 grid gap-6">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <div
+            className="rounded-lg border border-slate-200 bg-white p-4"
+            key={index}
+          >
+            <div className="h-4 w-28 rounded bg-slate-100" />
+            <div className="mt-4 h-8 w-16 rounded bg-slate-100" />
+          </div>
+        ))}
+      </div>
+      <div className="rounded-lg border border-slate-200 bg-white">
+        <div className="border-b border-slate-200 p-5">
+          <div className="h-5 w-24 rounded bg-slate-100" />
+          <div className="mt-2 h-4 w-80 max-w-full rounded bg-slate-100" />
+        </div>
+        <div className="divide-y divide-slate-200">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div className="px-5 py-4" key={index}>
+              <div className="h-4 w-56 rounded bg-slate-100" />
+              <div className="mt-3 h-3 w-4/5 rounded bg-slate-100" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function FilterButton({
   active,
   children,
@@ -768,8 +1031,59 @@ function TableCell({ children }: { children: React.ReactNode }) {
   return <td className="px-4 py-3 align-top text-slate-800">{children}</td>
 }
 
+function getServiceSummaryCards({
+  actions,
+  installations,
+  isServicePartnerAdmin,
+  unassignedInstallationsCount,
+}: {
+  actions: ServiceAction[]
+  installations: ServiceInstallation[]
+  isServicePartnerAdmin: boolean
+  unassignedInstallationsCount: number
+}) {
+  const overdue = actions.filter(
+    (action) =>
+      action.type === "OVERDUE_INSPECTION" || action.type === "NOT_INSPECTED"
+  ).length
+  const dueSoon = actions.filter(
+    (action) => action.type === "DUE_SOON_INSPECTION"
+  ).length
+  const leakage = actions.filter(
+    (action) => action.type === "RECENT_LEAKAGE"
+  ).length
+  const highRisk = actions.filter((action) => action.type === "HIGH_RISK").length
+
+  if (isServicePartnerAdmin) {
+    return [
+      { label: "Försenade kontroller", value: overdue, tone: "red" as const },
+      { label: "Kontroller inom 30 dagar", value: dueSoon, tone: "amber" as const },
+      { label: "Läckage att följa upp", value: leakage, tone: "amber" as const },
+      {
+        label: "Ej tilldelade uppdrag",
+        value: unassignedInstallationsCount,
+        tone: "amber" as const,
+      },
+      { label: "Högriskaggregat", value: highRisk, tone: "red" as const },
+      { label: "Totala uppdrag", value: installations.length, tone: "slate" as const },
+    ]
+  }
+
+  return [
+    { label: "Mina försenade kontroller", value: overdue, tone: "red" as const },
+    { label: "Mina kontroller inom 30 dagar", value: dueSoon, tone: "amber" as const },
+    { label: "Mina läckage att följa upp", value: leakage, tone: "amber" as const },
+    { label: "Mina högriskaggregat", value: highRisk, tone: "red" as const },
+    { label: "Totala uppdrag", value: installations.length, tone: "slate" as const },
+  ]
+}
+
 function formatOptionalDate(value?: string | null) {
   return value ? new Intl.DateTimeFormat("sv-SE").format(new Date(value)) : "-"
+}
+
+function formatActionDate(action: ServiceAction) {
+  return formatOptionalDate(action.dueDate ?? action.createdAt ?? null)
 }
 
 function formatNumber(value: number) {

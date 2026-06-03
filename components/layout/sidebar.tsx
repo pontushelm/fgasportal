@@ -138,7 +138,7 @@ export function Sidebar() {
     [currentUser]
   )
   const homeHref =
-    currentUser?.role === "CONTRACTOR" ? "/dashboard/installations" : "/dashboard"
+    currentUser?.role === "CONTRACTOR" ? "/dashboard/service" : "/dashboard"
 
   async function handleCompanyChange(membershipId: string) {
     if (!membershipId || membershipId === currentUser?.activeMembershipId) return
@@ -162,7 +162,7 @@ export function Sidebar() {
       const result: { membership?: { role?: UserRole } } = await response.json()
       const nextHref =
         result.membership?.role === "CONTRACTOR"
-          ? "/dashboard/installations"
+          ? "/dashboard/service"
           : "/dashboard"
       router.refresh()
       window.location.assign(nextHref)
@@ -618,6 +618,10 @@ function getPrimaryNavigation(currentUser: CurrentUser | null) {
   }
 
   const items: NavigationItem[] = [
+    {
+      href: "/dashboard/service",
+      label: "Dashboard",
+    },
     {
       href: "/dashboard/installations",
       label: "Tilldelade aggregat",
