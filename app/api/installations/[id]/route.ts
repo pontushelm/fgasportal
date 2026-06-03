@@ -219,6 +219,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 : null,
             }
           : null,
+        scrapCertificateDownloadHref: installationData.scrapCertificateBlobPath
+          ? buildScrapCertificateDownloadHref(installationData.id)
+          : null,
       },
       { status: 200 }
     )
@@ -230,6 +233,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
       { status: 500 }
     )
   }
+}
+
+function buildScrapCertificateDownloadHref(installationId: string) {
+  return `/api/installations/${encodeURIComponent(
+    installationId
+  )}/scrap/certificate/download`
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {

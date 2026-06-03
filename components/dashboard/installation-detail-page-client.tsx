@@ -142,6 +142,7 @@ type InstallationDetail = {
   scrapComment?: string | null
   scrapCertificateUrl?: string | null
   scrapCertificateFileName?: string | null
+  scrapCertificateDownloadHref?: string | null
   scrapServicePartnerId?: string | null
   recoveredRefrigerantKg?: number | null
   assignedServicePartnerCompanyId?: string | null
@@ -1438,10 +1439,15 @@ export default function InstallationDetailPage() {
             <div>
               <dt className="text-sm font-medium text-slate-600">Skrotningsintyg</dt>
               <dd className="mt-2">
-                {installation.scrapCertificateUrl ? (
+                {installation.scrapCertificateDownloadHref ||
+                installation.scrapCertificateUrl ? (
                   <a
                     className="inline-flex rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-                    href={installation.scrapCertificateUrl}
+                    href={
+                      installation.scrapCertificateDownloadHref ||
+                      installation.scrapCertificateUrl ||
+                      undefined
+                    }
                     rel="noreferrer"
                     target="_blank"
                   >

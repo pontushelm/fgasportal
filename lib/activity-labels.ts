@@ -21,6 +21,7 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   document_uploaded: "Dokument uppladdat",
   document_downloaded: "Dokument nedladdat",
   document_deleted: "Dokument borttaget",
+  scrap_certificate_downloaded: "Skrotningsintyg nedladdat",
   report_exported: "Rapport exporterad",
   annual_report_signed: "Årsrapport signerad",
   inspection_due_reminder_sent: "Påminnelse skickad",

@@ -224,6 +224,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
               validUntil: servicePartner.certificationValidUntil,
             }),
           },
+          scrapCertificateDownloadHref: result.updatedInstallation
+            .scrapCertificateBlobPath
+            ? buildScrapCertificateDownloadHref(result.updatedInstallation.id)
+            : null,
         },
         { status: 200 }
       )
@@ -288,4 +292,10 @@ function safeFileName(value: string) {
       .replace(/^-+|-+$/g, "")
       .toLowerCase() || "skrotningsintyg"
   )
+}
+
+function buildScrapCertificateDownloadHref(installationId: string) {
+  return `/api/installations/${encodeURIComponent(
+    installationId
+  )}/scrap/certificate/download`
 }
