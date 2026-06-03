@@ -19,6 +19,7 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   refrigerant_change_registered: "Byte av köldmedium registrerat",
   event_corrected: "Händelse korrigerad",
   document_uploaded: "Dokument uppladdat",
+  document_downloaded: "Dokument nedladdat",
   document_deleted: "Dokument borttaget",
   report_exported: "Rapport exporterad",
   annual_report_signed: "Årsrapport signerad",

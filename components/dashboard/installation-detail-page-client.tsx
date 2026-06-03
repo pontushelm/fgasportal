@@ -81,6 +81,7 @@ type InstallationDocument = {
   uploadedById: string
   originalFileName: string
   fileUrl: string
+  downloadHref?: string | null
   mimeType: string
   sizeBytes: number
   documentType: DocumentType
@@ -1580,7 +1581,7 @@ export default function InstallationDetailPage() {
                       <div className="flex flex-wrap gap-2">
                         <a
                           className="font-semibold text-blue-700 underline-offset-4 hover:underline"
-                          href={document.fileUrl}
+                          href={document.downloadHref || document.fileUrl}
                           rel="noreferrer"
                           target="_blank"
                         >

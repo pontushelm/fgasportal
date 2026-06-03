@@ -96,6 +96,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         uploadedById: document.uploadedById,
         originalFileName: document.originalFileName,
         fileUrl: document.fileUrl,
+        downloadHref: buildDocumentDownloadHref(installation.id, document.id),
         mimeType: document.mimeType,
         sizeBytes: document.sizeBytes,
         documentType: document.documentType,
@@ -278,6 +279,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         uploadedById: document.uploadedById,
         originalFileName: document.originalFileName,
         fileUrl: document.fileUrl,
+        downloadHref: buildDocumentDownloadHref(installation.id, document.id),
         mimeType: document.mimeType,
         sizeBytes: document.sizeBytes,
         documentType: document.documentType,
@@ -315,4 +317,10 @@ function safeFileName(value: string) {
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .toLowerCase() || "dokument"
+}
+
+function buildDocumentDownloadHref(installationId: string, documentId: string) {
+  return `/api/installations/${encodeURIComponent(
+    installationId
+  )}/documents/${encodeURIComponent(documentId)}/download`
 }
