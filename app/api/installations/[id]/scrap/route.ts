@@ -214,7 +214,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
       return NextResponse.json(
         {
-          ...result.updatedInstallation,
+          ...omitPrivateInstallationBlobFields(result.updatedInstallation),
           scrapServicePartner: {
             id: servicePartner.userId,
             name: servicePartner.user.name,
@@ -298,4 +298,17 @@ function buildScrapCertificateDownloadHref(installationId: string) {
   return `/api/installations/${encodeURIComponent(
     installationId
   )}/scrap/certificate/download`
+}
+
+function omitPrivateInstallationBlobFields<
+  T extends {
+    scrapCertificateUrl?: unknown
+    scrapCertificateBlobPath?: unknown
+  },
+>(installation: T) {
+  const publicInstallation = { ...installation }
+  delete publicInstallation.scrapCertificateUrl
+  delete publicInstallation.scrapCertificateBlobPath
+
+  return publicInstallation
 }

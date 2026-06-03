@@ -80,8 +80,7 @@ type InstallationDocument = {
   id: string
   uploadedById: string
   originalFileName: string
-  fileUrl: string
-  downloadHref?: string | null
+  downloadHref: string
   mimeType: string
   sizeBytes: number
   documentType: DocumentType
@@ -140,7 +139,6 @@ type InstallationDetail = {
   scrappedAt?: string | null
   scrappedByCompanyMembershipId?: string | null
   scrapComment?: string | null
-  scrapCertificateUrl?: string | null
   scrapCertificateFileName?: string | null
   scrapCertificateDownloadHref?: string | null
   scrapServicePartnerId?: string | null
@@ -1439,15 +1437,10 @@ export default function InstallationDetailPage() {
             <div>
               <dt className="text-sm font-medium text-slate-600">Skrotningsintyg</dt>
               <dd className="mt-2">
-                {installation.scrapCertificateDownloadHref ||
-                installation.scrapCertificateUrl ? (
+                {installation.scrapCertificateDownloadHref ? (
                   <a
                     className="inline-flex rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-                    href={
-                      installation.scrapCertificateDownloadHref ||
-                      installation.scrapCertificateUrl ||
-                      undefined
-                    }
+                    href={installation.scrapCertificateDownloadHref}
                     rel="noreferrer"
                     target="_blank"
                   >
@@ -1587,7 +1580,7 @@ export default function InstallationDetailPage() {
                       <div className="flex flex-wrap gap-2">
                         <a
                           className="font-semibold text-blue-700 underline-offset-4 hover:underline"
-                          href={document.downloadHref || document.fileUrl}
+                          href={document.downloadHref}
                           rel="noreferrer"
                           target="_blank"
                         >

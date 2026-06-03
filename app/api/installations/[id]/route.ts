@@ -129,6 +129,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     const { assignedContractor, assignedServicePartnerCompany, ...installationData } = installation
+    const publicInstallationData = omitPrivateInstallationBlobFields(installationData)
     const contractorMembership = assignedContractor?.memberships[0] ?? null
     const scrapServicePartner = installationData.scrapServicePartnerId
       ? await prisma.companyMembership.findFirst({
@@ -176,7 +177,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json(
       {
-        ...installationData,
+        ...publicInstallationData,
         assignedContractor: assignedContractor
           ? {
               id: assignedContractor.id,
@@ -239,6 +240,19 @@ function buildScrapCertificateDownloadHref(installationId: string) {
   return `/api/installations/${encodeURIComponent(
     installationId
   )}/scrap/certificate/download`
+}
+
+function omitPrivateInstallationBlobFields<
+  T extends {
+    scrapCertificateUrl?: unknown
+    scrapCertificateBlobPath?: unknown
+  },
+>(installation: T) {
+  const publicInstallation = { ...installation }
+  delete publicInstallation.scrapCertificateUrl
+  delete publicInstallation.scrapCertificateBlobPath
+
+  return publicInstallation
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
