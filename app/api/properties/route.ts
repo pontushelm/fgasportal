@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { ZodError, z } from "zod"
-import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
+import { getInstallationAccessWhereClause } from "@/lib/access/installation-access"
+import { authenticateApiRequest, forbiddenResponse, isAdmin, isContractor } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 
 const propertySchema = z.object({
@@ -31,10 +32,19 @@ export async function GET(request: NextRequest) {
     const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
+    const where = isContractor(auth.user)
+      ? {
+          companyId: auth.user.companyId,
+          installations: {
+            some: getInstallationAccessWhereClause(auth.user),
+          },
+        }
+      : {
+          companyId: auth.user.companyId,
+        }
+
     const properties = await prisma.property.findMany({
-      where: {
-        companyId: auth.user.companyId,
-      },
+      where,
       orderBy: [{ name: "asc" }],
     })
 

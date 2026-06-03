@@ -50,5 +50,5 @@ export function canInviteInternalRole(
 }
 
 export function canInviteServicePartners(role: UserRole | string | undefined) {
-  return role === "OWNER" || role === "ADMIN" || role === "MEMBER"
+  return role === "OWNER" || role === "ADMIN"
 }

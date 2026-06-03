@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { authenticateApiRequest, forbiddenResponse, isContractor } from "@/lib/auth"
+import { authenticateApiRequest, forbiddenResponse, isAdmin, isContractor } from "@/lib/auth"
 import { getCertificationStatus } from "@/lib/certification-status"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
@@ -255,6 +255,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       {
+        permissions: {
+          canManageServicePartners: isAdmin(auth.user),
+        },
         summary,
         servicePartnerCompanies: servicePartnerCompanyRows,
         servicePartnerCompanyMetrics,

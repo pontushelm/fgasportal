@@ -52,6 +52,9 @@ type ServicePartnerCompanyForm = {
 }
 
 type ContractorsOverviewResponse = {
+  permissions?: {
+    canManageServicePartners: boolean
+  }
   summary: {
     totalContractors: number
     assignedInstallations: number
@@ -262,6 +265,8 @@ export default function ContractorsOverviewPageClient() {
   }
 
   const visibleServicePartners = data?.servicePartnerCompanyMetrics ?? []
+  const canManageServicePartners =
+    data?.permissions?.canManageServicePartners ?? false
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 dark:text-slate-100 sm:px-6 lg:px-8">
@@ -373,13 +378,15 @@ export default function ContractorsOverviewPageClient() {
                                 .join(" · ") || "Inga kontaktuppgifter angivna"}
                             </p>
                           </div>
-                          <button
-                            className={buttonClassName({ variant: "secondary" })}
-                            type="button"
-                            onClick={() => startEditingCompany(company)}
-                          >
-                            Redigera
-                          </button>
+                          {canManageServicePartners && (
+                            <button
+                              className={buttonClassName({ variant: "secondary" })}
+                              type="button"
+                              onClick={() => startEditingCompany(company)}
+                            >
+                              Redigera
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -387,6 +394,7 @@ export default function ContractorsOverviewPageClient() {
                 )}
               </div>
 
+              {canManageServicePartners && (
               <form className="grid gap-3" onSubmit={handleCompanySubmit}>
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {editingCompanyId ? "Redigera servicepartner" : "Bjud in servicepartner"}
@@ -441,6 +449,7 @@ export default function ContractorsOverviewPageClient() {
                   </button>
                 </div>
               </form>
+              )}
             </div>
           </Card>
 

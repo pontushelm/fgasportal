@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const authenticateApiRequest = vi.fn()
 const logActivity = vi.fn()
+const propertyFindMany = vi.fn()
 const propertyFindFirst = vi.fn()
 const propertyUpdate = vi.fn()
 const propertyDelete = vi.fn()
@@ -12,6 +13,7 @@ vi.mock("@/lib/auth", () => ({
   forbiddenResponse: () =>
     NextResponse.json({ error: "Behörighet saknas" }, { status: 403 }),
   isAdmin: (user: { role: string }) => user.role === "OWNER" || user.role === "ADMIN",
+  isContractor: (user: { role: string }) => user.role === "CONTRACTOR",
 }))
 
 vi.mock("@/lib/activity-log", () => ({
@@ -22,6 +24,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     property: {
       delete: propertyDelete,
+      findMany: propertyFindMany,
       findFirst: propertyFindFirst,
       update: propertyUpdate,
     },
@@ -220,10 +223,87 @@ describe("property detail route", () => {
   })
 })
 
+describe("properties route", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    authenticateApiRequest.mockResolvedValue({
+      user: {
+        userId: "user-1",
+        companyId: "company-1",
+        role: "OWNER",
+      },
+    })
+  })
+
+  it("returns all company properties for customer roles", async () => {
+    const { GET } = await import("@/app/api/properties/route")
+    propertyFindMany.mockResolvedValueOnce([{ id: "property-1" }])
+
+    const response = await GET(createCollectionRequest())
+
+    expect(response.status).toBe(200)
+    expect(propertyFindMany).toHaveBeenCalledWith({
+      where: {
+        companyId: "company-1",
+      },
+      orderBy: [{ name: "asc" }],
+    })
+  })
+
+  it("scopes contractor properties to delegated aggregat access", async () => {
+    const { GET } = await import("@/app/api/properties/route")
+    authenticateApiRequest.mockResolvedValueOnce({
+      user: {
+        userId: "contractor-1",
+        companyId: "company-1",
+        role: "CONTRACTOR",
+        isServicePartnerAdmin: true,
+        servicePartnerCompanyId: "servicepartner-1",
+      },
+    })
+    propertyFindMany.mockResolvedValueOnce([{ id: "property-1" }])
+
+    const response = await GET(createCollectionRequest())
+
+    expect(response.status).toBe(200)
+    expect(propertyFindMany).toHaveBeenCalledWith({
+      where: {
+        companyId: "company-1",
+        installations: {
+          some: {
+            AND: [
+              {
+                companyId: "company-1",
+              },
+              {
+                OR: [
+                  {
+                    assignedContractorId: "contractor-1",
+                  },
+                  {
+                    assignedServicePartnerCompanyId: "servicepartner-1",
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+      orderBy: [{ name: "asc" }],
+    })
+  })
+})
+
 function createRequest(method: string, body?: unknown) {
   return new Request("http://localhost/api/properties/property-1", {
     method,
     body: body ? JSON.stringify(body) : undefined,
     headers: body ? { "Content-Type": "application/json" } : undefined,
+  }) as never
+}
+
+function createCollectionRequest() {
+  return new Request("http://localhost/api/properties", {
+    method: "GET",
   }) as never
 }
