@@ -3,6 +3,8 @@ import {
   buildDocumentDownloadMetadata,
   buildFutureDocumentLinksFromInstallationDocument,
   buildFutureDocumentMetadataFromInstallationDocument,
+  buildFutureDocumentMetadataFromScrapCertificate,
+  buildFutureScrapCertificateLinkMetadata,
   buildGenericDocumentDownloadHref,
   mapInstallationDocumentTypeToDocumentCategory,
 } from "@/lib/documents/documentHelpers"
@@ -111,6 +113,48 @@ describe("document architecture helpers", () => {
       contentType: "application/pdf",
       sizeBytes: 100,
       downloadHref: "/api/documents/document-1/download",
+    })
+  })
+
+  it("builds retained scrap certificate metadata and link roles", () => {
+    expect(
+      buildFutureDocumentMetadataFromScrapCertificate({
+        installationId: "installation-1",
+        companyId: "company-1",
+        fileName: "Skrotningsintyg.pdf",
+        storageKey:
+          "companies/company-1/installations/installation-1/scrap/skrotningsintyg.pdf",
+        uploadedByUserId: "owner-1",
+      })
+    ).toEqual({
+      companyId: "company-1",
+      uploadedByUserId: "owner-1",
+      originalFileName: "Skrotningsintyg.pdf",
+      fileName: "Skrotningsintyg.pdf",
+      contentType: "application/pdf",
+      sizeBytes: 0,
+      storageKey:
+        "companies/company-1/installations/installation-1/scrap/skrotningsintyg.pdf",
+      category: "SCRAP_CERTIFICATE",
+      source: "USER_UPLOAD",
+      visibility: "COMPANY_INTERNAL",
+      retentionPolicy: "RETAINED",
+      description: "Skrotningsintyg",
+      legacyInstallationDocumentId: null,
+    })
+
+    expect(
+      buildFutureScrapCertificateLinkMetadata({
+        companyId: "company-1",
+        installationId: "installation-1",
+        linkedByUserId: "owner-1",
+      })
+    ).toEqual({
+      companyId: "company-1",
+      entityType: "INSTALLATION",
+      entityId: "installation-1",
+      role: "SCRAP_CERTIFICATE",
+      linkedByUserId: "owner-1",
     })
   })
 })

@@ -47,6 +47,16 @@ export type LegacyInstallationDocumentForMetadata = {
   description?: string | null
 }
 
+export type LegacyScrapCertificateForMetadata = {
+  installationId: string
+  companyId: string
+  fileName: string
+  storageKey: string
+  uploadedByUserId?: string | null
+  sizeBytes?: number | null
+  createdAt?: Date | null
+}
+
 export type DocumentDownloadMetadata = {
   id: string
   fileName: string
@@ -136,6 +146,44 @@ export function buildFutureDocumentLinksFromInstallationDocument(
   return links
 }
 
+export function buildFutureDocumentMetadataFromScrapCertificate(
+  certificate: LegacyScrapCertificateForMetadata
+): FutureDocumentMetadata {
+  return {
+    companyId: certificate.companyId,
+    uploadedByUserId: certificate.uploadedByUserId ?? null,
+    originalFileName: certificate.fileName,
+    fileName: certificate.fileName,
+    contentType: inferDocumentContentTypeFromFileName(certificate.fileName),
+    sizeBytes: certificate.sizeBytes ?? 0,
+    storageKey: certificate.storageKey,
+    category: "SCRAP_CERTIFICATE",
+    source: "USER_UPLOAD",
+    visibility: "COMPANY_INTERNAL",
+    retentionPolicy: "RETAINED",
+    description: "Skrotningsintyg",
+    legacyInstallationDocumentId: null,
+  }
+}
+
+export function buildFutureScrapCertificateLinkMetadata({
+  companyId,
+  installationId,
+  linkedByUserId = null,
+}: {
+  companyId: string
+  installationId: string
+  linkedByUserId?: string | null
+}): FutureDocumentLinkMetadata {
+  return {
+    companyId,
+    entityType: "INSTALLATION",
+    entityId: installationId,
+    role: "SCRAP_CERTIFICATE",
+    linkedByUserId,
+  }
+}
+
 export function buildDocumentDownloadMetadata({
   contentType,
   fileName,
@@ -158,4 +206,19 @@ export function buildDocumentDownloadMetadata({
 
 export function buildGenericDocumentDownloadHref(documentId: string) {
   return `/api/documents/${encodeURIComponent(documentId)}/download`
+}
+
+function inferDocumentContentTypeFromFileName(fileName: string) {
+  const normalizedFileName = fileName.toLowerCase()
+  if (normalizedFileName.endsWith(".pdf")) return "application/pdf"
+  if (normalizedFileName.endsWith(".png")) return "image/png"
+  if (
+    normalizedFileName.endsWith(".jpg") ||
+    normalizedFileName.endsWith(".jpeg")
+  ) {
+    return "image/jpeg"
+  }
+  if (normalizedFileName.endsWith(".webp")) return "image/webp"
+
+  return "application/octet-stream"
 }
