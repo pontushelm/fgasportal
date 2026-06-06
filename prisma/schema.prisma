@@ -25,6 +25,74 @@ enum DocumentType {
   OTHER
 }
 
+enum DocumentStorageProvider {
+  VERCEL_BLOB
+}
+
+enum DocumentCategory {
+  INSPECTION_REPORT
+  SERVICE_REPORT
+  LEAK_REPORT
+  PHOTO
+  AUTHORITY_DOCUMENT
+  SCRAP_CERTIFICATE
+  PROPERTY_DOCUMENT
+  SERVICE_ORGANIZATION_CERTIFICATE
+  REPORT_OUTPUT
+  CUSTOMER_EXPORT
+  AUDIT_EVIDENCE
+  OTHER
+}
+
+enum DocumentSource {
+  USER_UPLOAD
+  SYSTEM_GENERATED
+  SIGNED_REPORT_ARTIFACT
+  IMPORT
+}
+
+enum DocumentStatus {
+  ACTIVE
+  REPLACED
+  DELETED
+  QUARANTINED
+}
+
+enum DocumentVisibility {
+  COMPANY_INTERNAL
+  SERVICE_PARTNER_VISIBLE
+  OWNER_ADMIN_ONLY
+  SYSTEM_ONLY
+}
+
+enum DocumentRetentionPolicy {
+  STANDARD
+  RETAINED
+  IMMUTABLE
+  TEMPORARY
+  LEGAL_HOLD
+}
+
+enum DocumentLinkEntityType {
+  INSTALLATION
+  INSTALLATION_EVENT
+  PROPERTY
+  SERVICE_ORGANIZATION
+  SIGNED_REPORT_ARTIFACT
+  COMPANY
+  REPORT_SCOPE
+  CUSTOMER_EXPORT
+}
+
+enum DocumentLinkRole {
+  ATTACHMENT
+  EVIDENCE
+  SCRAP_CERTIFICATE
+  CERTIFICATE
+  REPORT_OUTPUT
+  SUPPORTING_FILE
+}
+
 enum UserRole {
   OWNER
   ADMIN
@@ -109,6 +177,8 @@ model Company {
   servicePartnerCompanies ServicePartnerCompany[]
   companyServiceOrganizations CompanyServiceOrganization[]
   feedback                Feedback[]
+  documents               Document[]
+  documentLinks           DocumentLink[]
 
   @@map("companies")
 }
@@ -151,6 +221,9 @@ model User {
   passwordResetTokens           PasswordResetToken[]
   feedback                      Feedback[]
   serviceOrganizationMemberships ServiceOrganizationMembership[]
+  uploadedDocuments             Document[]               @relation("UploadedDocuments")
+  deletedDocuments              Document[]               @relation("DeletedDocuments")
+  linkedDocuments               DocumentLink[]           @relation("LinkedDocuments")
 
   @@map("users")
 }
@@ -468,6 +541,73 @@ model InstallationDocument {
   @@index([companyId])
   @@index([uploadedById])
   @@map("installation_documents")
+}
+
+model Document {
+  id                           String                  @id @default(cuid())
+  companyId                    String
+  uploadedByUserId             String?
+  originalFileName             String
+  fileName                     String
+  contentType                  String
+  sizeBytes                    Int
+  sha256                       String?
+  storageProvider              DocumentStorageProvider @default(VERCEL_BLOB)
+  storageKey                   String
+  storageBucket                String?
+  category                     DocumentCategory
+  source                       DocumentSource          @default(USER_UPLOAD)
+  status                       DocumentStatus          @default(ACTIVE)
+  visibility                   DocumentVisibility      @default(COMPANY_INTERNAL)
+  retentionPolicy              DocumentRetentionPolicy @default(STANDARD)
+  description                  String?
+  metadata                     Json?
+  replacedByDocumentId         String?
+  replacedAt                   DateTime?
+  deletedAt                    DateTime?
+  deletedByUserId              String?
+  deletionReason               String?
+  legacyInstallationDocumentId String?                 @unique
+  createdAt                    DateTime                @default(now())
+  updatedAt                    DateTime                @updatedAt
+
+  company            Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  uploadedBy         User?          @relation("UploadedDocuments", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+  deletedBy          User?          @relation("DeletedDocuments", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  replacedByDocument Document?      @relation("DocumentReplacement", fields: [replacedByDocumentId], references: [id], onDelete: SetNull)
+  replacesDocuments  Document[]     @relation("DocumentReplacement")
+  links              DocumentLink[]
+
+  @@index([companyId])
+  @@index([uploadedByUserId])
+  @@index([category])
+  @@index([status])
+  @@index([createdAt])
+  @@index([replacedByDocumentId])
+  @@index([deletedByUserId])
+  @@map("documents")
+}
+
+model DocumentLink {
+  id             String                 @id @default(cuid())
+  companyId      String
+  documentId     String
+  entityType     DocumentLinkEntityType
+  entityId       String
+  role           DocumentLinkRole       @default(ATTACHMENT)
+  linkedAt       DateTime               @default(now())
+  linkedByUserId String?
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  linkedBy User?    @relation("LinkedDocuments", fields: [linkedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([documentId, entityType, entityId, role])
+  @@index([companyId])
+  @@index([documentId])
+  @@index([entityType, entityId])
+  @@index([linkedByUserId])
+  @@map("document_links")
 }
 
 model ActivityLog {
