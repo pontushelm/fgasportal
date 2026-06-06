@@ -7,6 +7,10 @@ import {
   canAccessInstallationDocuments,
   canUploadInstallationDocument,
 } from "@/lib/document-access"
+import {
+  buildFutureDocumentLinksFromInstallationDocument,
+  buildFutureDocumentMetadataFromInstallationDocument,
+} from "@/lib/documents/documentHelpers"
 import { logActivity } from "@/lib/activity-log"
 
 type RouteContext = {
@@ -219,37 +223,58 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     let document
     try {
-      document = await prisma.installationDocument.create({
-        data: {
-          id: documentId,
-          installationId: installation.id,
-          eventId: normalizedEventId,
-          companyId: auth.user.companyId,
-          uploadedById: auth.user.userId,
-          fileName,
-          originalFileName: file.name,
-          fileUrl: blob.url,
-          blobPath: blob.pathname,
-          mimeType: file.type,
-          sizeBytes: file.size,
-          documentType,
-          description: normalizeFormString(description),
-        },
-        include: {
-          uploadedBy: {
-            select: {
-              name: true,
-              email: true,
+      document = await prisma.$transaction(async (tx) => {
+        const legacyDocument = await tx.installationDocument.create({
+          data: {
+            id: documentId,
+            installationId: installation.id,
+            eventId: normalizedEventId,
+            companyId: auth.user.companyId,
+            uploadedById: auth.user.userId,
+            fileName,
+            originalFileName: file.name,
+            fileUrl: blob.url,
+            blobPath: blob.pathname,
+            mimeType: file.type,
+            sizeBytes: file.size,
+            documentType,
+            description: normalizeFormString(description),
+          },
+          include: {
+            uploadedBy: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+            event: {
+              select: {
+                id: true,
+                type: true,
+                date: true,
+              },
             },
           },
-          event: {
-            select: {
-              id: true,
-              type: true,
-              date: true,
+        })
+
+        const genericDocument = await tx.document.create({
+          data: buildFutureDocumentMetadataFromInstallationDocument(
+            legacyDocument
+          ),
+        })
+
+        for (const link of buildFutureDocumentLinksFromInstallationDocument(
+          legacyDocument
+        )) {
+          await tx.documentLink.create({
+            data: {
+              documentId: genericDocument.id,
+              ...link,
             },
-          },
-        },
+          })
+        }
+
+        return legacyDocument
       })
     } catch (error) {
       await del(blob.pathname, {

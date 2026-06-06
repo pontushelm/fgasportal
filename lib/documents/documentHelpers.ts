@@ -4,6 +4,7 @@ import type {
   DocumentLinkRole,
   DocumentRetentionPolicy,
   DocumentSource,
+  DocumentStatus,
   DocumentType,
   DocumentVisibility,
 } from "@prisma/client"
@@ -18,6 +19,7 @@ export type FutureDocumentMetadata = {
   storageKey: string
   category: DocumentCategory
   source: DocumentSource
+  status: DocumentStatus
   visibility: DocumentVisibility
   retentionPolicy: DocumentRetentionPolicy
   description: string | null
@@ -113,6 +115,7 @@ export function buildFutureDocumentMetadataFromInstallationDocument(
       document.documentType
     ),
     source: "USER_UPLOAD",
+    status: "ACTIVE",
     visibility: "COMPANY_INTERNAL",
     retentionPolicy: "STANDARD",
     description: document.description ?? null,
@@ -159,6 +162,7 @@ export function buildFutureDocumentMetadataFromScrapCertificate(
     storageKey: certificate.storageKey,
     category: "SCRAP_CERTIFICATE",
     source: "USER_UPLOAD",
+    status: "ACTIVE",
     visibility: "COMPANY_INTERNAL",
     retentionPolicy: "RETAINED",
     description: "Skrotningsintyg",

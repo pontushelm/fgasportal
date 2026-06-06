@@ -15,7 +15,7 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
     <html lang="sv">
       <head>
         <meta charSet="utf-8" />
-        <title>Årsrapport F-gas {report.reportYear}</title>
+        <title>{`Årsrapport F-gas ${report.reportYear}`}</title>
         <style>{annualReportPrintStyles}</style>
       </head>
       <body>
