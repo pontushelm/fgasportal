@@ -20,6 +20,7 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   event_corrected: "Händelse korrigerad",
   document_uploaded: "Dokument uppladdat",
   document_downloaded: "Dokument nedladdat",
+  document_downloaded_generic: "Dokument nedladdat",
   document_deleted: "Dokument borttaget",
   scrap_certificate_downloaded: "Skrotningsintyg nedladdat",
   report_exported: "Rapport exporterad",
