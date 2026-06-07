@@ -112,6 +112,32 @@ enum ServiceOrganizationRole {
   TECHNICIAN
 }
 
+enum CertificationSubjectType {
+  SERVICE_ORGANIZATION
+  TECHNICIAN
+  COMPANY
+}
+
+enum CertificationType {
+  COMPANY_FGAS
+  PERSONAL_FGAS
+  OTHER
+}
+
+enum CertificationRecordStatus {
+  ACTIVE
+  EXPIRED
+  REPLACED
+  REVOKED
+  DELETED
+}
+
+enum CertificationVerificationStatus {
+  UNVERIFIED
+  SELF_DECLARED
+  VERIFIED
+}
+
 enum SignedReportType {
   ANNUAL_FGAS
   CLIMATE
@@ -179,6 +205,7 @@ model Company {
   feedback                Feedback[]
   documents               Document[]
   documentLinks           DocumentLink[]
+  certificationRecords    CertificationRecord[]
 
   @@map("companies")
 }
@@ -224,6 +251,10 @@ model User {
   uploadedDocuments             Document[]               @relation("UploadedDocuments")
   deletedDocuments              Document[]               @relation("DeletedDocuments")
   linkedDocuments               DocumentLink[]           @relation("LinkedDocuments")
+  certificationRecords          CertificationRecord[]    @relation("CertificationSubjectUser")
+  verifiedCertificationRecords  CertificationRecord[]    @relation("CertificationVerifiedBy")
+  createdCertificationRecords   CertificationRecord[]    @relation("CertificationCreatedBy")
+  updatedCertificationRecords   CertificationRecord[]    @relation("CertificationUpdatedBy")
 
   @@map("users")
 }
@@ -310,9 +341,51 @@ model ServiceOrganization {
   memberships                   ServiceOrganizationMembership[]
   companyLinks                  CompanyServiceOrganization[]
   invitations                   Invitation[]
+  certificationRecords          CertificationRecord[]
 
   @@index([organizationNumber])
   @@map("service_organizations")
+}
+
+model CertificationRecord {
+  id                    String                          @id @default(cuid())
+  serviceOrganizationId String?
+  userId                String?
+  companyId             String
+  subjectType           CertificationSubjectType
+  certificateType       CertificationType
+  certificateNumber     String
+  issuer                String?
+  category              String?
+  validFrom             DateTime?
+  validUntil            DateTime?
+  status                CertificationRecordStatus       @default(ACTIVE)
+  verificationStatus    CertificationVerificationStatus @default(UNVERIFIED)
+  verifiedAt            DateTime?
+  verifiedByUserId      String?
+  documentId            String?
+  notes                 String?
+  createdByUserId       String?
+  updatedByUserId       String?
+  createdAt             DateTime                        @default(now())
+  updatedAt             DateTime                        @updatedAt
+
+  company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  serviceOrganization ServiceOrganization? @relation(fields: [serviceOrganizationId], references: [id], onDelete: Cascade)
+  user                User?                @relation("CertificationSubjectUser", fields: [userId], references: [id], onDelete: Cascade)
+  verifiedBy          User?                @relation("CertificationVerifiedBy", fields: [verifiedByUserId], references: [id], onDelete: SetNull)
+  createdBy           User?                @relation("CertificationCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedBy           User?                @relation("CertificationUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([serviceOrganizationId])
+  @@index([userId])
+  @@index([subjectType])
+  @@index([certificateType])
+  @@index([status])
+  @@index([validUntil])
+  @@index([documentId])
+  @@map("certification_records")
 }
 
 model ServiceOrganizationMembership {
