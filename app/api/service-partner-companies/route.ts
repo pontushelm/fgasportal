@@ -5,6 +5,7 @@ import { z, ZodError } from "zod"
 import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { sendInvitationEmail } from "@/lib/email"
+import { buildServicePartnerCompanyCertification } from "@/lib/service-partner-company-certifications"
 import { toServiceOrganizationBackedCompany } from "@/lib/service-organizations"
 
 const INVITATION_TTL_DAYS = 7
@@ -40,8 +41,41 @@ export async function GET(request: NextRequest) {
       select: servicePartnerCompanySelect,
     })
 
+    const serviceOrganizationIds = servicePartnerCompanies
+      .map((company) => company.serviceOrganizationId)
+      .filter((id): id is string => Boolean(id))
+    const certificationRecords =
+      serviceOrganizationIds.length > 0
+        ? await prisma.certificationRecord.findMany({
+            where: {
+              companyId: auth.user.companyId,
+              serviceOrganizationId: {
+                in: serviceOrganizationIds,
+              },
+              subjectType: "SERVICE_ORGANIZATION",
+              certificateType: "COMPANY_FGAS",
+              status: {
+                not: "DELETED",
+              },
+            },
+          })
+        : []
+
     return NextResponse.json(
-      servicePartnerCompanies.map(toServiceOrganizationBackedCompany),
+      servicePartnerCompanies.map((company) => {
+        const displayCompany = toServiceOrganizationBackedCompany(company)
+
+        return {
+          ...displayCompany,
+          certification: buildServicePartnerCompanyCertification({
+            company,
+            records: certificationRecords.filter(
+              (record) =>
+                record.serviceOrganizationId === displayCompany.serviceOrganizationId
+            ),
+          }),
+        }
+      }),
       { status: 200 }
     )
   } catch (error: unknown) {

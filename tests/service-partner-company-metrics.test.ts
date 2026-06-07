@@ -9,6 +9,17 @@ describe("service partner company metrics", () => {
           id: "company-a",
           name: "Kylservice AB",
           organizationNumber: "556000-0000",
+          certification: {
+            certificateNumber: "CERT-1",
+            issuer: "Incert",
+            validUntil: "2027-01-01T00:00:00.000Z",
+            status: {
+              status: "VALID",
+              label: "Giltigt",
+              variant: "success",
+            },
+            source: "CERTIFICATION_RECORD",
+          },
         },
       ],
       contractors: [
@@ -54,7 +65,7 @@ describe("service partner company metrics", () => {
       dueSoonInspections: 3,
       highRiskInstallations: 1,
       leakageEventsCount: 4,
-      certificationWarnings: 1,
+      certificationWarnings: 0,
       contractorIds: ["contractor-a", "contractor-b"],
     })
     expect(metrics[0].latestActivityDate).toBe("2026-05-11T10:00:00.000Z")

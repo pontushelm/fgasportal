@@ -13,6 +13,7 @@ import {
   type ToastMessage,
 } from "@/components/ui"
 import type { CertificationStatusResult } from "@/lib/certification-status"
+import type { ServicePartnerCompanyCertification } from "@/lib/service-partner-company-certifications"
 
 type ContractorOverview = {
   id: string
@@ -41,6 +42,7 @@ type ServicePartnerCompany = {
   contactEmail: string | null
   phone: string | null
   certificateNumber: string | null
+  certification: ServicePartnerCompanyCertification | null
   notes: string | null
   createdAt?: string
   updatedAt?: string
@@ -74,6 +76,7 @@ type ServicePartnerCompanyMetrics = {
   contactEmail: string | null
   phone: string | null
   certificateNumber: string | null
+  certification: ServicePartnerCompanyCertification | null
   notes: string | null
   isUnlinked: boolean
   linkedContactsCount: number
@@ -110,6 +113,8 @@ export default function ContractorsOverviewPageClient() {
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null)
   const [isSavingCompany, setIsSavingCompany] = useState(false)
   const [feedback, setFeedback] = useState<ServicePartnerFeedback | null>(null)
+  const [certificationStatusFilter, setCertificationStatusFilter] =
+    useState("ALL")
 
   useEffect(() => {
     let isMounted = true
@@ -264,7 +269,12 @@ export default function ContractorsOverviewPageClient() {
     await refreshOverview()
   }
 
-  const visibleServicePartners = data?.servicePartnerCompanyMetrics ?? []
+  const servicePartnerMetrics = data?.servicePartnerCompanyMetrics ?? []
+  const visibleServicePartners = servicePartnerMetrics.filter((company) =>
+    certificationStatusFilter === "ALL"
+      ? true
+      : company.certification?.status.status === certificationStatusFilter
+  )
   const canManageServicePartners =
     data?.permissions?.canManageServicePartners ?? false
 
@@ -334,7 +344,7 @@ export default function ContractorsOverviewPageClient() {
             />
             <MetricCard
               description="Servicepartners där företagscertifiering saknas eller har passerat giltighetsdatum."
-              label="Utgången certifiering"
+              label="Certifieringsvarningar"
               tone={data.summary.expiredCertifications > 0 ? "danger" : "success"}
               value={data.summary.expiredCertifications}
             />
@@ -378,15 +388,20 @@ export default function ContractorsOverviewPageClient() {
                                 .join(" · ") || "Inga kontaktuppgifter angivna"}
                             </p>
                           </div>
-                          {canManageServicePartners && (
-                            <button
-                              className={buttonClassName({ variant: "secondary" })}
-                              type="button"
-                              onClick={() => startEditingCompany(company)}
-                            >
-                              Redigera
-                            </button>
-                          )}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <CertificationStatusBadge
+                              certification={company.certification}
+                            />
+                            {canManageServicePartners && (
+                              <button
+                                className={buttonClassName({ variant: "secondary" })}
+                                type="button"
+                                onClick={() => startEditingCompany(company)}
+                              >
+                                Redigera
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -458,6 +473,28 @@ export default function ContractorsOverviewPageClient() {
               title="Servicepartners - operativ översikt"
               subtitle="Relationer, certifiering och driftstatus per servicepartner."
             />
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                Visar {visibleServicePartners.length} av{" "}
+                {servicePartnerMetrics.length} servicepartners.
+              </p>
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                Certifiering
+                <select
+                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  value={certificationStatusFilter}
+                  onChange={(event) =>
+                    setCertificationStatusFilter(event.target.value)
+                  }
+                >
+                  <option value="ALL">Alla</option>
+                  <option value="VALID">Giltigt</option>
+                  <option value="EXPIRING_SOON">Går snart ut</option>
+                  <option value="EXPIRED">Utgått</option>
+                  <option value="MISSING">Saknas</option>
+                </select>
+              </label>
+            </div>
             <div className="mt-4 grid gap-3 lg:grid-cols-2">
               {visibleServicePartners.length === 0 ? (
                 <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
@@ -488,14 +525,11 @@ export default function ContractorsOverviewPageClient() {
                           : "Saknar servicepartnerrelation"}
                       </p>
                     </div>
-                    {company.certificationWarnings > 0 ? (
-                      <Badge variant="warning">
-                        {company.certificationWarnings} certifieringsvarning
-                      </Badge>
-                    ) : (
-                      <Badge variant="success">Certifiering OK</Badge>
-                    )}
+                    <CertificationStatusBadge
+                      certification={company.certification}
+                    />
                   </div>
+                  <CertificationDetails certification={company.certification} />
                   <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
                     <CompanyMetric
                       label="Aggregat"
@@ -820,6 +854,58 @@ function MetricCard({
   )
 }
 
+function CertificationStatusBadge({
+  certification,
+}: {
+  certification?: ServicePartnerCompanyCertification | null
+}) {
+  const status = certification?.status ?? {
+    label: "Saknas",
+    variant: "neutral" as const,
+  }
+
+  return <Badge variant={status.variant}>{status.label}</Badge>
+}
+
+function CertificationDetails({
+  certification,
+}: {
+  certification?: ServicePartnerCompanyCertification | null
+}) {
+  const certificateNumber = certification?.certificateNumber ?? null
+  const issuer = certification?.issuer ?? null
+  const validUntil = certification?.validUntil
+    ? formatOptionalDate(certification.validUntil)
+    : null
+
+  return (
+    <dl className="mt-3 grid gap-2 rounded-md bg-slate-50 p-3 text-xs dark:bg-slate-900 sm:grid-cols-3">
+      <CompactDetail label="Certifikat" value={certificateNumber} />
+      <CompactDetail label="Utfärdare" value={issuer} />
+      <CompactDetail label="Giltigt till" value={validUntil} />
+    </dl>
+  )
+}
+
+function CompactDetail({
+  label,
+  value,
+}: {
+  label: string
+  value: string | null
+}) {
+  return (
+    <div>
+      <dt className="font-medium text-slate-500 dark:text-slate-400">
+        {label}
+      </dt>
+      <dd className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
+        {value || "-"}
+      </dd>
+    </div>
+  )
+}
+
 function ServicepartnersLoadingSkeleton() {
   return (
     <div className="mt-6 space-y-6" aria-live="polite" aria-busy="true">
@@ -903,6 +989,12 @@ function formatOptionalDateTime(value: string | null) {
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date(value))
+}
+
+function formatOptionalDate(value: string | Date | null) {
+  if (!value) return "-"
+
+  return new Intl.DateTimeFormat("sv-SE").format(new Date(value))
 }
 
 function formatNumber(value: number) {

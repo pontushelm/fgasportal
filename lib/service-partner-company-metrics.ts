@@ -1,3 +1,6 @@
+import type { ServicePartnerCompanyCertification } from "@/lib/service-partner-company-certifications"
+import { isServicePartnerCompanyCertificationWarning } from "@/lib/service-partner-company-certifications"
+
 type CertificationStatusLike = {
   status: string
 }
@@ -9,6 +12,7 @@ export type ServicePartnerCompanyMetricInput = {
   contactEmail?: string | null
   phone?: string | null
   certificateNumber?: string | null
+  certification?: ServicePartnerCompanyCertification | null
   notes?: string | null
 }
 
@@ -31,6 +35,7 @@ export type ServicePartnerCompanyMetrics = {
   contactEmail: string | null
   phone: string | null
   certificateNumber: string | null
+  certification: ServicePartnerCompanyCertification | null
   notes: string | null
   isUnlinked: boolean
   linkedContactsCount: number
@@ -88,9 +93,6 @@ export function buildServicePartnerCompanyMetrics({
     group.dueSoonInspections += contractor.dueSoonInspections
     group.highRiskInstallations += contractor.highRiskInstallations
     group.leakageEventsCount += contractor.leakageEventsCount
-    group.certificationWarnings += isCertificationWarning(contractor.certificationStatus)
-      ? 1
-      : 0
     group.contractorIds.push(contractor.id)
     group.latestActivityDate = latestDate(
       group.latestActivityDate,
@@ -120,6 +122,7 @@ function createCompanyMetrics(
     contactEmail: company.contactEmail ?? null,
     phone: company.phone ?? null,
     certificateNumber: company.certificateNumber ?? null,
+    certification: company.certification ?? null,
     notes: company.notes ?? null,
     isUnlinked,
     linkedContactsCount: 0,
@@ -128,14 +131,14 @@ function createCompanyMetrics(
     dueSoonInspections: 0,
     highRiskInstallations: 0,
     leakageEventsCount: 0,
-    certificationWarnings: 0,
+    certificationWarnings: isServicePartnerCompanyCertificationWarning(
+      company.certification ?? null
+    )
+      ? 1
+      : 0,
     latestActivityDate: null,
     contractorIds: [],
   }
-}
-
-function isCertificationWarning(status: CertificationStatusLike) {
-  return status.status !== "VALID"
 }
 
 function latestDate(

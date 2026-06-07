@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Badge, buttonClassName, Card, EmptyState, PageHeader, SectionHeader } from "@/components/ui"
 import type { CertificationStatusResult } from "@/lib/certification-status"
+import type { ServicePartnerCompanyCertification } from "@/lib/service-partner-company-certifications"
 import type { DashboardActionSeverity, DashboardActionType } from "@/lib/actions/generate-actions"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 
@@ -16,6 +17,7 @@ type ServicePartnerCompanyDetail = {
     contactEmail: string | null
     phone: string | null
     certificateNumber: string | null
+    certification: ServicePartnerCompanyCertification | null
     notes: string | null
   }
   metrics: {
@@ -233,19 +235,21 @@ export default function ServicePartnerCompanyDetailPageClient({
               title="Företagsuppgifter"
               subtitle="Kontaktuppgifter för servicepartnerföretaget."
             />
-            <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <DetailItem label="Organisationsnummer" value={data.company.organizationNumber} />
-              <DetailItem label="Företagscertifikat nr" value={data.company.certificateNumber} />
-              <DetailItem label="E-post" value={data.company.contactEmail} />
-              <DetailItem label="Telefon" value={data.company.phone} />
-              <DetailItem
-                label="Senaste aktivitet"
-                value={formatOptionalDateTime(data.metrics.latestActivityDate)}
-              />
-              {data.company.notes && (
-                <DetailItem className="lg:col-span-4" label="Anteckningar" value={data.company.notes} />
-              )}
-            </dl>
+            <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1.1fr]">
+              <dl className="grid gap-4 sm:grid-cols-2">
+                <DetailItem label="Organisationsnummer" value={data.company.organizationNumber} />
+                <DetailItem label="E-post" value={data.company.contactEmail} />
+                <DetailItem label="Telefon" value={data.company.phone} />
+                <DetailItem
+                  label="Senaste aktivitet"
+                  value={formatOptionalDateTime(data.metrics.latestActivityDate)}
+                />
+                {data.company.notes && (
+                  <DetailItem className="sm:col-span-2" label="Anteckningar" value={data.company.notes} />
+                )}
+              </dl>
+              <CompanyCertificationCard certification={data.company.certification} />
+            </div>
           </Card>
 
           <Card className="mt-6 overflow-hidden">
@@ -491,6 +495,48 @@ function DetailItem({
   )
 }
 
+function CompanyCertificationCard({
+  certification,
+}: {
+  certification?: ServicePartnerCompanyCertification | null
+}) {
+  const status = certification?.status ?? {
+    label: "Saknas",
+    variant: "neutral" as const,
+  }
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-950 dark:text-slate-100">
+            Företagscertifikat
+          </h3>
+          <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+            Serviceorganisationens företagscertifikat för F-gasarbeten.
+          </p>
+        </div>
+        <Badge variant={status.variant}>{status.label}</Badge>
+      </div>
+      <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+        <DetailItem
+          label="Certifikatnummer"
+          value={certification?.certificateNumber ?? null}
+        />
+        <DetailItem label="Utfärdare" value={certification?.issuer ?? null} />
+        <DetailItem
+          label="Giltigt till"
+          value={
+            certification?.validUntil
+              ? formatOptionalDate(certification.validUntil)
+              : null
+          }
+        />
+      </dl>
+    </div>
+  )
+}
+
 function TableHeader({ children }: { children: React.ReactNode }) {
   return (
     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">
@@ -539,7 +585,7 @@ function formatActionDate(action: {
   return formatOptionalDate(action.dueDate ?? action.createdAt)
 }
 
-function formatOptionalDate(value?: string | null) {
+function formatOptionalDate(value?: string | Date | null) {
   return value ? new Intl.DateTimeFormat("sv-SE").format(new Date(value)) : "-"
 }
 

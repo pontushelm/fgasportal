@@ -8,6 +8,7 @@ import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
 import { calculateInstallationRisk } from "@/lib/risk-classification"
 import { buildServicePartnerCompanyMetrics } from "@/lib/service-partner-company-metrics"
+import { buildServicePartnerCompanyCertification } from "@/lib/service-partner-company-certifications"
 import {
   ensureServiceOrganizationForLegacyCompany,
   toServiceOrganizationBackedCompany,
@@ -185,7 +186,27 @@ export async function GET(request: NextRequest, context: RouteContext) {
       )
     }
 
-    const displayCompany = toServiceOrganizationBackedCompany(servicePartnerCompany)
+    const displayCompanyBase = toServiceOrganizationBackedCompany(servicePartnerCompany)
+    const certificationRecords = displayCompanyBase.serviceOrganizationId
+      ? await prisma.certificationRecord.findMany({
+          where: {
+            companyId: auth.user.companyId,
+            serviceOrganizationId: displayCompanyBase.serviceOrganizationId,
+            subjectType: "SERVICE_ORGANIZATION",
+            certificateType: "COMPANY_FGAS",
+            status: {
+              not: "DELETED",
+            },
+          },
+        })
+      : []
+    const displayCompany = {
+      ...displayCompanyBase,
+      certification: buildServicePartnerCompanyCertification({
+        company: servicePartnerCompany,
+        records: certificationRecords,
+      }),
+    }
     const contractors = servicePartnerCompany.memberships.map((membership) => {
       let overdueInspections = 0
       let dueSoonInspections = 0
@@ -250,6 +271,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
           contactEmail: displayCompany.contactEmail,
           phone: displayCompany.phone,
           certificateNumber: displayCompany.certificateNumber,
+          certification: displayCompany.certification,
           notes: displayCompany.notes,
         },
         assignedInstallationsCount: membership.user.assignedInstallations.length,
@@ -417,6 +439,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
           contactEmail: displayCompany.contactEmail,
           phone: displayCompany.phone,
           certificateNumber: displayCompany.certificateNumber,
+          certification: displayCompany.certification,
           notes: displayCompany.notes,
           createdAt: servicePartnerCompany.createdAt,
           updatedAt: servicePartnerCompany.updatedAt,

@@ -5,6 +5,10 @@ import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
 import { calculateInstallationRisk } from "@/lib/risk-classification"
 import { buildServicePartnerCompanyMetrics } from "@/lib/service-partner-company-metrics"
+import {
+  buildServicePartnerCompanyCertification,
+  isServicePartnerCompanyCertificationWarning,
+} from "@/lib/service-partner-company-certifications"
 import { toServiceOrganizationBackedCompany } from "@/lib/service-organizations"
 
 export async function GET(request: NextRequest) {
@@ -143,6 +147,59 @@ export async function GET(request: NextRequest) {
     ])
     logDevelopmentTiming("GET /api/contractors/overview queries", queryStartTime)
 
+    const serviceOrganizationIds = Array.from(
+      new Set(
+        [
+          ...servicePartnerCompanies.map((company) => company.serviceOrganizationId),
+          ...memberships.map(
+            (membership) =>
+              membership.servicePartnerCompany?.serviceOrganizationId ?? null
+          ),
+        ].filter((id): id is string => Boolean(id))
+      )
+    )
+    const certificationRecords =
+      serviceOrganizationIds.length > 0
+        ? await prisma.certificationRecord.findMany({
+            where: {
+              companyId: auth.user.companyId,
+              serviceOrganizationId: {
+                in: serviceOrganizationIds,
+              },
+              subjectType: "SERVICE_ORGANIZATION",
+              certificateType: "COMPANY_FGAS",
+              status: {
+                not: "DELETED",
+              },
+            },
+          })
+        : []
+    const certificationRecordsByServiceOrganization = new Map(
+      serviceOrganizationIds.map((id) => [
+        id,
+        certificationRecords.filter(
+          (record) => record.serviceOrganizationId === id
+        ),
+      ])
+    )
+    const servicePartnerCompanyRows = servicePartnerCompanies.map((company) => {
+      const displayCompany = toServiceOrganizationBackedCompany(company)
+
+      return {
+        ...displayCompany,
+        certification: buildServicePartnerCompanyCertification({
+          company,
+          records:
+            certificationRecordsByServiceOrganization.get(
+              displayCompany.serviceOrganizationId ?? ""
+            ) ?? [],
+        }),
+      }
+    })
+    const servicePartnerCompaniesById = new Map(
+      servicePartnerCompanyRows.map((company) => [company.id, company])
+    )
+
     const calculationStartTime = getDevelopmentTimingStart()
     const rows = memberships.map((membership) => {
       const contractor = membership.user
@@ -202,7 +259,19 @@ export async function GET(request: NextRequest) {
           validUntil: membership.certificationValidUntil,
         }),
         servicePartnerCompany: membership.servicePartnerCompany
-          ? toServiceOrganizationBackedCompany(membership.servicePartnerCompany)
+          ? servicePartnerCompaniesById.get(membership.servicePartnerCompany.id) ??
+            {
+              ...toServiceOrganizationBackedCompany(
+                membership.servicePartnerCompany
+              ),
+              certification: buildServicePartnerCompanyCertification({
+                company: membership.servicePartnerCompany,
+                records:
+                  certificationRecordsByServiceOrganization.get(
+                    membership.servicePartnerCompany.serviceOrganizationId ?? ""
+                  ) ?? [],
+              }),
+            }
           : null,
         assignedInstallationsCount: contractor.assignedInstallations.length,
         overdueInspections,
@@ -228,9 +297,7 @@ export async function GET(request: NextRequest) {
           totals.overdueInspections + contractor.overdueInspections,
         highRiskInstallations:
           totals.highRiskInstallations + contractor.highRiskInstallations,
-        expiredCertifications:
-          totals.expiredCertifications +
-          (contractor.certificationStatus.status === "EXPIRED" ? 1 : 0),
+        expiredCertifications: totals.expiredCertifications,
       }),
       {
         totalContractors: 0,
@@ -240,10 +307,10 @@ export async function GET(request: NextRequest) {
         expiredCertifications: 0,
       }
     )
+    summary.expiredCertifications = servicePartnerCompanyRows.filter((company) =>
+      isServicePartnerCompanyCertificationWarning(company.certification)
+    ).length
 
-    const servicePartnerCompanyRows = servicePartnerCompanies.map(
-      toServiceOrganizationBackedCompany
-    )
     const servicePartnerCompanyMetrics = buildServicePartnerCompanyMetrics({
       companies: servicePartnerCompanyRows,
       contractors: rows,
