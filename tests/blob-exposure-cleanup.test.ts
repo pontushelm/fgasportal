@@ -4,8 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 const authenticateApiRequest = vi.fn()
 const installationFindFirst = vi.fn()
 const installationUpdate = vi.fn()
+const documentFindMany = vi.fn()
 const installationDocumentCreate = vi.fn()
 const installationDocumentFindMany = vi.fn()
+const installationEventFindMany = vi.fn()
 const companyMembershipFindFirst = vi.fn()
 const transaction = vi.fn()
 const logActivity = vi.fn()
@@ -40,6 +42,12 @@ vi.mock("@/lib/db", () => ({
     installation: {
       findFirst: installationFindFirst,
       update: installationUpdate,
+    },
+    document: {
+      findMany: documentFindMany,
+    },
+    installationEvent: {
+      findMany: installationEventFindMany,
     },
     installationDocument: {
       create: installationDocumentCreate,
@@ -104,6 +112,8 @@ describe("Blob URL exposure cleanup", () => {
     authenticateApiRequest.mockResolvedValue({
       user: authUser,
     })
+    documentFindMany.mockResolvedValue([])
+    installationEventFindMany.mockResolvedValue([])
     logActivity.mockResolvedValue(undefined)
   })
 

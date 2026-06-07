@@ -10,6 +10,7 @@ import {
 import {
   buildFutureDocumentLinksFromInstallationDocument,
   buildFutureDocumentMetadataFromInstallationDocument,
+  buildGenericDocumentDownloadHref,
 } from "@/lib/documents/documentHelpers"
 import { logActivity } from "@/lib/activity-log"
 
@@ -69,10 +70,91 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return forbiddenResponse()
     }
 
-    const documents = await prisma.installationDocument.findMany({
+    const genericDocuments = await prisma.document.findMany({
+      where: {
+        companyId: auth.user.companyId,
+        status: "ACTIVE",
+        links: {
+          some: {
+            companyId: auth.user.companyId,
+            entityType: "INSTALLATION",
+            entityId: installation.id,
+          },
+        },
+      },
+      select: {
+        id: true,
+        uploadedByUserId: true,
+        originalFileName: true,
+        contentType: true,
+        sizeBytes: true,
+        category: true,
+        description: true,
+        createdAt: true,
+        legacyInstallationDocumentId: true,
+        uploadedBy: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+        links: {
+          select: {
+            entityType: true,
+            entityId: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    })
+
+    const eventIds = Array.from(
+      new Set(
+        genericDocuments.flatMap((document) =>
+          document.links
+            .filter((link) => link.entityType === "INSTALLATION_EVENT")
+            .map((link) => link.entityId)
+        )
+      )
+    )
+
+    const linkedEvents = eventIds.length
+      ? await prisma.installationEvent.findMany({
+          where: {
+            id: {
+              in: eventIds,
+            },
+            installationId: installation.id,
+            installation: {
+              companyId: auth.user.companyId,
+            },
+          },
+          select: {
+            id: true,
+            type: true,
+            date: true,
+          },
+        })
+      : []
+    const eventById = new Map(linkedEvents.map((event) => [event.id, event]))
+
+    const migratedLegacyDocumentIds = genericDocuments
+      .map((document) => document.legacyInstallationDocumentId)
+      .filter((documentId): documentId is string => Boolean(documentId))
+
+    const legacyDocuments = await prisma.installationDocument.findMany({
       where: {
         installationId: installation.id,
         companyId: auth.user.companyId,
+        ...(migratedLegacyDocumentIds.length
+          ? {
+              id: {
+                notIn: migratedLegacyDocumentIds,
+              },
+            }
+          : {}),
       },
       include: {
         uploadedBy: {
@@ -94,20 +176,47 @@ export async function GET(request: NextRequest, context: RouteContext) {
       },
     })
 
-    return NextResponse.json(
-      documents.map((document) => ({
+    const genericDocumentItems = genericDocuments.map((document) => {
+      const linkedEventId = document.links.find(
+        (link) => link.entityType === "INSTALLATION_EVENT"
+      )?.entityId
+
+      return {
         id: document.id,
-        uploadedById: document.uploadedById,
+        uploadedById: document.uploadedByUserId,
         originalFileName: document.originalFileName,
-        downloadHref: buildDocumentDownloadHref(installation.id, document.id),
-        mimeType: document.mimeType,
+        downloadHref: buildGenericDocumentDownloadHref(document.id),
+        mimeType: document.contentType,
         sizeBytes: document.sizeBytes,
-        documentType: document.documentType,
+        documentType: mapDocumentCategoryToLegacyDocumentType(
+          document.category
+        ),
         description: document.description,
         createdAt: document.createdAt,
         uploadedBy: document.uploadedBy,
-        event: document.event,
-      })),
+        event: linkedEventId ? eventById.get(linkedEventId) ?? null : null,
+      }
+    })
+
+    const legacyDocumentItems = legacyDocuments.map((document) => ({
+      id: document.id,
+      uploadedById: document.uploadedById,
+      originalFileName: document.originalFileName,
+      downloadHref: buildDocumentDownloadHref(installation.id, document.id),
+      mimeType: document.mimeType,
+      sizeBytes: document.sizeBytes,
+      documentType: document.documentType,
+      description: document.description,
+      createdAt: document.createdAt,
+      uploadedBy: document.uploadedBy,
+      event: document.event,
+    }))
+
+    return NextResponse.json(
+      [...genericDocumentItems, ...legacyDocumentItems].sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      ),
       { status: 200 }
     )
   } catch (error: unknown) {
@@ -346,4 +455,15 @@ function buildDocumentDownloadHref(installationId: string, documentId: string) {
   return `/api/installations/${encodeURIComponent(
     installationId
   )}/documents/${encodeURIComponent(documentId)}/download`
+}
+
+function mapDocumentCategoryToLegacyDocumentType(
+  category: string
+): DocumentTypeValue {
+  if (isLegacyDocumentType(category)) return category
+  return "OTHER"
+}
+
+function isLegacyDocumentType(value: string): value is DocumentTypeValue {
+  return DOCUMENT_TYPES.includes(value as DocumentTypeValue)
 }
