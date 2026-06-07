@@ -63,6 +63,7 @@ const genericDocument = {
   category: "INSPECTION_REPORT",
   description: "Kontroll",
   createdAt: new Date("2026-01-02"),
+  status: "ACTIVE",
   legacyInstallationDocumentId: "legacy-document-1",
   uploadedBy: {
     name: "Owner",
@@ -233,6 +234,31 @@ describe("installation document list generic reads", () => {
       "legacy-document-2",
       "generic-document-1",
     ])
+  })
+
+  it("hides deleted generic documents and does not fall back to their legacy rows", async () => {
+    documentFindMany.mockResolvedValueOnce([
+      {
+        ...genericDocument,
+        status: "DELETED",
+      },
+    ])
+    const { GET } = await import("@/app/api/installations/[id]/documents/route")
+
+    const response = await GET(createRequest(), routeContext)
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body).toEqual([])
+    expect(installationDocumentFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: {
+            notIn: ["legacy-document-1"],
+          },
+        }),
+      })
+    )
   })
 })
 

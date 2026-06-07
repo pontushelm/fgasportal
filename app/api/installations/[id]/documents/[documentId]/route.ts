@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import { del } from "@vercel/blob"
 import { prisma } from "@/lib/db"
 import { authenticateApiRequest, forbiddenResponse } from "@/lib/auth"
 import { canDeleteInstallationDocument } from "@/lib/document-access"
+import {
+  buildFutureDocumentLinksFromInstallationDocument,
+  buildFutureDocumentMetadataFromInstallationDocument,
+} from "@/lib/documents/documentHelpers"
 import { logActivity } from "@/lib/activity-log"
 
 type RouteContext = {
@@ -17,18 +20,73 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    const { id, documentId } = await context.params
+    const installation = await prisma.installation.findFirst({
+      where: {
+        id,
+        companyId: auth.user.companyId,
+      },
+      select: {
+        id: true,
+        companyId: true,
+        assignedContractorId: true,
+        assignedServicePartnerCompanyId: true,
+      },
+    })
+
+    if (!installation) {
       return NextResponse.json(
-        { error: "Blob storage är inte konfigurerat" },
-        { status: 500 }
+        { error: "Aggregatet hittades inte" },
+        { status: 404 }
       )
     }
 
-    const { id, documentId } = await context.params
-    const document = await prisma.installationDocument.findFirst({
+    const genericDocument = await prisma.document.findFirst({
       where: {
-        id: documentId,
-        installationId: id,
+        companyId: auth.user.companyId,
+        OR: [
+          {
+            id: documentId,
+          },
+          {
+            legacyInstallationDocumentId: documentId,
+          },
+        ],
+        links: {
+          some: {
+            companyId: auth.user.companyId,
+            entityType: "INSTALLATION",
+            entityId: installation.id,
+          },
+        },
+      },
+      select: {
+        id: true,
+        uploadedByUserId: true,
+        originalFileName: true,
+        fileName: true,
+        category: true,
+        status: true,
+        legacyInstallationDocumentId: true,
+        links: {
+          select: {
+            entityType: true,
+            entityId: true,
+            role: true,
+          },
+        },
+      },
+    })
+
+    const legacyDocumentId =
+      genericDocument?.legacyInstallationDocumentId &&
+      genericDocument.id === documentId
+        ? genericDocument.legacyInstallationDocumentId
+        : documentId
+    const legacyDocument = await prisma.installationDocument.findFirst({
+      where: {
+        id: legacyDocumentId,
+        installationId: installation.id,
         companyId: auth.user.companyId,
       },
       include: {
@@ -42,26 +100,105 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       },
     })
 
-    if (!document) {
+    if (!genericDocument && !legacyDocument) {
       return NextResponse.json(
         { error: "Dokumentet hittades inte" },
         { status: 404 }
       )
     }
 
-    if (!canDeleteInstallationDocument(auth.user, document)) {
+    const permissionRecord = legacyDocument
+      ? legacyDocument
+      : {
+          uploadedById: genericDocument?.uploadedByUserId ?? "",
+          installation,
+        }
+
+    if (!canDeleteInstallationDocument(auth.user, permissionRecord)) {
       return forbiddenResponse()
     }
 
-    await del(document.blobPath || document.fileUrl, {
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-    })
+    const deletedAt = new Date()
+    const deletedDocument = await prisma.$transaction(async (tx) => {
+      if (genericDocument) {
+        return tx.document.update({
+          where: {
+            id: genericDocument.id,
+          },
+          data: {
+            status: "DELETED",
+            deletedAt,
+            deletedByUserId: auth.user.userId,
+          },
+          select: {
+            id: true,
+            originalFileName: true,
+            fileName: true,
+            category: true,
+            links: {
+              select: {
+                entityType: true,
+                entityId: true,
+                role: true,
+              },
+            },
+          },
+        })
+      }
 
-    await prisma.installationDocument.delete({
-      where: {
-        id: document.id,
-      },
+      if (!legacyDocument) {
+        throw new Error("Legacy document missing for generic tombstone")
+      }
+
+      const document = await tx.document.create({
+        data: {
+          ...buildFutureDocumentMetadataFromInstallationDocument(
+            legacyDocument
+          ),
+          status: "DELETED",
+          deletedAt,
+          deletedByUserId: auth.user.userId,
+        },
+        select: {
+          id: true,
+          originalFileName: true,
+          fileName: true,
+          category: true,
+          links: {
+            select: {
+              entityType: true,
+              entityId: true,
+              role: true,
+            },
+          },
+        },
+      })
+
+      const links = buildFutureDocumentLinksFromInstallationDocument(
+        legacyDocument
+      )
+      for (const link of links) {
+        await tx.documentLink.create({
+          data: {
+            documentId: document.id,
+            ...link,
+          },
+        })
+      }
+
+      return {
+        ...document,
+        links: links.map((link) => ({
+          entityType: link.entityType,
+          entityId: link.entityId,
+          role: link.role,
+        })),
+      }
     })
+    const installationLink =
+      deletedDocument.links.find(
+        (link) => link.entityType === "INSTALLATION"
+      ) ?? deletedDocument.links[0] ?? null
 
     await logActivity({
       companyId: auth.user.companyId,
@@ -69,10 +206,13 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       userId: auth.user.userId,
       action: "document_deleted",
       entityType: "document",
-      entityId: document.id,
+      entityId: deletedDocument.id,
       metadata: {
-        fileName: document.originalFileName,
-        documentType: document.documentType,
+        documentId: deletedDocument.id,
+        category: deletedDocument.category,
+        fileName: deletedDocument.originalFileName || deletedDocument.fileName,
+        entityType: installationLink?.entityType ?? null,
+        entityId: installationLink?.entityId ?? null,
       },
     })
 
@@ -81,7 +221,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     console.error("Delete installation document error:", error)
 
     return NextResponse.json(
-      { error: "Kunde inte ta bort dokumentet från Blob storage" },
+      { error: "Kunde inte ta bort dokumentet" },
       { status: 500 }
     )
   }

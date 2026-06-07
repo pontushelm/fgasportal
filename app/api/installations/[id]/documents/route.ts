@@ -91,6 +91,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         category: true,
         description: true,
         createdAt: true,
+        status: true,
         legacyInstallationDocumentId: true,
         uploadedBy: {
           select: {
@@ -110,9 +111,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
       },
     })
 
+    const activeGenericDocuments = genericDocuments.filter(
+      (document) => document.status === "ACTIVE"
+    )
+
     const eventIds = Array.from(
       new Set(
-        genericDocuments.flatMap((document) =>
+        activeGenericDocuments.flatMap((document) =>
           document.links
             .filter((link) => link.entityType === "INSTALLATION_EVENT")
             .map((link) => link.entityId)
@@ -176,7 +181,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       },
     })
 
-    const genericDocumentItems = genericDocuments.map((document) => {
+    const genericDocumentItems = activeGenericDocuments.map((document) => {
       const linkedEventId = document.links.find(
         (link) => link.entityType === "INSTALLATION_EVENT"
       )?.entityId
