@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const authenticateApiRequest = vi.fn()
 const installationFindFirst = vi.fn()
+const documentFindFirst = vi.fn()
 const blobGet = vi.fn()
 const logActivity = vi.fn()
 
@@ -24,6 +25,9 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     installation: {
       findFirst: installationFindFirst,
+    },
+    document: {
+      findFirst: documentFindFirst,
     },
   },
 }))
@@ -56,6 +60,7 @@ describe("scrap certificate download route", () => {
       },
     })
     installationFindFirst.mockResolvedValue(installationRecord)
+    documentFindFirst.mockResolvedValue(null)
     blobGet.mockResolvedValue({
       statusCode: 200,
       stream: byteStream([4, 5, 6]),
@@ -97,6 +102,34 @@ describe("scrap certificate download route", () => {
     expect(response.headers.get("content-type")).toBe("application/pdf")
     expect(response.headers.get("content-disposition")).toContain(
       "skrotningsintyg-2026.pdf"
+    )
+  })
+
+  it("prefers generic scrap certificate documents when available", async () => {
+    const { GET } = await import(
+      "@/app/api/installations/[id]/scrap/certificate/download/route"
+    )
+    documentFindFirst.mockResolvedValueOnce({
+      id: "document-scrap-1",
+      originalFileName: "Generiskt intyg.pdf",
+      fileName: "generiskt-intyg.pdf",
+      contentType: "application/pdf",
+      storageKey:
+        "companies/company-1/installations/installation-1/scrap/generic.pdf",
+    })
+
+    const response = await GET(createRequest(), routeContext)
+
+    expect(response.status).toBe(200)
+    expect(blobGet).toHaveBeenCalledWith(
+      "companies/company-1/installations/installation-1/scrap/generic.pdf",
+      {
+        access: "public",
+        token: "blob-token",
+      }
+    )
+    expect(response.headers.get("content-disposition")).toContain(
+      "generiskt-intyg.pdf"
     )
   })
 
@@ -198,6 +231,8 @@ describe("scrap certificate download route", () => {
         installationId: "installation-1",
         fileName: "Skrotningsintyg 2026.pdf",
         blobPath: installationRecord.scrapCertificateBlobPath,
+        documentId: null,
+        category: null,
       },
     })
   })

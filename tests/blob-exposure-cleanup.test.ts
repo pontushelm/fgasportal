@@ -5,6 +5,9 @@ const authenticateApiRequest = vi.fn()
 const installationFindFirst = vi.fn()
 const installationUpdate = vi.fn()
 const documentFindMany = vi.fn()
+const documentFindFirst = vi.fn()
+const documentCreate = vi.fn()
+const documentLinkCreate = vi.fn()
 const installationDocumentCreate = vi.fn()
 const installationDocumentFindMany = vi.fn()
 const installationEventFindMany = vi.fn()
@@ -45,6 +48,7 @@ vi.mock("@/lib/db", () => ({
     },
     document: {
       findMany: documentFindMany,
+      findFirst: documentFindFirst,
     },
     installationEvent: {
       findMany: installationEventFindMany,
@@ -113,6 +117,7 @@ describe("Blob URL exposure cleanup", () => {
       user: authUser,
     })
     documentFindMany.mockResolvedValue([])
+    documentFindFirst.mockResolvedValue(null)
     installationEventFindMany.mockResolvedValue([])
     logActivity.mockResolvedValue(undefined)
   })
@@ -175,6 +180,32 @@ describe("Blob URL exposure cleanup", () => {
     )
   })
 
+  it("uses generic scrap certificate metadata in installation detail responses", async () => {
+    const { GET } = await import("@/app/api/installations/[id]/route")
+    installationFindFirst.mockResolvedValueOnce({
+      ...installationDetailRecord,
+      scrapCertificateUrl: null,
+      scrapCertificateBlobPath: null,
+      scrapCertificateFileName: null,
+    })
+    documentFindFirst.mockResolvedValueOnce({
+      id: "generic-scrap-document-1",
+      originalFileName: "Generiskt skrotningsintyg.pdf",
+    })
+
+    const response = await GET(createRequest("/api/installations/installation-1"), {
+      params: Promise.resolve({ id: "installation-1" }),
+    })
+    const body = await response.json()
+
+    expect(body.scrapCertificateFileName).toBe("Generiskt skrotningsintyg.pdf")
+    expect(body.scrapCertificateDownloadHref).toBe(
+      "/api/installations/installation-1/scrap/certificate/download"
+    )
+    expect(body).not.toHaveProperty("scrapCertificateUrl")
+    expect(body).not.toHaveProperty("scrapCertificateBlobPath")
+  })
+
   it("does not return direct Blob fields in scrap upload responses", async () => {
     const { POST } = await import("@/app/api/installations/[id]/scrap/route")
     installationFindFirst.mockResolvedValueOnce({
@@ -210,6 +241,16 @@ describe("Blob URL exposure cleanup", () => {
             assignedServicePartnerCompany: undefined,
             property: undefined,
             inspections: undefined,
+          }),
+        },
+        document: {
+          create: documentCreate.mockResolvedValueOnce({
+            id: "generic-document-1",
+          }),
+        },
+        documentLink: {
+          create: documentLinkCreate.mockResolvedValueOnce({
+            id: "generic-link-1",
           }),
         },
       })

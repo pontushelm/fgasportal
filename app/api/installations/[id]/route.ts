@@ -174,10 +174,33 @@ export async function GET(request: NextRequest, context: RouteContext) {
           },
         })
       : null
+    const scrapCertificateDocument = await prisma.document.findFirst({
+      where: {
+        companyId,
+        status: "ACTIVE",
+        category: "SCRAP_CERTIFICATE",
+        links: {
+          some: {
+            companyId,
+            entityType: "INSTALLATION",
+            entityId: installationData.id,
+            role: "SCRAP_CERTIFICATE",
+          },
+        },
+      },
+      select: {
+        id: true,
+        originalFileName: true,
+      },
+    })
+    const scrapCertificateFileName =
+      scrapCertificateDocument?.originalFileName ??
+      installationData.scrapCertificateFileName
 
     return NextResponse.json(
       {
         ...publicInstallationData,
+        scrapCertificateFileName,
         assignedContractor: assignedContractor
           ? {
               id: assignedContractor.id,
@@ -220,9 +243,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 : null,
             }
           : null,
-        scrapCertificateDownloadHref: installationData.scrapCertificateBlobPath
-          ? buildScrapCertificateDownloadHref(installationData.id)
-          : null,
+        scrapCertificateDownloadHref:
+          scrapCertificateDocument || installationData.scrapCertificateBlobPath
+            ? buildScrapCertificateDownloadHref(installationData.id)
+            : null,
       },
       { status: 200 }
     )

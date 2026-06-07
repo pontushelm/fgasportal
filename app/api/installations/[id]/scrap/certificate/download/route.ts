@@ -53,14 +53,46 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return forbiddenResponse()
     }
 
-    if (!installation.scrapCertificateBlobPath) {
+    const genericCertificate = await prisma.document.findFirst({
+      where: {
+        companyId: auth.user.companyId,
+        status: "ACTIVE",
+        category: "SCRAP_CERTIFICATE",
+        links: {
+          some: {
+            companyId: auth.user.companyId,
+            entityType: "INSTALLATION",
+            entityId: installation.id,
+            role: "SCRAP_CERTIFICATE",
+          },
+        },
+      },
+      select: {
+        id: true,
+        originalFileName: true,
+        fileName: true,
+        contentType: true,
+        storageKey: true,
+      },
+    })
+    const storageKey =
+      genericCertificate?.storageKey ?? installation.scrapCertificateBlobPath
+    const fileName =
+      genericCertificate?.originalFileName ||
+      genericCertificate?.fileName ||
+      installation.scrapCertificateFileName ||
+      "skrotningsintyg.pdf"
+    const contentType =
+      genericCertificate?.contentType || inferContentType(fileName)
+
+    if (!storageKey) {
       return NextResponse.json(
         { error: "Skrotningsintyg saknas" },
         { status: 404 }
       )
     }
 
-    const storedCertificate = await get(installation.scrapCertificateBlobPath, {
+    const storedCertificate = await get(storageKey, {
       access: "public",
       token: process.env.BLOB_READ_WRITE_TOKEN,
     })
@@ -77,8 +109,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     const file = await streamToUint8Array(storedCertificate.stream)
-    const fileName =
-      installation.scrapCertificateFileName || "skrotningsintyg.pdf"
 
     await logActivity({
       companyId: auth.user.companyId,
@@ -90,7 +120,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
       metadata: {
         installationId: installation.id,
         fileName,
-        blobPath: installation.scrapCertificateBlobPath,
+        blobPath: storageKey,
+        documentId: genericCertificate?.id ?? null,
+        category: genericCertificate ? "SCRAP_CERTIFICATE" : null,
       },
     })
 
@@ -100,7 +132,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         "Content-Disposition": `attachment; filename="${sanitizeHeaderFileName(
           fileName
         )}"`,
-        "Content-Type": inferContentType(fileName),
+        "Content-Type": contentType,
       },
     })
   } catch (error) {

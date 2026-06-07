@@ -5,6 +5,10 @@ import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
 import { getCertificationStatus } from "@/lib/certification-status"
 import { prisma } from "@/lib/db"
 import { logActivity } from "@/lib/activity-log"
+import {
+  buildFutureDocumentMetadataFromScrapCertificate,
+  buildFutureScrapCertificateLinkMetadata,
+} from "@/lib/documents/documentHelpers"
 
 type RouteContext = {
   params: Promise<{
@@ -170,6 +174,33 @@ export async function POST(request: NextRequest, context: RouteContext) {
             sizeBytes: certificate.size,
             documentType: "OTHER",
             description: "Skrotningsintyg",
+          },
+        })
+
+        const genericDocument = await tx.document.create({
+          data: {
+            ...buildFutureDocumentMetadataFromScrapCertificate({
+              installationId: installation.id,
+              companyId: auth.user.companyId,
+              fileName: certificate.name,
+              storageKey: blob.pathname,
+              uploadedByUserId: auth.user.userId,
+              sizeBytes: certificate.size,
+            }),
+            fileName,
+            contentType: certificate.type,
+            legacyInstallationDocumentId: document.id,
+          },
+        })
+
+        await tx.documentLink.create({
+          data: {
+            documentId: genericDocument.id,
+            ...buildFutureScrapCertificateLinkMetadata({
+              companyId: auth.user.companyId,
+              installationId: installation.id,
+              linkedByUserId: auth.user.userId,
+            }),
           },
         })
 
