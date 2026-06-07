@@ -24,7 +24,6 @@ const servicePartnerCompanySchema = z.object({
   organizationNumber: optionalText(40),
   contactEmail: z.string().trim().email("Ogiltig e-postadress").optional().or(z.literal("")).transform((value) => value || null),
   phone: optionalText(40),
-  certificateNumber: optionalText(120),
   notes: optionalText(1000),
 })
 
@@ -475,7 +474,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (!bridge) {
       return NextResponse.json(
-        { error: "ServicefÃ¶retaget hittades inte" },
+        { error: "Serviceföretaget hittades inte" },
         { status: 404 }
       )
     }
@@ -489,7 +488,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         organizationNumber: data.organizationNumber,
         contactEmail: data.contactEmail,
         phone: data.phone,
-        certificateNumber: data.certificateNumber,
       },
     })
 

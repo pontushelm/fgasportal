@@ -14,7 +14,6 @@ const servicePartnerCompanySchema = z.object({
   organizationNumber: optionalText(40),
   contactEmail: z.string().trim().email("Ogiltig e-postadress").optional().or(z.literal("")).transform((value) => value || null),
   phone: optionalText(40),
-  certificateNumber: optionalText(120),
   responsibleContactEmail: z
     .string()
     .trim()
@@ -83,7 +82,6 @@ export async function POST(request: NextRequest) {
           organizationNumber: data.organizationNumber,
           contactEmail: data.contactEmail,
           phone: data.phone,
-          certificateNumber: data.certificateNumber,
         },
         select: {
           id: true,

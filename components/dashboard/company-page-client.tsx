@@ -92,6 +92,17 @@ type ServicePartnerSettings = {
   contactEmail: string | null
   phone: string | null
   certificateNumber: string | null
+  certification?: {
+    certificateNumber: string | null
+    issuer: string | null
+    validUntil: string | null
+    status: {
+      status: string
+      label: string
+      variant: React.ComponentProps<typeof Badge>["variant"]
+    }
+    source: "CERTIFICATION_RECORD" | "LEGACY"
+  } | null
 }
 
 type ServicePartnerSettingsFormData = {
@@ -99,6 +110,8 @@ type ServicePartnerSettingsFormData = {
   contactEmail: string
   phone: string
   certificateNumber: string
+  certificateIssuer: string
+  certificateValidUntil: string
 }
 
 const initialInvitationFormData: InvitationFormData = {
@@ -129,6 +142,8 @@ const initialServicePartnerSettingsFormData: ServicePartnerSettingsFormData = {
   contactEmail: "",
   phone: "",
   certificateNumber: "",
+  certificateIssuer: "",
+  certificateValidUntil: "",
 }
 
 const fieldClassName = "grid gap-1 text-sm font-medium text-slate-700"
@@ -1315,6 +1330,25 @@ function ServicePartnerSettingsPanel({
               onChange={onChange}
             />
           </label>
+          <label className={fieldClassName}>
+            Utfärdare
+            <input
+              className={inputClassName}
+              name="certificateIssuer"
+              value={form.certificateIssuer}
+              onChange={onChange}
+            />
+          </label>
+          <label className={fieldClassName}>
+            Giltigt till
+            <input
+              className={inputClassName}
+              name="certificateValidUntil"
+              type="date"
+              value={form.certificateValidUntil}
+              onChange={onChange}
+            />
+          </label>
           <div className="flex flex-wrap gap-2 md:col-span-2">
             <button
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
@@ -1335,16 +1369,85 @@ function ServicePartnerSettingsPanel({
           {error && <p className="font-semibold text-red-700 md:col-span-2">{error}</p>}
         </form>
       ) : (
-        <dl className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <ProfileItem label="Företagsnamn" value={settings.name} />
-          <ProfileItem label="Organisationsnummer" value={settings.organizationNumber} />
-          <ProfileItem label="E-post" value={settings.contactEmail} />
-          <ProfileItem label="Telefon" value={settings.phone} />
-          <ProfileItem label="Företagscertifikat nr" value={settings.certificateNumber} />
-        </dl>
+        <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_1.1fr]">
+          <dl className="grid gap-4 md:grid-cols-2">
+            <ProfileItem label="Företagsnamn" value={settings.name} />
+            <ProfileItem label="Organisationsnummer" value={settings.organizationNumber} />
+            <ProfileItem label="E-post" value={settings.contactEmail} />
+            <ProfileItem label="Telefon" value={settings.phone} />
+          </dl>
+          <CertificationCard settings={settings} />
+        </div>
       )}
     </Card>
   )
+}
+
+function CertificationCard({ settings }: { settings: ServicePartnerSettings }) {
+  const certification = settings.certification
+  const certificateNumber =
+    certification?.certificateNumber ?? settings.certificateNumber
+  const status = getServicePartnerCertificationDisplayStatus(settings)
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-950">
+            Företagscertifikat
+          </h3>
+          <p className="mt-1 text-xs text-slate-600">
+            Certifikat för serviceorganisationens F-gasarbeten.
+          </p>
+        </div>
+        <Badge variant={status.variant}>{status.label}</Badge>
+      </div>
+      <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+        <ProfileItem label="Certifikatnummer" value={certificateNumber} />
+        <ProfileItem label="Utfärdare" value={certification?.issuer ?? null} />
+        <ProfileItem
+          label="Giltigt till"
+          value={
+            certification?.validUntil
+              ? formatDate(certification.validUntil)
+              : null
+          }
+        />
+        <ProfileItem
+          label="Källa"
+          value={
+            certification?.source === "CERTIFICATION_RECORD"
+              ? "Certifieringsregister"
+              : "Äldre certifikatfält"
+          }
+        />
+      </dl>
+    </div>
+  )
+}
+
+function getServicePartnerCertificationDisplayStatus(
+  settings: ServicePartnerSettings
+) {
+  const certification = settings.certification
+  const certificateNumber =
+    certification?.certificateNumber ?? settings.certificateNumber
+
+  if (!certificateNumber) {
+    return {
+      label: "Saknas",
+      variant: "neutral" as const,
+    }
+  }
+
+  if (!certification?.validUntil) {
+    return {
+      label: "Giltighet saknas",
+      variant: "warning" as const,
+    }
+  }
+
+  return certification.status
 }
 
 function ServicePartnerTechnicianInvitePanel({
@@ -1622,12 +1725,24 @@ function toBillingFormData(company: CompanyProfile): BillingFormData {
 function toServicePartnerSettingsFormData(
   settings: ServicePartnerSettings
 ): ServicePartnerSettingsFormData {
+  const certification = settings.certification
+
   return {
     name: settings.name,
     contactEmail: settings.contactEmail || "",
     phone: settings.phone || "",
-    certificateNumber: settings.certificateNumber || "",
+    certificateNumber:
+      certification?.certificateNumber || settings.certificateNumber || "",
+    certificateIssuer: certification?.issuer || "",
+    certificateValidUntil: toDateInputValue(certification?.validUntil ?? null),
   }
+}
+
+function toDateInputValue(value: string | null) {
+  if (!value) return ""
+  const date = new Date(value)
+  if (!Number.isFinite(date.getTime())) return ""
+  return date.toISOString().slice(0, 10)
 }
 
 function formatDate(value: string) {
