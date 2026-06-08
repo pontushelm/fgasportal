@@ -118,6 +118,13 @@ type CertificationFormData = {
   certificationValidUntil: string
 }
 
+type TechnicianCertificationFormData = {
+  certificateNumber: string
+  issuer: string
+  category: string
+  validUntil: string
+}
+
 const STATUS_LABELS: Record<ComplianceStatus, string> = {
   OK: "OK",
   DUE_SOON: "Kontroll inom 30 dagar",
@@ -195,6 +202,13 @@ const initialCertificationForm: CertificationFormData = {
   certificationValidUntil: "",
 }
 
+const initialTechnicianCertificationForm: TechnicianCertificationFormData = {
+  certificateNumber: "",
+  issuer: "",
+  category: "",
+  validUntil: "",
+}
+
 export default function ServiceDashboardPage() {
   const router = useRouter()
   const [installations, setInstallations] = useState<ServiceInstallation[]>([])
@@ -213,6 +227,14 @@ export default function ServiceDashboardPage() {
     useState<"all" | "unassigned" | "assigned">("all")
   const [error, setError] = useState("")
   const [certificationError, setCertificationError] = useState("")
+  const [editingTechnician, setEditingTechnician] =
+    useState<ServiceTechnician | null>(null)
+  const [technicianCertificationForm, setTechnicianCertificationForm] =
+    useState<TechnicianCertificationFormData>(initialTechnicianCertificationForm)
+  const [technicianCertificationError, setTechnicianCertificationError] =
+    useState("")
+  const [isSavingTechnicianCertification, setIsSavingTechnicianCertification] =
+    useState(false)
   const [toast, setToast] = useState<ToastMessage | null>(null)
 
   useEffect(() => {
@@ -508,6 +530,88 @@ export default function ServiceDashboardPage() {
     setAssigningInstallationId("")
   }
 
+  function openTechnicianCertificationEditor(technician: ServiceTechnician) {
+    setEditingTechnician(technician)
+    setTechnicianCertificationForm(toTechnicianCertificationForm(technician))
+    setTechnicianCertificationError("")
+  }
+
+  function closeTechnicianCertificationEditor() {
+    if (isSavingTechnicianCertification) return
+    setEditingTechnician(null)
+    setTechnicianCertificationForm(initialTechnicianCertificationForm)
+    setTechnicianCertificationError("")
+  }
+
+  function handleTechnicianCertificationChange(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    setTechnicianCertificationForm((current) => ({
+      ...current,
+      [event.target.name]: event.target.value,
+    }))
+  }
+
+  async function handleTechnicianCertificationSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    if (!editingTechnician) return
+
+    setTechnicianCertificationError("")
+    setIsSavingTechnicianCertification(true)
+
+    const response = await fetch(
+      `/api/dashboard/service/technicians/${editingTechnician.id}/certification`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(technicianCertificationForm),
+      }
+    )
+    const result: TechnicianCertificationSummary & { error?: string } =
+      await response.json()
+
+    if (response.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!response.ok) {
+      setTechnicianCertificationError(
+        result.error || "Kunde inte spara personcertifikatet."
+      )
+      setToast({
+        type: "error",
+        title: "Fel",
+        message: result.error || "Kunde inte spara personcertifikatet.",
+      })
+      setIsSavingTechnicianCertification(false)
+      return
+    }
+
+    setTechnicians((current) =>
+      current.map((technician) =>
+        technician.id === editingTechnician.id
+          ? {
+              ...technician,
+              certification: result,
+            }
+          : technician
+      )
+    )
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Personcertifikatet har sparats.",
+    })
+    setIsSavingTechnicianCertification(false)
+    setEditingTechnician(null)
+    setTechnicianCertificationForm(initialTechnicianCertificationForm)
+    setTechnicianCertificationError("")
+  }
+
   const eventCertificationWarning = getCertificationWarning(null)
   const isServicePartnerAdmin = Boolean(currentUser?.isServicePartnerAdmin)
   const showCompanyCertificationPanel = false
@@ -678,10 +782,11 @@ export default function ServiceDashboardPage() {
                   <thead className="bg-slate-50">
                     <tr>
                       <TableHeader>Tekniker</TableHeader>
-                      <TableHeader>Certifikatstatus</TableHeader>
-                      <TableHeader>Certifikat</TableHeader>
-                      <TableHeader>Giltigt till</TableHeader>
-                    </tr>
+                        <TableHeader>Certifikatstatus</TableHeader>
+                        <TableHeader>Certifikat</TableHeader>
+                        <TableHeader>Giltigt till</TableHeader>
+                        <TableHeader>Åtgärd</TableHeader>
+                      </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
                     {technicians.map((technician) => (
@@ -723,6 +828,17 @@ export default function ServiceDashboardPage() {
                           {formatOptionalDate(
                             technician.certification?.validUntil ?? null
                           )}
+                        </TableCell>
+                        <TableCell>
+                          <button
+                            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-100"
+                            type="button"
+                            onClick={() =>
+                              openTechnicianCertificationEditor(technician)
+                            }
+                          >
+                            Redigera
+                          </button>
                         </TableCell>
                       </tr>
                     ))}
@@ -973,6 +1089,88 @@ export default function ServiceDashboardPage() {
             </button>
           </form>
         </section>
+      )}
+
+      {editingTechnician && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4 py-6">
+          <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-xl">
+            <div className="border-b border-slate-200 px-5 py-4">
+              <h2 className="text-lg font-semibold text-slate-950">
+                Redigera personcertifikat
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                {formatTechnicianName(editingTechnician)}
+              </p>
+            </div>
+            <form
+              className="grid gap-4 px-5 py-5"
+              onSubmit={handleTechnicianCertificationSubmit}
+            >
+              <label className={fieldClassName}>
+                Certifikatnummer
+                <input
+                  className={inputClassName}
+                  name="certificateNumber"
+                  value={technicianCertificationForm.certificateNumber}
+                  onChange={handleTechnicianCertificationChange}
+                />
+              </label>
+              <label className={fieldClassName}>
+                Utfärdare
+                <input
+                  className={inputClassName}
+                  name="issuer"
+                  value={technicianCertificationForm.issuer}
+                  onChange={handleTechnicianCertificationChange}
+                />
+              </label>
+              <label className={fieldClassName}>
+                Kategori
+                <input
+                  className={inputClassName}
+                  name="category"
+                  value={technicianCertificationForm.category}
+                  onChange={handleTechnicianCertificationChange}
+                />
+              </label>
+              <label className={fieldClassName}>
+                Giltigt till
+                <input
+                  className={inputClassName}
+                  name="validUntil"
+                  type="date"
+                  value={technicianCertificationForm.validUntil}
+                  onChange={handleTechnicianCertificationChange}
+                />
+              </label>
+              <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+                Lämna certifikatnummer tomt för att markera certifikatet som saknat.
+              </p>
+              {technicianCertificationError && (
+                <p className="text-sm font-semibold text-red-700">
+                  {technicianCertificationError}
+                </p>
+              )}
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100 disabled:opacity-60"
+                  type="button"
+                  onClick={closeTechnicianCertificationEditor}
+                  disabled={isSavingTechnicianCertification}
+                >
+                  Avbryt
+                </button>
+                <button
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                  type="submit"
+                  disabled={isSavingTechnicianCertification}
+                >
+                  {isSavingTechnicianCertification ? "Sparar..." : "Spara"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </main>
   )
@@ -1234,6 +1432,17 @@ function formatTechnicianName(technician: ServiceTechnician) {
   return technician.isServicePartnerAdmin ? `${label} (ansvarig)` : label
 }
 
+function toTechnicianCertificationForm(
+  technician: ServiceTechnician
+): TechnicianCertificationFormData {
+  return {
+    certificateNumber: technician.certification?.certificateNumber ?? "",
+    issuer: technician.certification?.issuer ?? "",
+    category: technician.certification?.category ?? "",
+    validUntil: toDateInputValue(technician.certification?.validUntil ?? null),
+  }
+}
+
 function getTechnicianCertificationSummary(technicians: ServiceTechnician[]) {
   return technicians.reduce(
     (summary, technician) => {
@@ -1287,3 +1496,5 @@ function getCertificationWarning(status: CertificationStatusResult | null) {
 }
 
 const fieldClassName = "grid gap-1 text-sm font-medium text-slate-700"
+const inputClassName =
+  "rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
