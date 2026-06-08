@@ -5,8 +5,8 @@ import { canManageServicepartnerTechnicianAssignments } from "@/lib/access/insta
 import { prisma } from "@/lib/db"
 import { ensureServiceOrganizationForLegacyCompany } from "@/lib/service-organizations"
 import {
-  buildTechnicianCertification,
-  buildTechnicianPersonalFgasCertificationRecordData,
+  toTechnicianCertificationResponse,
+  upsertTechnicianPersonalFgasCertification,
 } from "@/lib/technician-certifications"
 
 type RouteContext = {
@@ -21,23 +21,6 @@ const technicianCertificationSchema = z.object({
   category: optionalText(120),
   validUntil: optionalDate(),
 })
-
-type TechnicianCertificationRecord = {
-  id: string
-  companyId: string
-  serviceOrganizationId: string | null
-  userId: string | null
-  subjectType: "TECHNICIAN"
-  certificateType: "PERSONAL_FGAS"
-  certificateNumber: string
-  issuer: string | null
-  category: string | null
-  validFrom: Date | null
-  validUntil: Date | null
-  status: "ACTIVE" | "EXPIRED" | "REPLACED" | "REVOKED" | "DELETED"
-  verificationStatus: "UNVERIFIED" | "SELF_DECLARED" | "VERIFIED"
-  createdAt: Date
-}
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
@@ -81,13 +64,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         },
       },
       select: {
+        id: true,
         user: {
           select: {
             id: true,
-            certificationNumber: true,
-            certificationIssuer: true,
-            certificationValidUntil: true,
-            certificationCategory: true,
             memberships: {
               where: {
                 companyId: auth.user.companyId,
@@ -123,152 +103,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       )
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      if (!data.certificateNumber) {
-        await tx.certificationRecord.updateMany({
-          where: {
-            companyId: auth.user.companyId,
-            serviceOrganizationId: bridge.serviceOrganizationId,
-            userId: technicianUserId,
-            subjectType: "TECHNICIAN",
-            certificateType: "PERSONAL_FGAS",
-            status: {
-              notIn: ["DELETED", "REVOKED", "REPLACED"],
-            },
-          },
-          data: {
-            status: "DELETED",
-            updatedByUserId: auth.user.userId,
-          },
-        })
-
-        const updatedUser = await tx.user.update({
-          where: {
-            id: technicianUserId,
-          },
-          data: {
-            certificationNumber: null,
-            certificationIssuer: null,
-            certificationValidUntil: null,
-            certificationCategory: null,
-          },
-          select: userCertificationSelect,
-        })
-
-        const updatedMembership = await tx.companyMembership.update({
-          where: {
-            id: legacyMembership.id,
-          },
-          data: {
-            isCertifiedCompany: false,
-            certificationNumber: null,
-            certificationOrganization: null,
-            certificationValidUntil: null,
-          },
-          select: membershipCertificationSelect,
-        })
-
-        return {
-          records: [] as TechnicianCertificationRecord[],
-          user: updatedUser,
-          membership: updatedMembership,
-        }
-      }
-
-      const existingRecord = await tx.certificationRecord.findFirst({
-        where: {
-          companyId: auth.user.companyId,
-          serviceOrganizationId: bridge.serviceOrganizationId,
-          userId: technicianUserId,
-          subjectType: "TECHNICIAN",
-          certificateType: "PERSONAL_FGAS",
-          status: {
-            notIn: ["DELETED", "REVOKED", "REPLACED"],
-          },
-        },
-        select: {
-          id: true,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      })
-
-      const recordData = buildTechnicianPersonalFgasCertificationRecordData({
-        category: data.category,
-        certificateNumber: data.certificateNumber,
+    const certification = await prisma.$transaction((tx) =>
+      upsertTechnicianPersonalFgasCertification({
         companyId: auth.user.companyId,
-        createdByUserId: auth.user.userId,
-        issuer: data.issuer,
+        input: data,
+        membershipId: legacyMembership.id,
+        prisma: tx,
         serviceOrganizationId: bridge.serviceOrganizationId,
+        updatedByUserId: auth.user.userId,
         userId: technicianUserId,
-        validUntil: data.validUntil,
       })
-
-      if (!recordData) {
-        throw new Error("Certifikatnummer saknas.")
-      }
-
-      const certificationRecord = existingRecord
-        ? await tx.certificationRecord.update({
-            where: {
-              id: existingRecord.id,
-            },
-            data: {
-              certificateNumber: recordData.certificateNumber,
-              issuer: recordData.issuer,
-              category: recordData.category,
-              validUntil: recordData.validUntil,
-              status: "ACTIVE",
-              verificationStatus: "SELF_DECLARED",
-              updatedByUserId: auth.user.userId,
-            },
-          })
-        : await tx.certificationRecord.create({
-            data: recordData,
-          })
-
-      const updatedUser = await tx.user.update({
-        where: {
-          id: technicianUserId,
-        },
-        data: {
-          certificationNumber: recordData.certificateNumber,
-          certificationIssuer: recordData.issuer,
-          certificationValidUntil: recordData.validUntil,
-          certificationCategory: recordData.category,
-        },
-        select: userCertificationSelect,
-      })
-
-      const updatedMembership = await tx.companyMembership.update({
-        where: {
-          id: legacyMembership.id,
-        },
-        data: {
-          isCertifiedCompany: true,
-          certificationNumber: recordData.certificateNumber,
-          certificationOrganization: recordData.issuer,
-          certificationValidUntil: recordData.validUntil,
-        },
-        select: membershipCertificationSelect,
-      })
-
-      return {
-        records: [certificationRecord as TechnicianCertificationRecord],
-        user: updatedUser,
-        membership: updatedMembership,
-      }
-    })
+    )
 
     return NextResponse.json(
-      toTechnicianCertificationResponse(
-        buildTechnicianCertification({
-          membership: result.membership,
-          records: result.records,
-          user: result.user,
-        })
-      ),
+      toTechnicianCertificationResponse(certification),
       { status: 200 }
     )
   } catch (error: unknown) {
@@ -288,57 +136,24 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 }
 
-const userCertificationSelect = {
-  id: true,
-  certificationNumber: true,
-  certificationIssuer: true,
-  certificationValidUntil: true,
-  certificationCategory: true,
-}
-
-const membershipCertificationSelect = {
-  id: true,
-  certificationNumber: true,
-  certificationOrganization: true,
-  certificationValidUntil: true,
-}
-
-function toTechnicianCertificationResponse(
-  certification: ReturnType<typeof buildTechnicianCertification>
-) {
-  return {
-    certificateNumber: certification.certificateNumber,
-    issuer: certification.issuer,
-    category: certification.category,
-    validUntil: certification.validUntil,
-    status: certification.status,
-    source: getTechnicianCertificationSourceLabel(certification.source),
-  }
-}
-
-function getTechnicianCertificationSourceLabel(
-  source: ReturnType<typeof buildTechnicianCertification>["source"]
-) {
-  switch (source) {
-    case "CERTIFICATION_RECORD":
-      return "CertificationRecord"
-    case "USER_LEGACY":
-      return "User legacy"
-    case "MEMBERSHIP_LEGACY":
-      return "CompanyMembership legacy"
-    case "NONE":
-      return "none"
-  }
-}
-
 function optionalText(maxLength: number) {
-  return z.string().trim().max(maxLength).optional().or(z.literal("")).transform((value) => value || null)
+  return z
+    .string()
+    .trim()
+    .max(maxLength)
+    .optional()
+    .or(z.literal(""))
+    .transform((value) => value || null)
 }
 
 function optionalDate() {
-  return z.string().trim().optional().or(z.literal("")).transform((value) => {
-    if (!value) return null
-    const date = new Date(value)
-    return Number.isFinite(date.getTime()) ? date : null
-  })
+  return z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal(""))
+    .refine((value) => !value || Number.isFinite(new Date(value).getTime()), {
+      message: "Ange ett giltigt datum",
+    })
+    .transform((value) => (value ? new Date(value) : null))
 }

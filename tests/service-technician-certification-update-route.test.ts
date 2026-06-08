@@ -282,6 +282,12 @@ function createTransactionClient({
       updateMany: certificationRecordUpdateMany,
     },
     companyMembership: {
+      findFirst: vi.fn().mockResolvedValue({
+        id: "company-membership-1",
+        certificationNumber: null,
+        certificationOrganization: null,
+        certificationValidUntil: null,
+      }),
       update: vi.fn().mockResolvedValue({
         id: "company-membership-1",
         certificationNumber: "PCERT-1",

@@ -47,6 +47,37 @@ export type TechnicianMembershipLegacyCertificationSource = {
   certificationValidUntil?: Date | string | null
 }
 
+export type TechnicianCertificationInput = {
+  certificateNumber?: string | null
+  issuer?: string | null
+  category?: string | null
+  validUntil?: Date | string | null
+}
+
+export type TechnicianCertificationRecordLike = CertificationRecordLike & {
+  userId?: string | null
+  validFrom?: Date | string | null
+  validUntil?: Date | string | null
+}
+
+export type TechnicianCertificationPersistenceClient = {
+  certificationRecord: {
+    create(args: unknown): Promise<TechnicianCertificationRecordLike>
+    findMany(args: unknown): Promise<TechnicianCertificationRecordLike[]>
+    findFirst(args: unknown): Promise<{ id: string } | null>
+    update(args: unknown): Promise<TechnicianCertificationRecordLike>
+    updateMany(args: unknown): Promise<unknown>
+  }
+  companyMembership: {
+    findFirst(args: unknown): Promise<TechnicianMembershipLegacyCertificationSource | null>
+    update(args: unknown): Promise<TechnicianMembershipLegacyCertificationSource>
+  }
+  user: {
+    findUnique(args: unknown): Promise<TechnicianUserLegacyCertificationSource | null>
+    update(args: unknown): Promise<TechnicianUserLegacyCertificationSource>
+  }
+}
+
 export function buildTechnicianCertification({
   membership,
   records = [],
@@ -144,6 +175,262 @@ export function buildTechnicianCertification({
       variant: "neutral",
     },
     source: "NONE",
+  }
+}
+
+export async function readTechnicianPersonalFgasCertification({
+  companyId,
+  membershipId,
+  prisma,
+  serviceOrganizationId,
+  userId,
+}: {
+  companyId: string
+  membershipId: string
+  prisma: Pick<
+    TechnicianCertificationPersistenceClient,
+    "certificationRecord" | "companyMembership" | "user"
+  >
+  serviceOrganizationId: string
+  userId: string
+}) {
+  const [records, user, membership] = await Promise.all([
+    prisma.certificationRecord.findMany({
+      where: {
+        companyId,
+        serviceOrganizationId,
+        userId,
+        subjectType: "TECHNICIAN",
+        certificateType: "PERSONAL_FGAS",
+        status: {
+          not: "DELETED",
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    }),
+    prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: userTechnicianCertificationSelect,
+    }),
+    prisma.companyMembership.findFirst({
+      where: {
+        id: membershipId,
+        companyId,
+        userId,
+        role: "CONTRACTOR",
+        isActive: true,
+      },
+      select: membershipTechnicianCertificationSelect,
+    }),
+  ])
+
+  return buildTechnicianCertification({
+    membership,
+    records,
+    user,
+  })
+}
+
+export async function upsertTechnicianPersonalFgasCertification({
+  companyId,
+  input,
+  membershipId,
+  prisma,
+  serviceOrganizationId,
+  updatedByUserId,
+  userId,
+}: {
+  companyId: string
+  input: TechnicianCertificationInput
+  membershipId: string
+  prisma: TechnicianCertificationPersistenceClient
+  serviceOrganizationId: string
+  updatedByUserId: string
+  userId: string
+}) {
+  const membership = await prisma.companyMembership.findFirst({
+    where: {
+      id: membershipId,
+      companyId,
+      userId,
+      role: "CONTRACTOR",
+      isActive: true,
+    },
+    select: membershipTechnicianCertificationSelect,
+  })
+
+  if (!membership?.id) {
+    throw new Error("Teknikern saknar aktiv medlemskoppling till servicepartnern.")
+  }
+
+  if (!normalizeCertificateNumber(input.certificateNumber)) {
+    await prisma.certificationRecord.updateMany({
+      where: {
+        companyId,
+        serviceOrganizationId,
+        userId,
+        subjectType: "TECHNICIAN",
+        certificateType: "PERSONAL_FGAS",
+        status: {
+          notIn: ["DELETED", "REVOKED", "REPLACED"],
+        },
+      },
+      data: {
+        status: "DELETED",
+        updatedByUserId,
+      },
+    })
+
+    const [updatedUser, updatedMembership] = await Promise.all([
+      prisma.user.update({
+        where: {
+          id: userId,
+        },
+        data: {
+          certificationNumber: null,
+          certificationIssuer: null,
+          certificationValidUntil: null,
+          certificationCategory: null,
+        },
+        select: userTechnicianCertificationSelect,
+      }),
+      prisma.companyMembership.update({
+        where: {
+          id: membership.id,
+        },
+        data: {
+          isCertifiedCompany: false,
+          certificationNumber: null,
+          certificationOrganization: null,
+          certificationValidUntil: null,
+        },
+        select: membershipTechnicianCertificationSelect,
+      }),
+    ])
+
+    return buildTechnicianCertification({
+      membership: updatedMembership,
+      records: [],
+      user: updatedUser,
+    })
+  }
+
+  const existingRecord = await prisma.certificationRecord.findFirst({
+    where: {
+      companyId,
+      serviceOrganizationId,
+      userId,
+      subjectType: "TECHNICIAN",
+      certificateType: "PERSONAL_FGAS",
+      status: {
+        notIn: ["DELETED", "REVOKED", "REPLACED"],
+      },
+    },
+    select: {
+      id: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  })
+
+  const recordData = buildTechnicianPersonalFgasCertificationRecordData({
+    category: input.category,
+    certificateNumber: input.certificateNumber,
+    companyId,
+    createdByUserId: updatedByUserId,
+    issuer: input.issuer,
+    serviceOrganizationId,
+    userId,
+    validUntil: input.validUntil,
+  })
+
+  if (!recordData) {
+    throw new Error("Certifikatnummer saknas.")
+  }
+
+  const certificationRecord = existingRecord
+    ? await prisma.certificationRecord.update({
+        where: {
+          id: existingRecord.id,
+        },
+        data: {
+          certificateNumber: recordData.certificateNumber,
+          issuer: recordData.issuer,
+          category: recordData.category,
+          validUntil: recordData.validUntil,
+          status: "ACTIVE",
+          verificationStatus: "SELF_DECLARED",
+          updatedByUserId,
+        },
+      })
+    : await prisma.certificationRecord.create({
+        data: recordData,
+      })
+
+  const [updatedUser, updatedMembership] = await Promise.all([
+    prisma.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        certificationNumber: recordData.certificateNumber,
+        certificationIssuer: recordData.issuer,
+        certificationValidUntil: recordData.validUntil,
+        certificationCategory: recordData.category,
+      },
+      select: userTechnicianCertificationSelect,
+    }),
+    prisma.companyMembership.update({
+      where: {
+        id: membership.id,
+      },
+      data: {
+        isCertifiedCompany: true,
+        certificationNumber: recordData.certificateNumber,
+        certificationOrganization: recordData.issuer,
+        certificationValidUntil: recordData.validUntil,
+      },
+      select: membershipTechnicianCertificationSelect,
+    }),
+  ])
+
+  return buildTechnicianCertification({
+    membership: updatedMembership,
+    records: [certificationRecord],
+    user: updatedUser,
+  })
+}
+
+export function toTechnicianCertificationResponse(
+  certification: TechnicianCertification
+) {
+  return {
+    certificateNumber: certification.certificateNumber,
+    issuer: certification.issuer,
+    category: certification.category,
+    validUntil: certification.validUntil,
+    status: certification.status,
+    source: getTechnicianCertificationSourceLabel(certification.source),
+  }
+}
+
+export function getTechnicianCertificationSourceLabel(
+  source: TechnicianCertification["source"]
+) {
+  switch (source) {
+    case "CERTIFICATION_RECORD":
+      return "CertificationRecord"
+    case "USER_LEGACY":
+      return "User legacy"
+    case "MEMBERSHIP_LEGACY":
+      return "CompanyMembership legacy"
+    case "NONE":
+      return "none"
   }
 }
 
@@ -319,6 +606,21 @@ function normalizeOptionalDate(value?: Date | string | null) {
   if (!value) return null
   const date = value instanceof Date ? value : new Date(value)
   return Number.isFinite(date.getTime()) ? date : null
+}
+
+const userTechnicianCertificationSelect = {
+  id: true,
+  certificationNumber: true,
+  certificationIssuer: true,
+  certificationValidUntil: true,
+  certificationCategory: true,
+}
+
+const membershipTechnicianCertificationSelect = {
+  id: true,
+  certificationNumber: true,
+  certificationOrganization: true,
+  certificationValidUntil: true,
 }
 
 function timestampOrMax(value?: Date | string | null) {

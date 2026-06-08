@@ -12,28 +12,6 @@ const updateProfileSchema = z.object({
     .regex(/^[0-9+\-\s().]*$/, "Ange ett giltigt telefonnummer")
     .optional()
     .transform((value) => (value ? value : null)),
-  certificationNumber: z
-    .string()
-    .trim()
-    .max(120, "Certifikatnummer får vara högst 120 tecken")
-    .optional(),
-  certificationIssuer: z
-    .string()
-    .trim()
-    .max(120, "Certifieringsorgan får vara högst 120 tecken")
-    .optional(),
-  certificationValidUntil: z
-    .string()
-    .trim()
-    .optional()
-    .refine((value) => !value || !Number.isNaN(Date.parse(value)), {
-      message: "Ange ett giltigt datum",
-    }),
-  certificationCategory: z
-    .string()
-    .trim()
-    .max(120, "Certifikatstyp får vara högst 120 tecken")
-    .optional(),
 })
 
 export async function PATCH(request: NextRequest) {
@@ -58,31 +36,11 @@ export async function PATCH(request: NextRequest) {
       data: {
         name: validation.data.name,
         phone: validation.data.phone,
-        ...(validation.data.certificationNumber !== undefined
-          ? { certificationNumber: validation.data.certificationNumber || null }
-          : {}),
-        ...(validation.data.certificationIssuer !== undefined
-          ? { certificationIssuer: validation.data.certificationIssuer || null }
-          : {}),
-        ...(validation.data.certificationValidUntil !== undefined
-          ? {
-              certificationValidUntil: validation.data.certificationValidUntil
-                ? new Date(validation.data.certificationValidUntil)
-                : null,
-            }
-          : {}),
-        ...(validation.data.certificationCategory !== undefined
-          ? { certificationCategory: validation.data.certificationCategory || null }
-          : {}),
       },
       select: {
         id: true,
         name: true,
         phone: true,
-        certificationNumber: true,
-        certificationIssuer: true,
-        certificationValidUntil: true,
-        certificationCategory: true,
         email: true,
         role: true,
       },

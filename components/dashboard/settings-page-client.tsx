@@ -14,15 +14,23 @@ type CurrentUser = {
   email?: string | null
   name?: string | null
   phone?: string | null
-  certificationNumber?: string | null
-  certificationIssuer?: string | null
-  certificationValidUntil?: string | null
-  certificationCategory?: string | null
   notifyAssignmentEmails: boolean
   notifyInspectionReminderEmails: boolean
   notifyDocumentEmails: boolean
   notifyAnnualReportDeadlineEmails: boolean
   notifyLeakEmails: boolean
+}
+
+type TechnicianCertificationSummary = {
+  certificateNumber: string | null
+  issuer: string | null
+  category: string | null
+  validUntil: string | Date | null
+  status: {
+    label: string
+    variant: "success" | "warning" | "danger" | "neutral"
+  }
+  source: string
 }
 
 type NotificationPreferences = Pick<
@@ -52,12 +60,9 @@ const notificationDescriptions: Record<keyof NotificationPreferences, string> = 
     "Samlad e-post när aggregat eller åtkomst tilldelas dig som servicepartner.",
   notifyInspectionReminderEmails:
     "Samlad e-post om kontroller som är försenade eller behöver göras inom 30 dagar.",
-  notifyDocumentEmails:
-    "E-post när nya dokument kopplas till aggregat.",
-  notifyAnnualReportDeadlineEmails:
-    "E-post inför årsrapportering och signering.",
-  notifyLeakEmails:
-    "Samlad e-post när nya läckage registreras.",
+  notifyDocumentEmails: "E-post när nya dokument kopplas till aggregat.",
+  notifyAnnualReportDeadlineEmails: "E-post inför årsrapportering och signering.",
+  notifyLeakEmails: "Samlad e-post när nya läckage registreras.",
 }
 
 export default function SettingsPageClient() {
@@ -65,6 +70,8 @@ export default function SettingsPageClient() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
+  const [technicianCertification, setTechnicianCertification] =
+    useState<TechnicianCertificationSummary | null>(null)
   const [certificationNumber, setCertificationNumber] = useState("")
   const [certificationIssuer, setCertificationIssuer] = useState("")
   const [certificationValidUntil, setCertificationValidUntil] = useState("")
@@ -78,9 +85,11 @@ export default function SettingsPageClient() {
   })
   const [isLoading, setIsLoading] = useState(true)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [isSavingCertification, setIsSavingCertification] = useState(false)
   const [isSavingPassword, setIsSavingPassword] = useState(false)
   const [isSavingNotifications, setIsSavingNotifications] = useState(false)
   const [error, setError] = useState("")
+  const [certificationError, setCertificationError] = useState("")
   const [passwordError, setPasswordError] = useState("")
   const [notificationError, setNotificationError] = useState("")
   const [toast, setToast] = useState<ToastMessage | null>(null)
@@ -106,15 +115,30 @@ export default function SettingsPageClient() {
       }
 
       const user: CurrentUser = await response.json()
+      let certification: TechnicianCertificationSummary | null = null
+
+      if (user.role === "CONTRACTOR") {
+        const certificationResponse = await fetch(
+          "/api/user/technician-certification",
+          { credentials: "include" }
+        )
+
+        if (certificationResponse.ok) {
+          certification = await certificationResponse.json()
+        } else if (isMounted) {
+          setCertificationError("Kunde inte hämta personcertifikatet.")
+        }
+      }
 
       if (!isMounted) return
       setCurrentUser(user)
       setName(user.name || "")
       setPhone(user.phone || "")
-      setCertificationNumber(user.certificationNumber || "")
-      setCertificationIssuer(user.certificationIssuer || "")
-      setCertificationValidUntil(toDateInputValue(user.certificationValidUntil))
-      setCertificationCategory(user.certificationCategory || "")
+      setTechnicianCertification(certification)
+      setCertificationNumber(certification?.certificateNumber || "")
+      setCertificationIssuer(certification?.issuer || "")
+      setCertificationValidUntil(toDateInputValue(certification?.validUntil))
+      setCertificationCategory(certification?.category || "")
       setNotifications(extractNotificationPreferences(user))
       setIsLoading(false)
     }
@@ -177,10 +201,6 @@ export default function SettingsPageClient() {
       body: JSON.stringify({
         name,
         phone,
-        certificationNumber,
-        certificationIssuer,
-        certificationValidUntil,
-        certificationCategory,
       }),
     })
 
@@ -188,10 +208,6 @@ export default function SettingsPageClient() {
       error?: string
       name?: string
       phone?: string | null
-      certificationNumber?: string | null
-      certificationIssuer?: string | null
-      certificationValidUntil?: string | null
-      certificationCategory?: string | null
     } = await response.json()
 
     if (!response.ok) {
@@ -210,14 +226,6 @@ export default function SettingsPageClient() {
             ...user,
             name: result.name || name,
             phone: result.phone ?? phone,
-            certificationNumber:
-              result.certificationNumber ?? certificationNumber,
-            certificationIssuer:
-              result.certificationIssuer ?? certificationIssuer,
-            certificationValidUntil:
-              result.certificationValidUntil ?? certificationValidUntil,
-            certificationCategory:
-              result.certificationCategory ?? certificationCategory,
           }
         : user
     )
@@ -227,6 +235,52 @@ export default function SettingsPageClient() {
       message: "Profilen har sparats.",
     })
     setIsSavingProfile(false)
+  }
+
+  async function handleCertificationSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    setCertificationError("")
+    setIsSavingCertification(true)
+
+    const response = await fetch("/api/user/technician-certification", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        certificateNumber: certificationNumber,
+        issuer: certificationIssuer,
+        category: certificationCategory,
+        validUntil: certificationValidUntil,
+      }),
+    })
+
+    const result: TechnicianCertificationSummary & { error?: string } =
+      await response.json()
+
+    if (!response.ok) {
+      setCertificationError(result.error || "Kunde inte spara personcertifikatet.")
+      setToast({
+        type: "error",
+        title: "Fel",
+        message: result.error || "Kunde inte spara personcertifikatet.",
+      })
+      setIsSavingCertification(false)
+      return
+    }
+
+    setTechnicianCertification(result)
+    setCertificationNumber(result.certificateNumber || "")
+    setCertificationIssuer(result.issuer || "")
+    setCertificationValidUntil(toDateInputValue(result.validUntil))
+    setCertificationCategory(result.category || "")
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Personcertifikatet har sparats.",
+    })
+    setIsSavingCertification(false)
   }
 
   async function handlePasswordSubmit(event: React.FormEvent) {
@@ -383,63 +437,6 @@ export default function SettingsPageClient() {
                   Valfritt. Används som kontaktuppgift i årsrapporter.
                 </span>
               </label>
-              {currentUser.role === "CONTRACTOR" && (
-                <div className="grid gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
-                    <h2 className="text-sm font-semibold text-slate-950 dark:text-slate-100">
-                      Personlig certifiering
-                    </h2>
-                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                      Valfria uppgifter som används för att visa teknikerbehörighet vid händelser och rapportunderlag.
-                    </p>
-                  </div>
-                  <label className={labelClassName}>
-                    Personligt certifikat nr
-                    <input
-                      className={inputClassName}
-                      name="certificationNumber"
-                      value={certificationNumber}
-                      onChange={(event) =>
-                        setCertificationNumber(event.target.value)
-                      }
-                    />
-                  </label>
-                  <label className={labelClassName}>
-                    Certifieringsorgan
-                    <input
-                      className={inputClassName}
-                      name="certificationIssuer"
-                      value={certificationIssuer}
-                      onChange={(event) =>
-                        setCertificationIssuer(event.target.value)
-                      }
-                    />
-                  </label>
-                  <label className={labelClassName}>
-                    Giltigt till
-                    <input
-                      className={inputClassName}
-                      name="certificationValidUntil"
-                      type="date"
-                      value={certificationValidUntil}
-                      onChange={(event) =>
-                        setCertificationValidUntil(event.target.value)
-                      }
-                    />
-                  </label>
-                  <label className={labelClassName}>
-                    Certifikatstyp/kategori
-                    <input
-                      className={inputClassName}
-                      name="certificationCategory"
-                      value={certificationCategory}
-                      onChange={(event) =>
-                        setCertificationCategory(event.target.value)
-                      }
-                    />
-                  </label>
-                </div>
-              )}
               <div className="grid gap-4 sm:grid-cols-2">
                 <ReadOnlyItem label="E-post" value={currentUser.email || "-"} />
                 <div className="rounded-lg bg-slate-50 p-4 dark:bg-slate-950">
@@ -464,6 +461,91 @@ export default function SettingsPageClient() {
               </div>
             </form>
           </Card>
+
+          {currentUser.role === "CONTRACTOR" && (
+            <Card className="p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <SectionHeader
+                  title="Personligt F-gascertifikat"
+                  subtitle="Uppgifterna används för teknikerbehörighet, servicepartneröversikt och framtida rapportunderlag."
+                />
+                {technicianCertification && (
+                  <Badge variant={technicianCertification.status.variant}>
+                    {technicianCertification.status.label}
+                  </Badge>
+                )}
+              </div>
+              <form
+                className="mt-5 grid gap-4 sm:grid-cols-2"
+                onSubmit={handleCertificationSubmit}
+              >
+                <label className={labelClassName}>
+                  Certifikatnummer
+                  <input
+                    className={inputClassName}
+                    name="certificationNumber"
+                    value={certificationNumber}
+                    onChange={(event) =>
+                      setCertificationNumber(event.target.value)
+                    }
+                  />
+                  <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+                    Lämna certifikatnummer tomt om certifikat saknas.
+                  </span>
+                </label>
+                <label className={labelClassName}>
+                  Utfärdare
+                  <input
+                    className={inputClassName}
+                    name="certificationIssuer"
+                    value={certificationIssuer}
+                    onChange={(event) =>
+                      setCertificationIssuer(event.target.value)
+                    }
+                  />
+                </label>
+                <label className={labelClassName}>
+                  Kategori
+                  <input
+                    className={inputClassName}
+                    name="certificationCategory"
+                    value={certificationCategory}
+                    onChange={(event) =>
+                      setCertificationCategory(event.target.value)
+                    }
+                  />
+                </label>
+                <label className={labelClassName}>
+                  Giltigt till
+                  <input
+                    className={inputClassName}
+                    name="certificationValidUntil"
+                    type="date"
+                    value={certificationValidUntil}
+                    onChange={(event) =>
+                      setCertificationValidUntil(event.target.value)
+                    }
+                  />
+                </label>
+                <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
+                  <Button
+                    disabled={isSavingCertification}
+                    type="submit"
+                    variant="primary"
+                  >
+                    {isSavingCertification
+                      ? "Sparar..."
+                      : "Spara personcertifikat"}
+                  </Button>
+                  {certificationError && (
+                    <p className="text-sm font-semibold text-red-700">
+                      {certificationError}
+                    </p>
+                  )}
+                </div>
+              </form>
+            </Card>
+          )}
 
           <Card className="p-5">
             <SectionHeader
@@ -688,8 +770,9 @@ function extractNotificationPreferences(
   }
 }
 
-function toDateInputValue(value?: string | null) {
+function toDateInputValue(value?: string | Date | null) {
   if (!value) return ""
+  if (value instanceof Date) return value.toISOString().slice(0, 10)
   return value.slice(0, 10)
 }
 
