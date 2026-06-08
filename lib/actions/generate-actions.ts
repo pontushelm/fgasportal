@@ -13,6 +13,9 @@ export type DashboardActionType =
   | "NO_SERVICE_PARTNER"
   | "RECENT_LEAKAGE"
   | "REFRIGERANT_REVIEW"
+  | "SERVICEPARTNER_CERTIFICATE_MISSING"
+  | "SERVICEPARTNER_CERTIFICATE_EXPIRING"
+  | "SERVICEPARTNER_CERTIFICATE_EXPIRED"
 
 export type DashboardActionSeverity = "HIGH" | "MEDIUM" | "LOW"
 
@@ -22,6 +25,7 @@ export type DashboardActionSource =
   | "service_contact"
   | "leakage"
   | "refrigerant"
+  | "certification"
 
 export type DashboardAction = {
   id: string
@@ -83,7 +87,16 @@ export type ActionLeakageEventInput = {
   date: Date
 }
 
+export type ActionServicePartnerCertificationInput = {
+  id: string
+  name: string
+  certificateNumber?: string | null
+  issuer?: string | null
+  validUntil?: Date | string | null
+}
+
 const RECENT_LEAKAGE_DAYS = 30
+const SERVICEPARTNER_CERTIFICATE_EXPIRING_DAYS = 90
 
 const SEVERITY_ORDER: Record<DashboardActionSeverity, number> = {
   HIGH: 1,
@@ -93,25 +106,34 @@ const SEVERITY_ORDER: Record<DashboardActionSeverity, number> = {
 
 const TYPE_ORDER: Record<DashboardActionType, number> = {
   OVERDUE_INSPECTION: 1,
-  NOT_INSPECTED: 2,
-  RECENT_LEAKAGE: 3,
-  HIGH_RISK: 4,
-  DUE_SOON_INSPECTION: 5,
-  NO_SERVICE_PARTNER: 6,
-  REFRIGERANT_REVIEW: 7,
+  SERVICEPARTNER_CERTIFICATE_EXPIRED: 2,
+  SERVICEPARTNER_CERTIFICATE_MISSING: 3,
+  NOT_INSPECTED: 4,
+  RECENT_LEAKAGE: 5,
+  HIGH_RISK: 6,
+  DUE_SOON_INSPECTION: 7,
+  SERVICEPARTNER_CERTIFICATE_EXPIRING: 8,
+  NO_SERVICE_PARTNER: 9,
+  REFRIGERANT_REVIEW: 10,
 }
 
 export function generateDashboardActions({
   installations,
   leakageEvents,
+  servicePartnerCompanies = [],
   today = new Date(),
 }: {
   installations: ActionInstallationInput[]
   leakageEvents: ActionLeakageEventInput[]
+  servicePartnerCompanies?: ActionServicePartnerCertificationInput[]
   today?: Date
 }): DashboardAction[] {
   const actions: DashboardAction[] = []
   const recentLeakageThreshold = addDays(startOfDay(today), -RECENT_LEAKAGE_DAYS)
+  const expiringCertificateThreshold = addDays(
+    startOfDay(today),
+    SERVICEPARTNER_CERTIFICATE_EXPIRING_DAYS
+  )
 
   installations.forEach((installation) => {
     const href = `/dashboard/installations/${installation.id}`
@@ -244,6 +266,70 @@ export function generateDashboardActions({
     })
   })
 
+  servicePartnerCompanies.forEach((servicePartnerCompany) => {
+    const validUntil = parseOptionalDate(servicePartnerCompany.validUntil)
+    const certificateNumber = servicePartnerCompany.certificateNumber?.trim() || null
+
+    if (!certificateNumber || !validUntil) {
+      actions.push(
+        createServicePartnerCertificationAction({
+          servicePartnerCompany,
+          type: "SERVICEPARTNER_CERTIFICATE_MISSING",
+          severity: "HIGH",
+          title: "Servicepartner saknar giltigt företagscertifikat",
+          description: buildServicePartnerCertificateDescription({
+            certificateNumber,
+            intro: `${servicePartnerCompany.name} saknar ett registrerat giltigt företagscertifikat.`,
+            validUntil,
+          }),
+          dueDate: validUntil,
+          today,
+        })
+      )
+      return
+    }
+
+    const validUntilStart = startOfDay(validUntil)
+    const todayStart = startOfDay(today)
+
+    if (validUntilStart < todayStart) {
+      actions.push(
+        createServicePartnerCertificationAction({
+          servicePartnerCompany,
+          type: "SERVICEPARTNER_CERTIFICATE_EXPIRED",
+          severity: "HIGH",
+          title: "Servicepartners företagscertifikat har gått ut",
+          description: buildServicePartnerCertificateDescription({
+            certificateNumber,
+            intro: `${servicePartnerCompany.name} har ett företagscertifikat som gick ut ${formatDate(validUntil)}.`,
+            validUntil,
+          }),
+          dueDate: validUntil,
+          today,
+        })
+      )
+      return
+    }
+
+    if (validUntilStart <= expiringCertificateThreshold) {
+      actions.push(
+        createServicePartnerCertificationAction({
+          servicePartnerCompany,
+          type: "SERVICEPARTNER_CERTIFICATE_EXPIRING",
+          severity: "MEDIUM",
+          title: "Servicepartners företagscertifikat går snart ut",
+          description: buildServicePartnerCertificateDescription({
+            certificateNumber,
+            intro: `${servicePartnerCompany.name} har ett företagscertifikat som går ut ${formatDate(validUntil)}.`,
+            validUntil,
+          }),
+          dueDate: validUntil,
+          today,
+        })
+      )
+    }
+  })
+
   return sortDashboardActions(actions)
 }
 
@@ -317,6 +403,93 @@ function getActionId(type: DashboardActionType, installationId: string) {
   if (type === "NO_SERVICE_PARTNER") return `no-service-partner-${installationId}`
   if (type === "REFRIGERANT_REVIEW") return `refrigerant-review-${installationId}`
   return `${type.toLowerCase()}-${installationId}`
+}
+
+function createServicePartnerCertificationAction({
+  description,
+  dueDate,
+  servicePartnerCompany,
+  severity,
+  title,
+  type,
+}: {
+  description: string
+  dueDate: Date | null
+  servicePartnerCompany: ActionServicePartnerCertificationInput
+  severity: DashboardActionSeverity
+  title: string
+  type:
+    | "SERVICEPARTNER_CERTIFICATE_MISSING"
+    | "SERVICEPARTNER_CERTIFICATE_EXPIRING"
+    | "SERVICEPARTNER_CERTIFICATE_EXPIRED"
+  today: Date
+}): DashboardAction {
+  return {
+    id: getServicePartnerCertificationActionId(type, servicePartnerCompany.id),
+    type,
+    severity,
+    priority: severity,
+    title,
+    description,
+    installationId: `servicepartner-${servicePartnerCompany.id}`,
+    installationName: servicePartnerCompany.name,
+    equipmentId: servicePartnerCompany.certificateNumber ?? null,
+    propertyId: null,
+    propertyName: null,
+    assignedServiceContactId: null,
+    assignedServiceContactName: null,
+    assignedServiceContactEmail: null,
+    servicePartnerCompanyId: servicePartnerCompany.id,
+    servicePartnerCompanyName: servicePartnerCompany.name,
+    href: `/dashboard/contractors/companies/${servicePartnerCompany.id}`,
+    dueDate,
+    createdAt: null,
+    createdFrom: "certification",
+    source: "certification",
+    sortPriority: getSortPriority(type, severity),
+  }
+}
+
+function getServicePartnerCertificationActionId(
+  type: DashboardActionType,
+  servicePartnerCompanyId: string
+) {
+  if (type === "SERVICEPARTNER_CERTIFICATE_MISSING") {
+    return `servicepartner-certificate-missing-${servicePartnerCompanyId}`
+  }
+  if (type === "SERVICEPARTNER_CERTIFICATE_EXPIRING") {
+    return `servicepartner-certificate-expiring-${servicePartnerCompanyId}`
+  }
+  if (type === "SERVICEPARTNER_CERTIFICATE_EXPIRED") {
+    return `servicepartner-certificate-expired-${servicePartnerCompanyId}`
+  }
+  return `servicepartner-certificate-${servicePartnerCompanyId}`
+}
+
+function buildServicePartnerCertificateDescription({
+  certificateNumber,
+  intro,
+  validUntil,
+}: {
+  certificateNumber: string | null
+  intro: string
+  validUntil: Date | null
+}) {
+  const details = [
+    certificateNumber ? `Certifikat: ${certificateNumber}.` : null,
+    validUntil ? `Giltigt till: ${formatDate(validUntil)}.` : null,
+    "Kontrollera certifieringen med servicepartnern och be dem uppdatera uppgifterna i FgasPortal.",
+  ]
+    .filter(Boolean)
+    .join(" ")
+
+  return `${intro} ${details}`
+}
+
+function parseOptionalDate(value?: Date | string | null) {
+  if (!value) return null
+  const date = value instanceof Date ? value : new Date(value)
+  return Number.isFinite(date.getTime()) ? date : null
 }
 
 function getSortPriority(

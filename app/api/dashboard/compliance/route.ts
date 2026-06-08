@@ -22,6 +22,7 @@ import {
   getRefrigerantRegulatoryStatus,
   isRefrigerantRegulatoryFollowUpStatus,
 } from "@/lib/refrigerant-regulatory-status"
+import { buildServicePartnerCompanyCertification } from "@/lib/service-partner-company-certifications"
 
 type DistributionItem = {
   label: string
@@ -123,6 +124,69 @@ export async function GET(request: NextRequest) {
       orderBy: {
         createdAt: "desc",
       },
+    })
+    const servicePartnerCompanies = isContractor(auth.user)
+      ? []
+      : await prisma.servicePartnerCompany.findMany({
+          where: {
+            companyId,
+          },
+          select: {
+            id: true,
+            companyId: true,
+            serviceOrganizationId: true,
+            name: true,
+            certificateNumber: true,
+            serviceOrganization: {
+              select: {
+                certificateNumber: true,
+              },
+            },
+          },
+        })
+    const serviceOrganizationIds = servicePartnerCompanies
+      .map((company) => company.serviceOrganizationId)
+      .filter((id): id is string => Boolean(id))
+    const certificationRecords =
+      serviceOrganizationIds.length > 0
+        ? await prisma.certificationRecord.findMany({
+            where: {
+              companyId,
+              serviceOrganizationId: {
+                in: serviceOrganizationIds,
+              },
+              subjectType: "SERVICE_ORGANIZATION",
+              certificateType: "COMPANY_FGAS",
+              status: {
+                not: "DELETED",
+              },
+            },
+          })
+        : []
+    const certificationRecordsByServiceOrganization = new Map(
+      serviceOrganizationIds.map((id) => [
+        id,
+        certificationRecords.filter(
+          (record) => record.serviceOrganizationId === id
+        ),
+      ])
+    )
+    const servicePartnerCertificationActions = servicePartnerCompanies.map((company) => {
+      const certification = buildServicePartnerCompanyCertification({
+        company,
+        records:
+          certificationRecordsByServiceOrganization.get(
+            company.serviceOrganizationId ?? ""
+          ) ?? [],
+      })
+
+      return {
+        id: company.id,
+        name: company.name,
+        certificateNumber: certification.certificateNumber,
+        issuer: certification.issuer,
+        validUntil: certification.validUntil,
+      }
     })
     logDevelopmentTiming("GET /api/dashboard/compliance prisma query", queryStartTime)
 
@@ -256,6 +320,7 @@ export async function GET(request: NextRequest) {
     const allActionItems = generateDashboardActions({
       installations: installationRows,
       leakageEvents,
+      servicePartnerCompanies: servicePartnerCertificationActions,
     })
     const actionItems = allActionItems.slice(0, ACTION_PREVIEW_LIMIT)
     const co2eCompleteness = summarizeCo2eCompleteness(installationRows)

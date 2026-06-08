@@ -23,6 +23,9 @@ type ActionItem = {
     | "NO_SERVICE_PARTNER"
     | "RECENT_LEAKAGE"
     | "REFRIGERANT_REVIEW"
+    | "SERVICEPARTNER_CERTIFICATE_MISSING"
+    | "SERVICEPARTNER_CERTIFICATE_EXPIRING"
+    | "SERVICEPARTNER_CERTIFICATE_EXPIRED"
   severity: "HIGH" | "MEDIUM" | "LOW"
   title: string
   description: string
@@ -34,8 +37,8 @@ type ActionItem = {
   href: string
   dueDate?: string | null
   createdAt?: string | null
-  createdFrom: "inspection" | "risk" | "service_contact" | "leakage" | "refrigerant"
-  source: "inspection" | "risk" | "service_contact" | "leakage" | "refrigerant"
+  createdFrom: "inspection" | "risk" | "service_contact" | "leakage" | "refrigerant" | "certification"
+  source: "inspection" | "risk" | "service_contact" | "leakage" | "refrigerant" | "certification"
   sortPriority: number
 }
 

@@ -101,6 +101,9 @@ const ACTION_TYPE_LABELS: Record<DashboardActionType, string> = {
   NO_SERVICE_PARTNER: "Servicepartner saknas",
   RECENT_LEAKAGE: "Läckageuppföljning",
   REFRIGERANT_REVIEW: "Köldmedium bör granskas",
+  SERVICEPARTNER_CERTIFICATE_MISSING: "Servicepartnercertifikat saknas",
+  SERVICEPARTNER_CERTIFICATE_EXPIRING: "Servicepartnercertifikat går snart ut",
+  SERVICEPARTNER_CERTIFICATE_EXPIRED: "Servicepartnercertifikat har gått ut",
 }
 
 export default function ServicePartnerCompanyDetailPageClient({

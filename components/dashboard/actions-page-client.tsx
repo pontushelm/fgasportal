@@ -73,6 +73,7 @@ const CATEGORY_FILTERS: Array<{ label: string; value: ActionFilter }> = [
   { label: "Riskbevakning", value: "HIGH_RISK" },
   { label: "Saknar servicepartner", value: "NO_SERVICE_PARTNER" },
   { label: "Köldmedium", value: "REFRIGERANT_REVIEW" },
+  { label: "Servicepartnercertifiering", value: "SERVICEPARTNER_CERTIFICATION" },
 ]
 
 const SEVERITY_FILTERS: Array<{ label: string; value: ActionSeverityFilter }> = [
@@ -104,6 +105,9 @@ const ACTION_TYPE_LABELS: Record<DashboardActionType, string> = {
   NO_SERVICE_PARTNER: "Servicepartner saknas",
   RECENT_LEAKAGE: "Läckage att följa upp",
   REFRIGERANT_REVIEW: "Köldmedium bör granskas",
+  SERVICEPARTNER_CERTIFICATE_MISSING: "Servicepartnercertifikat saknas",
+  SERVICEPARTNER_CERTIFICATE_EXPIRING: "Servicepartnercertifikat går snart ut",
+  SERVICEPARTNER_CERTIFICATE_EXPIRED: "Servicepartnercertifikat har gått ut",
 }
 
 const SUMMARY_CARD_TOOLTIPS = {
@@ -116,6 +120,8 @@ const SUMMARY_CARD_TOOLTIPS = {
   missingServiceContact: "Aggregat utan tilldelat servicepartnerföretag.",
   refrigerantReview:
     "Aggregat med köldmedium som bör kontrolleras mot gällande eller kommande krav.",
+  certificationReview:
+    "Servicepartners där företagscertifiering saknas, har gått ut eller snart behöver förnyas.",
 } satisfies Record<string, string>
 
 const SORT_TOOLTIP =
@@ -151,6 +157,12 @@ const SUMMARY_CARDS = [
     label: "Köldmedium",
     tone: "sky",
     tooltip: SUMMARY_CARD_TOOLTIPS.refrigerantReview,
+  },
+  {
+    key: "certificationReview",
+    label: "Certifiering",
+    tone: "amber",
+    tooltip: SUMMARY_CARD_TOOLTIPS.certificationReview,
   },
   {
     key: "missingServiceContact",
@@ -896,8 +908,12 @@ function ActionRow({ action }: { action: ActionItem }) {
         </p>
         <p className="mt-1 text-sm text-slate-600">{action.description}</p>
         <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
-          <span>Fastighet: {action.propertyName || "-"}</span>
-          <span>Servicekontakt: {action.assignedServiceContactName || "-"}</span>
+          {!isServicePartnerCertificationAction(action.type) && (
+            <>
+              <span>Fastighet: {action.propertyName || "-"}</span>
+              <span>Servicekontakt: {action.assignedServiceContactName || "-"}</span>
+            </>
+          )}
           <span>Företag: {action.servicePartnerCompanyName || "-"}</span>
           <span>{getDateLabel(action)}: {formatActionDate(action)}</span>
         </div>
@@ -906,7 +922,9 @@ function ActionRow({ action }: { action: ActionItem }) {
         className="inline-flex min-h-11 justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 md:min-h-0"
         href={action.href}
       >
-        Öppna aggregat
+        {isServicePartnerCertificationAction(action.type)
+          ? "Öppna servicepartner"
+          : "Öppna aggregat"}
       </Link>
     </article>
   )
@@ -928,8 +946,17 @@ function SeverityBadge({ severity }: { severity: DashboardActionSeverity }) {
 
 function getDateLabel(action: ActionItem) {
   if (action.type === "RECENT_LEAKAGE") return "Händelsedatum"
+  if (isServicePartnerCertificationAction(action.type)) return "Giltigt till"
   if (action.dueDate) return "Förfallodatum"
   return "Datum"
+}
+
+function isServicePartnerCertificationAction(type: DashboardActionType) {
+  return (
+    type === "SERVICEPARTNER_CERTIFICATE_MISSING" ||
+    type === "SERVICEPARTNER_CERTIFICATE_EXPIRING" ||
+    type === "SERVICEPARTNER_CERTIFICATE_EXPIRED"
+  )
 }
 
 function formatActionDate(action: ActionItem) {

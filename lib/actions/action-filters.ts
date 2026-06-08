@@ -8,6 +8,7 @@ export type ActionFilter =
   | "HIGH_RISK"
   | "NO_SERVICE_PARTNER"
   | "REFRIGERANT_REVIEW"
+  | "SERVICEPARTNER_CERTIFICATION"
 
 export type ActionSeverityFilter = "ALL" | "HIGH" | "MEDIUM" | "LOW"
 
@@ -51,6 +52,7 @@ export type ActionSummaryCounts = {
   leakageFollowUp: number
   missingServiceContact: number
   refrigerantReview: number
+  certificationReview: number
 }
 
 export function sanitizeActionFilterQueryParams(
@@ -108,6 +110,7 @@ type FilterableAction = {
   propertyName: string | null
   assignedServiceContactId: string | null
   servicePartnerCompanyId: string | null
+  servicePartnerCompanyName?: string | null
   title: string
   dueDate?: Date | string | null
 }
@@ -125,6 +128,11 @@ const ACTION_FILTER_TYPES: Record<Exclude<ActionFilter, "ALL">, DashboardActionT
   HIGH_RISK: ["HIGH_RISK"],
   NO_SERVICE_PARTNER: ["NO_SERVICE_PARTNER"],
   REFRIGERANT_REVIEW: ["REFRIGERANT_REVIEW"],
+  SERVICEPARTNER_CERTIFICATION: [
+    "SERVICEPARTNER_CERTIFICATE_MISSING",
+    "SERVICEPARTNER_CERTIFICATE_EXPIRING",
+    "SERVICEPARTNER_CERTIFICATE_EXPIRED",
+  ],
 }
 
 const ACTION_FILTER_VALUES: ActionFilter[] = [
@@ -135,6 +143,7 @@ const ACTION_FILTER_VALUES: ActionFilter[] = [
   "HIGH_RISK",
   "NO_SERVICE_PARTNER",
   "REFRIGERANT_REVIEW",
+  "SERVICEPARTNER_CERTIFICATION",
 ]
 
 const ACTION_SEVERITY_FILTER_VALUES: ActionSeverityFilter[] = [
@@ -204,6 +213,7 @@ export function filterActionWorkQueue<T extends FilterableAction>(
         action.installationName,
         action.equipmentId,
         action.propertyName,
+        action.servicePartnerCompanyName,
         action.title,
       ]
         .filter(Boolean)
@@ -232,6 +242,9 @@ export function getActionSummaryCounts<T extends SummaryAction>(
       if (action.type === "RECENT_LEAKAGE") summary.leakageFollowUp += 1
       if (action.type === "NO_SERVICE_PARTNER") summary.missingServiceContact += 1
       if (action.type === "REFRIGERANT_REVIEW") summary.refrigerantReview += 1
+      if (isServicePartnerCertificationAction(action.type)) {
+        summary.certificationReview += 1
+      }
       return summary
     },
     {
@@ -242,6 +255,7 @@ export function getActionSummaryCounts<T extends SummaryAction>(
       leakageFollowUp: 0,
       missingServiceContact: 0,
       refrigerantReview: 0,
+      certificationReview: 0,
     }
   )
 }
@@ -298,6 +312,14 @@ function isActionFilterQueryKey(key: string): key is ActionFilterQueryKey {
 
 function isAllowedValue<T extends string>(value: string, allowedValues: T[]) {
   return allowedValues.includes(value as T)
+}
+
+function isServicePartnerCertificationAction(type: DashboardActionType) {
+  return (
+    type === "SERVICEPARTNER_CERTIFICATE_MISSING" ||
+    type === "SERVICEPARTNER_CERTIFICATE_EXPIRING" ||
+    type === "SERVICEPARTNER_CERTIFICATE_EXPIRED"
+  )
 }
 
 function addDays(date: Date, days: number) {

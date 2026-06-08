@@ -119,6 +119,9 @@ describe("dashboard action generation", () => {
     expect(filterDashboardActions(actions, "HIGH_RISK").map((action) => action.type)).toEqual([
       "HIGH_RISK",
     ])
+    expect(validateActionFilterQueryParams({ filter: "SERVICEPARTNER_CERTIFICATION" })).toEqual({
+      filter: "SERVICEPARTNER_CERTIFICATION",
+    })
   })
 
   it("uses follow-up wording for risk and leakage actions", () => {
@@ -302,6 +305,90 @@ describe("dashboard action generation", () => {
     expect(actions.some((action) => action.type === "NO_SERVICE_PARTNER")).toBe(false)
   })
 
+  it("creates high priority actions for missing servicepartner company certificates", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-06-08T12:00:00"),
+      installations: [],
+      leakageEvents: [],
+      servicePartnerCompanies: [
+        {
+          id: "service-company-1",
+          name: "Kylservice AB",
+          certificateNumber: null,
+          validUntil: null,
+        },
+      ],
+    })
+
+    expect(actions).toEqual([
+      expect.objectContaining({
+        type: "SERVICEPARTNER_CERTIFICATE_MISSING",
+        severity: "HIGH",
+        servicePartnerCompanyId: "service-company-1",
+        servicePartnerCompanyName: "Kylservice AB",
+        href: "/dashboard/contractors/companies/service-company-1",
+      }),
+    ])
+  })
+
+  it("creates high priority actions for expired servicepartner company certificates", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-06-08T12:00:00"),
+      installations: [],
+      leakageEvents: [],
+      servicePartnerCompanies: [
+        {
+          id: "service-company-1",
+          name: "Kylservice AB",
+          certificateNumber: "CERT-1",
+          validUntil: new Date("2026-06-01T00:00:00.000Z"),
+        },
+      ],
+    })
+
+    expect(actions[0]).toEqual(
+      expect.objectContaining({
+        type: "SERVICEPARTNER_CERTIFICATE_EXPIRED",
+        severity: "HIGH",
+        dueDate: new Date("2026-06-01T00:00:00.000Z"),
+      })
+    )
+  })
+
+  it("creates medium priority actions for expiring servicepartner company certificates", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-06-08T12:00:00"),
+      installations: [],
+      leakageEvents: [],
+      servicePartnerCompanies: [
+        {
+          id: "service-company-1",
+          name: "Kylservice AB",
+          certificateNumber: "CERT-1",
+          validUntil: new Date("2026-08-01T00:00:00.000Z"),
+        },
+      ],
+    })
+
+    expect(actions[0]).toEqual(
+      expect.objectContaining({
+        type: "SERVICEPARTNER_CERTIFICATE_EXPIRING",
+        severity: "MEDIUM",
+      })
+    )
+  })
+
+  it("does not create certification actions without connected servicepartners", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-06-08T12:00:00"),
+      installations: [],
+      leakageEvents: [],
+      servicePartnerCompanies: [],
+    })
+
+    expect(actions).toEqual([])
+  })
+
   it("keeps deterministic action keys for future workflow state overlays", () => {
     const actions = generateDashboardActions({
       today: new Date("2026-05-08T12:00:00"),
@@ -428,6 +515,7 @@ describe("dashboard action generation", () => {
       leakageFollowUp: 1,
       missingServiceContact: 1,
       refrigerantReview: 0,
+      certificationReview: 0,
     })
   })
 
