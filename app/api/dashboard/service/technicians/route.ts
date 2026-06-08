@@ -3,6 +3,7 @@ import { authenticateApiRequest, forbiddenResponse } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { canManageServicepartnerTechnicianAssignments } from "@/lib/access/installation-access"
 import { ensureServiceOrganizationForLegacyCompany } from "@/lib/service-organizations"
+import { buildTechnicianCertification } from "@/lib/technician-certifications"
 
 export async function GET(request: NextRequest) {
   try {
@@ -49,6 +50,39 @@ export async function GET(request: NextRequest) {
             id: true,
             name: true,
             email: true,
+            certificationNumber: true,
+            certificationIssuer: true,
+            certificationValidUntil: true,
+            certificationCategory: true,
+            certificationRecords: {
+              where: {
+                companyId: auth.user.companyId,
+                serviceOrganizationId: bridge.serviceOrganizationId,
+                subjectType: "TECHNICIAN",
+                certificateType: "PERSONAL_FGAS",
+                status: {
+                  not: "DELETED",
+                },
+              },
+              orderBy: {
+                createdAt: "desc",
+              },
+            },
+            memberships: {
+              where: {
+                companyId: auth.user.companyId,
+                role: "CONTRACTOR",
+                isActive: true,
+                servicePartnerCompanyId: auth.user.servicePartnerCompanyId,
+              },
+              select: {
+                id: true,
+                certificationNumber: true,
+                certificationOrganization: true,
+                certificationValidUntil: true,
+              },
+              take: 1,
+            },
           },
         },
       },
@@ -69,6 +103,13 @@ export async function GET(request: NextRequest) {
         name: membership.user.name,
         email: membership.user.email,
         isServicePartnerAdmin: membership.role === "ADMIN",
+        certification: toTechnicianCertificationResponse(
+          buildTechnicianCertification({
+            membership: membership.user.memberships[0] ?? null,
+            records: membership.user.certificationRecords,
+            user: membership.user,
+          })
+        ),
       })),
       { status: 200 }
     )
@@ -79,5 +120,33 @@ export async function GET(request: NextRequest) {
       { error: "Ett oväntat fel uppstod" },
       { status: 500 }
     )
+  }
+}
+
+function toTechnicianCertificationResponse(
+  certification: ReturnType<typeof buildTechnicianCertification>
+) {
+  return {
+    certificateNumber: certification.certificateNumber,
+    issuer: certification.issuer,
+    category: certification.category,
+    validUntil: certification.validUntil,
+    status: certification.status,
+    source: getTechnicianCertificationSourceLabel(certification.source),
+  }
+}
+
+function getTechnicianCertificationSourceLabel(
+  source: ReturnType<typeof buildTechnicianCertification>["source"]
+) {
+  switch (source) {
+    case "CERTIFICATION_RECORD":
+      return "CertificationRecord"
+    case "USER_LEGACY":
+      return "User legacy"
+    case "MEMBERSHIP_LEGACY":
+      return "CompanyMembership legacy"
+    case "NONE":
+      return "none"
   }
 }

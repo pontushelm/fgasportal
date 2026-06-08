@@ -77,6 +77,30 @@ type ServiceTechnician = {
   name: string | null
   email: string
   isServicePartnerAdmin: boolean
+  certification?: TechnicianCertificationSummary
+}
+
+type TechnicianCertificationSummary = {
+  certificateNumber: string | null
+  issuer: string | null
+  category: string | null
+  validUntil: string | null
+  status: {
+    status:
+      | "VALID"
+      | "EXPIRING_SOON"
+      | "EXPIRED"
+      | "MISSING"
+      | "VALIDITY_MISSING"
+      | "INACTIVE"
+    label: string
+    variant: "success" | "warning" | "danger" | "neutral"
+  }
+  source:
+    | "CertificationRecord"
+    | "User legacy"
+    | "CompanyMembership legacy"
+    | "none"
 }
 
 type CertificationData = {
@@ -499,6 +523,10 @@ export default function ServiceDashboardPage() {
       installations.filter((installation) => !installation.assignedContractorId),
     [installations]
   )
+  const technicianCertificationSummary = useMemo(
+    () => getTechnicianCertificationSummary(technicians),
+    [technicians]
+  )
   const summaryCards = useMemo(
     () =>
       getServiceSummaryCards({
@@ -610,6 +638,96 @@ export default function ServiceDashboardPage() {
                     </Link>
                   </div>
                 ))}
+              </div>
+            </section>
+          )}
+
+          {isServicePartnerAdmin && technicians.length > 0 && (
+            <section className="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-white">
+              <div className="border-b border-slate-200 px-5 py-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-950">
+                      Teknikercertifikat
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Översikt över personcertifikat för tekniker i serviceorganisationen.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <CertificationCountBadge
+                      label="Saknas"
+                      value={technicianCertificationSummary.missing}
+                      variant="neutral"
+                    />
+                    <CertificationCountBadge
+                      label="Går snart ut"
+                      value={technicianCertificationSummary.expiringSoon}
+                      variant="warning"
+                    />
+                    <CertificationCountBadge
+                      label="Utgått"
+                      value={technicianCertificationSummary.expired}
+                      variant="danger"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <TableHeader>Tekniker</TableHeader>
+                      <TableHeader>Certifikatstatus</TableHeader>
+                      <TableHeader>Certifikat</TableHeader>
+                      <TableHeader>Giltigt till</TableHeader>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {technicians.map((technician) => (
+                      <tr className="hover:bg-slate-50" key={technician.id}>
+                        <TableCell>
+                          <div className="font-semibold text-slate-950">
+                            {formatTechnicianName(technician)}
+                          </div>
+                          <div className="mt-1 text-xs text-slate-500">
+                            {technician.email}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {technician.certification ? (
+                            <Badge variant={technician.certification.status.variant}>
+                              {technician.certification.status.label}
+                            </Badge>
+                          ) : (
+                            <Badge variant="neutral">Saknas</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium text-slate-900">
+                            {technician.certification?.certificateNumber ?? "-"}
+                          </div>
+                          {technician.certification?.issuer ||
+                          technician.certification?.category ? (
+                            <div className="mt-1 text-xs text-slate-500">
+                              {[
+                                technician.certification.issuer,
+                                technician.certification.category,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </div>
+                          ) : null}
+                        </TableCell>
+                        <TableCell>
+                          {formatOptionalDate(
+                            technician.certification?.validUntil ?? null
+                          )}
+                        </TableCell>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </section>
           )}
@@ -903,6 +1021,22 @@ function SummaryCard({
   )
 }
 
+function CertificationCountBadge({
+  label,
+  value,
+  variant,
+}: {
+  label: string
+  value: number
+  variant: "danger" | "neutral" | "warning"
+}) {
+  return (
+    <Badge variant={variant}>
+      {label}: {value}
+    </Badge>
+  )
+}
+
 function WorkQueueRow({ action }: { action: ServiceAction }) {
   return (
     <article className="grid gap-3 px-5 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
@@ -1098,6 +1232,23 @@ function formatNumber(value: number) {
 function formatTechnicianName(technician: ServiceTechnician) {
   const label = technician.name || technician.email
   return technician.isServicePartnerAdmin ? `${label} (ansvarig)` : label
+}
+
+function getTechnicianCertificationSummary(technicians: ServiceTechnician[]) {
+  return technicians.reduce(
+    (summary, technician) => {
+      const status = technician.certification?.status.status ?? "MISSING"
+      if (status === "MISSING") summary.missing += 1
+      if (status === "EXPIRING_SOON") summary.expiringSoon += 1
+      if (status === "EXPIRED") summary.expired += 1
+      return summary
+    },
+    {
+      missing: 0,
+      expiringSoon: 0,
+      expired: 0,
+    }
+  )
 }
 
 function getTodayInputValue() {
