@@ -103,6 +103,15 @@ type TechnicianCertificationSummary = {
     | "none"
 }
 
+type TechnicianCertificationDocument = {
+  id: string
+  fileName: string
+  contentType: string
+  sizeBytes: number
+  downloadHref: string
+  uploadedAt: string | Date
+}
+
 type CertificationData = {
   isCertifiedCompany: boolean
   certificationNumber: string | null
@@ -241,6 +250,28 @@ export default function ServiceDashboardPage() {
     useState("")
   const [isSavingTechnicianCertification, setIsSavingTechnicianCertification] =
     useState(false)
+  const [technicianCertificationDocument, setTechnicianCertificationDocument] =
+    useState<TechnicianCertificationDocument | null>(null)
+  const [
+    selectedTechnicianCertificationDocument,
+    setSelectedTechnicianCertificationDocument,
+  ] = useState<File | null>(null)
+  const [
+    technicianCertificationDocumentError,
+    setTechnicianCertificationDocumentError,
+  ] = useState("")
+  const [
+    isLoadingTechnicianCertificationDocument,
+    setIsLoadingTechnicianCertificationDocument,
+  ] = useState(false)
+  const [
+    isUploadingTechnicianCertificationDocument,
+    setIsUploadingTechnicianCertificationDocument,
+  ] = useState(false)
+  const [
+    isDeletingTechnicianCertificationDocument,
+    setIsDeletingTechnicianCertificationDocument,
+  ] = useState(false)
   const [toast, setToast] = useState<ToastMessage | null>(null)
 
   useEffect(() => {
@@ -540,13 +571,26 @@ export default function ServiceDashboardPage() {
     setEditingTechnician(technician)
     setTechnicianCertificationForm(toTechnicianCertificationForm(technician))
     setTechnicianCertificationError("")
+    setTechnicianCertificationDocument(null)
+    setSelectedTechnicianCertificationDocument(null)
+    setTechnicianCertificationDocumentError("")
+    void fetchTechnicianCertificationDocument(technician.id)
   }
 
   function closeTechnicianCertificationEditor() {
-    if (isSavingTechnicianCertification) return
+    if (
+      isSavingTechnicianCertification ||
+      isUploadingTechnicianCertificationDocument ||
+      isDeletingTechnicianCertificationDocument
+    ) {
+      return
+    }
     setEditingTechnician(null)
     setTechnicianCertificationForm(initialTechnicianCertificationForm)
     setTechnicianCertificationError("")
+    setTechnicianCertificationDocument(null)
+    setSelectedTechnicianCertificationDocument(null)
+    setTechnicianCertificationDocumentError("")
   }
 
   function handleTechnicianCertificationChange(
@@ -556,6 +600,35 @@ export default function ServiceDashboardPage() {
       ...current,
       [event.target.name]: event.target.value,
     }))
+  }
+
+  async function fetchTechnicianCertificationDocument(technicianId: string) {
+    setIsLoadingTechnicianCertificationDocument(true)
+
+    const response = await fetch(
+      `/api/dashboard/service/technicians/${technicianId}/certification/document`,
+      {
+        credentials: "include",
+      }
+    )
+
+    if (response.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!response.ok) {
+      setTechnicianCertificationDocumentError(
+        "Kunde inte hämta certifikatdokumentet."
+      )
+      setIsLoadingTechnicianCertificationDocument(false)
+      return
+    }
+
+    const result: { document: TechnicianCertificationDocument | null } =
+      await response.json()
+    setTechnicianCertificationDocument(result.document)
+    setIsLoadingTechnicianCertificationDocument(false)
   }
 
   async function handleTechnicianCertificationSubmit(event: React.FormEvent) {
@@ -616,6 +689,100 @@ export default function ServiceDashboardPage() {
     setEditingTechnician(null)
     setTechnicianCertificationForm(initialTechnicianCertificationForm)
     setTechnicianCertificationError("")
+  }
+
+  async function handleTechnicianCertificationDocumentUpload(
+    event?: React.FormEvent
+  ) {
+    event?.preventDefault()
+    if (!editingTechnician || !selectedTechnicianCertificationDocument) return
+
+    setTechnicianCertificationDocumentError("")
+    setIsUploadingTechnicianCertificationDocument(true)
+
+    const formData = new FormData()
+    formData.set("file", selectedTechnicianCertificationDocument)
+
+    const response = await fetch(
+      `/api/dashboard/service/technicians/${editingTechnician.id}/certification/document`,
+      {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      }
+    )
+    const result: {
+      document?: TechnicianCertificationDocument | null
+      error?: string
+    } = await response.json()
+
+    if (response.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!response.ok) {
+      const message =
+        result.error || "Kunde inte ladda upp certifikatdokumentet."
+      setTechnicianCertificationDocumentError(message)
+      setToast({
+        type: "error",
+        title: "Fel",
+        message,
+      })
+      setIsUploadingTechnicianCertificationDocument(false)
+      return
+    }
+
+    setTechnicianCertificationDocument(result.document ?? null)
+    setSelectedTechnicianCertificationDocument(null)
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Certifikatdokumentet har laddats upp.",
+    })
+    setIsUploadingTechnicianCertificationDocument(false)
+  }
+
+  async function handleTechnicianCertificationDocumentDelete() {
+    if (!editingTechnician) return
+
+    setTechnicianCertificationDocumentError("")
+    setIsDeletingTechnicianCertificationDocument(true)
+
+    const response = await fetch(
+      `/api/dashboard/service/technicians/${editingTechnician.id}/certification/document`,
+      {
+        method: "DELETE",
+        credentials: "include",
+      }
+    )
+    const result: { document?: null; error?: string } = await response.json()
+
+    if (response.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!response.ok) {
+      const message = result.error || "Kunde inte ta bort certifikatdokumentet."
+      setTechnicianCertificationDocumentError(message)
+      setToast({
+        type: "error",
+        title: "Fel",
+        message,
+      })
+      setIsDeletingTechnicianCertificationDocument(false)
+      return
+    }
+
+    setTechnicianCertificationDocument(null)
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Certifikatdokumentet har tagits bort.",
+    })
+    setIsDeletingTechnicianCertificationDocument(false)
   }
 
   const eventCertificationWarning = getCertificationWarning(null)
@@ -1152,6 +1319,101 @@ export default function ServiceDashboardPage() {
               <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
                 Lämna certifikatnummer tomt för att markera certifikatet som saknat.
               </p>
+              <section className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <h3 className="text-sm font-semibold text-slate-950">
+                  Certifikatdokument
+                </h3>
+                <p className="mt-1 text-sm text-slate-600">
+                  Ladda upp PDF, JPG eller PNG. Dokumentet hanteras separat
+                  från certifikatuppgifterna.
+                </p>
+                <div className="mt-3 rounded-md border border-slate-200 bg-white p-3">
+                  {isLoadingTechnicianCertificationDocument ? (
+                    <p className="text-sm text-slate-600">
+                      Hämtar certifikatdokument...
+                    </p>
+                  ) : technicianCertificationDocument ? (
+                    <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-950">
+                          {technicianCertificationDocument.fileName}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Uppladdat{" "}
+                          {formatOptionalDateValue(
+                            technicianCertificationDocument.uploadedAt
+                          )}{" "}
+                          ·{" "}
+                          {formatFileSize(
+                            technicianCertificationDocument.sizeBytes
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <a
+                          className="inline-flex justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100"
+                          href={technicianCertificationDocument.downloadHref}
+                        >
+                          Ladda ner
+                        </a>
+                        <button
+                          className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
+                          disabled={isDeletingTechnicianCertificationDocument}
+                          type="button"
+                          onClick={handleTechnicianCertificationDocumentDelete}
+                        >
+                          {isDeletingTechnicianCertificationDocument
+                            ? "Tar bort..."
+                            : "Ta bort"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-600">
+                      Inget certifikatdokument uppladdat.
+                    </p>
+                  )}
+                </div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
+                  <label className={fieldClassName}>
+                    {technicianCertificationDocument
+                      ? "Byt dokument"
+                      : "Ladda upp dokument"}
+                    <input
+                      accept="application/pdf,image/png,image/jpeg"
+                      className={inputClassName}
+                      type="file"
+                      onChange={(event) =>
+                        setSelectedTechnicianCertificationDocument(
+                          event.target.files?.[0] ?? null
+                        )
+                      }
+                    />
+                  </label>
+                  <div className="flex items-end">
+                    <button
+                      className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                      disabled={
+                        !selectedTechnicianCertificationDocument ||
+                        isUploadingTechnicianCertificationDocument
+                      }
+                      type="button"
+                      onClick={() => handleTechnicianCertificationDocumentUpload()}
+                    >
+                      {isUploadingTechnicianCertificationDocument
+                        ? "Laddar upp..."
+                        : technicianCertificationDocument
+                          ? "Byt dokument"
+                          : "Ladda upp"}
+                    </button>
+                  </div>
+                </div>
+                {technicianCertificationDocumentError && (
+                  <p className="mt-3 text-sm font-semibold text-red-700">
+                    {technicianCertificationDocumentError}
+                  </p>
+                )}
+              </section>
               {technicianCertificationError && (
                 <p className="text-sm font-semibold text-red-700">
                   {technicianCertificationError}
@@ -1436,6 +1698,19 @@ function getServiceSummaryCards({
 
 function formatOptionalDate(value?: string | null) {
   return value ? new Intl.DateTimeFormat("sv-SE").format(new Date(value)) : "-"
+}
+
+function formatOptionalDateValue(value?: string | Date | null) {
+  if (!value) return "-"
+  const date = value instanceof Date ? value : new Date(value)
+  if (!Number.isFinite(date.getTime())) return "-"
+  return new Intl.DateTimeFormat("sv-SE").format(date)
+}
+
+function formatFileSize(sizeBytes: number) {
+  if (sizeBytes < 1024) return `${sizeBytes} byte`
+  if (sizeBytes < 1024 * 1024) return `${Math.round(sizeBytes / 1024)} kB`
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`
 }
 
 function formatActionDate(action: ServiceAction) {

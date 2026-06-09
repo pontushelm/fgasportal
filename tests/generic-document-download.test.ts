@@ -345,6 +345,7 @@ describe("generic document download route", () => {
     })
     certificationRecordFindFirst.mockResolvedValueOnce({
       serviceOrganizationId: "service-org-1",
+      userId: "contractor-1",
     })
 
     const response = await GET(createRequest(), routeContext)
@@ -354,7 +355,6 @@ describe("generic document download route", () => {
       where: {
         id: "cert-record-1",
         companyId: "company-1",
-        userId: "contractor-1",
         subjectType: "TECHNICIAN",
         certificateType: "PERSONAL_FGAS",
         status: {
@@ -363,6 +363,51 @@ describe("generic document download route", () => {
       },
       select: {
         serviceOrganizationId: true,
+        userId: true,
+      },
+    })
+  })
+
+  it("allows servicepartner admins to download technician certificate documents in their organization", async () => {
+    const { GET } = await import("@/app/api/documents/[id]/download/route")
+    authenticateApiRequest.mockResolvedValueOnce({
+      user: {
+        userId: "service-admin-1",
+        companyId: "company-1",
+        role: "CONTRACTOR",
+        serviceOrganizationId: "service-org-1",
+        isServicePartnerAdmin: true,
+      },
+    })
+    documentFindFirst.mockResolvedValueOnce({
+      ...baseDocument,
+      category: "PERSONAL_FGAS_CERTIFICATE",
+      links: [
+        {
+          entityType: "CERTIFICATION_RECORD",
+          entityId: "cert-record-1",
+          role: "CERTIFICATE",
+        },
+      ],
+    })
+    certificationRecordFindFirst.mockResolvedValueOnce({
+      serviceOrganizationId: "service-org-1",
+      userId: "technician-1",
+    })
+    serviceOrganizationMembershipFindFirst.mockResolvedValueOnce({ id: "som-1" })
+
+    const response = await GET(createRequest(), routeContext)
+
+    expect(response.status).toBe(200)
+    expect(serviceOrganizationMembershipFindFirst).toHaveBeenCalledWith({
+      where: {
+        serviceOrganizationId: "service-org-1",
+        userId: "service-admin-1",
+        role: "ADMIN",
+        isActive: true,
+      },
+      select: {
+        id: true,
       },
     })
   })

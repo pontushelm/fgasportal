@@ -215,7 +215,6 @@ async function canAccessCertificationRecordLink(
     where: {
       id: certificationRecordId,
       companyId: user.companyId,
-      userId: user.userId,
       subjectType: "TECHNICIAN",
       certificateType: "PERSONAL_FGAS",
       status: {
@@ -224,14 +223,38 @@ async function canAccessCertificationRecordLink(
     },
     select: {
       serviceOrganizationId: true,
+      userId: true,
     },
-  })) as { serviceOrganizationId: string | null } | null
+  })) as { serviceOrganizationId: string | null; userId: string | null } | null
 
   if (!certificationRecord?.serviceOrganizationId) return false
 
-  return canAccessServiceOrganizationLink(
-    user,
-    certificationRecord.serviceOrganizationId,
-    prisma
-  )
+  if (certificationRecord.userId === user.userId) {
+    return canAccessServiceOrganizationLink(
+      user,
+      certificationRecord.serviceOrganizationId,
+      prisma
+    )
+  }
+
+  if (
+    !user.isServicePartnerAdmin ||
+    user.serviceOrganizationId !== certificationRecord.serviceOrganizationId
+  ) {
+    return false
+  }
+
+  const membership = await prisma.serviceOrganizationMembership.findFirst({
+    where: {
+      serviceOrganizationId: certificationRecord.serviceOrganizationId,
+      userId: user.userId,
+      role: "ADMIN",
+      isActive: true,
+    },
+    select: {
+      id: true,
+    },
+  })
+
+  return Boolean(membership)
 }
