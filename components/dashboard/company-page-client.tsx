@@ -105,6 +105,15 @@ type ServicePartnerSettings = {
   } | null
 }
 
+type CertificationDocument = {
+  id: string
+  fileName: string
+  contentType: string
+  sizeBytes: number
+  downloadHref: string
+  uploadedAt: string | Date
+}
+
 type ServicePartnerSettingsFormData = {
   name: string
   contactEmail: string
@@ -181,6 +190,16 @@ export default function CompanySettingsPage() {
   const [isSavingBilling, setIsSavingBilling] = useState(false)
   const [isSavingServicePartnerSettings, setIsSavingServicePartnerSettings] =
     useState(false)
+  const [companyCertificationDocument, setCompanyCertificationDocument] =
+    useState<CertificationDocument | null>(null)
+  const [selectedCompanyCertificationDocument, setSelectedCompanyCertificationDocument] =
+    useState<File | null>(null)
+  const [companyCertificationDocumentError, setCompanyCertificationDocumentError] =
+    useState("")
+  const [isUploadingCompanyCertificationDocument, setIsUploadingCompanyCertificationDocument] =
+    useState(false)
+  const [isDeletingCompanyCertificationDocument, setIsDeletingCompanyCertificationDocument] =
+    useState(false)
   const [isSubmittingInvite, setIsSubmittingInvite] = useState(false)
   const [error, setError] = useState("")
   const [profileError, setProfileError] = useState("")
@@ -242,10 +261,23 @@ export default function CompanySettingsPage() {
 
         const servicePartnerData: ServicePartnerSettings =
           await servicePartnerRes.json()
+        const documentRes = accessUser.isServicePartnerAdmin
+          ? await fetch("/api/dashboard/service/company/certification/document", {
+              credentials: "include",
+            })
+          : null
+        const documentData: { document: CertificationDocument | null } | null =
+          documentRes?.ok ? await documentRes.json() : null
 
         if (!isMounted) return
         setCurrentUser(accessUser)
         setServicePartnerSettings(servicePartnerData)
+        setCompanyCertificationDocument(documentData?.document ?? null)
+        if (documentRes && !documentRes.ok) {
+          setCompanyCertificationDocumentError(
+            "Kunde inte hämta certifikatdokumentet."
+          )
+        }
         setServicePartnerSettingsForm(
           toServicePartnerSettingsFormData(servicePartnerData)
         )
@@ -474,6 +506,82 @@ export default function CompanySettingsPage() {
       message: "Servicepartneruppgifterna har sparats.",
     })
     setIsSavingServicePartnerSettings(false)
+  }
+
+  async function handleCompanyCertificationDocumentUpload(event: React.FormEvent) {
+    event.preventDefault()
+    if (!selectedCompanyCertificationDocument) return
+
+    setCompanyCertificationDocumentError("")
+    setIsUploadingCompanyCertificationDocument(true)
+
+    const formData = new FormData()
+    formData.set("file", selectedCompanyCertificationDocument)
+
+    const res = await fetch("/api/dashboard/service/company/certification/document", {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    })
+    const result: {
+      document?: CertificationDocument | null
+      error?: string
+    } = await res.json()
+
+    if (res.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!res.ok) {
+      const message =
+        result.error || "Kunde inte ladda upp certifikatdokumentet."
+      setCompanyCertificationDocumentError(message)
+      setToast({ type: "error", title: "Fel", message })
+      setIsUploadingCompanyCertificationDocument(false)
+      return
+    }
+
+    setCompanyCertificationDocument(result.document ?? null)
+    setSelectedCompanyCertificationDocument(null)
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Certifikatdokumentet har laddats upp.",
+    })
+    setIsUploadingCompanyCertificationDocument(false)
+  }
+
+  async function handleCompanyCertificationDocumentDelete() {
+    setCompanyCertificationDocumentError("")
+    setIsDeletingCompanyCertificationDocument(true)
+
+    const res = await fetch("/api/dashboard/service/company/certification/document", {
+      method: "DELETE",
+      credentials: "include",
+    })
+    const result: { document?: null; error?: string } = await res.json()
+
+    if (res.status === 401) {
+      router.push("/login")
+      return
+    }
+
+    if (!res.ok) {
+      const message = result.error || "Kunde inte ta bort certifikatdokumentet."
+      setCompanyCertificationDocumentError(message)
+      setToast({ type: "error", title: "Fel", message })
+      setIsDeletingCompanyCertificationDocument(false)
+      return
+    }
+
+    setCompanyCertificationDocument(null)
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Certifikatdokumentet har tagits bort.",
+    })
+    setIsDeletingCompanyCertificationDocument(false)
   }
 
   async function handleInviteSubmit(event: React.FormEvent) {
@@ -799,8 +907,17 @@ export default function CompanySettingsPage() {
             canEdit={currentUser.isServicePartnerAdmin}
             error={servicePartnerSettingsError}
             form={servicePartnerSettingsForm}
+            certificationDocument={companyCertificationDocument}
+            certificationDocumentError={companyCertificationDocumentError}
             isEditing={isEditingServicePartnerSettings}
+            isDeletingCertificationDocument={
+              isDeletingCompanyCertificationDocument
+            }
             isSaving={isSavingServicePartnerSettings}
+            isUploadingCertificationDocument={
+              isUploadingCompanyCertificationDocument
+            }
+            selectedCertificationDocument={selectedCompanyCertificationDocument}
             settings={servicePartnerSettings}
             onCancel={() => {
               setServicePartnerSettingsForm(
@@ -810,6 +927,11 @@ export default function CompanySettingsPage() {
               setServicePartnerSettingsError("")
             }}
             onChange={handleServicePartnerSettingsChange}
+            onCertificationDocumentDelete={handleCompanyCertificationDocumentDelete}
+            onCertificationDocumentSelected={setSelectedCompanyCertificationDocument}
+            onCertificationDocumentUpload={
+              handleCompanyCertificationDocumentUpload
+            }
             onEdit={() => setIsEditingServicePartnerSettings(true)}
             onSubmit={handleServicePartnerSettingsSubmit}
           />
@@ -1247,25 +1369,41 @@ function CompanySettingsLoadingSkeleton() {
 
 function ServicePartnerSettingsPanel({
   canEdit,
+  certificationDocument,
+  certificationDocumentError,
   error,
   form,
   isEditing,
+  isDeletingCertificationDocument,
   isSaving,
+  isUploadingCertificationDocument,
   onCancel,
+  onCertificationDocumentDelete,
+  onCertificationDocumentSelected,
+  onCertificationDocumentUpload,
   onChange,
   onEdit,
   onSubmit,
+  selectedCertificationDocument,
   settings,
 }: {
   canEdit: boolean
+  certificationDocument: CertificationDocument | null
+  certificationDocumentError: string
   error: string
   form: ServicePartnerSettingsFormData
   isEditing: boolean
+  isDeletingCertificationDocument: boolean
   isSaving: boolean
+  isUploadingCertificationDocument: boolean
   onCancel: () => void
+  onCertificationDocumentDelete: () => void
+  onCertificationDocumentSelected: (file: File | null) => void
+  onCertificationDocumentUpload: (event: React.FormEvent) => void
   onChange: (event: React.ChangeEvent<HTMLInputElement>) => void
   onEdit: () => void
   onSubmit: (event: React.FormEvent) => void
+  selectedCertificationDocument: File | null
   settings: ServicePartnerSettings
 }) {
   return (
@@ -1376,14 +1514,47 @@ function ServicePartnerSettingsPanel({
             <ProfileItem label="E-post" value={settings.contactEmail} />
             <ProfileItem label="Telefon" value={settings.phone} />
           </dl>
-          <CertificationCard settings={settings} />
+          <CertificationCard
+            canEdit={canEdit}
+            document={certificationDocument}
+            documentError={certificationDocumentError}
+            isDeletingDocument={isDeletingCertificationDocument}
+            isUploadingDocument={isUploadingCertificationDocument}
+            selectedDocument={selectedCertificationDocument}
+            settings={settings}
+            onDocumentDelete={onCertificationDocumentDelete}
+            onDocumentSelected={onCertificationDocumentSelected}
+            onDocumentUpload={onCertificationDocumentUpload}
+          />
         </div>
       )}
     </Card>
   )
 }
 
-function CertificationCard({ settings }: { settings: ServicePartnerSettings }) {
+function CertificationCard({
+  canEdit,
+  document,
+  documentError,
+  isDeletingDocument,
+  isUploadingDocument,
+  onDocumentDelete,
+  onDocumentSelected,
+  onDocumentUpload,
+  selectedDocument,
+  settings,
+}: {
+  canEdit: boolean
+  document: CertificationDocument | null
+  documentError: string
+  isDeletingDocument: boolean
+  isUploadingDocument: boolean
+  onDocumentDelete: () => void
+  onDocumentSelected: (file: File | null) => void
+  onDocumentUpload: (event: React.FormEvent) => void
+  selectedDocument: File | null
+  settings: ServicePartnerSettings
+}) {
   const certification = settings.certification
   const certificateNumber =
     certification?.certificateNumber ?? settings.certificateNumber
@@ -1422,6 +1593,85 @@ function CertificationCard({ settings }: { settings: ServicePartnerSettings }) {
           }
         />
       </dl>
+      {canEdit && (
+        <section className="mt-5 border-t border-slate-200 pt-4">
+          <h4 className="text-sm font-semibold text-slate-950">
+            Certifikatdokument
+          </h4>
+          <p className="mt-1 text-xs text-slate-600">
+            Ladda upp PDF, JPG eller PNG av företagscertifikatet.
+          </p>
+          <div className="mt-3 rounded-md border border-slate-200 bg-white p-3">
+            {document ? (
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                <div>
+                  <p className="text-sm font-semibold text-slate-950">
+                    {document.fileName}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Uppladdat {formatDate(document.uploadedAt)} ·{" "}
+                    {formatFileSize(document.sizeBytes)}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    className="inline-flex justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100"
+                    href={document.downloadHref}
+                  >
+                    Ladda ner
+                  </a>
+                  <button
+                    className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
+                    disabled={isDeletingDocument}
+                    type="button"
+                    onClick={onDocumentDelete}
+                  >
+                    {isDeletingDocument ? "Tar bort..." : "Ta bort"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-600">
+                Inget certifikatdokument uppladdat.
+              </p>
+            )}
+          </div>
+          <form
+            className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]"
+            onSubmit={onDocumentUpload}
+          >
+            <label className={fieldClassName}>
+              {document ? "Byt dokument" : "Ladda upp dokument"}
+              <input
+                accept="application/pdf,image/png,image/jpeg"
+                className={inputClassName}
+                type="file"
+                onChange={(event) =>
+                  onDocumentSelected(event.target.files?.[0] ?? null)
+                }
+              />
+            </label>
+            <div className="flex items-end">
+              <button
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                disabled={!selectedDocument || isUploadingDocument}
+                type="submit"
+              >
+                {isUploadingDocument
+                  ? "Laddar upp..."
+                  : document
+                    ? "Byt dokument"
+                    : "Ladda upp"}
+              </button>
+            </div>
+          </form>
+          {documentError && (
+            <p className="mt-3 text-sm font-semibold text-red-700">
+              {documentError}
+            </p>
+          )}
+        </section>
+      )}
     </div>
   )
 }
@@ -1745,6 +1995,15 @@ function toDateInputValue(value: string | null) {
   return date.toISOString().slice(0, 10)
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("sv-SE").format(new Date(value))
+function formatDate(value?: string | Date | null) {
+  if (!value) return "-"
+  const date = value instanceof Date ? value : new Date(value)
+  if (!Number.isFinite(date.getTime())) return "-"
+  return new Intl.DateTimeFormat("sv-SE").format(date)
+}
+
+function formatFileSize(sizeBytes: number) {
+  if (sizeBytes < 1024) return `${sizeBytes} byte`
+  if (sizeBytes < 1024 * 1024) return `${Math.round(sizeBytes / 1024)} kB`
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`
 }

@@ -215,19 +215,42 @@ async function canAccessCertificationRecordLink(
     where: {
       id: certificationRecordId,
       companyId: user.companyId,
-      subjectType: "TECHNICIAN",
-      certificateType: "PERSONAL_FGAS",
       status: {
         notIn: ["DELETED", "REVOKED", "REPLACED"],
       },
     },
     select: {
+      certificateType: true,
       serviceOrganizationId: true,
+      subjectType: true,
       userId: true,
     },
-  })) as { serviceOrganizationId: string | null; userId: string | null } | null
+  })) as {
+    certificateType: string
+    serviceOrganizationId: string | null
+    subjectType: string
+    userId: string | null
+  } | null
 
   if (!certificationRecord?.serviceOrganizationId) return false
+
+  if (
+    certificationRecord.subjectType === "SERVICE_ORGANIZATION" &&
+    certificationRecord.certificateType === "COMPANY_FGAS"
+  ) {
+    return canAccessServiceOrganizationCertificateLink(
+      user,
+      certificationRecord.serviceOrganizationId,
+      prisma
+    )
+  }
+
+  if (
+    certificationRecord.subjectType !== "TECHNICIAN" ||
+    certificationRecord.certificateType !== "PERSONAL_FGAS"
+  ) {
+    return false
+  }
 
   if (certificationRecord.userId === user.userId) {
     return canAccessServiceOrganizationLink(
@@ -247,6 +270,34 @@ async function canAccessCertificationRecordLink(
   const membership = await prisma.serviceOrganizationMembership.findFirst({
     where: {
       serviceOrganizationId: certificationRecord.serviceOrganizationId,
+      userId: user.userId,
+      role: "ADMIN",
+      isActive: true,
+    },
+    select: {
+      id: true,
+    },
+  })
+
+  return Boolean(membership)
+}
+
+async function canAccessServiceOrganizationCertificateLink(
+  user: AuthenticatedUser,
+  serviceOrganizationId: string,
+  prisma: DocumentAccessPrismaClient
+) {
+  if (
+    user.role !== "CONTRACTOR" ||
+    !user.isServicePartnerAdmin ||
+    user.serviceOrganizationId !== serviceOrganizationId
+  ) {
+    return false
+  }
+
+  const membership = await prisma.serviceOrganizationMembership.findFirst({
+    where: {
+      serviceOrganizationId,
       userId: user.userId,
       role: "ADMIN",
       isActive: true,

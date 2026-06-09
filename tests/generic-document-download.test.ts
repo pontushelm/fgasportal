@@ -344,7 +344,9 @@ describe("generic document download route", () => {
       ],
     })
     certificationRecordFindFirst.mockResolvedValueOnce({
+      certificateType: "PERSONAL_FGAS",
       serviceOrganizationId: "service-org-1",
+      subjectType: "TECHNICIAN",
       userId: "contractor-1",
     })
 
@@ -355,14 +357,14 @@ describe("generic document download route", () => {
       where: {
         id: "cert-record-1",
         companyId: "company-1",
-        subjectType: "TECHNICIAN",
-        certificateType: "PERSONAL_FGAS",
         status: {
           notIn: ["DELETED", "REVOKED", "REPLACED"],
         },
       },
       select: {
+        certificateType: true,
         serviceOrganizationId: true,
+        subjectType: true,
         userId: true,
       },
     })
@@ -391,7 +393,9 @@ describe("generic document download route", () => {
       ],
     })
     certificationRecordFindFirst.mockResolvedValueOnce({
+      certificateType: "PERSONAL_FGAS",
       serviceOrganizationId: "service-org-1",
+      subjectType: "TECHNICIAN",
       userId: "technician-1",
     })
     serviceOrganizationMembershipFindFirst.mockResolvedValueOnce({ id: "som-1" })
@@ -410,6 +414,41 @@ describe("generic document download route", () => {
         id: true,
       },
     })
+  })
+
+  it("allows servicepartner admins to download their service organization certificate document", async () => {
+    const { GET } = await import("@/app/api/documents/[id]/download/route")
+    authenticateApiRequest.mockResolvedValueOnce({
+      user: {
+        userId: "service-admin-1",
+        companyId: "company-1",
+        role: "CONTRACTOR",
+        serviceOrganizationId: "service-org-1",
+        isServicePartnerAdmin: true,
+      },
+    })
+    documentFindFirst.mockResolvedValueOnce({
+      ...baseDocument,
+      category: "SERVICE_ORGANIZATION_CERTIFICATE",
+      links: [
+        {
+          entityType: "CERTIFICATION_RECORD",
+          entityId: "company-cert-record-1",
+          role: "CERTIFICATE",
+        },
+      ],
+    })
+    certificationRecordFindFirst.mockResolvedValueOnce({
+      certificateType: "COMPANY_FGAS",
+      serviceOrganizationId: "service-org-1",
+      subjectType: "SERVICE_ORGANIZATION",
+      userId: null,
+    })
+    serviceOrganizationMembershipFindFirst.mockResolvedValueOnce({ id: "som-1" })
+
+    const response = await GET(createRequest(), routeContext)
+
+    expect(response.status).toBe(200)
   })
 
   it("denies contractors for another technician certificate document", async () => {
