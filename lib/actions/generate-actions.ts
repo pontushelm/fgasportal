@@ -16,6 +16,9 @@ export type DashboardActionType =
   | "SERVICEPARTNER_CERTIFICATE_MISSING"
   | "SERVICEPARTNER_CERTIFICATE_EXPIRING"
   | "SERVICEPARTNER_CERTIFICATE_EXPIRED"
+  | "TECHNICIAN_CERTIFICATE_MISSING"
+  | "TECHNICIAN_CERTIFICATE_EXPIRING"
+  | "TECHNICIAN_CERTIFICATE_EXPIRED"
 
 export type DashboardActionSeverity = "HIGH" | "MEDIUM" | "LOW"
 
@@ -95,6 +98,18 @@ export type ActionServicePartnerCertificationInput = {
   validUntil?: Date | string | null
 }
 
+export type ActionTechnicianCertificationInput = {
+  id: string
+  name: string
+  email?: string | null
+  certificateNumber?: string | null
+  issuer?: string | null
+  validUntil?: Date | string | null
+  servicePartnerCompanyId?: string | null
+  servicePartnerCompanyName?: string | null
+  href?: string | null
+}
+
 const RECENT_LEAKAGE_DAYS = 30
 const SERVICEPARTNER_CERTIFICATE_EXPIRING_DAYS = 90
 
@@ -107,25 +122,30 @@ const SEVERITY_ORDER: Record<DashboardActionSeverity, number> = {
 const TYPE_ORDER: Record<DashboardActionType, number> = {
   OVERDUE_INSPECTION: 1,
   SERVICEPARTNER_CERTIFICATE_EXPIRED: 2,
-  SERVICEPARTNER_CERTIFICATE_MISSING: 3,
-  NOT_INSPECTED: 4,
-  RECENT_LEAKAGE: 5,
-  HIGH_RISK: 6,
-  DUE_SOON_INSPECTION: 7,
-  SERVICEPARTNER_CERTIFICATE_EXPIRING: 8,
-  NO_SERVICE_PARTNER: 9,
-  REFRIGERANT_REVIEW: 10,
+  TECHNICIAN_CERTIFICATE_EXPIRED: 3,
+  SERVICEPARTNER_CERTIFICATE_MISSING: 4,
+  TECHNICIAN_CERTIFICATE_MISSING: 5,
+  NOT_INSPECTED: 6,
+  RECENT_LEAKAGE: 7,
+  HIGH_RISK: 8,
+  DUE_SOON_INSPECTION: 9,
+  SERVICEPARTNER_CERTIFICATE_EXPIRING: 10,
+  TECHNICIAN_CERTIFICATE_EXPIRING: 11,
+  NO_SERVICE_PARTNER: 12,
+  REFRIGERANT_REVIEW: 13,
 }
 
 export function generateDashboardActions({
   installations,
   leakageEvents,
   servicePartnerCompanies = [],
+  technicians = [],
   today = new Date(),
 }: {
   installations: ActionInstallationInput[]
   leakageEvents: ActionLeakageEventInput[]
   servicePartnerCompanies?: ActionServicePartnerCertificationInput[]
+  technicians?: ActionTechnicianCertificationInput[]
   today?: Date
 }): DashboardAction[] {
   const actions: DashboardAction[] = []
@@ -330,6 +350,67 @@ export function generateDashboardActions({
     }
   })
 
+  technicians.forEach((technician) => {
+    const validUntil = parseOptionalDate(technician.validUntil)
+    const certificateNumber = technician.certificateNumber?.trim() || null
+
+    if (!certificateNumber || !validUntil) {
+      actions.push(
+        createTechnicianCertificationAction({
+          technician,
+          type: "TECHNICIAN_CERTIFICATE_MISSING",
+          severity: "HIGH",
+          title: "Tekniker saknar personcertifikat",
+          description: buildTechnicianCertificateDescription({
+            certificateNumber,
+            intro: `${technician.name} saknar ett registrerat giltigt personligt F-gascertifikat.`,
+            validUntil,
+          }),
+          dueDate: validUntil,
+        })
+      )
+      return
+    }
+
+    const validUntilStart = startOfDay(validUntil)
+    const todayStart = startOfDay(today)
+
+    if (validUntilStart < todayStart) {
+      actions.push(
+        createTechnicianCertificationAction({
+          technician,
+          type: "TECHNICIAN_CERTIFICATE_EXPIRED",
+          severity: "HIGH",
+          title: "Teknikers personcertifikat har gått ut",
+          description: buildTechnicianCertificateDescription({
+            certificateNumber,
+            intro: `${technician.name} har ett personligt F-gascertifikat som gick ut ${formatDate(validUntil)}.`,
+            validUntil,
+          }),
+          dueDate: validUntil,
+        })
+      )
+      return
+    }
+
+    if (validUntilStart <= expiringCertificateThreshold) {
+      actions.push(
+        createTechnicianCertificationAction({
+          technician,
+          type: "TECHNICIAN_CERTIFICATE_EXPIRING",
+          severity: "MEDIUM",
+          title: "Teknikers personcertifikat går snart ut",
+          description: buildTechnicianCertificateDescription({
+            certificateNumber,
+            intro: `${technician.name} har ett personligt F-gascertifikat som går ut ${formatDate(validUntil)}.`,
+            validUntil,
+          }),
+          dueDate: validUntil,
+        })
+      )
+    }
+  })
+
   return sortDashboardActions(actions)
 }
 
@@ -466,6 +547,66 @@ function getServicePartnerCertificationActionId(
   return `servicepartner-certificate-${servicePartnerCompanyId}`
 }
 
+function createTechnicianCertificationAction({
+  description,
+  dueDate,
+  severity,
+  technician,
+  title,
+  type,
+}: {
+  description: string
+  dueDate: Date | null
+  severity: DashboardActionSeverity
+  technician: ActionTechnicianCertificationInput
+  title: string
+  type:
+    | "TECHNICIAN_CERTIFICATE_MISSING"
+    | "TECHNICIAN_CERTIFICATE_EXPIRING"
+    | "TECHNICIAN_CERTIFICATE_EXPIRED"
+}): DashboardAction {
+  return {
+    id: getTechnicianCertificationActionId(type, technician.id),
+    type,
+    severity,
+    priority: severity,
+    title,
+    description,
+    installationId: `technician-${technician.id}`,
+    installationName: technician.name,
+    equipmentId: technician.certificateNumber ?? null,
+    propertyId: null,
+    propertyName: null,
+    assignedServiceContactId: technician.id,
+    assignedServiceContactName: technician.name,
+    assignedServiceContactEmail: technician.email ?? null,
+    servicePartnerCompanyId: technician.servicePartnerCompanyId ?? null,
+    servicePartnerCompanyName: technician.servicePartnerCompanyName ?? null,
+    href: technician.href ?? "/dashboard/service",
+    dueDate,
+    createdAt: null,
+    createdFrom: "certification",
+    source: "certification",
+    sortPriority: getSortPriority(type, severity),
+  }
+}
+
+function getTechnicianCertificationActionId(
+  type: DashboardActionType,
+  technicianId: string
+) {
+  if (type === "TECHNICIAN_CERTIFICATE_MISSING") {
+    return `technician-certificate-missing-${technicianId}`
+  }
+  if (type === "TECHNICIAN_CERTIFICATE_EXPIRING") {
+    return `technician-certificate-expiring-${technicianId}`
+  }
+  if (type === "TECHNICIAN_CERTIFICATE_EXPIRED") {
+    return `technician-certificate-expired-${technicianId}`
+  }
+  return `technician-certificate-${technicianId}`
+}
+
 function buildServicePartnerCertificateDescription({
   certificateNumber,
   intro,
@@ -479,6 +620,26 @@ function buildServicePartnerCertificateDescription({
     certificateNumber ? `Certifikat: ${certificateNumber}.` : null,
     validUntil ? `Giltigt till: ${formatDate(validUntil)}.` : null,
     "Kontrollera certifieringen med servicepartnern och be dem uppdatera uppgifterna i FgasPortal.",
+  ]
+    .filter(Boolean)
+    .join(" ")
+
+  return `${intro} ${details}`
+}
+
+function buildTechnicianCertificateDescription({
+  certificateNumber,
+  intro,
+  validUntil,
+}: {
+  certificateNumber: string | null
+  intro: string
+  validUntil: Date | null
+}) {
+  const details = [
+    certificateNumber ? `Certifikat: ${certificateNumber}.` : null,
+    validUntil ? `Giltigt till: ${formatDate(validUntil)}.` : "Giltighet saknas.",
+    "Uppdatera personcertifikatet i FgasPortal.",
   ]
     .filter(Boolean)
     .join(" ")

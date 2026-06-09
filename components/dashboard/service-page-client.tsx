@@ -157,6 +157,9 @@ const SERVICE_QUEUE_ACTION_TYPES = new Set<DashboardActionType>([
   "HIGH_RISK",
   "RECENT_LEAKAGE",
   "REFRIGERANT_REVIEW",
+  "TECHNICIAN_CERTIFICATE_MISSING",
+  "TECHNICIAN_CERTIFICATE_EXPIRING",
+  "TECHNICIAN_CERTIFICATE_EXPIRED",
 ])
 
 const ACTION_TYPE_LABELS: Record<DashboardActionType, string> = {
@@ -170,6 +173,9 @@ const ACTION_TYPE_LABELS: Record<DashboardActionType, string> = {
   SERVICEPARTNER_CERTIFICATE_MISSING: "Servicepartnercertifikat saknas",
   SERVICEPARTNER_CERTIFICATE_EXPIRING: "Servicepartnercertifikat går snart ut",
   SERVICEPARTNER_CERTIFICATE_EXPIRED: "Servicepartnercertifikat har gått ut",
+  TECHNICIAN_CERTIFICATE_MISSING: "Tekniker saknar personcertifikat",
+  TECHNICIAN_CERTIFICATE_EXPIRING: "Teknikers personcertifikat går snart ut",
+  TECHNICIAN_CERTIFICATE_EXPIRED: "Teknikers personcertifikat har gått ut",
 }
 
 const SEVERITY_LABELS: Record<DashboardActionSeverity, string> = {
@@ -1259,18 +1265,33 @@ function WorkQueueRow({ action }: { action: ServiceAction }) {
         </p>
         <p className="mt-1 text-sm text-slate-600">{action.description}</p>
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-          <span>Fastighet: {action.propertyName || "-"}</span>
+          {!isTechnicianCertificateAction(action.type) && (
+            <span>Fastighet: {action.propertyName || "-"}</span>
+          )}
           <span>Tekniker: {action.assignedServiceContactName || "-"}</span>
-          <span>Datum: {formatActionDate(action)}</span>
+          <span>
+            {isTechnicianCertificateAction(action.type) ? "Giltigt till" : "Datum"}:{" "}
+            {formatActionDate(action)}
+          </span>
         </div>
       </div>
       <Link
         className="inline-flex justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
         href={action.href}
       >
-        Öppna aggregat
+        {isTechnicianCertificateAction(action.type)
+          ? "Öppna certifiering"
+          : "Öppna aggregat"}
       </Link>
     </article>
+  )
+}
+
+function isTechnicianCertificateAction(type: DashboardActionType) {
+  return (
+    type === "TECHNICIAN_CERTIFICATE_MISSING" ||
+    type === "TECHNICIAN_CERTIFICATE_EXPIRING" ||
+    type === "TECHNICIAN_CERTIFICATE_EXPIRED"
   )
 }
 

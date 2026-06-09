@@ -5,10 +5,12 @@ import { prisma } from "@/lib/db"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { calculateInstallationRisk } from "@/lib/risk-classification"
 import { buildServicePartnerCompanyCertification } from "@/lib/service-partner-company-certifications"
+import { ensureServiceOrganizationForLegacyCompany } from "@/lib/service-organizations"
+import { buildTechnicianCertification } from "@/lib/technician-certifications"
 
 export async function loadDashboardActions(user: AuthenticatedUser) {
   const queryStartTime = getDevelopmentTimingStart()
-  const [installations, servicePartnerCompanies] = await Promise.all([
+  const [installations, servicePartnerCompanies, serviceOrganizationBridge] = await Promise.all([
     prisma.installation.findMany({
       where: {
         AND: [
@@ -99,7 +101,93 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
             },
           },
         }),
+    isContractor(user) && user.servicePartnerCompanyId
+      ? ensureServiceOrganizationForLegacyCompany({
+          companyId: user.companyId,
+          servicePartnerCompanyId: user.servicePartnerCompanyId,
+        })
+      : Promise.resolve(null),
   ])
+  const technicianMemberships =
+    isContractor(user) &&
+    user.servicePartnerCompanyId &&
+    serviceOrganizationBridge?.serviceOrganizationId
+      ? await prisma.serviceOrganizationMembership.findMany({
+          where: {
+            isActive: true,
+            serviceOrganizationId: serviceOrganizationBridge.serviceOrganizationId,
+            ...(user.isServicePartnerAdmin ? {} : { userId: user.userId }),
+            user: {
+              isActive: true,
+              memberships: {
+                some: {
+                  companyId: user.companyId,
+                  role: "CONTRACTOR",
+                  isActive: true,
+                  servicePartnerCompanyId: user.servicePartnerCompanyId,
+                },
+              },
+            },
+          },
+          select: {
+            role: true,
+            serviceOrganization: {
+              select: {
+                name: true,
+              },
+            },
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                certificationNumber: true,
+                certificationIssuer: true,
+                certificationValidUntil: true,
+                certificationCategory: true,
+                certificationRecords: {
+                  where: {
+                    companyId: user.companyId,
+                    serviceOrganizationId:
+                      serviceOrganizationBridge.serviceOrganizationId,
+                    subjectType: "TECHNICIAN",
+                    certificateType: "PERSONAL_FGAS",
+                    status: {
+                      not: "DELETED",
+                    },
+                  },
+                  orderBy: {
+                    createdAt: "desc",
+                  },
+                },
+                memberships: {
+                  where: {
+                    companyId: user.companyId,
+                    role: "CONTRACTOR",
+                    isActive: true,
+                    servicePartnerCompanyId: user.servicePartnerCompanyId,
+                  },
+                  select: {
+                    id: true,
+                    certificationNumber: true,
+                    certificationOrganization: true,
+                    certificationValidUntil: true,
+                  },
+                  take: 1,
+                },
+              },
+            },
+          },
+          orderBy: [
+            {
+              user: { name: "asc" },
+            },
+            {
+              user: { email: "asc" },
+            },
+          ],
+        })
+      : []
   const serviceOrganizationIds = servicePartnerCompanies
     .map((company) => company.serviceOrganizationId)
     .filter((id): id is string => Boolean(id))
@@ -140,6 +228,27 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
       certificateNumber: certification.certificateNumber,
       issuer: certification.issuer,
       validUntil: certification.validUntil,
+    }
+  })
+  const technicianCertificationActions = technicianMemberships.map((membership) => {
+    const technicianName =
+      membership.user.name?.trim() || membership.user.email || "Tekniker"
+    const certification = buildTechnicianCertification({
+      membership: membership.user.memberships[0] ?? null,
+      records: membership.user.certificationRecords,
+      user: membership.user,
+    })
+
+    return {
+      id: membership.user.id,
+      name: technicianName,
+      email: membership.user.email,
+      certificateNumber: certification.certificateNumber,
+      issuer: certification.issuer,
+      validUntil: certification.validUntil,
+      servicePartnerCompanyId: user.servicePartnerCompanyId ?? null,
+      servicePartnerCompanyName: membership.serviceOrganization.name,
+      href: user.isServicePartnerAdmin ? "/dashboard/service" : "/dashboard/settings",
     }
   })
   logDevelopmentTiming("loadDashboardActions installation query", queryStartTime)
@@ -213,6 +322,7 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
     installations: actionInstallations,
     leakageEvents,
     servicePartnerCompanies: servicePartnerCertificationActions,
+    technicians: technicianCertificationActions,
   })
   logDevelopmentTiming("loadDashboardActions action generation", generationStartTime)
 

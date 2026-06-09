@@ -378,6 +378,97 @@ describe("dashboard action generation", () => {
     )
   })
 
+  it("creates high priority actions for missing technician certificates", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-06-08T12:00:00"),
+      installations: [],
+      leakageEvents: [],
+      technicians: [
+        createTechnicianCertificateInput({
+          certificateNumber: null,
+          validUntil: null,
+        }),
+      ],
+    })
+
+    expect(actions).toEqual([
+      expect.objectContaining({
+        type: "TECHNICIAN_CERTIFICATE_MISSING",
+        severity: "HIGH",
+        title: "Tekniker saknar personcertifikat",
+        installationName: "Anna Tekniker",
+        assignedServiceContactId: "technician-1",
+        servicePartnerCompanyId: "service-company-1",
+        href: "/dashboard/service",
+      }),
+    ])
+    expect(actions[0].description).toContain("Anna Tekniker")
+    expect(actions[0].description).toContain("personligt F-gascertifikat")
+    expect(
+      filterDashboardActions(actions, "SERVICEPARTNER_CERTIFICATION").map(
+        (action) => action.type
+      )
+    ).toEqual(["TECHNICIAN_CERTIFICATE_MISSING"])
+  })
+
+  it("creates high priority actions for expired technician certificates", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-06-08T12:00:00"),
+      installations: [],
+      leakageEvents: [],
+      technicians: [
+        createTechnicianCertificateInput({
+          validUntil: new Date("2026-06-01T00:00:00.000Z"),
+        }),
+      ],
+    })
+
+    expect(actions).toEqual([
+      expect.objectContaining({
+        type: "TECHNICIAN_CERTIFICATE_EXPIRED",
+        severity: "HIGH",
+        title: "Teknikers personcertifikat har gått ut",
+        dueDate: new Date("2026-06-01T00:00:00.000Z"),
+      }),
+    ])
+  })
+
+  it("creates medium priority actions for expiring technician certificates", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-06-08T12:00:00"),
+      installations: [],
+      leakageEvents: [],
+      technicians: [
+        createTechnicianCertificateInput({
+          validUntil: new Date("2026-08-01T00:00:00.000Z"),
+        }),
+      ],
+    })
+
+    expect(actions).toEqual([
+      expect.objectContaining({
+        type: "TECHNICIAN_CERTIFICATE_EXPIRING",
+        severity: "MEDIUM",
+        title: "Teknikers personcertifikat går snart ut",
+      }),
+    ])
+  })
+
+  it("does not create technician certificate actions for valid certificates", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-06-08T12:00:00"),
+      installations: [],
+      leakageEvents: [],
+      technicians: [
+        createTechnicianCertificateInput({
+          validUntil: new Date("2027-08-01T00:00:00.000Z"),
+        }),
+      ],
+    })
+
+    expect(actions).toEqual([])
+  })
+
   it("does not create certification actions without connected servicepartners", () => {
     const actions = generateDashboardActions({
       today: new Date("2026-06-08T12:00:00"),
@@ -571,3 +662,16 @@ describe("dashboard compliance metrics", () => {
     })
   })
 })
+
+function createTechnicianCertificateInput(overrides = {}) {
+  return {
+    id: "technician-1",
+    name: "Anna Tekniker",
+    email: "anna@example.com",
+    certificateNumber: "PCERT-1",
+    validUntil: new Date("2027-08-01T00:00:00.000Z"),
+    servicePartnerCompanyId: "service-company-1",
+    servicePartnerCompanyName: "Kylservice AB",
+    ...overrides,
+  }
+}

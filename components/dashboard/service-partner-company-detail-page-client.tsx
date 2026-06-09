@@ -104,6 +104,9 @@ const ACTION_TYPE_LABELS: Record<DashboardActionType, string> = {
   SERVICEPARTNER_CERTIFICATE_MISSING: "Servicepartnercertifikat saknas",
   SERVICEPARTNER_CERTIFICATE_EXPIRING: "Servicepartnercertifikat går snart ut",
   SERVICEPARTNER_CERTIFICATE_EXPIRED: "Servicepartnercertifikat har gått ut",
+  TECHNICIAN_CERTIFICATE_MISSING: "Tekniker saknar personcertifikat",
+  TECHNICIAN_CERTIFICATE_EXPIRING: "Teknikers personcertifikat går snart ut",
+  TECHNICIAN_CERTIFICATE_EXPIRED: "Teknikers personcertifikat har gått ut",
 }
 
 export default function ServicePartnerCompanyDetailPageClient({

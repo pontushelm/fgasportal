@@ -132,6 +132,9 @@ const ACTION_FILTER_TYPES: Record<Exclude<ActionFilter, "ALL">, DashboardActionT
     "SERVICEPARTNER_CERTIFICATE_MISSING",
     "SERVICEPARTNER_CERTIFICATE_EXPIRING",
     "SERVICEPARTNER_CERTIFICATE_EXPIRED",
+    "TECHNICIAN_CERTIFICATE_MISSING",
+    "TECHNICIAN_CERTIFICATE_EXPIRING",
+    "TECHNICIAN_CERTIFICATE_EXPIRED",
   ],
 }
 
@@ -242,7 +245,7 @@ export function getActionSummaryCounts<T extends SummaryAction>(
       if (action.type === "RECENT_LEAKAGE") summary.leakageFollowUp += 1
       if (action.type === "NO_SERVICE_PARTNER") summary.missingServiceContact += 1
       if (action.type === "REFRIGERANT_REVIEW") summary.refrigerantReview += 1
-      if (isServicePartnerCertificationAction(action.type)) {
+      if (isCertificationAction(action.type)) {
         summary.certificationReview += 1
       }
       return summary
@@ -314,11 +317,14 @@ function isAllowedValue<T extends string>(value: string, allowedValues: T[]) {
   return allowedValues.includes(value as T)
 }
 
-function isServicePartnerCertificationAction(type: DashboardActionType) {
+function isCertificationAction(type: DashboardActionType) {
   return (
     type === "SERVICEPARTNER_CERTIFICATE_MISSING" ||
     type === "SERVICEPARTNER_CERTIFICATE_EXPIRING" ||
-    type === "SERVICEPARTNER_CERTIFICATE_EXPIRED"
+    type === "SERVICEPARTNER_CERTIFICATE_EXPIRED" ||
+    type === "TECHNICIAN_CERTIFICATE_MISSING" ||
+    type === "TECHNICIAN_CERTIFICATE_EXPIRING" ||
+    type === "TECHNICIAN_CERTIFICATE_EXPIRED"
   )
 }
 
