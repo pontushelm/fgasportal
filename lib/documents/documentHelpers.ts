@@ -81,6 +81,7 @@ const INSTALLATION_DOCUMENT_CATEGORY_BY_TYPE: Record<
 
 export const DOCUMENT_LINK_ROLES = {
   attachment: "ATTACHMENT",
+  certificate: "CERTIFICATE",
   scrapCertificate: "SCRAP_CERTIFICATE",
   reportOutput: "REPORT_OUTPUT",
 } as const satisfies Record<string, DocumentLinkRole>
@@ -91,6 +92,7 @@ export const DOCUMENT_LINK_ENTITY_TYPES = {
   installationEvent: "INSTALLATION_EVENT",
   property: "PROPERTY",
   serviceOrganization: "SERVICE_ORGANIZATION",
+  certificationRecord: "CERTIFICATION_RECORD",
   signedReportArtifact: "SIGNED_REPORT_ARTIFACT",
 } as const satisfies Record<string, DocumentLinkEntityType>
 

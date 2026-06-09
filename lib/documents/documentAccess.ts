@@ -35,6 +35,9 @@ type DocumentAccessPrismaClient = {
   serviceOrganizationMembership: {
     findFirst(args: unknown): Promise<unknown>
   }
+  certificationRecord: {
+    findFirst(args: unknown): Promise<unknown>
+  }
 }
 
 type DocumentAccessInstallationRecord = {
@@ -85,6 +88,9 @@ async function canAccessDocumentLink(
 
     case "SERVICE_ORGANIZATION":
       return canAccessServiceOrganizationLink(user, link.entityId, prisma)
+
+    case "CERTIFICATION_RECORD":
+      return canAccessCertificationRecordLink(user, link.entityId, prisma)
 
     case "COMPANY":
       return link.entityId === user.companyId
@@ -196,4 +202,36 @@ async function canAccessServiceOrganizationLink(
   })
 
   return Boolean(membership)
+}
+
+async function canAccessCertificationRecordLink(
+  user: AuthenticatedUser,
+  certificationRecordId: string,
+  prisma: DocumentAccessPrismaClient
+) {
+  if (user.role !== "CONTRACTOR") return false
+
+  const certificationRecord = (await prisma.certificationRecord.findFirst({
+    where: {
+      id: certificationRecordId,
+      companyId: user.companyId,
+      userId: user.userId,
+      subjectType: "TECHNICIAN",
+      certificateType: "PERSONAL_FGAS",
+      status: {
+        notIn: ["DELETED", "REVOKED", "REPLACED"],
+      },
+    },
+    select: {
+      serviceOrganizationId: true,
+    },
+  })) as { serviceOrganizationId: string | null } | null
+
+  if (!certificationRecord?.serviceOrganizationId) return false
+
+  return canAccessServiceOrganizationLink(
+    user,
+    certificationRecord.serviceOrganizationId,
+    prisma
+  )
 }

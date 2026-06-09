@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Badge, Button, Card, PageHeader, PasswordInput, SectionHeader, Toast, type ToastMessage } from "@/components/ui"
+import { Badge, Button, Card, PageHeader, PasswordInput, SectionHeader, Toast, buttonClassName, type ToastMessage } from "@/components/ui"
 import { ThemeSelect } from "@/components/theme/theme-select"
 import type { UserRole } from "@/lib/auth"
 import { formatRoleLabel } from "@/lib/roles"
@@ -31,6 +31,15 @@ type TechnicianCertificationSummary = {
     variant: "success" | "warning" | "danger" | "neutral"
   }
   source: string
+}
+
+type TechnicianCertificationDocument = {
+  id: string
+  fileName: string
+  contentType: string
+  sizeBytes: number
+  downloadHref: string
+  uploadedAt: string | Date
 }
 
 type NotificationPreferences = Pick<
@@ -76,6 +85,10 @@ export default function SettingsPageClient() {
   const [certificationIssuer, setCertificationIssuer] = useState("")
   const [certificationValidUntil, setCertificationValidUntil] = useState("")
   const [certificationCategory, setCertificationCategory] = useState("")
+  const [certificationDocument, setCertificationDocument] =
+    useState<TechnicianCertificationDocument | null>(null)
+  const [selectedCertificationDocument, setSelectedCertificationDocument] =
+    useState<File | null>(null)
   const [notifications, setNotifications] =
     useState<NotificationPreferences | null>(null)
   const [passwordForm, setPasswordForm] = useState({
@@ -86,10 +99,16 @@ export default function SettingsPageClient() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [isSavingCertification, setIsSavingCertification] = useState(false)
+  const [isUploadingCertificationDocument, setIsUploadingCertificationDocument] =
+    useState(false)
+  const [isDeletingCertificationDocument, setIsDeletingCertificationDocument] =
+    useState(false)
   const [isSavingPassword, setIsSavingPassword] = useState(false)
   const [isSavingNotifications, setIsSavingNotifications] = useState(false)
   const [error, setError] = useState("")
   const [certificationError, setCertificationError] = useState("")
+  const [certificationDocumentError, setCertificationDocumentError] =
+    useState("")
   const [passwordError, setPasswordError] = useState("")
   const [notificationError, setNotificationError] = useState("")
   const [toast, setToast] = useState<ToastMessage | null>(null)
@@ -116,17 +135,32 @@ export default function SettingsPageClient() {
 
       const user: CurrentUser = await response.json()
       let certification: TechnicianCertificationSummary | null = null
+      let certificateDocument: TechnicianCertificationDocument | null = null
 
       if (user.role === "CONTRACTOR") {
-        const certificationResponse = await fetch(
-          "/api/user/technician-certification",
-          { credentials: "include" }
-        )
+        const [certificationResponse, documentResponse] = await Promise.all([
+          fetch("/api/user/technician-certification", {
+            credentials: "include",
+          }),
+          fetch("/api/user/technician-certification/document", {
+            credentials: "include",
+          }),
+        ])
 
         if (certificationResponse.ok) {
           certification = await certificationResponse.json()
         } else if (isMounted) {
           setCertificationError("Kunde inte hämta personcertifikatet.")
+        }
+
+        if (documentResponse.ok) {
+          const body: { document: TechnicianCertificationDocument | null } =
+            await documentResponse.json()
+          certificateDocument = body.document
+        } else if (isMounted) {
+          setCertificationDocumentError(
+            "Kunde inte hämta certifikatdokumentet."
+          )
         }
       }
 
@@ -135,6 +169,7 @@ export default function SettingsPageClient() {
       setName(user.name || "")
       setPhone(user.phone || "")
       setTechnicianCertification(certification)
+      setCertificationDocument(certificateDocument)
       setCertificationNumber(certification?.certificateNumber || "")
       setCertificationIssuer(certification?.issuer || "")
       setCertificationValidUntil(toDateInputValue(certification?.validUntil))
@@ -281,6 +316,80 @@ export default function SettingsPageClient() {
       message: "Personcertifikatet har sparats.",
     })
     setIsSavingCertification(false)
+  }
+
+  async function handleCertificationDocumentUpload(event: React.FormEvent) {
+    event.preventDefault()
+    if (!selectedCertificationDocument) return
+
+    setCertificationDocumentError("")
+    setIsUploadingCertificationDocument(true)
+
+    const formData = new FormData()
+    formData.set("file", selectedCertificationDocument)
+
+    const response = await fetch("/api/user/technician-certification/document", {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    })
+    const result: {
+      document?: TechnicianCertificationDocument | null
+      error?: string
+    } = await response.json()
+
+    if (!response.ok) {
+      const message =
+        result.error || "Kunde inte ladda upp certifikatdokumentet."
+      setCertificationDocumentError(message)
+      setToast({
+        type: "error",
+        title: "Fel",
+        message,
+      })
+      setIsUploadingCertificationDocument(false)
+      return
+    }
+
+    setCertificationDocument(result.document ?? null)
+    setSelectedCertificationDocument(null)
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Certifikatdokumentet har laddats upp.",
+    })
+    setIsUploadingCertificationDocument(false)
+  }
+
+  async function handleCertificationDocumentDelete() {
+    setCertificationDocumentError("")
+    setIsDeletingCertificationDocument(true)
+
+    const response = await fetch("/api/user/technician-certification/document", {
+      method: "DELETE",
+      credentials: "include",
+    })
+    const result: { document?: null; error?: string } = await response.json()
+
+    if (!response.ok) {
+      const message = result.error || "Kunde inte ta bort certifikatdokumentet."
+      setCertificationDocumentError(message)
+      setToast({
+        type: "error",
+        title: "Fel",
+        message,
+      })
+      setIsDeletingCertificationDocument(false)
+      return
+    }
+
+    setCertificationDocument(null)
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: "Certifikatdokumentet har tagits bort.",
+    })
+    setIsDeletingCertificationDocument(false)
   }
 
   async function handlePasswordSubmit(event: React.FormEvent) {
@@ -544,6 +653,95 @@ export default function SettingsPageClient() {
                   )}
                 </div>
               </form>
+              <section className="mt-6 border-t border-slate-200 pt-5 dark:border-slate-800">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-950 dark:text-slate-100">
+                    Certifikatdokument
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                    Ladda upp PDF, JPG eller PNG. Dokumentet sparas separat
+                    från certifikatuppgifterna.
+                  </p>
+                </div>
+
+                <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                  {certificationDocument ? (
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-950 dark:text-slate-100">
+                          {certificationDocument.fileName}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          Uppladdat {formatDate(certificationDocument.uploadedAt)} ·{" "}
+                          {formatFileSize(certificationDocument.sizeBytes)}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <a
+                          className={buttonClassName({ variant: "secondary" })}
+                          href={certificationDocument.downloadHref}
+                        >
+                          Ladda ner
+                        </a>
+                        <Button
+                          disabled={isDeletingCertificationDocument}
+                          type="button"
+                          variant="danger"
+                          onClick={handleCertificationDocumentDelete}
+                        >
+                          {isDeletingCertificationDocument
+                            ? "Tar bort..."
+                            : "Ta bort"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Inget certifikatdokument uppladdat.
+                    </p>
+                  )}
+                </div>
+
+                <form
+                  className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]"
+                  onSubmit={handleCertificationDocumentUpload}
+                >
+                  <label className={labelClassName}>
+                    {certificationDocument ? "Byt dokument" : "Ladda upp dokument"}
+                    <input
+                      accept="application/pdf,image/png,image/jpeg"
+                      className={inputClassName}
+                      type="file"
+                      onChange={(event) =>
+                        setSelectedCertificationDocument(
+                          event.target.files?.[0] ?? null
+                        )
+                      }
+                    />
+                  </label>
+                  <div className="flex items-end">
+                    <Button
+                      disabled={
+                        !selectedCertificationDocument ||
+                        isUploadingCertificationDocument
+                      }
+                      type="submit"
+                      variant="primary"
+                    >
+                      {isUploadingCertificationDocument
+                        ? "Laddar upp..."
+                        : certificationDocument
+                          ? "Byt dokument"
+                          : "Ladda upp"}
+                    </Button>
+                  </div>
+                  {certificationDocumentError && (
+                    <p className="text-sm font-semibold text-red-700 sm:col-span-2">
+                      {certificationDocumentError}
+                    </p>
+                  )}
+                </form>
+              </section>
             </Card>
           )}
 
@@ -774,6 +972,19 @@ function toDateInputValue(value?: string | Date | null) {
   if (!value) return ""
   if (value instanceof Date) return value.toISOString().slice(0, 10)
   return value.slice(0, 10)
+}
+
+function formatDate(value?: string | Date | null) {
+  if (!value) return "-"
+  const date = value instanceof Date ? value : new Date(value)
+  if (!Number.isFinite(date.getTime())) return "-"
+  return new Intl.DateTimeFormat("sv-SE").format(date)
+}
+
+function formatFileSize(sizeBytes: number) {
+  if (sizeBytes < 1024) return `${sizeBytes} byte`
+  if (sizeBytes < 1024 * 1024) return `${Math.round(sizeBytes / 1024)} kB`
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`
 }
 
 const labelClassName =

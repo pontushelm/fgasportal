@@ -7,6 +7,7 @@ const installationFindFirst = vi.fn()
 const installationEventFindFirst = vi.fn()
 const propertyFindFirst = vi.fn()
 const serviceOrganizationMembershipFindFirst = vi.fn()
+const certificationRecordFindFirst = vi.fn()
 const blobGet = vi.fn()
 const logActivity = vi.fn()
 
@@ -44,6 +45,9 @@ vi.mock("@/lib/db", () => ({
     },
     serviceOrganizationMembership: {
       findFirst: serviceOrganizationMembershipFindFirst,
+    },
+    certificationRecord: {
+      findFirst: certificationRecordFindFirst,
     },
   },
 }))
@@ -94,6 +98,7 @@ describe("generic document download route", () => {
     installationEventFindFirst.mockResolvedValue(null)
     propertyFindFirst.mockResolvedValue(null)
     serviceOrganizationMembershipFindFirst.mockResolvedValue(null)
+    certificationRecordFindFirst.mockResolvedValue(null)
     blobGet.mockResolvedValue({
       statusCode: 200,
       stream: byteStream([1, 2, 3]),
@@ -315,6 +320,80 @@ describe("generic document download route", () => {
     const response = await GET(createRequest(), routeContext)
 
     expect(response.status).toBe(200)
+  })
+
+  it("allows contractors to download their own technician certificate document", async () => {
+    const { GET } = await import("@/app/api/documents/[id]/download/route")
+    authenticateApiRequest.mockResolvedValueOnce({
+      user: {
+        userId: "contractor-1",
+        companyId: "company-1",
+        role: "CONTRACTOR",
+        serviceOrganizationId: "service-org-1",
+      },
+    })
+    documentFindFirst.mockResolvedValueOnce({
+      ...baseDocument,
+      category: "PERSONAL_FGAS_CERTIFICATE",
+      links: [
+        {
+          entityType: "CERTIFICATION_RECORD",
+          entityId: "cert-record-1",
+          role: "CERTIFICATE",
+        },
+      ],
+    })
+    certificationRecordFindFirst.mockResolvedValueOnce({
+      serviceOrganizationId: "service-org-1",
+    })
+
+    const response = await GET(createRequest(), routeContext)
+
+    expect(response.status).toBe(200)
+    expect(certificationRecordFindFirst).toHaveBeenCalledWith({
+      where: {
+        id: "cert-record-1",
+        companyId: "company-1",
+        userId: "contractor-1",
+        subjectType: "TECHNICIAN",
+        certificateType: "PERSONAL_FGAS",
+        status: {
+          notIn: ["DELETED", "REVOKED", "REPLACED"],
+        },
+      },
+      select: {
+        serviceOrganizationId: true,
+      },
+    })
+  })
+
+  it("denies contractors for another technician certificate document", async () => {
+    const { GET } = await import("@/app/api/documents/[id]/download/route")
+    authenticateApiRequest.mockResolvedValueOnce({
+      user: {
+        userId: "contractor-1",
+        companyId: "company-1",
+        role: "CONTRACTOR",
+        serviceOrganizationId: "service-org-1",
+      },
+    })
+    documentFindFirst.mockResolvedValueOnce({
+      ...baseDocument,
+      category: "PERSONAL_FGAS_CERTIFICATE",
+      links: [
+        {
+          entityType: "CERTIFICATION_RECORD",
+          entityId: "cert-record-2",
+          role: "CERTIFICATE",
+        },
+      ],
+    })
+    certificationRecordFindFirst.mockResolvedValueOnce(null)
+
+    const response = await GET(createRequest(), routeContext)
+
+    expect(response.status).toBe(403)
+    expect(blobGet).not.toHaveBeenCalled()
   })
 
   it("logs successful generic document downloads with granted entity metadata", async () => {
