@@ -1,5 +1,12 @@
 import type { NotificationDigestType, PrismaClient } from "@prisma/client"
 
+type DigestLogFindUniqueClient = {
+  notificationDigestLog: Pick<
+    PrismaClient["notificationDigestLog"],
+    "findUnique"
+  >
+}
+
 export type DigestLogClient = {
   notificationDigestLog: Pick<
     PrismaClient["notificationDigestLog"],
@@ -28,7 +35,7 @@ export async function shouldSendDigest({
   digestType,
   prisma,
   userId = null,
-}: DigestLogInput & { prisma: DigestLogClient }) {
+}: DigestLogInput & { prisma: DigestLogFindUniqueClient }) {
   const existing = await prisma.notificationDigestLog.findUnique({
     where: {
       companyId_recipientKey_digestDate_digestType: {
