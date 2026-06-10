@@ -7,6 +7,10 @@ type DigestLogFindUniqueClient = {
   >
 }
 
+type DigestLogUpsertClient = {
+  notificationDigestLog: Pick<PrismaClient["notificationDigestLog"], "upsert">
+}
+
 export type DigestLogClient = {
   notificationDigestLog: Pick<
     PrismaClient["notificationDigestLog"],
@@ -61,7 +65,7 @@ export async function recordDigestSent({
   sentAt = new Date(),
   totalItems,
   userId = null,
-}: RecordDigestSentInput & { prisma: DigestLogClient }) {
+}: RecordDigestSentInput & { prisma: DigestLogUpsertClient }) {
   const normalizedDigestDate = normalizeDigestDate(digestDate)
   const recipientKey = buildDigestRecipientKey({ companyId, userId })
 

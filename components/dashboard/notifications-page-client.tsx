@@ -42,16 +42,21 @@ type DigestDryRunResult = {
     companyId: string
     decision:
       | "WOULD_SEND"
+      | "SENT"
+      | "FAILED"
       | "SKIP_NO_ITEMS"
       | "SKIP_ALREADY_SENT"
       | "SKIP_DISABLED"
     email: string
+    error?: string
     totalItems: number
     userId: string
   }>
+  failed: number
   skippedAlreadySent: number
   skippedDisabled: number
   skippedNoItems: number
+  sent: number
 }
 
 const SEVERITY_LABELS: Record<DashboardActionSeverity, string> = {
@@ -76,7 +81,9 @@ export default function NotificationsPageClient() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isTestingDigest, setIsTestingDigest] = useState(false)
+  const [isSendingDigest, setIsSendingDigest] = useState(false)
   const [dryRunResult, setDryRunResult] = useState<DigestDryRunResult | null>(null)
+  const [sendResult, setSendResult] = useState<DigestDryRunResult | null>(null)
   const [error, setError] = useState("")
   const [toast, setToast] = useState<ToastMessage | null>(null)
 
@@ -181,6 +188,36 @@ export default function NotificationsPageClient() {
       message: "Digest-testet är klart. Inga e-postmeddelanden skickades.",
     })
     setIsTestingDigest(false)
+  }
+
+  async function sendDigestNow() {
+    setIsSendingDigest(true)
+    const response = await fetch("/api/dashboard/notifications/digest/send", {
+      credentials: "include",
+      method: "POST",
+    })
+    const result: DigestDryRunResult & { error?: string } = await response.json()
+
+    if (!response.ok) {
+      setToast({
+        type: "error",
+        title: "Fel",
+        message: result.error || "Kunde inte skicka notifieringsdigest.",
+      })
+      setIsSendingDigest(false)
+      return
+    }
+
+    setSendResult(result)
+    setToast({
+      type: result.failed > 0 ? "warning" : "success",
+      title: result.failed > 0 ? "Varning" : "Klart",
+      message:
+        result.failed > 0
+          ? "Digest-körningen är klar, men några utskick misslyckades."
+          : "Digest har skickats.",
+    })
+    setIsSendingDigest(false)
   }
 
   return (
@@ -365,17 +402,29 @@ export default function NotificationsPageClient() {
                       e-postmeddelanden skickas och inga leveransloggar skrivs.
                     </p>
                   </div>
-                  <Button
-                    disabled={isTestingDigest}
-                    type="button"
-                    onClick={runDigestDryRun}
-                  >
-                    {isTestingDigest ? "Testar..." : "Testa digest"}
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      disabled={isTestingDigest || isSendingDigest}
+                      type="button"
+                      onClick={runDigestDryRun}
+                    >
+                      {isTestingDigest ? "Testar..." : "Testa digest"}
+                    </Button>
+                    <Button
+                      disabled={isTestingDigest || isSendingDigest}
+                      type="button"
+                      onClick={sendDigestNow}
+                    >
+                      {isSendingDigest ? "Skickar..." : "Skicka digest nu"}
+                    </Button>
+                  </div>
                 </div>
 
                 {dryRunResult && (
                   <div className="mt-5 grid gap-4">
+                    <p className="text-sm font-semibold text-slate-950">
+                      Resultat från test
+                    </p>
                     <div className="grid gap-3 md:grid-cols-5">
                       <DryRunMetric
                         label="Bolag"
@@ -414,6 +463,61 @@ export default function NotificationsPageClient() {
                           </thead>
                           <tbody className="divide-y divide-slate-100 bg-white">
                             {dryRunResult.results.slice(0, 8).map((result) => (
+                              <tr key={`${result.companyId}-${result.userId}`}>
+                                <td className="px-3 py-2 text-slate-700">
+                                  {result.email}
+                                </td>
+                                <td className="px-3 py-2 font-semibold text-slate-900">
+                                  {formatDryRunDecision(result.decision)}
+                                </td>
+                                <td className="px-3 py-2 text-slate-700">
+                                  {result.totalItems}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {sendResult && (
+                  <div className="mt-5 grid gap-4">
+                    <p className="text-sm font-semibold text-slate-950">
+                      Resultat från utskick
+                    </p>
+                    <div className="grid gap-3 md:grid-cols-5">
+                      <DryRunMetric label="Skickade" value={sendResult.sent} />
+                      <DryRunMetric
+                        label="Misslyckade"
+                        value={sendResult.failed}
+                      />
+                      <DryRunMetric
+                        label="Inga poster"
+                        value={sendResult.skippedNoItems}
+                      />
+                      <DryRunMetric
+                        label="Redan skickad"
+                        value={sendResult.skippedAlreadySent}
+                      />
+                      <DryRunMetric
+                        label="Avstängda"
+                        value={sendResult.skippedDisabled}
+                      />
+                    </div>
+                    {sendResult.results.length > 0 && (
+                      <div className="overflow-hidden rounded-xl border border-slate-200">
+                        <table className="min-w-full divide-y divide-slate-200 text-sm">
+                          <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <tr>
+                              <th className="px-3 py-2">Mottagare</th>
+                              <th className="px-3 py-2">Beslut</th>
+                              <th className="px-3 py-2">Poster</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 bg-white">
+                            {sendResult.results.slice(0, 8).map((result) => (
                               <tr key={`${result.companyId}-${result.userId}`}>
                                 <td className="px-3 py-2 text-slate-700">
                                   {result.email}
@@ -521,6 +625,8 @@ function DryRunMetric({ label, value }: { label: string; value: number }) {
 }
 
 function formatDryRunDecision(decision: DigestDryRunResult["results"][number]["decision"]) {
+  if (decision === "SENT") return "Skickad"
+  if (decision === "FAILED") return "Misslyckades"
   if (decision === "WOULD_SEND") return "Skulle skickas"
   if (decision === "SKIP_ALREADY_SENT") return "Redan skickad"
   if (decision === "SKIP_DISABLED") return "Avstängd"

@@ -1,16 +1,29 @@
 import type { NotificationDigestType, PrismaClient } from "@prisma/client"
 import type { UserRole } from "@/lib/auth"
 import { loadDashboardActions } from "@/lib/actions/load-dashboard-actions"
-import { buildNotificationDigest } from "@/lib/notifications/build-notification-digest"
-import { shouldSendDigest } from "@/lib/notifications/digest-log"
+import { sendNotificationDigestEmail } from "@/lib/email"
+import {
+  buildNotificationDigest,
+} from "@/lib/notifications/build-notification-digest"
+import {
+  recordDigestSent,
+  shouldSendDigest,
+} from "@/lib/notifications/digest-log"
 
 export type NotificationDigestRunnerClient = {
   company: Pick<PrismaClient["company"], "findMany">
-  notificationDigestLog: Pick<PrismaClient["notificationDigestLog"], "findUnique">
+  notificationDigestLog: Pick<
+    PrismaClient["notificationDigestLog"],
+    "findUnique" | "upsert"
+  >
 }
+
+export type NotificationDigestRunMode = "dry-run" | "send"
 
 export type NotificationDigestDecision =
   | "WOULD_SEND"
+  | "SENT"
+  | "FAILED"
   | "SKIP_NO_ITEMS"
   | "SKIP_ALREADY_SENT"
   | "SKIP_DISABLED"
@@ -19,6 +32,7 @@ export type NotificationDigestDryRunRecipientResult = {
   companyId: string
   decision: NotificationDigestDecision
   email: string
+  error?: string
   totalItems: number
   userId: string
 }
@@ -30,6 +44,8 @@ export type NotificationDigestDryRunResult = {
   eligibleRecipients: number
   recipientsChecked: number
   results: NotificationDigestDryRunRecipientResult[]
+  sent: number
+  failed: number
   skippedAlreadySent: number
   skippedDisabled: number
   skippedNoItems: number
@@ -37,6 +53,7 @@ export type NotificationDigestDryRunResult = {
 
 type DigestCompany = {
   id: string
+  name: string
   sendAnnualReportReminders: boolean
   sendCertificateReminders: boolean
   sendInspectionRemindersToContractors: boolean
@@ -61,16 +78,24 @@ type DigestUser = {
   notifyLeakEmails: boolean
 }
 
-export async function runNotificationDigestDryRun({
+type DigestEmailSender = typeof sendNotificationDigestEmail
+
+export async function runNotificationDigest({
+  appUrl = process.env.APP_URL,
   digestDate = new Date(),
   digestType = "DAILY",
   loadActions = loadDashboardActions,
+  mode = "dry-run",
   prisma,
+  sendDigestEmail = sendNotificationDigestEmail,
 }: {
+  appUrl?: string
   digestDate?: Date
   digestType?: NotificationDigestType
   loadActions?: typeof loadDashboardActions
+  mode?: NotificationDigestRunMode
   prisma: NotificationDigestRunnerClient
+  sendDigestEmail?: DigestEmailSender
 }): Promise<NotificationDigestDryRunResult> {
   const companies = await prisma.company.findMany({
     where: {
@@ -78,6 +103,7 @@ export async function runNotificationDigestDryRun({
     },
     select: {
       id: true,
+      name: true,
       sendAnnualReportReminders: true,
       sendCertificateReminders: true,
       sendInspectionRemindersToContractors: true,
@@ -119,10 +145,13 @@ export async function runNotificationDigestDryRun({
     for (const user of company.users) {
       const recipientResult = await evaluateRecipient({
         company,
+        appUrl,
         digestDate,
         digestType,
         loadActions,
+        mode,
         prisma,
+        sendDigestEmail,
         user,
       })
       results.push(recipientResult)
@@ -133,10 +162,13 @@ export async function runNotificationDigestDryRun({
     companiesChecked: companies.length,
     digestDate: digestDate.toISOString(),
     digestType,
-    eligibleRecipients: results.filter((result) => result.decision === "WOULD_SEND")
-      .length,
+    eligibleRecipients: results.filter((result) =>
+      ["WOULD_SEND", "SENT", "FAILED"].includes(result.decision)
+    ).length,
+    failed: results.filter((result) => result.decision === "FAILED").length,
     recipientsChecked: results.length,
     results,
+    sent: results.filter((result) => result.decision === "SENT").length,
     skippedAlreadySent: results.filter(
       (result) => result.decision === "SKIP_ALREADY_SENT"
     ).length,
@@ -147,19 +179,37 @@ export async function runNotificationDigestDryRun({
   }
 }
 
+export function runNotificationDigestDryRun(
+  input: Omit<
+    Parameters<typeof runNotificationDigest>[0],
+    "mode" | "sendDigestEmail"
+  >
+) {
+  return runNotificationDigest({
+    ...input,
+    mode: "dry-run",
+  })
+}
+
 async function evaluateRecipient({
+  appUrl,
   company,
   digestDate,
   digestType,
   loadActions,
+  mode,
   prisma,
+  sendDigestEmail,
   user,
 }: {
+  appUrl?: string
   company: DigestCompany
   digestDate: Date
   digestType: NotificationDigestType
   loadActions: typeof loadDashboardActions
+  mode: NotificationDigestRunMode
   prisma: NotificationDigestRunnerClient
+  sendDigestEmail: DigestEmailSender
   user: DigestUser
 }): Promise<NotificationDigestDryRunRecipientResult> {
   if (!isUserNotificationEnabled(user)) {
@@ -207,24 +257,63 @@ async function evaluateRecipient({
     userId: user.id,
   })
 
-  return buildRecipientResult(
-    company.id,
-    user,
-    digest.totalItems,
-    canSend ? "WOULD_SEND" : "SKIP_ALREADY_SENT"
-  )
+  if (!canSend) {
+    return buildRecipientResult(company.id, user, digest.totalItems, "SKIP_ALREADY_SENT")
+  }
+
+  if (mode === "dry-run") {
+    return buildRecipientResult(company.id, user, digest.totalItems, "WOULD_SEND")
+  }
+
+  try {
+    if (!appUrl) {
+      throw new Error("APP_URL is required")
+    }
+
+    await sendDigestEmail({
+      actionsUrl: buildAppUrl(appUrl, "/dashboard/actions"),
+      companyName: company.name,
+      digest,
+      notificationsUrl: buildAppUrl(appUrl, "/dashboard/notifications"),
+      to: user.email,
+    })
+    await recordDigestSent({
+      companyId: company.id,
+      digestDate,
+      digestType,
+      prisma,
+      totalItems: digest.totalItems,
+      userId: user.id,
+    })
+
+    return buildRecipientResult(company.id, user, digest.totalItems, "SENT")
+  } catch (error) {
+    return buildRecipientResult(
+      company.id,
+      user,
+      digest.totalItems,
+      "FAILED",
+      error instanceof Error ? error.message : "Kunde inte skicka digest"
+    )
+  }
+}
+
+function buildAppUrl(appUrl: string, path: string) {
+  return new URL(path, appUrl).toString()
 }
 
 function buildRecipientResult(
   companyId: string,
   user: Pick<DigestUser, "email" | "id">,
   totalItems: number,
-  decision: NotificationDigestDecision
+  decision: NotificationDigestDecision,
+  error?: string
 ): NotificationDigestDryRunRecipientResult {
   return {
     companyId,
     decision,
     email: user.email,
+    ...(error ? { error } : {}),
     totalItems,
     userId: user.id,
   }

@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { DashboardAction } from "@/lib/actions/generate-actions"
-import { runNotificationDigestDryRun } from "@/lib/notifications/run-notification-digest"
+import {
+  runNotificationDigest,
+  runNotificationDigestDryRun,
+} from "@/lib/notifications/run-notification-digest"
 
 const mocks = vi.hoisted(() => ({
   authenticateApiRequest: vi.fn(),
   companyFindMany: vi.fn(),
   loadDashboardActions: vi.fn(),
   notificationDigestLogFindUnique: vi.fn(),
+  notificationDigestLogUpsert: vi.fn(),
+  sendNotificationDigestEmail: vi.fn(),
 }))
 
 const loadActions = vi.fn()
@@ -30,6 +35,7 @@ vi.mock("@/lib/db", () => ({
     },
     notificationDigestLog: {
       findUnique: mocks.notificationDigestLogFindUnique,
+      upsert: mocks.notificationDigestLogUpsert,
     },
   },
 }))
@@ -38,12 +44,17 @@ vi.mock("@/lib/actions/load-dashboard-actions", () => ({
   loadDashboardActions: mocks.loadDashboardActions,
 }))
 
+vi.mock("@/lib/email", () => ({
+  sendNotificationDigestEmail: mocks.sendNotificationDigestEmail,
+}))
+
 const prisma = {
   company: {
     findMany: mocks.companyFindMany,
   },
   notificationDigestLog: {
     findUnique: mocks.notificationDigestLogFindUnique,
+    upsert: mocks.notificationDigestLogUpsert,
   },
 }
 
@@ -56,6 +67,8 @@ describe("notification digest dry-run service", () => {
       }),
     ])
     mocks.notificationDigestLogFindUnique.mockResolvedValue(null)
+    mocks.notificationDigestLogUpsert.mockResolvedValue({ id: "digest-log-1" })
+    mocks.sendNotificationDigestEmail.mockResolvedValue({ id: "email-1" })
     loadActions.mockResolvedValue([createAction("OVERDUE_INSPECTION", "HIGH")])
   })
 
@@ -162,7 +175,104 @@ describe("notification digest dry-run service", () => {
       prisma,
     })
 
-    expect("upsert" in prisma.notificationDigestLog).toBe(false)
+    expect(mocks.notificationDigestLogUpsert).not.toHaveBeenCalled()
+  })
+
+  it("sends and records logs for eligible recipients in send mode", async () => {
+    const result = await runNotificationDigest({
+      appUrl: "https://app.example.com",
+      digestDate: new Date("2026-06-10T08:00:00.000Z"),
+      loadActions,
+      mode: "send",
+      prisma,
+    })
+
+    expect(result.sent).toBe(1)
+    expect(result.failed).toBe(0)
+    expect(result.results[0]).toMatchObject({
+      decision: "SENT",
+      totalItems: 1,
+    })
+    expect(mocks.sendNotificationDigestEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionsUrl: "https://app.example.com/dashboard/actions",
+        companyName: "Testbolaget AB",
+        notificationsUrl: "https://app.example.com/dashboard/notifications",
+        to: "owner@example.com",
+      })
+    )
+    expect(mocks.notificationDigestLogUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          companyId: "company-1",
+          totalItems: 1,
+          userId: "owner-1",
+        }),
+      })
+    )
+  })
+
+  it("does not send disabled recipients in send mode", async () => {
+    mocks.companyFindMany.mockResolvedValueOnce([
+      createCompany({
+        users: [
+          createUser({
+            notifyAnnualReportDeadlineEmails: false,
+            notifyInspectionReminderEmails: false,
+            notifyLeakEmails: false,
+          }),
+        ],
+      }),
+    ])
+
+    const result = await runNotificationDigest({
+      appUrl: "https://app.example.com",
+      loadActions,
+      mode: "send",
+      prisma,
+    })
+
+    expect(result.skippedDisabled).toBe(1)
+    expect(mocks.sendNotificationDigestEmail).not.toHaveBeenCalled()
+    expect(mocks.notificationDigestLogUpsert).not.toHaveBeenCalled()
+  })
+
+  it("does not send recipients already sent today", async () => {
+    mocks.notificationDigestLogFindUnique.mockResolvedValueOnce({
+      id: "digest-log-1",
+    })
+
+    const result = await runNotificationDigest({
+      appUrl: "https://app.example.com",
+      loadActions,
+      mode: "send",
+      prisma,
+    })
+
+    expect(result.skippedAlreadySent).toBe(1)
+    expect(result.results[0].decision).toBe("SKIP_ALREADY_SENT")
+    expect(mocks.sendNotificationDigestEmail).not.toHaveBeenCalled()
+    expect(mocks.notificationDigestLogUpsert).not.toHaveBeenCalled()
+  })
+
+  it("does not record a sent log when email delivery fails", async () => {
+    mocks.sendNotificationDigestEmail.mockRejectedValueOnce(
+      new Error("Resend unavailable")
+    )
+
+    const result = await runNotificationDigest({
+      appUrl: "https://app.example.com",
+      loadActions,
+      mode: "send",
+      prisma,
+    })
+
+    expect(result.failed).toBe(1)
+    expect(result.results[0]).toMatchObject({
+      decision: "FAILED",
+      error: "Resend unavailable",
+    })
+    expect(mocks.notificationDigestLogUpsert).not.toHaveBeenCalled()
   })
 })
 
@@ -180,6 +290,8 @@ describe("notification digest dry-run API", () => {
       createCompany({ users: [createUser()] }),
     ])
     mocks.notificationDigestLogFindUnique.mockResolvedValue(null)
+    mocks.notificationDigestLogUpsert.mockResolvedValue({ id: "digest-log-1" })
+    mocks.sendNotificationDigestEmail.mockResolvedValue({ id: "email-1" })
     mocks.loadDashboardActions.mockResolvedValue([
       createAction("OVERDUE_INSPECTION", "HIGH"),
     ])
@@ -220,9 +332,68 @@ describe("notification digest dry-run API", () => {
   )
 })
 
+describe("notification digest send API", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    process.env.APP_URL = "https://app.example.com"
+    mocks.authenticateApiRequest.mockResolvedValue({
+      user: {
+        userId: "owner-1",
+        companyId: "company-1",
+        role: "OWNER",
+      },
+    })
+    mocks.companyFindMany.mockResolvedValue([
+      createCompany({ users: [createUser()] }),
+    ])
+    mocks.notificationDigestLogFindUnique.mockResolvedValue(null)
+    mocks.notificationDigestLogUpsert.mockResolvedValue({ id: "digest-log-1" })
+    mocks.sendNotificationDigestEmail.mockResolvedValue({ id: "email-1" })
+    mocks.loadDashboardActions.mockResolvedValue([
+      createAction("OVERDUE_INSPECTION", "HIGH"),
+    ])
+  })
+
+  it("allows OWNER to send a digest", async () => {
+    const { POST } = await import(
+      "@/app/api/dashboard/notifications/digest/send/route"
+    )
+
+    const response = await POST(createRequest("/digest/send"))
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.sent).toBe(1)
+    expect(mocks.sendNotificationDigestEmail).toHaveBeenCalled()
+    expect(mocks.notificationDigestLogUpsert).toHaveBeenCalled()
+  })
+
+  it.each(["ADMIN", "MEMBER", "CONTRACTOR"] as const)(
+    "denies %s users",
+    async (role) => {
+      const { POST } = await import(
+        "@/app/api/dashboard/notifications/digest/send/route"
+      )
+      mocks.authenticateApiRequest.mockResolvedValueOnce({
+        user: {
+          userId: "user-1",
+          companyId: "company-1",
+          role,
+        },
+      })
+
+      const response = await POST(createRequest("/digest/send"))
+
+      expect(response.status).toBe(403)
+      expect(mocks.sendNotificationDigestEmail).not.toHaveBeenCalled()
+    }
+  )
+})
+
 function createCompany(overrides = {}) {
   return {
     id: "company-1",
+    name: "Testbolaget AB",
     sendAnnualReportReminders: false,
     sendCertificateReminders: false,
     sendInspectionRemindersToContractors: true,
@@ -282,9 +453,9 @@ function createAction(
   }
 }
 
-function createRequest() {
+function createRequest(path = "/digest/dry-run") {
   return new Request(
-    "http://localhost/api/dashboard/notifications/digest/dry-run",
+    `http://localhost/api/dashboard/notifications${path}`,
     { method: "POST" }
   ) as never
 }

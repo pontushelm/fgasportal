@@ -1,4 +1,5 @@
 import { Resend } from "resend"
+import type { NotificationDigest } from "@/lib/notifications/build-notification-digest"
 
 type SendInspectionReminderEmailInput = {
   to: string
@@ -56,6 +57,14 @@ type SendOperationalDigestEmailInput = {
   actionQueueUrl: string
   inspectionReminders?: OperationalDigestInspectionItem[]
   leakEvents?: OperationalDigestLeakItem[]
+}
+
+type SendNotificationDigestEmailInput = {
+  to: string
+  actionsUrl: string
+  companyName: string
+  digest: NotificationDigest
+  notificationsUrl: string
 }
 
 type SendPasswordResetEmailInput = {
@@ -153,6 +162,60 @@ export async function sendOperationalDigestEmail({
   }
 
   return result.data
+}
+
+export async function sendNotificationDigestEmail({
+  to,
+  ...input
+}: SendNotificationDigestEmailInput) {
+  const apiKey = requireEnv("RESEND_API_KEY")
+  const from = requireEnv("REMINDER_FROM_EMAIL")
+  const text = buildNotificationDigestEmailText(input)
+
+  resend ??= new Resend(apiKey)
+
+  const result = await resend.emails.send({
+    from,
+    to,
+    subject: "FgasPortal: daglig sammanställning",
+    text,
+  })
+
+  if (result.error) {
+    throw new Error(result.error.message)
+  }
+
+  return result.data
+}
+
+export function buildNotificationDigestEmailText({
+  actionsUrl,
+  companyName,
+  digest,
+  notificationsUrl,
+}: Omit<SendNotificationDigestEmailInput, "to">) {
+  return [
+    "Hej,",
+    "",
+    `Här kommer dagens sammanställning för ${companyName}.`,
+    "",
+    `Totalt att följa upp: ${digest.totalItems}`,
+    "",
+    formatDigestGroupForEmail("Kontroller", digest.inspections),
+    "",
+    formatDigestGroupForEmail("Certifikat", digest.certificates),
+    "",
+    formatDigestGroupForEmail("Årsrapporter", digest.reports),
+    "",
+    "Öppna notifieringar:",
+    notificationsUrl,
+    "",
+    "Öppna åtgärder:",
+    actionsUrl,
+    "",
+    "Vänliga hälsningar,",
+    "FgasPortal",
+  ].join("\n")
 }
 
 export function buildOperationalDigestEmailText({
@@ -571,6 +634,22 @@ function requireEnv(name: string) {
 function getOptionalEnv(name: string) {
   const value = process.env[name]
   return value?.trim() || null
+}
+
+function formatDigestGroupForEmail(
+  title: string,
+  group: NotificationDigest[keyof NotificationDigest]
+) {
+  if (typeof group === "number") return ""
+
+  if (group.items.length === 0) {
+    return `${title}: Inga aktuella poster`
+  }
+
+  return [
+    `${title}: ${group.count} poster`,
+    ...group.items.map((item) => `- ${item.label}: ${item.count}`),
+  ].join("\n")
 }
 
 function formatDate(date: Date) {
