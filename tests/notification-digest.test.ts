@@ -9,6 +9,7 @@ const companyFindUnique = vi.fn()
 const companyUpdate = vi.fn()
 const userFindUnique = vi.fn()
 const userUpdate = vi.fn()
+const notificationDigestLogFindFirst = vi.fn()
 
 vi.mock("@/lib/auth", async () => {
   const actual = await vi.importActual<typeof import("@/lib/auth")>("@/lib/auth")
@@ -34,6 +35,9 @@ vi.mock("@/lib/db", () => ({
     user: {
       findUnique: userFindUnique,
       update: userUpdate,
+    },
+    notificationDigestLog: {
+      findFirst: notificationDigestLogFindFirst,
     },
   },
 }))
@@ -124,6 +128,11 @@ describe("notification center API", () => {
       notifyInspectionReminderEmails: false,
       notifyLeakEmails: false,
     })
+    notificationDigestLogFindFirst.mockResolvedValue({
+      digestType: "DAILY",
+      sentAt: new Date("2026-06-10T08:00:00.000Z"),
+      totalItems: 4,
+    })
   })
 
   it("returns grouped digest and settings", async () => {
@@ -143,6 +152,20 @@ describe("notification center API", () => {
       },
       user: {
         receiveNotifications: true,
+      },
+    })
+    expect(body.latestDigest).toMatchObject({
+      digestType: "DAILY",
+      sentAt: "2026-06-10T08:00:00.000Z",
+      totalItems: 4,
+    })
+    expect(notificationDigestLogFindFirst).toHaveBeenCalledWith({
+      where: {
+        companyId: "company-1",
+        recipientKey: "user:owner-1",
+      },
+      orderBy: {
+        sentAt: "desc",
       },
     })
   })

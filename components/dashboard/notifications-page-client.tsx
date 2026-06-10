@@ -24,6 +24,11 @@ type NotificationSettings = {
 
 type NotificationCenterData = {
   digest: NotificationDigest
+  latestDigest: {
+    digestType: "DAILY" | "WEEKLY"
+    sentAt: string
+    totalItems: number
+  } | null
   settings: NotificationSettings
 }
 
@@ -184,6 +189,23 @@ export default function NotificationsPageClient() {
                 <Button disabled={isSaving} type="button" onClick={saveSettings}>
                   {isSaving ? "Sparar..." : "Spara inställningar"}
                 </Button>
+              </div>
+
+              <div className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-sm font-semibold text-slate-950">
+                  Senaste digestaktivitet
+                </p>
+                {data.latestDigest ? (
+                  <p className="mt-1 text-sm text-slate-600">
+                    {formatDigestType(data.latestDigest.digestType)} digest skickades{" "}
+                    {formatDateTime(data.latestDigest.sentAt)} med{" "}
+                    {data.latestDigest.totalItems} poster.
+                  </p>
+                ) : (
+                  <p className="mt-1 text-sm text-slate-600">
+                    Ingen digest har skickats ännu.
+                  </p>
+                )}
               </div>
 
               <div className="mt-5 grid gap-4 lg:grid-cols-2">
@@ -368,4 +390,15 @@ function NotificationsSkeleton() {
       </div>
     </div>
   )
+}
+
+function formatDigestType(type: "DAILY" | "WEEKLY") {
+  return type === "DAILY" ? "Daglig" : "Veckovis"
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("sv-SE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value))
 }

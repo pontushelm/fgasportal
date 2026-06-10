@@ -4,6 +4,7 @@ import { loadDashboardActions } from "@/lib/actions/load-dashboard-actions"
 import { authenticateApiRequest, forbiddenResponse } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { buildNotificationDigest } from "@/lib/notifications/build-notification-digest"
+import { getLatestDigest } from "@/lib/notifications/digest-log"
 
 const notificationSettingsSchema = z.object({
   company: z
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
     const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
 
-    const [actions, company, user] = await Promise.all([
+    const [actions, company, user, latestDigest] = await Promise.all([
       loadDashboardActions(auth.user),
       prisma.company.findUnique({
         where: {
@@ -46,6 +47,11 @@ export async function GET(request: NextRequest) {
           notifyInspectionReminderEmails: true,
           notifyLeakEmails: true,
         },
+      }),
+      getLatestDigest({
+        companyId: auth.user.companyId,
+        prisma,
+        userId: auth.user.userId,
       }),
     ])
 
@@ -77,6 +83,13 @@ export async function GET(request: NextRequest) {
           company: companySettings,
           user: userSettings,
         },
+        latestDigest: latestDigest
+          ? {
+              digestType: latestDigest.digestType,
+              sentAt: latestDigest.sentAt,
+              totalItems: latestDigest.totalItems,
+            }
+          : null,
       },
       { status: 200 }
     )

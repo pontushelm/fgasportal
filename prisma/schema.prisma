@@ -167,6 +167,11 @@ enum SignedReportSigningMethod {
   FGASPORTAL_ELECTRONIC
 }
 
+enum NotificationDigestType {
+  DAILY
+  WEEKLY
+}
+
 model Company {
   id                                   String   @id @default(cuid())
   name                                 String
@@ -210,6 +215,7 @@ model Company {
   documents               Document[]
   documentLinks           DocumentLink[]
   certificationRecords    CertificationRecord[]
+  notificationDigestLogs  NotificationDigestLog[]
 
   @@map("companies")
 }
@@ -259,8 +265,30 @@ model User {
   verifiedCertificationRecords  CertificationRecord[]    @relation("CertificationVerifiedBy")
   createdCertificationRecords   CertificationRecord[]    @relation("CertificationCreatedBy")
   updatedCertificationRecords   CertificationRecord[]    @relation("CertificationUpdatedBy")
+  notificationDigestLogs        NotificationDigestLog[]
 
   @@map("users")
+}
+
+model NotificationDigestLog {
+  id           String                 @id @default(cuid())
+  companyId    String
+  userId       String?
+  recipientKey String
+  digestDate   DateTime
+  digestType   NotificationDigestType
+  totalItems   Int
+  sentAt       DateTime
+  createdAt    DateTime               @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([companyId, recipientKey, digestDate, digestType])
+  @@index([companyId])
+  @@index([userId])
+  @@index([digestDate])
+  @@map("notification_digest_logs")
 }
 
 model PasswordResetToken {
