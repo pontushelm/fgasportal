@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useEffect, useMemo, useRef, useState } from "react"
 import * as XLSX from "xlsx"
+import { ImportCompletionSummary } from "@/components/dashboard/import-completion-summary"
 import { Toast, type ToastMessage } from "@/components/ui"
 import {
   EVENT_HISTORY_IMPORT_MESSAGE,
@@ -798,20 +799,32 @@ export default function ImportInstallationsPage({
       )}
 
       {summary && (
-        <section className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800">
-          <h2 className="font-semibold text-slate-950">Importsammanfattning</h2>
-          <p className="mt-2">Skapade: {summary.created}</p>
-          <p>Hoppade över: {summary.skipped}</p>
-          {summary.errors.length > 0 && (
-            <ul className="mt-2 list-disc pl-5">
-              {summary.errors.map((item) => (
-                <li key={`${item.row}-${item.message}`}>
-                  Rad {item.row}: {item.message}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <ImportCompletionSummary
+          actions={[
+            {
+              href: "/dashboard/installations",
+              label: "Visa aggregat",
+              variant: "primary",
+            },
+            {
+              href: "/dashboard/data-quality",
+              label: "Öppna datakvalitet",
+            },
+          ]}
+          context={{
+            hasNoProperties: properties.length === 0,
+            installationsMissingPropertyCount: rows.filter(
+              (row) => row.errors.length === 0 && !row.matchedPropertyId
+            ).length,
+          }}
+          errors={summary.errors}
+          importedCount={summary.created}
+          kind="installations"
+          skippedCount={summary.skipped}
+          subtitle="Aggregatimporten är klar. Kontrollera resultatet och komplettera uppgifter vid behov."
+          unmappedColumnCount={ignoredColumns.length}
+          validationIssueCount={summary.errors.length}
+        />
       )}
       {isImporting && <ImportInProgressOverlay />}
       {toast && <Toast onClose={() => setToast(null)} toast={toast} />}

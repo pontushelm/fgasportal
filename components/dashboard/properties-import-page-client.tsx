@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useEffect, useMemo, useRef, useState } from "react"
 import * as XLSX from "xlsx"
+import { ImportCompletionSummary } from "@/components/dashboard/import-completion-summary"
 import { Toast, type ToastMessage } from "@/components/ui"
 import {
   PROPERTY_IMPORT_FIELD_DEFINITIONS,
@@ -674,27 +675,26 @@ export default function PropertiesImportPageClient({
       )}
 
       {summary && (
-        <section className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800">
-          <h2 className="font-semibold text-slate-950">Importsammanfattning</h2>
-          <p className="mt-2">Importerade: {summary.created}</p>
-          <p>Hoppade över dubbletter: {summary.skippedDuplicates}</p>
-          <p>Ogiltiga rader: {summary.invalid}</p>
-          {summary.errors.length > 0 && (
-            <ul className="mt-2 list-disc pl-5">
-              {summary.errors.map((item) => (
-                <li key={`${item.row}-${item.message}`}>
-                  Rad {item.row}: {item.message}
-                </li>
-              ))}
-            </ul>
-          )}
-          <Link
-            className="mt-3 inline-flex rounded-lg border border-emerald-300 bg-white px-3 py-2 font-semibold text-emerald-900 hover:bg-emerald-50"
-            href="/dashboard/properties"
-          >
-            Till fastighetsöversikten
-          </Link>
-        </section>
+        <ImportCompletionSummary
+          actions={[
+            {
+              href: "/dashboard/properties",
+              label: "Visa fastigheter",
+              variant: "primary",
+            },
+            {
+              href: "/dashboard/installations",
+              label: "Importera aggregat",
+            },
+          ]}
+          errors={summary.errors}
+          importedCount={summary.created}
+          kind="properties"
+          skippedCount={summary.skippedDuplicates}
+          subtitle="Fastighetsimporten är klar. Nästa steg är att koppla aggregat till fastigheterna."
+          unmappedColumnCount={ignoredColumns.length}
+          validationIssueCount={summary.invalid}
+        />
       )}
       {toast && <Toast onClose={() => setToast(null)} toast={toast} />}
     </>

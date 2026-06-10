@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useEffect, useMemo, useRef, useState } from "react"
 import * as XLSX from "xlsx"
+import { ImportCompletionSummary } from "@/components/dashboard/import-completion-summary"
 import { Toast, type ToastMessage } from "@/components/ui"
 import {
   EVENT_IMPORT_FIELD_DEFINITIONS,
@@ -872,48 +873,12 @@ export default function InstallationEventImportPageClient({
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4"
           role="dialog"
         >
-          <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-800 shadow-2xl">
-            <h2 className="text-lg font-semibold text-slate-950">Importen är klar</h2>
-            <p className="mt-3 text-base font-semibold text-emerald-800">
-              {importSummary.created} händelser importerades.
-            </p>
-            <p className="mt-1">
-              {importSummary.createdWithExactDate ?? 0} med exakt datum,{" "}
-              {importSummary.createdWithYearOnlyDate ?? 0} med endast händelseår.
-            </p>
-            {importSummary.skipped > 0 && (
-              <p className="mt-2">{importSummary.skipped} rader kunde inte importeras.</p>
-            )}
-            {warningRows.length > 0 && (
-              <p className="mt-1">{warningRows.length} rader hade varningar.</p>
-            )}
-            {importSummary.errors.length > 0 && (
-              <div className="mt-3 max-h-36 overflow-auto rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
-                <p className="font-semibold">Rader att kontrollera</p>
-                <ul className="mt-1 grid gap-1">
-                  {importSummary.errors.map((item) => (
-                    <li key={`${item.row}-${item.message}`}>
-                      Rad {item.row}: {item.message}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            <div className="mt-5 flex flex-wrap justify-end gap-2">
-              <button
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                type="button"
-                onClick={handleImportMore}
-              >
-                Importera fler händelser
-              </button>
-              <Link
-                className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                href="/dashboard/installations"
-              >
-                Gå till aggregat
-              </Link>
-            </div>
+          <div className="w-full max-w-2xl">
+            <EventImportSuccessPanel
+              importSummary={importSummary}
+              onImportMore={handleImportMore}
+              warningCount={warningRows.length}
+            />
           </div>
         </div>
       )}
@@ -942,65 +907,37 @@ function EventImportSuccessPanel({
   warningCount: number
 }) {
   return (
-    <section className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
-      <h2 className="text-base font-semibold">Importen är klar</h2>
-      <p className="mt-2 text-lg font-semibold">
-        {importSummary.created} händelser importerades.
-      </p>
-      <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
-        <ImportMetric
-          label="Importerade"
-          value={importSummary.created}
-        />
-        <ImportMetric
-          label="Exakt datum"
-          value={importSummary.createdWithExactDate ?? 0}
-        />
-        <ImportMetric
-          label="Endast händelseår"
-          value={importSummary.createdWithYearOnlyDate ?? 0}
-        />
-        <ImportMetric
-          label="Hoppades över"
-          value={importSummary.skipped}
-        />
-      </div>
-      {warningCount > 0 && (
-        <p className="mt-3 text-emerald-900">
-          {warningCount} rader hade varningar i förhandsgranskningen.
-        </p>
-      )}
-      {importSummary.errors.length > 0 && (
-        <div className="mt-3 max-h-36 overflow-auto rounded-lg border border-amber-200 bg-white p-3 text-amber-900">
-          <p className="font-semibold">Rader att kontrollera</p>
-          <ul className="mt-1 grid gap-1">
-            {importSummary.errors.map((item) => (
-              <li key={`${item.row}-${item.message}`}>
-                Rad {item.row}: {item.message}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      <div className="mt-4 flex flex-wrap justify-end gap-2">
-        <button
-          className="rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-50"
-          type="button"
-          onClick={onImportMore}
-        >
-          Importera fler händelser
-        </button>
-        {onClose && (
-          <button
-            className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
-            type="button"
-            onClick={onClose}
-          >
-            Stäng import
-          </button>
-        )}
-      </div>
-    </section>
+    <ImportCompletionSummary
+      actions={[
+        {
+          label: "Importera fler händelser",
+          onClick: onImportMore,
+        },
+        {
+          href: "/dashboard/installations",
+          label: "Visa aggregat",
+          variant: "primary",
+        },
+        {
+          href: "/dashboard/actions",
+          label: "Granska åtgärder",
+        },
+        ...(onClose
+          ? [
+              {
+                label: "Stäng import",
+                onClick: onClose,
+              },
+            ]
+          : []),
+      ]}
+      errors={importSummary.errors}
+      importedCount={importSummary.created}
+      kind="events"
+      skippedCount={importSummary.skipped}
+      subtitle={`${importSummary.createdWithExactDate ?? 0} med exakt datum, ${importSummary.createdWithYearOnlyDate ?? 0} med endast händelseår.`}
+      validationIssueCount={importSummary.errors.length + warningCount}
+    />
   )
 }
 
