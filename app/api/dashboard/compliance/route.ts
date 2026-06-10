@@ -9,6 +9,7 @@ import {
   summarizeCo2eCompleteness,
   summarizeLeakageClimateImpact,
 } from "@/lib/dashboard/compliance-metrics"
+import { loadDataQualityReport } from "@/lib/dashboard/load-data-quality-report"
 import { prisma } from "@/lib/db"
 import {
   calculateInstallationCompliance,
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
     const { companyId, userId } = auth.user
     const currentYearRange = getCurrentYearRange()
     const queryStartTime = getDevelopmentTimingStart()
-    const [company, installations, propertyCount] = await Promise.all([
+    const [company, installations, propertyCount, dataQuality] = await Promise.all([
       prisma.company.findUnique({
         where: {
           id: companyId,
@@ -148,6 +149,7 @@ export async function GET(request: NextRequest) {
           companyId,
         },
       }),
+      loadDataQualityReport(auth.user),
     ])
     const servicePartnerCompanies = isContractor(auth.user)
       ? []
@@ -447,6 +449,12 @@ export async function GET(request: NextRequest) {
         ),
         actionItemTotal: allActionItems.length,
         actionItems,
+        dataQuality: {
+          score: dataQuality.score,
+          totalIssueCount: dataQuality.totalIssueCount,
+          issueCategoryCount: dataQuality.issueCategoryCount,
+          topIssues: dataQuality.topIssues,
+        },
         setup: {
           companyInfoCompleted: isCompanyInfoCompleted(company),
           propertyCount,

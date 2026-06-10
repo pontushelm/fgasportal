@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useId, useState } from "react"
 import { DashboardSetupAssistant } from "@/components/dashboard/dashboard-setup-assistant"
 import { Badge, Card, PageHeader } from "@/components/ui"
+import type { DataQualityIssue } from "@/lib/dashboard/data-quality"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 
 type DistributionItem = {
@@ -107,6 +108,12 @@ type DashboardData = {
   refrigerantDistribution: DistributionItem[]
   actionItemTotal: number
   actionItems: ActionItem[]
+  dataQuality: {
+    score: number
+    totalIssueCount: number
+    issueCategoryCount: number
+    topIssues: DataQualityIssue[]
+  }
   setup: {
     companyInfoCompleted: boolean
     installationCount: number
@@ -290,6 +297,10 @@ export default function DashboardPage() {
             </div>
           </section>
 
+          <section className="mt-4">
+            <DataQualitySummaryCard dataQuality={dashboardData.dataQuality} />
+          </section>
+
           <section className="mt-8">
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
             <Card className="border-blue-100 bg-white p-4 shadow-sm sm:p-5">
@@ -444,6 +455,69 @@ export default function DashboardPage() {
         </div>
       )}
     </main>
+  )
+}
+
+function DataQualitySummaryCard({
+  dataQuality,
+}: {
+  dataQuality: DashboardData["dataQuality"]
+}) {
+  const scoreTone =
+    dataQuality.score >= 85
+      ? "text-emerald-700"
+      : dataQuality.score >= 65
+        ? "text-amber-700"
+        : "text-red-700"
+
+  return (
+    <Card className="border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="grid gap-4 lg:grid-cols-[14rem_minmax(0,1fr)_auto] lg:items-center">
+        <div>
+          <p className="text-sm font-semibold text-slate-600">Datakvalitet</p>
+          <div className="mt-2 flex items-end gap-2">
+            <span className={`text-4xl font-semibold ${scoreTone}`}>
+              {dataQuality.score}
+            </span>
+            <span className="pb-1 text-sm text-slate-500">/ 100</span>
+          </div>
+          <p className="mt-2 text-sm text-slate-600">
+            {dataQuality.totalIssueCount === 0
+              ? "Inga kända problem."
+              : `${dataQuality.totalIssueCount} uppgifter behöver ses över.`}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Viktigast just nu
+          </p>
+          {dataQuality.topIssues.length === 0 ? (
+            <p className="mt-2 text-sm text-slate-700">
+              Registret har inga kända datakvalitetsproblem.
+            </p>
+          ) : (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {dataQuality.topIssues.map((issue) => (
+                <Badge
+                  key={issue.id}
+                  variant={issue.severity === "HIGH" ? "danger" : issue.severity === "MEDIUM" ? "warning" : "neutral"}
+                >
+                  {issue.count} {issue.title.toLowerCase()}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <Link
+          className="inline-flex justify-center rounded-lg border border-blue-200 bg-white px-3.5 py-2 text-sm font-semibold text-blue-700 shadow-sm hover:bg-blue-50"
+          href="/dashboard/data-quality"
+        >
+          Visa datakvalitet
+        </Link>
+      </div>
+    </Card>
   )
 }
 
