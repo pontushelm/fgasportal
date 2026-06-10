@@ -52,6 +52,9 @@ type CompanyProfile = {
   vatNumber?: string | null
   eInvoiceId?: string | null
   phone?: string | null
+  sendInspectionRemindersToContractors: boolean
+  sendCertificateReminders: boolean
+  sendAnnualReportReminders: boolean
 }
 
 type CompanyProfileFormData = {
@@ -62,6 +65,9 @@ type CompanyProfileFormData = {
   address: string
   postalCode: string
   city: string
+  sendInspectionRemindersToContractors: boolean
+  sendCertificateReminders: boolean
+  sendAnnualReportReminders: boolean
 }
 
 type BillingFormData = {
@@ -136,6 +142,9 @@ const initialProfileFormData: CompanyProfileFormData = {
   address: "",
   postalCode: "",
   city: "",
+  sendInspectionRemindersToContractors: false,
+  sendCertificateReminders: true,
+  sendAnnualReportReminders: true,
 }
 
 const initialBillingFormData: BillingFormData = {
@@ -1008,6 +1017,32 @@ export default function CompanySettingsPage() {
                   Ort
                   <input className={inputClassName} name="city" value={profileForm.city} onChange={handleProfileChange} />
                 </label>
+                <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:col-span-2">
+                  <h3 className="text-sm font-semibold text-slate-950">
+                    Företagets påminnelser
+                  </h3>
+                  <CheckboxField
+                    checked={profileForm.sendInspectionRemindersToContractors}
+                    description="Aktiverar operativa påminnelser för försenade och kommande kontroller."
+                    label="Kontrollpåminnelser"
+                    name="sendInspectionRemindersToContractors"
+                    onChange={handleProfileChange}
+                  />
+                  <CheckboxField
+                    checked={profileForm.sendCertificateReminders}
+                    description="Aktiverar uppföljning av servicepartner- och teknikercertifikat."
+                    label="Certifikatpåminnelser"
+                    name="sendCertificateReminders"
+                    onChange={handleProfileChange}
+                  />
+                  <CheckboxField
+                    checked={profileForm.sendAnnualReportReminders}
+                    description="Aktiverar uppföljning inför årsrapportering."
+                    label="Årsrapportpåminnelser"
+                    name="sendAnnualReportReminders"
+                    onChange={handleProfileChange}
+                  />
+                </div>
                 <div className="flex flex-wrap gap-2 md:col-span-2">
                   <button
                     className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
@@ -1040,6 +1075,18 @@ export default function CompanySettingsPage() {
                 <ProfileItem label="Adress" value={companyProfile.address} />
                 <ProfileItem label="Postnummer" value={companyProfile.postalCode} />
                 <ProfileItem label="Ort" value={companyProfile.city} />
+                <ProfileItem
+                  label="Kontrollpåminnelser"
+                  value={companyProfile.sendInspectionRemindersToContractors ? "Aktiva" : "Av"}
+                />
+                <ProfileItem
+                  label="Certifikatpåminnelser"
+                  value={companyProfile.sendCertificateReminders ? "Aktiva" : "Av"}
+                />
+                <ProfileItem
+                  label="Årsrapportpåminnelser"
+                  value={companyProfile.sendAnnualReportReminders ? "Aktiva" : "Av"}
+                />
               </dl>
             )}
 
@@ -1338,6 +1385,36 @@ function ProfileItem({
       <dt className="text-sm font-medium text-slate-600">{label}</dt>
       <dd className="mt-1 font-semibold text-slate-950">{value || "-"}</dd>
     </div>
+  )
+}
+
+function CheckboxField({
+  checked,
+  description,
+  label,
+  name,
+  onChange,
+}: {
+  checked: boolean
+  description: string
+  label: string
+  name: keyof CompanyProfileFormData
+  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void
+}) {
+  return (
+    <label className="flex gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+      <input
+        checked={checked}
+        className="mt-1 h-4 w-4 rounded border-slate-300"
+        name={name}
+        type="checkbox"
+        onChange={onChange}
+      />
+      <span>
+        <span className="font-semibold text-slate-950">{label}</span>
+        <span className="mt-1 block text-slate-600">{description}</span>
+      </span>
+    </label>
   )
 }
 
@@ -1959,6 +2036,10 @@ function toProfileFormData(company: CompanyProfile): CompanyProfileFormData {
     address: company.address || "",
     postalCode: company.postalCode || "",
     city: company.city || "",
+    sendInspectionRemindersToContractors:
+      company.sendInspectionRemindersToContractors ?? false,
+    sendCertificateReminders: company.sendCertificateReminders ?? true,
+    sendAnnualReportReminders: company.sendAnnualReportReminders ?? true,
   }
 }
 

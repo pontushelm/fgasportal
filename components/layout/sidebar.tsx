@@ -70,6 +70,11 @@ const primaryNavigation: NavigationItem[] = [
     roles: ["OWNER", "ADMIN", "MEMBER"],
   },
   {
+    href: "/dashboard/notifications",
+    label: "Notifieringar",
+    roles: ["OWNER", "ADMIN", "MEMBER"],
+  },
+  {
     href: "/dashboard/contractors",
     label: "Servicepartners",
     roles: ["OWNER", "ADMIN", "MEMBER"],
@@ -630,6 +635,10 @@ function getPrimaryNavigation(currentUser: CurrentUser | null) {
     {
       href: "/dashboard/installations",
       label: "Tilldelade aggregat",
+    },
+    {
+      href: "/dashboard/notifications",
+      label: "Notifieringar",
     },
   ]
 

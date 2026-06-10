@@ -35,6 +35,8 @@ const updateCompanySchema = z.object({
   postalCode: optionalText(20),
   city: optionalText(100),
   sendInspectionRemindersToContractors: z.boolean().optional(),
+  sendCertificateReminders: z.boolean().optional(),
+  sendAnnualReportReminders: z.boolean().optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -63,6 +65,8 @@ export async function GET(request: NextRequest) {
         eInvoiceId: true,
         phone: true,
         sendInspectionRemindersToContractors: true,
+        sendCertificateReminders: true,
+        sendAnnualReportReminders: true,
       },
     })
 
@@ -115,6 +119,8 @@ export async function PATCH(request: NextRequest) {
         eInvoiceId: true,
         phone: true,
         sendInspectionRemindersToContractors: true,
+        sendCertificateReminders: true,
+        sendAnnualReportReminders: true,
       },
     })
 
