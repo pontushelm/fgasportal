@@ -44,6 +44,10 @@ const cronConfig = {
       path: "/api/cron/inspection-reminders",
       schedule: "0 6 * * *",
     },
+    {
+      path: "/api/cron/notification-digest",
+      schedule: "0 7 * * *",
+    },
   ],
 }
 

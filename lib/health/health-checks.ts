@@ -36,6 +36,7 @@ type HealthCheckDependencies = {
 }
 
 const INSPECTION_REMINDER_CRON_PATH = "/api/cron/inspection-reminders"
+const NOTIFICATION_DIGEST_CRON_PATH = "/api/cron/notification-digest"
 
 export async function buildHealthReport({
   blobList,
@@ -207,22 +208,26 @@ function checkCron(
   env: Record<string, string | undefined>,
   cronConfig?: { crons?: Array<{ path?: string; schedule?: string }> }
 ): HealthCheckItem {
-  const configuredCron = cronConfig?.crons?.find(
+  const configuredInspectionCron = cronConfig?.crons?.find(
     (cron) => cron.path === INSPECTION_REMINDER_CRON_PATH
   )
+  const configuredNotificationCron = cronConfig?.crons?.find(
+    (cron) => cron.path === NOTIFICATION_DIGEST_CRON_PATH
+  )
 
-  if (configuredCron && env.CRON_SECRET) {
+  if (configuredInspectionCron && configuredNotificationCron && env.CRON_SECRET) {
     return {
       id: "cron",
       component: "Cron",
       status: "SUCCESS",
-      explanation: `Påminnelsejobbet är konfigurerat (${configuredCron.schedule}).`,
+      explanation: `Cron-jobb för kontrollpåminnelser och notifieringsdigest är konfigurerade (${configuredInspectionCron.schedule}, ${configuredNotificationCron.schedule}).`,
       suggestedFix: null,
     }
   }
 
   const missingParts = [
-    !configuredCron ? "vercel.json-cron" : null,
+    !configuredInspectionCron ? "cron för kontrollpåminnelser" : null,
+    !configuredNotificationCron ? "cron för notifieringsdigest" : null,
     !env.CRON_SECRET ? "CRON_SECRET" : null,
   ].filter((value): value is string => Boolean(value))
 

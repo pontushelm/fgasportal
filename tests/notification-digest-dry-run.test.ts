@@ -274,6 +274,38 @@ describe("notification digest dry-run service", () => {
     })
     expect(mocks.notificationDigestLogUpsert).not.toHaveBeenCalled()
   })
+
+  it("continues sending when one recipient fails", async () => {
+    mocks.companyFindMany.mockResolvedValueOnce([
+      createCompany({
+        users: [
+          createUser({
+            email: "first@example.com",
+            id: "user-first",
+          }),
+          createUser({
+            email: "second@example.com",
+            id: "user-second",
+          }),
+        ],
+      }),
+    ])
+    mocks.sendNotificationDigestEmail
+      .mockRejectedValueOnce(new Error("First failed"))
+      .mockResolvedValueOnce({ id: "email-2" })
+
+    const result = await runNotificationDigest({
+      appUrl: "https://app.example.com",
+      loadActions,
+      mode: "send",
+      prisma,
+    })
+
+    expect(result.failed).toBe(1)
+    expect(result.sent).toBe(1)
+    expect(mocks.sendNotificationDigestEmail).toHaveBeenCalledTimes(2)
+    expect(mocks.notificationDigestLogUpsert).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe("notification digest dry-run API", () => {
@@ -390,6 +422,138 @@ describe("notification digest send API", () => {
   )
 })
 
+describe("notification digest cron API", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    process.env.APP_URL = "https://app.example.com"
+    process.env.CRON_SECRET = "cron-secret"
+    process.env.RESEND_API_KEY = "resend-key"
+    mocks.companyFindMany.mockResolvedValue([
+      createCompany({ users: [createUser()] }),
+    ])
+    mocks.notificationDigestLogFindUnique.mockResolvedValue(null)
+    mocks.notificationDigestLogUpsert.mockResolvedValue({ id: "digest-log-1" })
+    mocks.sendNotificationDigestEmail.mockResolvedValue({ id: "email-1" })
+    mocks.loadDashboardActions.mockResolvedValue([
+      createAction("OVERDUE_INSPECTION", "HIGH"),
+    ])
+  })
+
+  it("denies requests without cron secret", async () => {
+    const { POST } = await import("@/app/api/cron/notification-digest/route")
+
+    const response = await POST(createCronRequest())
+
+    expect(response.status).toBe(401)
+    expect(mocks.sendNotificationDigestEmail).not.toHaveBeenCalled()
+  })
+
+  it("denies requests with invalid cron secret", async () => {
+    const { POST } = await import("@/app/api/cron/notification-digest/route")
+
+    const response = await POST(
+      createCronRequest({ authorization: "Bearer wrong-secret" })
+    )
+
+    expect(response.status).toBe(401)
+    expect(mocks.sendNotificationDigestEmail).not.toHaveBeenCalled()
+  })
+
+  it("runs digest with valid bearer cron secret", async () => {
+    const { POST } = await import("@/app/api/cron/notification-digest/route")
+
+    const response = await POST(
+      createCronRequest({ authorization: "Bearer cron-secret" })
+    )
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body).toMatchObject({
+      companiesChecked: 1,
+      failed: 0,
+      ok: true,
+      recipientsChecked: 1,
+      sent: 1,
+      skippedAlreadySent: 0,
+      skippedDisabled: 0,
+      skippedNoItems: 0,
+    })
+    expect(mocks.sendNotificationDigestEmail).toHaveBeenCalled()
+    expect(mocks.notificationDigestLogUpsert).toHaveBeenCalled()
+  })
+
+  it("runs digest with valid x-cron-secret header", async () => {
+    const { POST } = await import("@/app/api/cron/notification-digest/route")
+
+    const response = await POST(createCronRequest({ "x-cron-secret": "cron-secret" }))
+
+    expect(response.status).toBe(200)
+    expect(mocks.sendNotificationDigestEmail).toHaveBeenCalled()
+  })
+
+  it("respects duplicate prevention", async () => {
+    const { POST } = await import("@/app/api/cron/notification-digest/route")
+    mocks.notificationDigestLogFindUnique.mockResolvedValueOnce({
+      id: "digest-log-1",
+    })
+
+    const response = await POST(
+      createCronRequest({ authorization: "Bearer cron-secret" })
+    )
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.skippedAlreadySent).toBe(1)
+    expect(body.sent).toBe(0)
+    expect(mocks.sendNotificationDigestEmail).not.toHaveBeenCalled()
+  })
+
+  it("returns failed recipients without stopping the cron run", async () => {
+    const { POST } = await import("@/app/api/cron/notification-digest/route")
+    mocks.companyFindMany.mockResolvedValueOnce([
+      createCompany({
+        users: [
+          createUser({
+            email: "first@example.com",
+            id: "user-first",
+          }),
+          createUser({
+            email: "second@example.com",
+            id: "user-second",
+          }),
+        ],
+      }),
+    ])
+    mocks.sendNotificationDigestEmail
+      .mockRejectedValueOnce(new Error("Resend failed"))
+      .mockResolvedValueOnce({ id: "email-2" })
+
+    const response = await POST(
+      createCronRequest({ authorization: "Bearer cron-secret" })
+    )
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.failed).toBe(1)
+    expect(body.sent).toBe(1)
+    expect(mocks.notificationDigestLogUpsert).toHaveBeenCalledTimes(1)
+  })
+
+  it("fails clearly when email configuration is missing", async () => {
+    const { POST } = await import("@/app/api/cron/notification-digest/route")
+    delete process.env.RESEND_API_KEY
+
+    const response = await POST(
+      createCronRequest({ authorization: "Bearer cron-secret" })
+    )
+    const body = await response.json()
+
+    expect(response.status).toBe(500)
+    expect(body.error).toBe("RESEND_API_KEY is required")
+    expect(mocks.sendNotificationDigestEmail).not.toHaveBeenCalled()
+  })
+})
+
 function createCompany(overrides = {}) {
   return {
     id: "company-1",
@@ -458,4 +622,11 @@ function createRequest(path = "/digest/dry-run") {
     `http://localhost/api/dashboard/notifications${path}`,
     { method: "POST" }
   ) as never
+}
+
+function createCronRequest(headers: Record<string, string> = {}) {
+  return new Request("http://localhost/api/cron/notification-digest", {
+    headers,
+    method: "POST",
+  }) as never
 }
