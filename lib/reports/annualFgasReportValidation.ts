@@ -8,6 +8,10 @@ import type {
   AnnualFgasScrappedEquipmentRow,
 } from "@/lib/reports/annualFgasReportTypes"
 import {
+  hasAnnualFgasResolvedCertificate,
+  type AnnualFgasResolvedInstallationCertification,
+} from "@/lib/reports/annualFgasCertification"
+import {
   getRefrigerantRegulatoryStatus,
   isRefrigerantRegulatoryFollowUpStatus,
 } from "@/lib/refrigerant-regulatory-status"
@@ -101,6 +105,7 @@ export function buildAnnualFgasReportWarnings({
     name: string
     equipmentId: string | null
     assignedContractorId: string | null
+    annualReportCertification?: AnnualFgasResolvedInstallationCertification | null
     assignedServicePartnerCompanyId?: string | null
     assignedServicePartnerCompany?: {
       certificateNumber: string | null
@@ -245,13 +250,7 @@ export function buildAnnualFgasReportWarnings({
         equipmentId: installation.equipmentId,
         message: "Aggregatet saknar tilldelad servicepartner.",
       })
-    } else if (
-      !installation.assignedServicePartnerCompany?.serviceOrganization
-        ?.certificateNumber &&
-      !installation.assignedServicePartnerCompany?.certificateNumber &&
-      !installation.assignedContractor?.certificationNumber &&
-      !installation.assignedContractor?.memberships[0]?.certificationNumber
-    ) {
+    } else if (!hasReportInstallationCertificate(installation)) {
       warnings.push({
         id: `missing-certificate-${installation.id}`,
         severity: "review",
@@ -344,6 +343,32 @@ export function buildAnnualFgasReportWarnings({
 
     return first.id.localeCompare(second.id, "sv")
   })
+}
+
+function hasReportInstallationCertificate(installation: {
+  annualReportCertification?: AnnualFgasResolvedInstallationCertification | null
+  assignedServicePartnerCompany?: {
+    certificateNumber: string | null
+    serviceOrganization?: {
+      certificateNumber: string | null
+    } | null
+  } | null
+  assignedContractor: {
+    certificationNumber?: string | null
+    memberships: Array<{ certificationNumber: string | null }>
+  } | null
+}) {
+  if (installation.annualReportCertification) {
+    return hasAnnualFgasResolvedCertificate(installation.annualReportCertification)
+  }
+
+  return Boolean(
+    installation.assignedServicePartnerCompany?.serviceOrganization
+      ?.certificateNumber ||
+      installation.assignedServicePartnerCompany?.certificateNumber ||
+      installation.assignedContractor?.certificationNumber ||
+      installation.assignedContractor?.memberships[0]?.certificationNumber
+  )
 }
 
 export function buildAnnualFgasReportQualitySummary(

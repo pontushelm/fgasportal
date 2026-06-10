@@ -24,6 +24,7 @@ import {
 import type { AnnualFgasReportData } from "@/lib/reports/annualFgasReportTypes"
 import { buildAnnualFgasReportFilename } from "@/lib/reports/annualFgasReportFilename"
 import { summarizeAnnualFgasCo2e } from "@/lib/reports/annualFgasReportSummary"
+import { resolveAnnualFgasInstallationCertification } from "@/lib/reports/annualFgasCertification"
 import { selectPrimaryAnnualReportServicePartnerCompany } from "@/lib/reports/annualFgasServicePartner"
 
 type AnnualOverviewInput = Parameters<
@@ -88,6 +89,77 @@ function buildOverviewInstallation(
     events: [],
     ...overrides,
   } as AnnualOverviewInstallation
+}
+
+function createCompanyFgasCertificationRecord(overrides = {}) {
+  return {
+    id: "cert-company-a",
+    companyId: "company-a",
+    serviceOrganizationId: "service-org-a",
+    userId: null,
+    subjectType: "SERVICE_ORGANIZATION" as const,
+    certificateType: "COMPANY_FGAS" as const,
+    certificateNumber: "FCERT-RECORD",
+    issuer: "Certifieringsorgan AB",
+    category: null,
+    validFrom: null,
+    validUntil: new Date("2028-01-01T00:00:00.000Z"),
+    status: "ACTIVE" as const,
+    verificationStatus: "SELF_DECLARED" as const,
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    ...overrides,
+  }
+}
+
+function createTechnicianCertificationRecord(overrides = {}) {
+  return {
+    id: "cert-technician-a",
+    companyId: "company-a",
+    serviceOrganizationId: "service-org-a",
+    userId: "user-technician-1",
+    subjectType: "TECHNICIAN" as const,
+    certificateType: "PERSONAL_FGAS" as const,
+    certificateNumber: "TECH-RECORD",
+    issuer: "Personcert AB",
+    category: "I",
+    validFrom: null,
+    validUntil: new Date("2028-01-01T00:00:00.000Z"),
+    status: "ACTIVE" as const,
+    verificationStatus: "SELF_DECLARED" as const,
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    ...overrides,
+  }
+}
+
+function createServicePartnerCompany(overrides = {}) {
+  return {
+    companyId: "company-a",
+    name: "Servicepartner AB",
+    certificateNumber: "LEGACY-COMPANY",
+    serviceOrganizationId: "service-org-a",
+    serviceOrganization: {
+      id: "service-org-a",
+      name: "Servicepartner AB",
+      certificateNumber: "LEGACY-ORG",
+      certificationRecords: [],
+    },
+    ...overrides,
+  }
+}
+
+function createAnnualReportTechnician(overrides = {}) {
+  return {
+    id: "user-technician-1",
+    companyId: "company-a",
+    name: "Tekniker Ett",
+    certificationNumber: null,
+    certificationIssuer: null,
+    certificationValidUntil: null,
+    certificationCategory: null,
+    certificationRecords: [],
+    memberships: [],
+    ...overrides,
+  }
 }
 
 describe("annual F-gas report summary", () => {
@@ -729,13 +801,109 @@ describe("annual F-gas report warnings", () => {
       "missing-certificate-installation-a"
     )
   })
+
+  it("uses resolved CertificationRecord data for missing certificate warnings", () => {
+    const warnings = buildAnnualFgasReportWarnings({
+      certificateRegister: [],
+      co2eSummary: { unknownCo2eEquipmentCount: 0 },
+      equipment: [],
+      refrigerantHandlingLog: [],
+      reportInstallations: [
+        {
+          id: "installation-a",
+          name: "Kyl A",
+          equipmentId: "VP1",
+          assignedContractorId: "contractor-a",
+          annualReportCertification: resolveAnnualFgasInstallationCertification({
+            assignedServicePartnerCompany: createServicePartnerCompany({
+              certificateNumber: null,
+              serviceOrganization: {
+                id: "service-org-a",
+                name: "Servicepartner AB",
+                certificateNumber: null,
+                certificationRecords: [
+                  createCompanyFgasCertificationRecord({
+                    certificateNumber: "FCERT-RECORD",
+                  }),
+                ],
+              },
+            }),
+            assignedContractor: createAnnualReportTechnician({
+              memberships: [
+                {
+                  certificationNumber: null,
+                  certificationOrganization: null,
+                  certificationValidUntil: null,
+                  servicePartnerCompany: createServicePartnerCompany(),
+                },
+              ],
+            }),
+          }),
+          assignedServicePartnerCompanyId: "service-company-a",
+          assignedServicePartnerCompany: {
+            certificateNumber: null,
+            serviceOrganization: {
+              certificateNumber: null,
+            },
+          },
+          assignedContractor: {
+            certificationNumber: null,
+            memberships: [{ certificationNumber: null }],
+          },
+          property: {
+            municipality: "MalmÃ¶",
+            propertyDesignation: "Skolan 1",
+          },
+          events: [],
+        },
+      ],
+      scrappedEquipment: [],
+    })
+
+    expect(warnings.map((warning) => warning.id)).not.toContain(
+      "missing-certificate-installation-a"
+    )
+  })
 })
 
 describe("annual F-gas report service partner company mapping", () => {
-  it("uses the assigned service partner company certificate for the PDF service partner box", () => {
+  it("prefers service organization CertificationRecord for the PDF service partner box", () => {
     const company = selectPrimaryAnnualReportServicePartnerCompany([
       {
         assignedServicePartnerCompany: {
+          companyId: "company-a",
+          name: "Servicepartner AB",
+          contactEmail: "info@servicepartner.example",
+          phone: "040-123 45",
+          certificateNumber: "LEGACY-COMPANY",
+          serviceOrganizationId: "service-org-a",
+          serviceOrganization: {
+            id: "service-org-a",
+            name: "Servicepartner AB",
+            contactEmail: "org@servicepartner.example",
+            phone: "040-222 22",
+            certificateNumber: "LEGACY-ORG",
+            certificationRecords: [
+              createCompanyFgasCertificationRecord({
+                certificateNumber: "FCERT-RECORD",
+              }),
+            ],
+          },
+        },
+      },
+    ])
+
+    expect(company).toMatchObject({
+      name: "Servicepartner AB",
+      certificateNumber: "FCERT-RECORD",
+    })
+  })
+
+  it("falls back to legacy company certificate when no CertificationRecord exists", () => {
+    const company = selectPrimaryAnnualReportServicePartnerCompany([
+      {
+        assignedServicePartnerCompany: {
+          companyId: "company-a",
           name: "Servicepartner AB",
           contactEmail: "info@servicepartner.example",
           phone: "040-123 45",
@@ -747,6 +915,86 @@ describe("annual F-gas report service partner company mapping", () => {
     expect(company).toMatchObject({
       name: "Servicepartner AB",
       certificateNumber: "FCERT-123",
+    })
+  })
+})
+
+describe("annual F-gas report technician certificate resolution", () => {
+  it("prefers technician CertificationRecord over user and membership legacy certificates", () => {
+    const certification = resolveAnnualFgasInstallationCertification({
+      assignedServicePartnerCompany: createServicePartnerCompany(),
+      assignedContractor: createAnnualReportTechnician({
+        certificationNumber: "USER-LEGACY",
+        certificationIssuer: "User legacy issuer",
+        certificationRecords: [
+          createTechnicianCertificationRecord({
+            certificateNumber: "TECH-RECORD",
+            issuer: "Record issuer",
+            validUntil: new Date("2028-05-01T00:00:00.000Z"),
+          }),
+        ],
+        memberships: [
+          {
+            certificationNumber: "MEMBERSHIP-LEGACY",
+            certificationOrganization: "Membership legacy issuer",
+            certificationValidUntil: new Date("2027-01-01T00:00:00.000Z"),
+            servicePartnerCompany: createServicePartnerCompany(),
+          },
+        ],
+      }),
+    })
+
+    expect(certification.technician).toMatchObject({
+      certificateNumber: "TECH-RECORD",
+      issuer: "Record issuer",
+      source: "CERTIFICATION_RECORD",
+    })
+  })
+
+  it("falls back to user legacy technician certificate before membership legacy", () => {
+    const certification = resolveAnnualFgasInstallationCertification({
+      assignedServicePartnerCompany: createServicePartnerCompany(),
+      assignedContractor: createAnnualReportTechnician({
+        certificationNumber: "USER-LEGACY",
+        certificationIssuer: "User legacy issuer",
+        memberships: [
+          {
+            certificationNumber: "MEMBERSHIP-LEGACY",
+            certificationOrganization: "Membership legacy issuer",
+            certificationValidUntil: null,
+            servicePartnerCompany: createServicePartnerCompany(),
+          },
+        ],
+      }),
+    })
+
+    expect(certification.technician).toMatchObject({
+      certificateNumber: "USER-LEGACY",
+      issuer: "User legacy issuer",
+      source: "USER_LEGACY",
+    })
+  })
+
+  it("falls back to membership legacy technician certificate", () => {
+    const certification = resolveAnnualFgasInstallationCertification({
+      assignedServicePartnerCompany: createServicePartnerCompany(),
+      assignedContractor: createAnnualReportTechnician({
+        certificationNumber: null,
+        memberships: [
+          {
+            certificationNumber: "MEMBERSHIP-LEGACY",
+            certificationOrganization: "Membership legacy issuer",
+            certificationValidUntil: new Date("2027-01-01T00:00:00.000Z"),
+            servicePartnerCompany: createServicePartnerCompany(),
+          },
+        ],
+      }),
+    })
+
+    expect(certification.technician).toMatchObject({
+      certificateNumber: "MEMBERSHIP-LEGACY",
+      issuer: "Membership legacy issuer",
+      source: "MEMBERSHIP_LEGACY",
     })
   })
 })

@@ -1,13 +1,22 @@
+import {
+  resolveAnnualFgasServicePartnerCompanyCertification,
+  type AnnualFgasCertificationRecordSource,
+} from "@/lib/reports/annualFgasCertification"
+
 export type AnnualFgasServicePartnerCompanySummary = {
+  companyId: string
   name: string
   contactEmail?: string | null
   phone?: string | null
   certificateNumber: string | null
+  serviceOrganizationId?: string | null
   serviceOrganization?: {
+    id?: string | null
     name: string
     contactEmail?: string | null
     phone?: string | null
     certificateNumber: string | null
+    certificationRecords?: AnnualFgasCertificationRecordSource[]
   } | null
 }
 
@@ -28,8 +37,8 @@ export function selectPrimaryAnnualReportServicePartnerCompany(
           company.serviceOrganization?.contactEmail ?? company.contactEmail,
         phone: company.serviceOrganization?.phone ?? company.phone,
         certificateNumber:
-          company.serviceOrganization?.certificateNumber ??
-          company.certificateNumber,
+          resolveAnnualFgasServicePartnerCompanyCertification(company)
+            ?.certificateNumber ?? null,
       }))[0] ?? null
   )
 }

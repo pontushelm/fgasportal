@@ -179,6 +179,45 @@ describe("annual F-gas report snapshots", () => {
     expect(changed.snapshotSha256).not.toBe(original.snapshotSha256)
   })
 
+  it("preserves certification data in newly generated signed report snapshots", () => {
+    const snapshot = createAnnualFgasReportSnapshot(
+      createReport({
+        responsibleContractor: {
+          name: "Serviceansvarig",
+          company: "Kylservice AB",
+          email: "service@example.com",
+          phone: null,
+          certificateNumber: "FCERT-RECORD",
+        },
+        certificateRegister: [
+          {
+            name: "Tekniker Ett",
+            role: "Ansvarig tekniker/servicepartner",
+            company: "Kylservice AB",
+            certificateNumber: "TECH-RECORD",
+            certificateOrganization: "Personcert AB",
+            validUntil: new Date("2028-05-01T00:00:00.000Z"),
+          },
+        ],
+      }),
+      { artifactId: "artifact-1", generatedAt }
+    )
+
+    const report = snapshot.report as {
+      responsibleContractor: { certificateNumber: string }
+      certificateRegister: Array<{
+        certificateNumber: string
+        certificateOrganization: string
+      }>
+    }
+
+    expect(report.responsibleContractor.certificateNumber).toBe("FCERT-RECORD")
+    expect(report.certificateRegister[0]).toMatchObject({
+      certificateNumber: "TECH-RECORD",
+      certificateOrganization: "Personcert AB",
+    })
+  })
+
   it("builds an annual artifact draft without storing anything", () => {
     const { artifact, snapshotResult } = buildAnnualFgasSignedReportArtifactDraft({
       artifactId: "artifact-1",

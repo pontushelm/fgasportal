@@ -7,6 +7,10 @@ import type {
   AnnualFgasReportFilter,
 } from "@/lib/reports/annualFgasReportTypes"
 import { summarizeAnnualFgasCo2e } from "@/lib/reports/annualFgasReportSummary"
+import {
+  resolveAnnualFgasInstallationCertification,
+  type AnnualFgasResolvedInstallationCertification,
+} from "@/lib/reports/annualFgasCertification"
 import { selectPrimaryAnnualReportServicePartnerCompany } from "@/lib/reports/annualFgasServicePartner"
 import {
   buildAnnualFgasReportQualitySummary,
@@ -99,16 +103,27 @@ export async function buildAnnualFgasReportData({
       property: true,
       assignedServicePartnerCompany: {
         select: {
+          companyId: true,
           name: true,
           contactEmail: true,
           phone: true,
           certificateNumber: true,
+          serviceOrganizationId: true,
           serviceOrganization: {
             select: {
+              id: true,
               name: true,
               contactEmail: true,
               phone: true,
               certificateNumber: true,
+              certificationRecords: {
+                where: {
+                  companyId,
+                  subjectType: "SERVICE_ORGANIZATION",
+                  certificateType: "COMPANY_FGAS",
+                  status: { notIn: ["DELETED", "REVOKED", "REPLACED"] },
+                },
+              },
             },
           },
         },
@@ -116,9 +131,21 @@ export async function buildAnnualFgasReportData({
       assignedContractor: {
         select: {
           id: true,
+          companyId: true,
           name: true,
           email: true,
           certificationNumber: true,
+          certificationIssuer: true,
+          certificationValidUntil: true,
+          certificationCategory: true,
+          certificationRecords: {
+            where: {
+              companyId,
+              subjectType: "TECHNICIAN",
+              certificateType: "PERSONAL_FGAS",
+              status: { notIn: ["DELETED", "REVOKED", "REPLACED"] },
+            },
+          },
           company: { select: { name: true, phone: true } },
           memberships: {
             where: {
@@ -132,16 +159,27 @@ export async function buildAnnualFgasReportData({
               certificationValidUntil: true,
               servicePartnerCompany: {
                 select: {
+                  companyId: true,
                   name: true,
                   contactEmail: true,
                   phone: true,
                   certificateNumber: true,
+                  serviceOrganizationId: true,
                   serviceOrganization: {
                     select: {
+                      id: true,
                       name: true,
                       contactEmail: true,
                       phone: true,
                       certificateNumber: true,
+                      certificationRecords: {
+                        where: {
+                          companyId,
+                          subjectType: "SERVICE_ORGANIZATION",
+                          certificateType: "COMPANY_FGAS",
+                          status: { notIn: ["DELETED", "REVOKED", "REPLACED"] },
+                        },
+                      },
                     },
                   },
                 },
@@ -214,27 +252,33 @@ export async function buildAnnualFgasReportData({
     ])
   )
 
-  const reportInstallations = installations.filter((installation) => {
-    const compliance = calculateInstallationCompliance(
-      installation.refrigerantType,
-      installation.refrigerantAmount,
-      installation.hasLeakDetectionSystem,
-      installation.lastInspection,
-      installation.nextInspection
-    )
-    const isControlRequired = Boolean(compliance.inspectionIntervalMonths)
-    const hasUnknownCo2e = compliance.co2eKg === null
-    const wasScrappedDuringYear =
-      installation.scrappedAt != null &&
-      installation.scrappedAt >= startDate &&
-      installation.scrappedAt < endDate
+  const reportInstallations = installations
+    .filter((installation) => {
+      const compliance = calculateInstallationCompliance(
+        installation.refrigerantType,
+        installation.refrigerantAmount,
+        installation.hasLeakDetectionSystem,
+        installation.lastInspection,
+        installation.nextInspection
+      )
+      const isControlRequired = Boolean(compliance.inspectionIntervalMonths)
+      const hasUnknownCo2e = compliance.co2eKg === null
+      const wasScrappedDuringYear =
+        installation.scrappedAt != null &&
+        installation.scrappedAt >= startDate &&
+        installation.scrappedAt < endDate
 
-    if (installation.isActive && !installation.archivedAt) {
-      return isControlRequired || hasUnknownCo2e
-    }
+      if (installation.isActive && !installation.archivedAt) {
+        return isControlRequired || hasUnknownCo2e
+      }
 
-    return isControlRequired || wasScrappedDuringYear
-  })
+      return isControlRequired || wasScrappedDuringYear
+    })
+    .map((installation) => ({
+      ...installation,
+      annualReportCertification:
+        resolveAnnualFgasInstallationCertification(installation),
+    }))
 
   const equipment: AnnualFgasEquipmentRow[] = reportInstallations.map((installation) => {
     const refrigerantType =
@@ -534,27 +578,54 @@ function formatServicePartnerName(
 
 function buildCertificateRegister(
   installations: Array<{
+    annualReportCertification?: AnnualFgasResolvedInstallationCertification
     assignedServicePartnerCompany: {
+      companyId: string
       name: string
       certificateNumber: string | null
+      serviceOrganizationId?: string | null
       serviceOrganization?: {
+        id?: string | null
         name: string
         certificateNumber: string | null
       } | null
     } | null
     assignedContractor: {
       id: string
+      companyId?: string | null
       name: string
       certificationNumber: string | null
+      certificationIssuer?: string | null
+      certificationValidUntil?: Date | null
+      certificationCategory?: string | null
+      certificationRecords?: Array<{
+        id?: string
+        companyId: string
+        serviceOrganizationId?: string | null
+        userId?: string | null
+        subjectType: "SERVICE_ORGANIZATION" | "TECHNICIAN" | "COMPANY"
+        certificateType: "COMPANY_FGAS" | "PERSONAL_FGAS" | "OTHER"
+        certificateNumber: string
+        issuer?: string | null
+        category?: string | null
+        validFrom?: Date | string | null
+        validUntil?: Date | string | null
+        status?: "ACTIVE" | "EXPIRED" | "REPLACED" | "REVOKED" | "DELETED"
+        verificationStatus?: "UNVERIFIED" | "SELF_DECLARED" | "VERIFIED"
+        createdAt?: Date | string
+      }>
       company: { name: string } | null
       memberships: Array<{
         certificationNumber: string | null
         certificationOrganization: string | null
         certificationValidUntil: Date | null
         servicePartnerCompany: {
+          companyId: string
           name: string
           certificateNumber: string | null
+          serviceOrganizationId?: string | null
           serviceOrganization?: {
+            id?: string | null
             name: string
             certificateNumber: string | null
           } | null
@@ -569,29 +640,25 @@ function buildCertificateRegister(
     const contractor = installation.assignedContractor
     if (!contractor) return
 
-    const certification = contractor.memberships[0]
+    const membership = contractor.memberships[0]
+    const technicianCertification =
+      installation.annualReportCertification?.technician ??
+      resolveAnnualFgasInstallationCertification(installation).technician
     entries.set(contractor.id, {
       name: contractor.name,
       role: "Ansvarig tekniker/servicepartner",
       company:
         installation.assignedServicePartnerCompany?.serviceOrganization?.name ??
         installation.assignedServicePartnerCompany?.name ??
-        certification?.servicePartnerCompany?.serviceOrganization?.name ??
-        certification?.servicePartnerCompany?.name ??
+        membership?.servicePartnerCompany?.serviceOrganization?.name ??
+        membership?.servicePartnerCompany?.name ??
         contractor.company?.name ??
         null,
-      certificateNumber:
-        installation.assignedServicePartnerCompany?.serviceOrganization
-          ?.certificateNumber ??
-        installation.assignedServicePartnerCompany?.certificateNumber ??
-        certification?.servicePartnerCompany?.serviceOrganization
-          ?.certificateNumber ??
-        certification?.servicePartnerCompany?.certificateNumber ??
-        contractor.certificationNumber ??
-        certification?.certificationNumber ??
-        null,
-      certificateOrganization: certification?.certificationOrganization ?? null,
-      validUntil: certification?.certificationValidUntil ?? null,
+      certificateNumber: technicianCertification?.certificateNumber ?? null,
+      certificateOrganization: technicianCertification?.issuer ?? null,
+      validUntil: technicianCertification?.validUntil
+        ? new Date(technicianCertification.validUntil)
+        : null,
     })
   })
 
