@@ -10,6 +10,7 @@ import {
   isServicePartnerCompanyCertificationWarning,
 } from "@/lib/service-partner-company-certifications"
 import { toServiceOrganizationBackedCompany } from "@/lib/service-organizations"
+import { buildTechnicianCertification } from "@/lib/technician-certifications"
 
 export async function GET(request: NextRequest) {
   try {
@@ -61,6 +62,23 @@ export async function GET(request: NextRequest) {
               name: true,
               email: true,
               isActive: true,
+              certificationNumber: true,
+              certificationIssuer: true,
+              certificationValidUntil: true,
+              certificationCategory: true,
+              certificationRecords: {
+                where: {
+                  companyId: auth.user.companyId,
+                  subjectType: "TECHNICIAN",
+                  certificateType: "PERSONAL_FGAS",
+                  status: {
+                    not: "DELETED",
+                  },
+                },
+                orderBy: {
+                  createdAt: "desc",
+                },
+              },
               assignedInstallations: {
                 where: {
                   companyId: auth.user.companyId,
@@ -258,6 +276,13 @@ export async function GET(request: NextRequest) {
           isCertifiedCompany: membership.isCertifiedCompany,
           validUntil: membership.certificationValidUntil,
         }),
+        technicianCertification: toTechnicianCertificationResponse(
+          buildTechnicianCertification({
+            membership,
+            records: contractor.certificationRecords,
+            user: contractor,
+          })
+        ),
         servicePartnerCompany: membership.servicePartnerCompany
           ? servicePartnerCompaniesById.get(membership.servicePartnerCompany.id) ??
             {
@@ -339,6 +364,19 @@ export async function GET(request: NextRequest) {
       { error: "Ett oväntat fel uppstod" },
       { status: 500 }
     )
+  }
+}
+
+function toTechnicianCertificationResponse(
+  certification: ReturnType<typeof buildTechnicianCertification>
+) {
+  return {
+    certificateNumber: certification.certificateNumber,
+    issuer: certification.issuer,
+    category: certification.category,
+    validUntil: certification.validUntil,
+    status: certification.status,
+    source: certification.source,
   }
 }
 

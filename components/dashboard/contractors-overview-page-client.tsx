@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useId, useState } from "react"
 import {
   Badge,
@@ -13,6 +13,13 @@ import {
   type ToastMessage,
 } from "@/components/ui"
 import type { CertificationStatusResult } from "@/lib/certification-status"
+import {
+  DATA_QUALITY_FILTER_LABELS,
+  getServicePartnerQualityFilter,
+  getTechnicianQualityFilter,
+  matchesServicePartnerQualityFilter,
+  matchesTechnicianQualityFilter,
+} from "@/lib/dashboard/data-quality-filters"
 import type { ServicePartnerCompanyCertification } from "@/lib/service-partner-company-certifications"
 
 type ContractorOverview = {
@@ -26,6 +33,7 @@ type ContractorOverview = {
   certificationOrganization: string | null
   certificationValidUntil: string | null
   certificationStatus: CertificationStatusResult
+  technicianCertification: TechnicianCertificationSummary
   assignedInstallationsCount: number
   overdueInspections: number
   dueSoonInspections: number
@@ -46,6 +54,25 @@ type ServicePartnerCompany = {
   notes: string | null
   createdAt?: string
   updatedAt?: string
+}
+
+type TechnicianCertificationSummary = {
+  certificateNumber: string | null
+  issuer: string | null
+  category: string | null
+  validUntil: string | null
+  status: {
+    status:
+      | "VALID"
+      | "EXPIRING_SOON"
+      | "EXPIRED"
+      | "MISSING"
+      | "VALIDITY_MISSING"
+      | "INACTIVE"
+    label: string
+    variant: "success" | "warning" | "danger" | "neutral"
+  }
+  source: string
 }
 
 type ServicePartnerCompanyForm = {
@@ -104,6 +131,13 @@ const inputClassName =
 
 export default function ContractorsOverviewPageClient() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const activeServicePartnerQualityFilter = getServicePartnerQualityFilter(
+    searchParams.get("quality")
+  )
+  const activeTechnicianQualityFilter = getTechnicianQualityFilter(
+    searchParams.get("quality")
+  )
   const [data, setData] = useState<ContractorsOverviewResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
@@ -270,13 +304,32 @@ export default function ContractorsOverviewPageClient() {
   }
 
   const servicePartnerMetrics = data?.servicePartnerCompanyMetrics ?? []
-  const visibleServicePartners = servicePartnerMetrics.filter((company) =>
-    certificationStatusFilter === "ALL"
-      ? true
-      : company.certification?.status.status === certificationStatusFilter
-  )
+  const visibleServicePartners = servicePartnerMetrics
+    .filter((company) =>
+      matchesServicePartnerQualityFilter(
+        company.certification?.status.status,
+        activeServicePartnerQualityFilter
+      )
+    )
+    .filter((company) =>
+      certificationStatusFilter === "ALL"
+        ? true
+        : company.certification?.status.status === certificationStatusFilter
+    )
   const canManageServicePartners =
     data?.permissions?.canManageServicePartners ?? false
+  const visibleTechnicians = (data?.contractors ?? []).filter((contractor) =>
+    matchesTechnicianQualityFilter(
+      contractor.technicianCertification?.status.status,
+      activeTechnicianQualityFilter
+    )
+  )
+
+  function clearQualityFilter() {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete("quality")
+    router.replace(`/dashboard/contractors${params.toString() ? `?${params.toString()}` : ""}`)
+  }
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 dark:text-slate-100 sm:px-6 lg:px-8">
@@ -495,6 +548,12 @@ export default function ContractorsOverviewPageClient() {
                 </select>
               </label>
             </div>
+            {activeServicePartnerQualityFilter && (
+              <QualityFilterBanner
+                label={DATA_QUALITY_FILTER_LABELS[activeServicePartnerQualityFilter]}
+                onClear={clearQualityFilter}
+              />
+            )}
             <div className="mt-4 grid gap-3 lg:grid-cols-2">
               {visibleServicePartners.length === 0 ? (
                 <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
@@ -565,7 +624,57 @@ export default function ContractorsOverviewPageClient() {
             </div>
           </Card>
 
-          {/*
+          {activeTechnicianQualityFilter && (
+            <Card className="mt-6 p-5">
+              <SectionHeader
+                title="Tekniker från datakvalitet"
+                subtitle="Servicekontakter med personcertifikat som behöver följas upp."
+              />
+              <QualityFilterBanner
+                label={DATA_QUALITY_FILTER_LABELS[activeTechnicianQualityFilter]}
+                onClear={clearQualityFilter}
+              />
+              <div className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200">
+                {visibleTechnicians.length === 0 ? (
+                  <p className="bg-slate-50 p-4 text-sm text-slate-600 dark:bg-slate-950 dark:text-slate-300">
+                    Inga tekniker matchar datakvalitetsfiltret.
+                  </p>
+                ) : (
+                  visibleTechnicians.map((contractor) => (
+                    <div
+                      className="grid gap-3 bg-white p-4 dark:bg-slate-950 md:grid-cols-[1fr_auto]"
+                      key={contractor.membershipId}
+                    >
+                      <div>
+                        <p className="font-semibold text-slate-950 dark:text-slate-100">
+                          {contractor.name}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          {[
+                            contractor.email,
+                            contractor.servicePartnerCompany?.name,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                        <Badge variant={contractor.technicianCertification.status.variant}>
+                          {contractor.technicianCertification.status.label}
+                        </Badge>
+                        <span className="text-sm text-slate-600 dark:text-slate-300">
+                          {contractor.technicianCertification.certificateNumber ??
+                            "Certifikatnummer saknas"}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </Card>
+          )}
+
+          {/* 
           <Card className="mt-6 overflow-hidden">
             <div className="border-b border-slate-200 p-5 dark:border-slate-800">
               <SectionHeader
@@ -902,6 +1011,29 @@ function CompactDetail({
       <dd className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
         {value || "-"}
       </dd>
+    </div>
+  )
+}
+
+function QualityFilterBanner({
+  label,
+  onClear,
+}: {
+  label: string
+  onClear: () => void
+}) {
+  return (
+    <div className="mt-4 flex flex-col gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-950 sm:flex-row sm:items-center sm:justify-between">
+      <span>
+        Visar poster från datakvalitet: <strong>{label}</strong>
+      </span>
+      <button
+        className="font-semibold text-blue-800 underline-offset-4 hover:underline"
+        type="button"
+        onClick={onClear}
+      >
+        Rensa datakvalitetsfilter
+      </button>
     </div>
   )
 }

@@ -31,6 +31,26 @@ export type DataQualityIssue = {
   ctaLabel: string
 }
 
+export const DATA_QUALITY_ISSUE_ROUTES: Record<DataQualityIssueId, string> = {
+  INSTALLATION_MISSING_CHARGE: "/dashboard/installations?quality=missing-charge",
+  INSTALLATION_MISSING_GWP: "/dashboard/installations?quality=missing-gwp",
+  INSTALLATION_MISSING_PROPERTY: "/dashboard/installations?quality=missing-property",
+  INSTALLATION_MISSING_REFRIGERANT:
+    "/dashboard/installations?quality=missing-refrigerant",
+  PROPERTY_MISSING_DESIGNATION:
+    "/dashboard/properties?quality=missing-designation",
+  PROPERTY_MISSING_MUNICIPALITY:
+    "/dashboard/properties?quality=missing-municipality",
+  SERVICEPARTNER_CERTIFICATE_EXPIRED:
+    "/dashboard/contractors?quality=expired-company-certificate",
+  SERVICEPARTNER_CERTIFICATE_MISSING:
+    "/dashboard/contractors?quality=missing-company-certificate",
+  TECHNICIAN_CERTIFICATE_EXPIRED:
+    "/dashboard/contractors?quality=expired-technician-certificate",
+  TECHNICIAN_CERTIFICATE_MISSING:
+    "/dashboard/contractors?quality=missing-technician-certificate",
+}
+
 export type DataQualityReport = {
   score: number
   totalIssueCount: number
@@ -97,7 +117,7 @@ export function buildDataQualityReport({
       description: "Fastighetsbeteckning behövs framför allt för årsrapportering.",
       group: "properties",
       id: "PROPERTY_MISSING_DESIGNATION",
-      route: "/dashboard/properties",
+      route: DATA_QUALITY_ISSUE_ROUTES.PROPERTY_MISSING_DESIGNATION,
       severity: "HIGH",
       title: "Fastigheter saknar fastighetsbeteckning",
       ctaLabel: "Visa fastigheter",
@@ -107,7 +127,7 @@ export function buildDataQualityReport({
       description: "Kommun används i rapporter och uppföljning per fastighet.",
       group: "properties",
       id: "PROPERTY_MISSING_MUNICIPALITY",
-      route: "/dashboard/properties",
+      route: DATA_QUALITY_ISSUE_ROUTES.PROPERTY_MISSING_MUNICIPALITY,
       severity: "MEDIUM",
       title: "Fastigheter saknar kommun",
       ctaLabel: "Visa fastigheter",
@@ -117,7 +137,7 @@ export function buildDataQualityReport({
       description: "Aggregat behöver kopplas till fastighet för rapportering och översikt.",
       group: "installations",
       id: "INSTALLATION_MISSING_PROPERTY",
-      route: "/dashboard/installations",
+      route: DATA_QUALITY_ISSUE_ROUTES.INSTALLATION_MISSING_PROPERTY,
       severity: "HIGH",
       title: "Aggregat saknar fastighet",
       ctaLabel: "Visa aggregat",
@@ -129,7 +149,7 @@ export function buildDataQualityReport({
       description: "Köldmedium behövs för GWP, CO₂e och kontrollplikt.",
       group: "installations",
       id: "INSTALLATION_MISSING_REFRIGERANT",
-      route: "/dashboard/installations",
+      route: DATA_QUALITY_ISSUE_ROUTES.INSTALLATION_MISSING_REFRIGERANT,
       severity: "HIGH",
       title: "Aggregat saknar köldmedium",
       ctaLabel: "Visa aggregat",
@@ -143,7 +163,7 @@ export function buildDataQualityReport({
       description: "Fyllnadsmängd behövs för CO₂e och kontrollintervall.",
       group: "installations",
       id: "INSTALLATION_MISSING_CHARGE",
-      route: "/dashboard/installations",
+      route: DATA_QUALITY_ISSUE_ROUTES.INSTALLATION_MISSING_CHARGE,
       severity: "HIGH",
       title: "Aggregat saknar fyllnadsmängd",
       ctaLabel: "Visa aggregat",
@@ -164,7 +184,7 @@ export function buildDataQualityReport({
       description: "Okänt GWP gör CO₂e och kontrollplikt osäkra.",
       group: "installations",
       id: "INSTALLATION_MISSING_GWP",
-      route: "/dashboard/installations",
+      route: DATA_QUALITY_ISSUE_ROUTES.INSTALLATION_MISSING_GWP,
       severity: "HIGH",
       title: "Aggregat saknar känt GWP/CO₂e",
       ctaLabel: "Visa aggregat",
@@ -176,7 +196,7 @@ export function buildDataQualityReport({
       description: "Företagscertifikat behövs för uppföljning av servicepartner.",
       group: "servicepartners",
       id: "SERVICEPARTNER_CERTIFICATE_MISSING",
-      route: "/dashboard/contractors",
+      route: DATA_QUALITY_ISSUE_ROUTES.SERVICEPARTNER_CERTIFICATE_MISSING,
       severity: "MEDIUM",
       title: "Servicepartner saknar företagscertifikat",
       ctaLabel: "Visa servicepartners",
@@ -188,7 +208,7 @@ export function buildDataQualityReport({
       description: "Utgångna företagscertifikat bör följas upp innan fortsatt arbete.",
       group: "servicepartners",
       id: "SERVICEPARTNER_CERTIFICATE_EXPIRED",
-      route: "/dashboard/contractors",
+      route: DATA_QUALITY_ISSUE_ROUTES.SERVICEPARTNER_CERTIFICATE_EXPIRED,
       severity: "HIGH",
       title: "Servicepartnercertifikat har gått ut",
       ctaLabel: "Visa servicepartners",
@@ -200,7 +220,7 @@ export function buildDataQualityReport({
       description: "Personcertifikat behövs för tydlig servicepartneruppföljning.",
       group: "technicians",
       id: "TECHNICIAN_CERTIFICATE_MISSING",
-      route: "/dashboard/service",
+      route: DATA_QUALITY_ISSUE_ROUTES.TECHNICIAN_CERTIFICATE_MISSING,
       severity: "MEDIUM",
       title: "Tekniker saknar personcertifikat",
       ctaLabel: "Visa tekniker",
@@ -212,7 +232,7 @@ export function buildDataQualityReport({
       description: "Utgångna personcertifikat bör hanteras av servicepartneradmin.",
       group: "technicians",
       id: "TECHNICIAN_CERTIFICATE_EXPIRED",
-      route: "/dashboard/service",
+      route: DATA_QUALITY_ISSUE_ROUTES.TECHNICIAN_CERTIFICATE_EXPIRED,
       severity: "HIGH",
       title: "Teknikercertifikat har gått ut",
       ctaLabel: "Visa tekniker",

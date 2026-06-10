@@ -14,6 +14,7 @@ import { calculateInstallationRisk } from "@/lib/risk-classification"
 type PropertySummary = {
   id: string
   name: string
+  propertyDesignation: string | null
   municipality: string | null
   city: string | null
   installationsCount: number
@@ -57,6 +58,7 @@ export async function GET(request: NextRequest) {
             select: {
               id: true,
               name: true,
+              propertyDesignation: true,
               municipality: true,
               city: true,
             },
@@ -106,6 +108,7 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         name: true,
+        propertyDesignation: true,
         municipality: true,
         city: true,
         installations: {
@@ -179,6 +182,7 @@ function aggregateInstallationsByProperty(
     property: {
       id: string
       name: string
+      propertyDesignation: string | null
       municipality: string | null
       city: string | null
     } | null
@@ -209,12 +213,14 @@ function aggregateInstallationsByProperty(
 function createEmptyPropertySummary(property: {
   id: string
   name: string
+  propertyDesignation: string | null
   municipality: string | null
   city: string | null
 }): PropertySummary {
   return {
     id: property.id,
     name: property.name,
+    propertyDesignation: property.propertyDesignation,
     municipality: property.municipality,
     city: property.city,
     installationsCount: 0,

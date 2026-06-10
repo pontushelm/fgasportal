@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import { Badge, Toast, type ToastMessage } from "@/components/ui"
 import type { CertificationStatusResult } from "@/lib/certification-status"
@@ -9,6 +9,11 @@ import type {
   DashboardActionSeverity,
   DashboardActionType,
 } from "@/lib/actions/generate-actions"
+import {
+  DATA_QUALITY_FILTER_LABELS,
+  getTechnicianQualityFilter,
+  matchesTechnicianQualityFilter,
+} from "@/lib/dashboard/data-quality-filters"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 import {
   getInstallationEventAmountLabel,
@@ -226,6 +231,8 @@ const initialTechnicianCertificationForm: TechnicianCertificationFormData = {
 
 export default function ServiceDashboardPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const activeQualityFilter = getTechnicianQualityFilter(searchParams.get("quality"))
   const [installations, setInstallations] = useState<ServiceInstallation[]>([])
   const [actions, setActions] = useState<ServiceAction[]>([])
   const [technicians, setTechnicians] = useState<ServiceTechnician[]>([])
@@ -804,6 +811,16 @@ export default function ServiceDashboardPage() {
     () => getTechnicianCertificationSummary(technicians),
     [technicians]
   )
+  const visibleTechnicians = useMemo(
+    () =>
+      technicians.filter((technician) =>
+        matchesTechnicianQualityFilter(
+          technician.certification?.status.status,
+          activeQualityFilter
+        )
+      ),
+    [activeQualityFilter, technicians]
+  )
   const summaryCards = useMemo(
     () =>
       getServiceSummaryCards({
@@ -831,6 +848,12 @@ export default function ServiceDashboardPage() {
         return true
       })
     : installations
+
+  function clearQualityFilter() {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete("quality")
+    router.replace(`/dashboard/service${params.toString() ? `?${params.toString()}` : ""}`)
+  }
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 sm:px-6 lg:px-8">
@@ -950,6 +973,12 @@ export default function ServiceDashboardPage() {
                   </div>
                 </div>
               </div>
+              {activeQualityFilter && (
+                <QualityFilterBanner
+                  label={DATA_QUALITY_FILTER_LABELS[activeQualityFilter]}
+                  onClear={clearQualityFilter}
+                />
+              )}
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-200 text-sm">
                   <thead className="bg-slate-50">
@@ -962,7 +991,7 @@ export default function ServiceDashboardPage() {
                       </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {technicians.map((technician) => (
+                    {visibleTechnicians.map((technician) => (
                       <tr className="hover:bg-slate-50" key={technician.id}>
                         <TableCell>
                           <div className="font-semibold text-slate-950">
@@ -1018,6 +1047,11 @@ export default function ServiceDashboardPage() {
                   </tbody>
                 </table>
               </div>
+              {visibleTechnicians.length === 0 && (
+                <div className="border-t border-slate-200 p-5 text-sm text-slate-700">
+                  Inga tekniker matchar datakvalitetsfiltret.
+                </div>
+              )}
             </section>
           )}
         </>
@@ -1500,6 +1534,29 @@ function CertificationCountBadge({
     <Badge variant={variant}>
       {label}: {value}
     </Badge>
+  )
+}
+
+function QualityFilterBanner({
+  label,
+  onClear,
+}: {
+  label: string
+  onClear: () => void
+}) {
+  return (
+    <div className="mx-5 mt-4 flex flex-col gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-950 sm:flex-row sm:items-center sm:justify-between">
+      <span>
+        Visar poster från datakvalitet: <strong>{label}</strong>
+      </span>
+      <button
+        className="font-semibold text-blue-800 underline-offset-4 hover:underline"
+        type="button"
+        onClick={onClear}
+      >
+        Rensa datakvalitetsfilter
+      </button>
+    </div>
   )
 }
 

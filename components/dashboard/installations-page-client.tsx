@@ -7,6 +7,11 @@ import { ImportDataWorkspace } from "@/components/dashboard/import-data-workspac
 import CreateInstallationForm from "@/components/installations/create-installation-form"
 import { Button, Card, PageHeader, Toast } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
+import {
+  DATA_QUALITY_FILTER_LABELS,
+  getInstallationQualityFilter,
+  matchesInstallationQualityFilter,
+} from "@/lib/dashboard/data-quality-filters"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 import {
   getRefrigerantRegulatoryStatus,
@@ -186,6 +191,7 @@ export default function InstallationsPageClient() {
   const statusValue = searchParams.get("status") || ""
   const riskFilterValue = searchParams.get("risk") || ""
   const inspectionIntervalFilterValue = searchParams.get("inspectionInterval") || ""
+  const activeQualityFilter = getInstallationQualityFilter(searchParams.get("quality"))
   const statusFilterValue =
     statusValue ||
     (archivedValue === "archived" ? "archived" : archivedValue === "active" ? "active" : "")
@@ -441,17 +447,23 @@ export default function InstallationsPageClient() {
   const hasSelectedInstallations = selectedIds.length > 0
   const filteredInstallations = useMemo(
     () =>
-      filterInstallationsByQuery(installations, {
-        inspectionIntervalFilterValue,
-        municipalityFilterValue,
-        propertyFilterValue,
-        refrigerantValue,
-        riskFilterValue,
-        searchValue,
-        servicePartnerCompanyFilterValue,
-        statusFilterValue,
-      }),
+      filterInstallationsByQuery(
+        installations.filter((installation) =>
+          matchesInstallationQualityFilter(installation, activeQualityFilter)
+        ),
+        {
+          inspectionIntervalFilterValue,
+          municipalityFilterValue,
+          propertyFilterValue,
+          refrigerantValue,
+          riskFilterValue,
+          searchValue,
+          servicePartnerCompanyFilterValue,
+          statusFilterValue,
+        }
+      ),
     [
+      activeQualityFilter,
       installations,
       inspectionIntervalFilterValue,
       municipalityFilterValue,
@@ -564,6 +576,7 @@ export default function InstallationsPageClient() {
       propertyFilterValue ||
       municipalityFilterValue ||
       statusValue ||
+      activeQualityFilter ||
       riskFilterValue ||
       inspectionIntervalFilterValue
   )
@@ -636,6 +649,14 @@ export default function InstallationsPageClient() {
     setColumnSort({ key: "", direction: "" })
     setSelectedIds([])
     setVisibleInstallationCount(INITIAL_VISIBLE_INSTALLATION_COUNT)
+  }
+
+  function clearQualityFilter() {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete("quality")
+    setSelectedIds([])
+    setVisibleInstallationCount(INITIAL_VISIBLE_INSTALLATION_COUNT)
+    router.replace(`/dashboard/installations${params.toString() ? `?${params.toString()}` : ""}`)
   }
 
   function applySavedFilter(savedFilterId: string) {
@@ -1343,6 +1364,12 @@ export default function InstallationsPageClient() {
 
         {savedFilterError && (
           <p className="mt-3 text-sm font-semibold text-red-700">{savedFilterError}</p>
+        )}
+        {activeQualityFilter && (
+          <QualityFilterBanner
+            label={DATA_QUALITY_FILTER_LABELS[activeQualityFilter]}
+            onClear={clearQualityFilter}
+          />
         )}
         {hasActiveFilters && (
           <button
@@ -2096,6 +2123,29 @@ function SkeletonBlock({ className = "" }: { className?: string }) {
     <span
       className={`block animate-pulse rounded bg-slate-200/80 ${className}`}
     />
+  )
+}
+
+function QualityFilterBanner({
+  label,
+  onClear,
+}: {
+  label: string
+  onClear: () => void
+}) {
+  return (
+    <div className="mt-4 flex flex-col gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-950 sm:flex-row sm:items-center sm:justify-between">
+      <span>
+        Visar poster från datakvalitet: <strong>{label}</strong>
+      </span>
+      <button
+        className="font-semibold text-blue-800 underline-offset-4 hover:underline"
+        type="button"
+        onClick={onClear}
+      >
+        Rensa datakvalitetsfilter
+      </button>
+    </div>
   )
 }
 

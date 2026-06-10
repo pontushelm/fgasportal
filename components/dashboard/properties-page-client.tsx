@@ -1,16 +1,22 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import { ImportDataWorkspace } from "@/components/dashboard/import-data-workspace"
 import { Badge, Button, Card, EmptyState, PageHeader, Toast, type ToastMessage } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
+import {
+  DATA_QUALITY_FILTER_LABELS,
+  getPropertyQualityFilter,
+  matchesPropertyQualityFilter,
+} from "@/lib/dashboard/data-quality-filters"
 import { isAdminRole } from "@/lib/roles"
 
 type PropertySummary = {
   id: string
   name: string
+  propertyDesignation: string | null
   municipality: string | null
   city: string | null
   installationsCount: number
@@ -68,6 +74,8 @@ const inputClassName =
 
 export default function PropertiesPageClient() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const activeQualityFilter = getPropertyQualityFilter(searchParams.get("quality"))
   const [properties, setProperties] = useState<PropertySummary[]>([])
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [propertyForm, setPropertyForm] = useState<PropertyFormData>(
@@ -84,9 +92,16 @@ export default function PropertiesPageClient() {
     key: PropertySortKey | ""
     direction: SortDirection | ""
   }>({ key: "", direction: "" })
-  const sortedProperties = useMemo(
-    () => sortProperties(properties, sort.key, sort.direction),
-    [properties, sort.direction, sort.key]
+  const visibleProperties = useMemo(
+    () =>
+      sortProperties(
+        properties.filter((property) =>
+          matchesPropertyQualityFilter(property, activeQualityFilter)
+        ),
+        sort.key,
+        sort.direction
+      ),
+    [activeQualityFilter, properties, sort.direction, sort.key]
   )
 
   useEffect(() => {
@@ -145,6 +160,12 @@ export default function PropertiesPageClient() {
       }
       return { key: "", direction: "" }
     })
+  }
+
+  function clearQualityFilter() {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete("quality")
+    router.replace(`/dashboard/properties${params.toString() ? `?${params.toString()}` : ""}`)
   }
 
   function handlePropertyChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -324,6 +345,13 @@ export default function PropertiesPageClient() {
       )}
 
       {!isLoading && !error && properties.length > 0 && (
+        <>
+        {activeQualityFilter && (
+          <QualityFilterBanner
+            label={DATA_QUALITY_FILTER_LABELS[activeQualityFilter]}
+            onClear={clearQualityFilter}
+          />
+        )}
         <Card className="mt-6 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -373,7 +401,7 @@ export default function PropertiesPageClient() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
-                {sortedProperties.map((property) => (
+                {visibleProperties.map((property) => (
                   <tr className="hover:bg-slate-50" key={property.id}>
                     <TableCell>
                       <Link
@@ -412,6 +440,12 @@ export default function PropertiesPageClient() {
             </table>
           </div>
         </Card>
+        {visibleProperties.length === 0 && (
+          <div className="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-700">
+            Inga fastigheter matchar datakvalitetsfiltret.
+          </div>
+        )}
+        </>
       )}
       {toast && <Toast onClose={() => setToast(null)} toast={toast} />}
       {isImportWorkspaceOpen && (
@@ -518,6 +552,29 @@ function PropertiesLoadingSkeleton() {
   )
 }
 
+function QualityFilterBanner({
+  label,
+  onClear,
+}: {
+  label: string
+  onClear: () => void
+}) {
+  return (
+    <div className="mt-6 flex flex-col gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-950 sm:flex-row sm:items-center sm:justify-between">
+      <span>
+        Visar poster från datakvalitet: <strong>{label}</strong>
+      </span>
+      <button
+        className="font-semibold text-blue-800 underline-offset-4 hover:underline"
+        type="button"
+        onClick={onClear}
+      >
+        Rensa datakvalitetsfilter
+      </button>
+    </div>
+  )
+}
+
 function TableHeader({
   activeSortKey,
   children,
@@ -596,7 +653,7 @@ function getPropertySortValue(property: PropertySummary, sortKey: PropertySortKe
     case "name":
       return property.name
     case "designation":
-      return property.name
+      return property.propertyDesignation || ""
     case "municipality":
       return property.municipality || ""
     case "city":
