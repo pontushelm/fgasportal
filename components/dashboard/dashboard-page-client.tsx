@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useId, useState } from "react"
+import { DashboardSetupAssistant } from "@/components/dashboard/dashboard-setup-assistant"
 import { Badge, Card, PageHeader } from "@/components/ui"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 
@@ -106,6 +107,13 @@ type DashboardData = {
   refrigerantDistribution: DistributionItem[]
   actionItemTotal: number
   actionItems: ActionItem[]
+  setup: {
+    companyInfoCompleted: boolean
+    installationCount: number
+    installationsMissingPropertyCount: number
+    propertyCount: number
+    servicePartnerConnected: boolean
+  }
 }
 
 const STATUS_LABELS: Record<ComplianceStatus, string> = {
@@ -255,6 +263,8 @@ export default function DashboardPage() {
 
       {dashboardData && (
         <div className="mx-auto max-w-7xl">
+          <DashboardSetupAssistant setup={dashboardData.setup} />
+
           <section className="mt-6">
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {PRIMARY_KPI_KEYS.map((key) => {

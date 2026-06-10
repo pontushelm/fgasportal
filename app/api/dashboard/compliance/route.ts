@@ -47,7 +47,25 @@ export async function GET(request: NextRequest) {
     const { companyId, userId } = auth.user
     const currentYearRange = getCurrentYearRange()
     const queryStartTime = getDevelopmentTimingStart()
-    const installations = await prisma.installation.findMany({
+    const [company, installations, propertyCount] = await Promise.all([
+      prisma.company.findUnique({
+        where: {
+          id: companyId,
+        },
+        select: {
+          name: true,
+          organizationNumber: true,
+          orgNumber: true,
+          contactPerson: true,
+          contactEmail: true,
+          contactPhone: true,
+          phone: true,
+          address: true,
+          postalCode: true,
+          city: true,
+        },
+      }),
+      prisma.installation.findMany({
       where: {
         AND: [
           getInstallationAccessWhereClause(auth.user),
@@ -124,7 +142,13 @@ export async function GET(request: NextRequest) {
       orderBy: {
         createdAt: "desc",
       },
-    })
+      }),
+      prisma.property.count({
+        where: {
+          companyId,
+        },
+      }),
+    ])
     const servicePartnerCompanies = isContractor(auth.user)
       ? []
       : await prisma.servicePartnerCompany.findMany({
@@ -331,6 +355,9 @@ export async function GET(request: NextRequest) {
     const requiringInspection = installationRows.filter(
       (installation) => installation.inspectionInterval !== null
     ).length
+    const installationsMissingPropertyCount = installationRows.filter(
+      (installation) => !installation.propertyId
+    ).length
     const propertyMetadata = new Map(
       installations
         .filter((installation) => installation.property)
@@ -420,6 +447,17 @@ export async function GET(request: NextRequest) {
         ),
         actionItemTotal: allActionItems.length,
         actionItems,
+        setup: {
+          companyInfoCompleted: isCompanyInfoCompleted(company),
+          propertyCount,
+          installationCount: installationRows.length,
+          installationsMissingPropertyCount,
+          servicePartnerConnected:
+            servicePartnerCompanies.length > 0 ||
+            installationRows.some((installation) =>
+              Boolean(installation.servicePartnerCompanyId)
+            ),
+        },
       },
       { status: 200 }
     )
@@ -449,4 +487,32 @@ function getDevelopmentTimingStart() {
 function logDevelopmentTiming(label: string, startTime: number | null) {
   if (startTime === null) return
   console.info(`[perf] ${label}: ${Math.round(performance.now() - startTime)}ms`)
+}
+
+function isCompanyInfoCompleted(
+  company: {
+    address: string | null
+    city: string | null
+    contactEmail: string | null
+    contactPerson: string | null
+    contactPhone: string | null
+    name: string
+    orgNumber: string | null
+    organizationNumber: string | null
+    phone: string | null
+    postalCode: string | null
+  } | null
+) {
+  if (!company) return false
+
+  return [
+    company.name,
+    company.organizationNumber || company.orgNumber,
+    company.contactPerson,
+    company.contactEmail,
+    company.contactPhone || company.phone,
+    company.address,
+    company.postalCode,
+    company.city,
+  ].every((value) => Boolean(value?.trim()))
 }
