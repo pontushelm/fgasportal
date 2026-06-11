@@ -31,6 +31,10 @@ type ActionItem = {
     | "TECHNICIAN_CERTIFICATE_MISSING"
     | "TECHNICIAN_CERTIFICATE_EXPIRING"
     | "TECHNICIAN_CERTIFICATE_EXPIRED"
+    | "SERVICEPARTNER_INVITE_EXPIRED"
+    | "SERVICEPARTNER_NO_CONNECTED_ACCOUNT"
+    | "SERVICEPARTNER_NO_ADMIN"
+    | "SERVICEPARTNER_NEEDS_COMPLETION"
   severity: "HIGH" | "MEDIUM" | "LOW"
   title: string
   description: string
@@ -42,8 +46,8 @@ type ActionItem = {
   href: string
   dueDate?: string | null
   createdAt?: string | null
-  createdFrom: "inspection" | "risk" | "service_contact" | "leakage" | "refrigerant" | "certification"
-  source: "inspection" | "risk" | "service_contact" | "leakage" | "refrigerant" | "certification"
+  createdFrom: "inspection" | "risk" | "service_contact" | "leakage" | "refrigerant" | "certification" | "servicepartner"
+  source: "inspection" | "risk" | "service_contact" | "leakage" | "refrigerant" | "certification" | "servicepartner"
   sortPriority: number
 }
 

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { generateDashboardActions } from "@/lib/actions/generate-actions"
+import {
+  generateDashboardActions,
+  type ActionServicePartnerLifecycleInput,
+} from "@/lib/actions/generate-actions"
 import {
   filterActionWorkQueue,
   filterDashboardActions,
@@ -480,6 +483,131 @@ describe("dashboard action generation", () => {
     expect(actions).toEqual([])
   })
 
+  it("creates a high priority action for expired servicepartner invitations", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-06-08T12:00:00"),
+      installations: [],
+      leakageEvents: [],
+      servicePartnerLifecycles: [
+        createServicePartnerLifecycleInput({
+          status: "INVITE_EXPIRED",
+          label: "Inbjudan har gått ut",
+          severity: "danger",
+          nextStep: "Skicka en ny inbjudan till serviceansvarig.",
+        }),
+      ],
+    })
+
+    expect(actions).toEqual([
+      expect.objectContaining({
+        type: "SERVICEPARTNER_INVITE_EXPIRED",
+        severity: "HIGH",
+        title: "Servicepartnerinbjudan har gått ut",
+        servicePartnerCompanyId: "service-company-1",
+        href: "/dashboard/contractors/companies/service-company-1",
+      }),
+    ])
+  })
+
+  it("creates a high priority action for assigned aggregat without connected account", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-06-08T12:00:00"),
+      installations: [],
+      leakageEvents: [],
+      servicePartnerLifecycles: [
+        createServicePartnerLifecycleInput({
+          status: "NEEDS_ACTION",
+          label: "Åtgärd krävs",
+          severity: "danger",
+          nextStep:
+            "Aggregat är tilldelade, men servicepartnern saknar kopplat konto. Skicka eller förnya inbjudan.",
+        }),
+      ],
+    })
+
+    expect(actions).toEqual([
+      expect.objectContaining({
+        type: "SERVICEPARTNER_NO_CONNECTED_ACCOUNT",
+        severity: "HIGH",
+        title: "Servicepartner saknar kopplat konto",
+      }),
+    ])
+  })
+
+  it("creates a medium priority action for connected servicepartners without admin", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-06-08T12:00:00"),
+      installations: [],
+      leakageEvents: [],
+      servicePartnerLifecycles: [
+        createServicePartnerLifecycleInput({
+          status: "ACCOUNT_CONNECTED",
+          label: "Konto kopplat",
+          severity: "neutral",
+          nextStep: "Utse eller bjud in en serviceansvarig för servicepartnern.",
+        }),
+      ],
+    })
+
+    expect(actions).toEqual([
+      expect.objectContaining({
+        type: "SERVICEPARTNER_NO_ADMIN",
+        severity: "MEDIUM",
+        title: "Servicepartner saknar serviceansvarig",
+      }),
+    ])
+  })
+
+  it("creates a medium priority action for servicepartners needing completion", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-06-08T12:00:00"),
+      installations: [],
+      leakageEvents: [],
+      servicePartnerLifecycles: [
+        createServicePartnerLifecycleInput({
+          status: "NEEDS_COMPLETION",
+          label: "Komplettering krävs",
+          severity: "warning",
+          nextStep:
+            "Be servicepartnern komplettera konto, kontaktuppgifter och certifiering.",
+        }),
+      ],
+    })
+
+    expect(actions).toEqual([
+      expect.objectContaining({
+        type: "SERVICEPARTNER_NEEDS_COMPLETION",
+        severity: "MEDIUM",
+        title: "Servicepartner behöver kompletteras",
+      }),
+    ])
+  })
+
+  it("does not create lifecycle actions for ready or active servicepartners", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-06-08T12:00:00"),
+      installations: [],
+      leakageEvents: [],
+      servicePartnerLifecycles: [
+        createServicePartnerLifecycleInput({
+          status: "READY",
+          label: "Redo att arbeta",
+          severity: "success",
+          nextStep: "Tilldela aggregat när servicepartnern ska börja arbeta.",
+        }),
+        createServicePartnerLifecycleInput({
+          id: "service-company-2",
+          status: "ACTIVE",
+          label: "I drift",
+          severity: "success",
+          nextStep: "Följ upp servicepartnerns åtgärder och tilldelade aggregat.",
+        }),
+      ],
+    })
+
+    expect(actions).toEqual([])
+  })
+
   it("keeps deterministic action keys for future workflow state overlays", () => {
     const actions = generateDashboardActions({
       today: new Date("2026-05-08T12:00:00"),
@@ -673,5 +801,29 @@ function createTechnicianCertificateInput(overrides = {}) {
     servicePartnerCompanyId: "service-company-1",
     servicePartnerCompanyName: "Kylservice AB",
     ...overrides,
+  }
+}
+
+function createServicePartnerLifecycleInput(
+  overrides: Partial<
+    ActionServicePartnerLifecycleInput["lifecycle"] &
+      Pick<ActionServicePartnerLifecycleInput, "id" | "name">
+  > = {}
+): ActionServicePartnerLifecycleInput {
+  const { id, name, ...lifecycleOverrides } = overrides
+
+  const lifecycle: ActionServicePartnerLifecycleInput["lifecycle"] = {
+    status: "ADDED",
+    label: "Tillagd",
+    severity: "neutral",
+    nextStep: "Bjud in servicepartnerns serviceansvarig.",
+    checklist: [],
+    ...lifecycleOverrides,
+  }
+
+  return {
+    id: id ?? "service-company-1",
+    name: name ?? "Kylservice AB",
+    lifecycle,
   }
 }

@@ -6,6 +6,7 @@ import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { calculateInstallationRisk } from "@/lib/risk-classification"
 import { buildServicePartnerCompanyCertification } from "@/lib/service-partner-company-certifications"
 import { ensureServiceOrganizationForLegacyCompany } from "@/lib/service-organizations"
+import { buildServicepartnerLifecycle } from "@/lib/servicepartner-lifecycle"
 import { buildTechnicianCertification } from "@/lib/technician-certifications"
 
 export async function loadDashboardActions(user: AuthenticatedUser) {
@@ -91,12 +92,17 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
           select: {
             id: true,
             companyId: true,
+            contactEmail: true,
             serviceOrganizationId: true,
             name: true,
+            organizationNumber: true,
             certificateNumber: true,
             serviceOrganization: {
               select: {
                 certificateNumber: true,
+                contactEmail: true,
+                name: true,
+                organizationNumber: true,
               },
             },
           },
@@ -191,9 +197,14 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
   const serviceOrganizationIds = servicePartnerCompanies
     .map((company) => company.serviceOrganizationId)
     .filter((id): id is string => Boolean(id))
-  const certificationRecords =
+  const [
+    certificationRecords,
+    pendingInvitations,
+    activeContractorMemberships,
+    activeServiceOrganizationMemberships,
+  ] = await Promise.all([
     serviceOrganizationIds.length > 0
-      ? await prisma.certificationRecord.findMany({
+      ? prisma.certificationRecord.findMany({
           where: {
             companyId: user.companyId,
             serviceOrganizationId: {
@@ -206,7 +217,83 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
             },
           },
         })
-      : []
+      : Promise.resolve([]),
+    servicePartnerCompanies.length > 0
+      ? prisma.invitation.findMany({
+          where: {
+            acceptedAt: null,
+            companyId: user.companyId,
+            role: "CONTRACTOR",
+            OR: [
+              {
+                servicePartnerCompanyId: {
+                  in: servicePartnerCompanies.map((company) => company.id),
+                },
+              },
+              ...(serviceOrganizationIds.length > 0
+                ? [
+                    {
+                      serviceOrganizationId: {
+                        in: serviceOrganizationIds,
+                      },
+                    },
+                  ]
+                : []),
+            ],
+          },
+          select: {
+            expiresAt: true,
+            serviceOrganizationId: true,
+            servicePartnerCompanyId: true,
+          },
+        })
+      : Promise.resolve([]),
+    servicePartnerCompanies.length > 0
+      ? prisma.companyMembership.findMany({
+          where: {
+            companyId: user.companyId,
+            isActive: true,
+            role: "CONTRACTOR",
+            servicePartnerCompanyId: {
+              in: servicePartnerCompanies.map((company) => company.id),
+            },
+            user: {
+              isActive: true,
+            },
+          },
+          select: {
+            servicePartnerCompanyId: true,
+          },
+        })
+      : Promise.resolve([]),
+    serviceOrganizationIds.length > 0
+      ? prisma.serviceOrganizationMembership.findMany({
+          where: {
+            isActive: true,
+            serviceOrganizationId: {
+              in: serviceOrganizationIds,
+            },
+            user: {
+              isActive: true,
+              memberships: {
+                some: {
+                  companyId: user.companyId,
+                  isActive: true,
+                  role: "CONTRACTOR",
+                  servicePartnerCompanyId: {
+                    in: servicePartnerCompanies.map((company) => company.id),
+                  },
+                },
+              },
+            },
+          },
+          select: {
+            role: true,
+            serviceOrganizationId: true,
+          },
+        })
+      : Promise.resolve([]),
+  ])
   const certificationRecordsByServiceOrganization = new Map(
     serviceOrganizationIds.map((id) => [
       id,
@@ -228,6 +315,79 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
       certificateNumber: certification.certificateNumber,
       issuer: certification.issuer,
       validUntil: certification.validUntil,
+    }
+  })
+  const today = new Date()
+  const installationCountByServicePartnerCompany = new Map<string, number>()
+  installations.forEach((installation) => {
+    const servicePartnerCompanyId =
+      installation.assignedServicePartnerCompany?.id ??
+      installation.assignedContractor?.memberships[0]?.servicePartnerCompany?.id ??
+      null
+    if (!servicePartnerCompanyId) return
+
+    installationCountByServicePartnerCompany.set(
+      servicePartnerCompanyId,
+      (installationCountByServicePartnerCompany.get(servicePartnerCompanyId) ?? 0) + 1
+    )
+  })
+  const servicePartnerLifecycleActions = servicePartnerCompanies.map((company) => {
+    const certification = buildServicePartnerCompanyCertification({
+      company,
+      records:
+        certificationRecordsByServiceOrganization.get(
+          company.serviceOrganizationId ?? ""
+        ) ?? [],
+    })
+    const companyInvitations = pendingInvitations.filter(
+      (invitation) =>
+        invitation.servicePartnerCompanyId === company.id ||
+        (Boolean(company.serviceOrganizationId) &&
+          invitation.serviceOrganizationId === company.serviceOrganizationId)
+    )
+    const companyServiceOrganizationMemberships =
+      company.serviceOrganizationId
+        ? activeServiceOrganizationMemberships.filter(
+            (membership) =>
+              membership.serviceOrganizationId === company.serviceOrganizationId
+          )
+        : []
+
+    return {
+      id: company.id,
+      name: company.serviceOrganization?.name ?? company.name,
+      lifecycle: buildServicepartnerLifecycle({
+        activeContractorMembershipsCount: activeContractorMemberships.filter(
+          (membership) => membership.servicePartnerCompanyId === company.id
+        ).length,
+        activeServiceOrganizationAdminMembershipsCount:
+          companyServiceOrganizationMemberships.filter(
+            (membership) => membership.role === "ADMIN"
+          ).length,
+        activeServiceOrganizationMembershipsCount:
+          companyServiceOrganizationMemberships.length,
+        assignedInstallationsCount:
+          installationCountByServicePartnerCompany.get(company.id) ?? 0,
+        certificateDocumentPresent:
+          certificationRecordsByServiceOrganization
+            .get(company.serviceOrganizationId ?? "")
+            ?.some((record) => Boolean(record.documentId)) ?? false,
+        certification,
+        expiredInvitesCount: companyInvitations.filter(
+          (invitation) => invitation.expiresAt < today
+        ).length,
+        pendingInvitesCount: companyInvitations.filter(
+          (invitation) => invitation.expiresAt >= today
+        ).length,
+        servicepartner: {
+          contactEmail:
+            company.serviceOrganization?.contactEmail ?? company.contactEmail,
+          name: company.serviceOrganization?.name ?? company.name,
+          organizationNumber:
+            company.serviceOrganization?.organizationNumber ??
+            company.organizationNumber,
+        },
+      }),
     }
   })
   const technicianCertificationActions = technicianMemberships.map((membership) => {
@@ -321,6 +481,7 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
   const actions = generateDashboardActions({
     installations: actionInstallations,
     leakageEvents,
+    servicePartnerLifecycles: servicePartnerLifecycleActions,
     servicePartnerCompanies: servicePartnerCertificationActions,
     technicians: technicianCertificationActions,
   })

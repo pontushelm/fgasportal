@@ -4,6 +4,10 @@ import {
   isRefrigerantRegulatoryFollowUpStatus,
 } from "@/lib/refrigerant-regulatory-status"
 import type { InstallationRiskLevel } from "@/lib/risk-classification"
+import type {
+  ServicepartnerLifecycle,
+  ServicepartnerLifecycleStatus,
+} from "@/lib/servicepartner-lifecycle"
 
 export type DashboardActionType =
   | "OVERDUE_INSPECTION"
@@ -19,6 +23,10 @@ export type DashboardActionType =
   | "TECHNICIAN_CERTIFICATE_MISSING"
   | "TECHNICIAN_CERTIFICATE_EXPIRING"
   | "TECHNICIAN_CERTIFICATE_EXPIRED"
+  | "SERVICEPARTNER_INVITE_EXPIRED"
+  | "SERVICEPARTNER_NO_CONNECTED_ACCOUNT"
+  | "SERVICEPARTNER_NO_ADMIN"
+  | "SERVICEPARTNER_NEEDS_COMPLETION"
 
 export type DashboardActionSeverity = "HIGH" | "MEDIUM" | "LOW"
 
@@ -29,6 +37,7 @@ export type DashboardActionSource =
   | "leakage"
   | "refrigerant"
   | "certification"
+  | "servicepartner"
 
 export type DashboardAction = {
   id: string
@@ -110,6 +119,12 @@ export type ActionTechnicianCertificationInput = {
   href?: string | null
 }
 
+export type ActionServicePartnerLifecycleInput = {
+  id: string
+  name: string
+  lifecycle: ServicepartnerLifecycle
+}
+
 const RECENT_LEAKAGE_DAYS = 30
 const SERVICEPARTNER_CERTIFICATE_EXPIRING_DAYS = 90
 
@@ -131,19 +146,25 @@ const TYPE_ORDER: Record<DashboardActionType, number> = {
   DUE_SOON_INSPECTION: 9,
   SERVICEPARTNER_CERTIFICATE_EXPIRING: 10,
   TECHNICIAN_CERTIFICATE_EXPIRING: 11,
-  NO_SERVICE_PARTNER: 12,
-  REFRIGERANT_REVIEW: 13,
+  SERVICEPARTNER_INVITE_EXPIRED: 12,
+  SERVICEPARTNER_NO_CONNECTED_ACCOUNT: 13,
+  SERVICEPARTNER_NO_ADMIN: 14,
+  SERVICEPARTNER_NEEDS_COMPLETION: 15,
+  NO_SERVICE_PARTNER: 16,
+  REFRIGERANT_REVIEW: 17,
 }
 
 export function generateDashboardActions({
   installations,
   leakageEvents,
+  servicePartnerLifecycles = [],
   servicePartnerCompanies = [],
   technicians = [],
   today = new Date(),
 }: {
   installations: ActionInstallationInput[]
   leakageEvents: ActionLeakageEventInput[]
+  servicePartnerLifecycles?: ActionServicePartnerLifecycleInput[]
   servicePartnerCompanies?: ActionServicePartnerCertificationInput[]
   technicians?: ActionTechnicianCertificationInput[]
   today?: Date
@@ -411,6 +432,24 @@ export function generateDashboardActions({
     }
   })
 
+  servicePartnerLifecycles.forEach((servicePartner) => {
+    const actionMeta = getServicePartnerLifecycleActionMeta(
+      servicePartner.lifecycle.status
+    )
+    if (!actionMeta) return
+
+    actions.push(
+      createServicePartnerLifecycleAction({
+        description: buildServicePartnerLifecycleDescription({
+          lifecycle: servicePartner.lifecycle,
+          servicePartnerName: servicePartner.name,
+        }),
+        servicePartner,
+        ...actionMeta,
+      })
+    )
+  })
+
   return sortDashboardActions(actions)
 }
 
@@ -605,6 +644,126 @@ function getTechnicianCertificationActionId(
     return `technician-certificate-expired-${technicianId}`
   }
   return `technician-certificate-${technicianId}`
+}
+
+function createServicePartnerLifecycleAction({
+  description,
+  servicePartner,
+  severity,
+  title,
+  type,
+}: {
+  description: string
+  servicePartner: ActionServicePartnerLifecycleInput
+  severity: DashboardActionSeverity
+  title: string
+  type:
+    | "SERVICEPARTNER_INVITE_EXPIRED"
+    | "SERVICEPARTNER_NO_CONNECTED_ACCOUNT"
+    | "SERVICEPARTNER_NO_ADMIN"
+    | "SERVICEPARTNER_NEEDS_COMPLETION"
+}): DashboardAction {
+  return {
+    id: getServicePartnerLifecycleActionId(type, servicePartner.id),
+    type,
+    severity,
+    priority: severity,
+    title,
+    description,
+    installationId: `servicepartner-lifecycle-${servicePartner.id}`,
+    installationName: servicePartner.name,
+    equipmentId: null,
+    propertyId: null,
+    propertyName: null,
+    assignedServiceContactId: null,
+    assignedServiceContactName: null,
+    assignedServiceContactEmail: null,
+    servicePartnerCompanyId: servicePartner.id,
+    servicePartnerCompanyName: servicePartner.name,
+    href: `/dashboard/contractors/companies/${servicePartner.id}`,
+    dueDate: null,
+    createdAt: null,
+    createdFrom: "servicepartner",
+    source: "servicepartner",
+    sortPriority: getSortPriority(type, severity),
+  }
+}
+
+function getServicePartnerLifecycleActionMeta(
+  status: ServicepartnerLifecycleStatus
+):
+  | {
+      severity: DashboardActionSeverity
+      title: string
+      type:
+        | "SERVICEPARTNER_INVITE_EXPIRED"
+        | "SERVICEPARTNER_NO_CONNECTED_ACCOUNT"
+        | "SERVICEPARTNER_NO_ADMIN"
+        | "SERVICEPARTNER_NEEDS_COMPLETION"
+    }
+  | null {
+  if (status === "INVITE_EXPIRED") {
+    return {
+      severity: "HIGH",
+      title: "Servicepartnerinbjudan har gått ut",
+      type: "SERVICEPARTNER_INVITE_EXPIRED",
+    }
+  }
+
+  if (status === "NEEDS_ACTION") {
+    return {
+      severity: "HIGH",
+      title: "Servicepartner saknar kopplat konto",
+      type: "SERVICEPARTNER_NO_CONNECTED_ACCOUNT",
+    }
+  }
+
+  if (status === "ACCOUNT_CONNECTED") {
+    return {
+      severity: "MEDIUM",
+      title: "Servicepartner saknar serviceansvarig",
+      type: "SERVICEPARTNER_NO_ADMIN",
+    }
+  }
+
+  if (status === "NEEDS_COMPLETION") {
+    return {
+      severity: "MEDIUM",
+      title: "Servicepartner behöver kompletteras",
+      type: "SERVICEPARTNER_NEEDS_COMPLETION",
+    }
+  }
+
+  return null
+}
+
+function getServicePartnerLifecycleActionId(
+  type: DashboardActionType,
+  servicePartnerCompanyId: string
+) {
+  if (type === "SERVICEPARTNER_INVITE_EXPIRED") {
+    return `servicepartner-invite-expired-${servicePartnerCompanyId}`
+  }
+  if (type === "SERVICEPARTNER_NO_CONNECTED_ACCOUNT") {
+    return `servicepartner-no-connected-account-${servicePartnerCompanyId}`
+  }
+  if (type === "SERVICEPARTNER_NO_ADMIN") {
+    return `servicepartner-no-admin-${servicePartnerCompanyId}`
+  }
+  if (type === "SERVICEPARTNER_NEEDS_COMPLETION") {
+    return `servicepartner-needs-completion-${servicePartnerCompanyId}`
+  }
+  return `servicepartner-lifecycle-${servicePartnerCompanyId}`
+}
+
+function buildServicePartnerLifecycleDescription({
+  lifecycle,
+  servicePartnerName,
+}: {
+  lifecycle: ServicepartnerLifecycle
+  servicePartnerName: string
+}) {
+  return `${servicePartnerName}: ${lifecycle.nextStep}`
 }
 
 function buildServicePartnerCertificateDescription({
