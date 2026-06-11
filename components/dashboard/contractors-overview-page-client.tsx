@@ -115,10 +115,33 @@ type ServicePartnerCompanyMetrics = {
   certificationWarnings: number
   latestActivityDate: string | null
   contractorIds: string[]
+  lifecycle: ServicepartnerLifecycle | null
 }
 
 type ServicePartnerFeedback = ToastMessage & {
   inviteLink?: string | null
+}
+
+type ServicepartnerLifecycle = {
+  status:
+    | "ADDED"
+    | "INVITED"
+    | "INVITE_EXPIRED"
+    | "ACCOUNT_CONNECTED"
+    | "NEEDS_COMPLETION"
+    | "READY"
+    | "ACTIVE"
+    | "NEEDS_ACTION"
+  label: string
+  severity: "success" | "warning" | "danger" | "neutral"
+  nextStep: string
+  checklist: Array<{
+    key: string
+    label: string
+    completed: boolean
+    severity: "success" | "warning" | "danger" | "neutral"
+    helperText: string
+  }>
 }
 
 const emptyCompanyForm: ServicePartnerCompanyForm = {
@@ -149,6 +172,7 @@ export default function ContractorsOverviewPageClient() {
   const [feedback, setFeedback] = useState<ServicePartnerFeedback | null>(null)
   const [certificationStatusFilter, setCertificationStatusFilter] =
     useState("ALL")
+  const [lifecycleStatusFilter, setLifecycleStatusFilter] = useState("ALL")
 
   useEffect(() => {
     let isMounted = true
@@ -316,8 +340,33 @@ export default function ContractorsOverviewPageClient() {
         ? true
         : company.certification?.status.status === certificationStatusFilter
     )
+    .filter((company) => {
+      if (lifecycleStatusFilter === "ALL") return true
+      if (lifecycleStatusFilter === "READY_OR_ACTIVE") {
+        return (
+          company.lifecycle?.status === "READY" ||
+          company.lifecycle?.status === "ACTIVE"
+        )
+      }
+      return company.lifecycle?.status === lifecycleStatusFilter
+    })
   const canManageServicePartners =
     data?.permissions?.canManageServicePartners ?? false
+  const lifecycleCounts = {
+    invited: servicePartnerMetrics.filter(
+      (company) => company.lifecycle?.status === "INVITED"
+    ).length,
+    needsAction: servicePartnerMetrics.filter(
+      (company) =>
+        company.lifecycle?.status === "NEEDS_ACTION" ||
+        company.lifecycle?.status === "INVITE_EXPIRED"
+    ).length,
+    ready: servicePartnerMetrics.filter(
+      (company) =>
+        company.lifecycle?.status === "READY" ||
+        company.lifecycle?.status === "ACTIVE"
+    ).length,
+  }
   const visibleTechnicians = (data?.contractors ?? []).filter((contractor) =>
     matchesTechnicianQualityFilter(
       contractor.technicianCertification?.status.status,
@@ -400,6 +449,24 @@ export default function ContractorsOverviewPageClient() {
               label="Certifieringsvarningar"
               tone={data.summary.expiredCertifications > 0 ? "danger" : "success"}
               value={data.summary.expiredCertifications}
+            />
+            <MetricCard
+              description="Servicepartners med aktiv inbjudan som inväntar accept."
+              label="Inbjudna"
+              tone={lifecycleCounts.invited > 0 ? "warning" : "success"}
+              value={lifecycleCounts.invited}
+            />
+            <MetricCard
+              description="Servicepartners som är redo eller redan i drift."
+              label="Redo"
+              tone="success"
+              value={lifecycleCounts.ready}
+            />
+            <MetricCard
+              description="Servicepartners där inbjudan, konto eller beredskap behöver åtgärdas."
+              label="Åtgärd krävs"
+              tone={lifecycleCounts.needsAction > 0 ? "danger" : "success"}
+              value={lifecycleCounts.needsAction}
             />
           </section>
 
@@ -532,6 +599,23 @@ export default function ContractorsOverviewPageClient() {
                 {servicePartnerMetrics.length} servicepartners.
               </p>
               <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                Livscykel
+                <select
+                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  value={lifecycleStatusFilter}
+                  onChange={(event) =>
+                    setLifecycleStatusFilter(event.target.value)
+                  }
+                >
+                  <option value="ALL">Alla</option>
+                  <option value="NEEDS_ACTION">Åtgärd krävs</option>
+                  <option value="INVITED">Inbjuden</option>
+                  <option value="INVITE_EXPIRED">Inbjudan har gått ut</option>
+                  <option value="NEEDS_COMPLETION">Komplettering krävs</option>
+                  <option value="READY_OR_ACTIVE">Redo / i drift</option>
+                </select>
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
                 Certifiering
                 <select
                   className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
@@ -584,10 +668,20 @@ export default function ContractorsOverviewPageClient() {
                           : "Saknar servicepartnerrelation"}
                       </p>
                     </div>
-                    <CertificationStatusBadge
-                      certification={company.certification}
-                    />
+                    <div className="flex flex-wrap gap-2">
+                      {company.lifecycle && (
+                        <LifecycleBadge lifecycle={company.lifecycle} />
+                      )}
+                      <CertificationStatusBadge
+                        certification={company.certification}
+                      />
+                    </div>
                   </div>
+                  {company.lifecycle && (
+                    <p className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                      Nästa steg: {company.lifecycle.nextStep}
+                    </p>
+                  )}
                   <CertificationDetails certification={company.certification} />
                   <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
                     <CompanyMetric
@@ -974,6 +1068,14 @@ function CertificationStatusBadge({
   }
 
   return <Badge variant={status.variant}>{status.label}</Badge>
+}
+
+function LifecycleBadge({
+  lifecycle,
+}: {
+  lifecycle: ServicepartnerLifecycle
+}) {
+  return <Badge variant={lifecycle.severity}>{lifecycle.label}</Badge>
 }
 
 function CertificationDetails({

@@ -9,6 +9,7 @@ import {
   buildServicePartnerCompanyCertification,
   isServicePartnerCompanyCertificationWarning,
 } from "@/lib/service-partner-company-certifications"
+import { buildServicepartnerLifecycle } from "@/lib/servicepartner-lifecycle"
 import { toServiceOrganizationBackedCompany } from "@/lib/service-organizations"
 import { buildTechnicianCertification } from "@/lib/technician-certifications"
 
@@ -217,6 +218,70 @@ export async function GET(request: NextRequest) {
     const servicePartnerCompaniesById = new Map(
       servicePartnerCompanyRows.map((company) => [company.id, company])
     )
+    const servicePartnerCompanyIds = servicePartnerCompanyRows.map(
+      (company) => company.id
+    )
+
+    const [servicePartnerInvitations, serviceOrganizationMemberships] =
+      servicePartnerCompanyIds.length > 0
+        ? await Promise.all([
+            prisma.invitation.findMany({
+              where: {
+                acceptedAt: null,
+                companyId: auth.user.companyId,
+                role: "CONTRACTOR",
+                OR: [
+                  {
+                    servicePartnerCompanyId: {
+                      in: servicePartnerCompanyIds,
+                    },
+                  },
+                  ...(serviceOrganizationIds.length > 0
+                    ? [
+                        {
+                          serviceOrganizationId: {
+                            in: serviceOrganizationIds,
+                          },
+                        },
+                      ]
+                    : []),
+                ],
+              },
+              select: {
+                expiresAt: true,
+                serviceOrganizationId: true,
+                servicePartnerCompanyId: true,
+              },
+            }),
+            serviceOrganizationIds.length > 0
+              ? prisma.serviceOrganizationMembership.findMany({
+                  where: {
+                    isActive: true,
+                    serviceOrganizationId: {
+                      in: serviceOrganizationIds,
+                    },
+                    user: {
+                      isActive: true,
+                      memberships: {
+                        some: {
+                          companyId: auth.user.companyId,
+                          isActive: true,
+                          role: "CONTRACTOR",
+                          servicePartnerCompanyId: {
+                            in: servicePartnerCompanyIds,
+                          },
+                        },
+                      },
+                    },
+                  },
+                  select: {
+                    role: true,
+                    serviceOrganizationId: true,
+                  },
+                })
+              : Promise.resolve([]),
+          ])
+        : [[], []]
 
     const calculationStartTime = getDevelopmentTimingStart()
     const rows = memberships.map((membership) => {
@@ -336,10 +401,68 @@ export async function GET(request: NextRequest) {
       isServicePartnerCompanyCertificationWarning(company.certification)
     ).length
 
+    const lifecycleNow = new Date()
     const servicePartnerCompanyMetrics = buildServicePartnerCompanyMetrics({
       companies: servicePartnerCompanyRows,
       contractors: rows,
-    })
+    }).map((metric) => ({
+      ...metric,
+      lifecycle: metric.id
+        ? buildServicepartnerLifecycle({
+            activeContractorMembershipsCount: rows.filter(
+              (contractor) => contractor.servicePartnerCompany?.id === metric.id
+            ).length,
+            activeServiceOrganizationAdminMembershipsCount:
+              serviceOrganizationMemberships.filter((membership) => {
+                const company = servicePartnerCompaniesById.get(metric.id!)
+                return (
+                  company?.serviceOrganizationId &&
+                  membership.serviceOrganizationId === company.serviceOrganizationId &&
+                  membership.role === "ADMIN"
+                )
+              }).length,
+            activeServiceOrganizationMembershipsCount:
+              serviceOrganizationMemberships.filter((membership) => {
+                const company = servicePartnerCompaniesById.get(metric.id!)
+                return (
+                  company?.serviceOrganizationId &&
+                  membership.serviceOrganizationId === company.serviceOrganizationId
+                )
+              }).length,
+            assignedInstallationsCount: metric.assignedInstallationsCount,
+            certificateDocumentPresent:
+              certificationRecordsByServiceOrganization
+                .get(
+                  servicePartnerCompaniesById.get(metric.id!)
+                    ?.serviceOrganizationId ?? ""
+                )
+                ?.some((record) => Boolean(record.documentId)) ?? false,
+            certification: metric.certification,
+            expiredInvitesCount: servicePartnerInvitations.filter((invitation) => {
+              const company = servicePartnerCompaniesById.get(metric.id!)
+              return (
+                invitation.expiresAt < lifecycleNow &&
+                (invitation.servicePartnerCompanyId === metric.id ||
+                  (company?.serviceOrganizationId &&
+                    invitation.serviceOrganizationId ===
+                      company.serviceOrganizationId))
+              )
+            }).length,
+            latestActivityDate: metric.latestActivityDate,
+            pendingInvitesCount: servicePartnerInvitations.filter((invitation) => {
+              const company = servicePartnerCompaniesById.get(metric.id!)
+              return (
+                invitation.expiresAt >= lifecycleNow &&
+                (invitation.servicePartnerCompanyId === metric.id ||
+                  (company?.serviceOrganizationId &&
+                    invitation.serviceOrganizationId ===
+                      company.serviceOrganizationId))
+              )
+            }).length,
+            servicepartner: metric,
+          })
+        : null,
+    }))
     logDevelopmentTiming(
       "GET /api/contractors/overview calculations",
       calculationStartTime
