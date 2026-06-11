@@ -9,6 +9,7 @@ import { prisma } from "@/lib/db"
 import { calculateInstallationRisk } from "@/lib/risk-classification"
 import { buildServicePartnerCompanyMetrics } from "@/lib/service-partner-company-metrics"
 import { buildServicePartnerCompanyCertification } from "@/lib/service-partner-company-certifications"
+import { buildServicepartnerLifecycle } from "@/lib/servicepartner-lifecycle"
 import {
   ensureServiceOrganizationForLegacyCompany,
   toServiceOrganizationBackedCompany,
@@ -428,6 +429,82 @@ export async function GET(request: NextRequest, context: RouteContext) {
           ),
         }
       : metrics
+    const now = new Date()
+    const [pendingInvites, activeServiceOrganizationMemberships] =
+      displayCompany.serviceOrganizationId
+        ? await Promise.all([
+            prisma.invitation.findMany({
+              where: {
+                acceptedAt: null,
+                companyId: auth.user.companyId,
+                role: "CONTRACTOR",
+                OR: [
+                  { servicePartnerCompanyId: servicePartnerCompany.id },
+                  { serviceOrganizationId: displayCompany.serviceOrganizationId },
+                ],
+              },
+              select: {
+                expiresAt: true,
+              },
+            }),
+            prisma.serviceOrganizationMembership.findMany({
+              where: {
+                isActive: true,
+                serviceOrganizationId: displayCompany.serviceOrganizationId,
+                user: {
+                  isActive: true,
+                  memberships: {
+                    some: {
+                      companyId: auth.user.companyId,
+                      isActive: true,
+                      role: "CONTRACTOR",
+                      servicePartnerCompanyId: servicePartnerCompany.id,
+                    },
+                  },
+                },
+              },
+              select: {
+                role: true,
+              },
+            }),
+          ])
+        : [
+            await prisma.invitation.findMany({
+              where: {
+                acceptedAt: null,
+                companyId: auth.user.companyId,
+                role: "CONTRACTOR",
+                servicePartnerCompanyId: servicePartnerCompany.id,
+              },
+              select: {
+                expiresAt: true,
+              },
+            }),
+            [],
+          ]
+
+    const lifecycle = buildServicepartnerLifecycle({
+      activeContractorMembershipsCount: contractors.length,
+      activeServiceOrganizationAdminMembershipsCount:
+        activeServiceOrganizationMemberships.filter(
+          (membership) => membership.role === "ADMIN"
+        ).length,
+      activeServiceOrganizationMembershipsCount:
+        activeServiceOrganizationMemberships.length,
+      assignedInstallationsCount: installations.length,
+      certificateDocumentPresent: certificationRecords.some((record) =>
+        Boolean(record.documentId)
+      ),
+      certification: displayCompany.certification,
+      expiredInvitesCount: pendingInvites.filter(
+        (invite) => invite.expiresAt < now
+      ).length,
+      latestActivityDate: companyMetrics?.latestActivityDate ?? null,
+      pendingInvitesCount: pendingInvites.filter(
+        (invite) => invite.expiresAt >= now
+      ).length,
+      servicepartner: displayCompany,
+    })
 
     return NextResponse.json(
       {
@@ -447,6 +524,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         metrics: companyMetrics,
         contractors,
         installations,
+        lifecycle,
         actions: actions.slice(0, 8),
       },
       { status: 200 }

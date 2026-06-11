@@ -35,13 +35,19 @@ describe("servicepartner lifecycle", () => {
   })
 
   it("marks connected servicepartners with missing certificate as needing completion", () => {
+    const lifecycle = buildLifecycle({
+      activeContractorMembershipsCount: 1,
+      activeServiceOrganizationAdminMembershipsCount: 1,
+      activeServiceOrganizationMembershipsCount: 1,
+    })
+
+    expect(lifecycle.status).toBe("NEEDS_COMPLETION")
     expect(
-      buildLifecycle({
-        activeContractorMembershipsCount: 1,
-        activeServiceOrganizationAdminMembershipsCount: 1,
-        activeServiceOrganizationMembershipsCount: 1,
-      }).status
-    ).toBe("NEEDS_COMPLETION")
+      lifecycle.checklist.find((item) => item.key === "company-certificate")
+    ).toMatchObject({
+      completed: false,
+      severity: "danger",
+    })
   })
 
   it("marks a valid certificate and admin account as ready", () => {
@@ -74,6 +80,24 @@ describe("servicepartner lifecycle", () => {
         pendingInvitesCount: 1,
       }).status
     ).toBe("NEEDS_ACTION")
+  })
+
+  it("adds latest activity to the checklist when activity exists", () => {
+    const lifecycle = buildLifecycle({
+      activeContractorMembershipsCount: 1,
+      activeServiceOrganizationAdminMembershipsCount: 1,
+      activeServiceOrganizationMembershipsCount: 1,
+      certification: validCertification(),
+      latestActivityDate: new Date("2026-04-15T10:00:00.000Z"),
+    })
+
+    expect(lifecycle.checklist).toContainEqual(
+      expect.objectContaining({
+        completed: true,
+        key: "latest-activity",
+        label: "Senaste aktivitet",
+      })
+    )
   })
 })
 

@@ -134,6 +134,18 @@ export function buildServicepartnerLifecycle({
     }),
   ]
 
+  if (latestActivityDate) {
+    checklist.push(
+      checklistItem({
+        completed: true,
+        helperText: "Servicepartnern har registrerad aktivitet i FgasPortal.",
+        key: "latest-activity",
+        label: "Senaste aktivitet",
+        severity: "success",
+      })
+    )
+  }
+
   if (hasAssignments && !hasConnectedAccount) {
     return lifecycle({
       checklist,

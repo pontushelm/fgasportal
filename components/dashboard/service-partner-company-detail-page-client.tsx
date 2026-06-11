@@ -6,6 +6,7 @@ import { useEffect, useState } from "react"
 import { Badge, buttonClassName, Card, EmptyState, PageHeader, SectionHeader } from "@/components/ui"
 import type { CertificationStatusResult } from "@/lib/certification-status"
 import type { ServicePartnerCompanyCertification } from "@/lib/service-partner-company-certifications"
+import type { ServicepartnerLifecycle } from "@/lib/servicepartner-lifecycle"
 import type { DashboardActionSeverity, DashboardActionType } from "@/lib/actions/generate-actions"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 
@@ -30,6 +31,7 @@ type ServicePartnerCompanyDetail = {
     certificationWarnings: number
     latestActivityDate: string | null
   }
+  lifecycle: ServicepartnerLifecycle
   contractors: Array<{
     id: string
     name: string
@@ -202,6 +204,8 @@ export default function ServicePartnerCompanyDetailPageClient({
               Visa kopplade aggregat
             </Link>
           </div>
+
+          <LifecycleCard companyId={data.company.id} lifecycle={data.lifecycle} />
 
           <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-7">
             <MetricCard label="Kontakter" value={data.metrics.linkedContactsCount} />
@@ -480,6 +484,68 @@ function MetricCard({
   )
 }
 
+function LifecycleCard({
+  companyId,
+  lifecycle,
+}: {
+  companyId: string
+  lifecycle: ServicepartnerLifecycle
+}) {
+  const cta = getLifecycleCta(lifecycle, companyId)
+
+  return (
+    <Card className="mt-6 p-5">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <SectionHeader
+          title="Status och nästa steg"
+          subtitle="Översikt över vad som är klart och vad som behöver kompletteras innan servicepartnern kan arbeta smidigt."
+        />
+        <Badge variant={lifecycle.severity}>{lifecycle.label}</Badge>
+      </div>
+
+      <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          Nästa rekommenderade steg
+        </p>
+        <p className="mt-1 text-sm font-medium text-slate-950 dark:text-slate-100">
+          {lifecycle.nextStep}
+        </p>
+        {cta && (
+          <Link
+            className={`${buttonClassName({ variant: "primary" })} mt-3`}
+            href={cta.href}
+          >
+            {cta.label}
+          </Link>
+        )}
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {lifecycle.checklist.map((item) => (
+          <div
+            className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
+            key={item.key}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-950 dark:text-slate-100">
+                  {item.label}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-400">
+                  {item.helperText}
+                </p>
+              </div>
+              <Badge variant={item.completed ? "success" : item.severity}>
+                {item.completed ? "Klart" : "Att göra"}
+              </Badge>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
 function DetailItem({
   className = "",
   label,
@@ -512,7 +578,10 @@ function CompanyCertificationCard({
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+    <div
+      className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900"
+      id="servicepartner-certification"
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-slate-950 dark:text-slate-100">
@@ -541,6 +610,55 @@ function CompanyCertificationCard({
       </dl>
     </div>
   )
+}
+
+function getLifecycleCta(
+  lifecycle: ServicepartnerLifecycle,
+  companyId: string
+): { href: string; label: string } | null {
+  if (lifecycle.status === "ADDED" || lifecycle.status === "INVITE_EXPIRED") {
+    return {
+      href: "/dashboard/contractors",
+      label: "Skicka inbjudan",
+    }
+  }
+
+  if (lifecycle.status === "INVITED" || lifecycle.status === "ACCOUNT_CONNECTED") {
+    return {
+      href: "/dashboard/contractors",
+      label: "Visa servicepartner",
+    }
+  }
+
+  if (lifecycle.status === "NEEDS_COMPLETION") {
+    return {
+      href: "#servicepartner-certification",
+      label: "Visa certifiering",
+    }
+  }
+
+  if (lifecycle.status === "READY") {
+    return {
+      href: `/dashboard/installations?servicePartnerCompanyId=${companyId}`,
+      label: "Tilldela aggregat",
+    }
+  }
+
+  if (lifecycle.status === "ACTIVE") {
+    return {
+      href: `/dashboard/actions?servicePartnerCompany=${companyId}`,
+      label: "Visa relaterade åtgärder",
+    }
+  }
+
+  if (lifecycle.status === "NEEDS_ACTION") {
+    return {
+      href: "/dashboard/contractors",
+      label: "Skicka inbjudan",
+    }
+  }
+
+  return null
 }
 
 function TableHeader({ children }: { children: React.ReactNode }) {
