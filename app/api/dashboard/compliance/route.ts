@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     const { companyId, userId } = auth.user
     const currentYearRange = getCurrentYearRange()
     const queryStartTime = getDevelopmentTimingStart()
-    const [company, installations, propertyCount, dataQuality] = await Promise.all([
+    const [company, installations, propertyCount, eventCount, dataQuality] = await Promise.all([
       prisma.company.findUnique({
         where: {
           id: companyId,
@@ -147,6 +147,20 @@ export async function GET(request: NextRequest) {
       prisma.property.count({
         where: {
           companyId,
+        },
+      }),
+      prisma.installationEvent.count({
+        where: {
+          supersededAt: null,
+          installation: {
+            AND: [
+              getInstallationAccessWhereClause(auth.user),
+              {
+                archivedAt: null,
+                scrappedAt: null,
+              },
+            ],
+          },
         },
       }),
       loadDataQualityReport(auth.user),
@@ -456,7 +470,15 @@ export async function GET(request: NextRequest) {
           topIssues: dataQuality.topIssues,
         },
         setup: {
+          actionItemCount: allActionItems.length,
+          annualReportReadinessSatisfied:
+            annualReportStatus.requiredReportsRequiringCompletion === 0 &&
+            dataQuality.totalIssueCount === 0 &&
+            propertyCount > 0 &&
+            installationRows.length > 0,
           companyInfoCompleted: isCompanyInfoCompleted(company),
+          dataQualityIssueCount: dataQuality.totalIssueCount,
+          eventCount,
           propertyCount,
           installationCount: installationRows.length,
           installationsMissingPropertyCount,

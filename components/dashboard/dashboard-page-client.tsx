@@ -119,7 +119,11 @@ type DashboardData = {
     topIssues: DataQualityIssue[]
   }
   setup: {
+    actionItemCount: number
+    annualReportReadinessSatisfied: boolean
     companyInfoCompleted: boolean
+    dataQualityIssueCount: number
+    eventCount: number
     installationCount: number
     installationsMissingPropertyCount: number
     propertyCount: number
@@ -275,6 +279,10 @@ export default function DashboardPage() {
       {dashboardData && (
         <div className="mx-auto max-w-7xl">
           <DashboardSetupAssistant setup={dashboardData.setup} />
+          {dashboardData.setup.propertyCount === 0 &&
+            dashboardData.setup.installationCount === 0 && (
+              <DashboardEmptyTenantCallout />
+            )}
 
           <section className="mt-6">
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -539,6 +547,37 @@ function SectionHeader({
         <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
       ) : null}
     </div>
+  )
+}
+
+function DashboardEmptyTenantCallout() {
+  return (
+    <Card className="mt-4 border-blue-100 bg-blue-50 p-4 shadow-sm">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-blue-950">
+            Kom igång genom att importera fastigheter och aggregat.
+          </h2>
+          <p className="mt-1 text-sm text-blue-900">
+            Börja med importmallarna och fyll på med händelser när basregistret finns på plats.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            className="rounded-lg border border-blue-200 bg-white px-3.5 py-2 text-sm font-semibold text-blue-800 shadow-sm hover:bg-blue-50"
+            href="/dashboard/help"
+          >
+            Ladda ner mallar
+          </Link>
+          <Link
+            className="rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+            href="/dashboard/installations"
+          >
+            Importera data
+          </Link>
+        </div>
+      </div>
+    </Card>
   )
 }
 

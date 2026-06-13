@@ -1,7 +1,12 @@
 export type DashboardSetupInput = {
+  actionItemCount?: number
   actionsReviewed?: boolean
+  annualReportPageVisited?: boolean
   annualReportPreviewReviewed?: boolean
+  annualReportReadinessSatisfied?: boolean
   companyInfoCompleted: boolean
+  dataQualityIssueCount?: number
+  eventCount?: number
   installationCount: number
   installationsMissingPropertyCount: number
   propertyCount: number
@@ -14,6 +19,8 @@ export type DashboardSetupStepId =
   | "properties"
   | "installations"
   | "installationProperties"
+  | "events"
+  | "dataQuality"
   | "servicePartner"
   | "actions"
   | "reports"
@@ -38,9 +45,14 @@ export type DashboardSetupProgress = {
 }
 
 export function buildDashboardSetupSteps({
+  actionItemCount = 0,
   actionsReviewed = false,
+  annualReportPageVisited = false,
   annualReportPreviewReviewed = false,
+  annualReportReadinessSatisfied = false,
   companyInfoCompleted,
+  dataQualityIssueCount = 0,
+  eventCount = 0,
   installationCount,
   installationsMissingPropertyCount,
   propertyCount,
@@ -48,43 +60,71 @@ export function buildDashboardSetupSteps({
   servicePartnerSkipped = false,
 }: DashboardSetupInput): DashboardSetupStep[] {
   const hasInstallations = installationCount > 0
+  const actionsCompleted = actionItemCount === 0 || actionsReviewed
+  const annualReportCompleted =
+    annualReportPreviewReviewed ||
+    (annualReportReadinessSatisfied && annualReportPageVisited)
 
   return [
     {
       id: "company",
       title: "Komplettera företagsuppgifter",
-      description: "Operatörsuppgifter används i rapporter, inbjudningar och kontaktinformation.",
+      description:
+        "Operatörsuppgifter används i rapporter, inbjudningar och kontaktinformation.",
       completed: companyInfoCompleted,
       route: "/dashboard/company",
       ctaLabel: "Gå till företagsinställningar",
     },
     {
       id: "properties",
-      title: "Lägg till fastigheter",
+      title: "Importera fastigheter",
       description: "Årsrapporter och uppföljning görs per fastighet.",
       completed: propertyCount > 0,
-      route: "/dashboard/properties",
-      ctaLabel: "Gå till fastigheter",
+      route: "/dashboard/properties/import",
+      ctaLabel: "Importera fastigheter",
     },
     {
       id: "installations",
-      title: "Lägg till aggregat",
-      description: "Aggregatregistret är grunden för kontrollintervall, risk och rapportering.",
+      title: "Importera aggregat",
+      description:
+        "Aggregatregistret är grunden för kontrollintervall, risk och rapportering.",
       completed: hasInstallations,
-      route: "/dashboard/installations",
-      ctaLabel: "Gå till aggregat",
+      route: "/dashboard/installations/import",
+      ctaLabel: "Importera aggregat",
     },
     {
       id: "installationProperties",
       title: "Koppla aggregat till fastigheter",
-      description: "Kopplingen behövs för fastighetsvisa rapporter och tydlig uppföljning.",
+      description:
+        "Kopplingen behövs för fastighetsvisa rapporter och tydlig uppföljning.",
       completed: hasInstallations && installationsMissingPropertyCount === 0,
-      route: "/dashboard/installations",
+      route:
+        installationsMissingPropertyCount > 0
+          ? "/dashboard/installations?quality=missing-property"
+          : "/dashboard/installations",
       ctaLabel: "Koppla aggregat",
     },
     {
+      id: "events",
+      title: "Importera kontrollhistorik",
+      description:
+        "Kontroller, läckage och påfyllningar gör rapportunderlaget mer komplett.",
+      completed: hasInstallations && eventCount > 0,
+      route: "/dashboard/installations/import-events",
+      ctaLabel: "Importera händelser",
+    },
+    {
+      id: "dataQuality",
+      title: "Granska datakvalitet",
+      description:
+        "Datakvalitet visar saknade uppgifter som kan hindra eller försvaga årsrapporten.",
+      completed: hasInstallations && dataQualityIssueCount === 0,
+      route: "/dashboard/data-quality",
+      ctaLabel: "Granska datakvalitet",
+    },
+    {
       id: "servicePartner",
-      title: "Koppla servicepartner",
+      title: "Bjud in servicepartner",
       description: "Servicepartners kan arbeta direkt i operatörens register.",
       completed: servicePartnerConnected || servicePartnerSkipped,
       optional: true,
@@ -94,8 +134,11 @@ export function buildDashboardSetupSteps({
     {
       id: "actions",
       title: "Granska åtgärder",
-      description: "Åtgärder visar vad som behöver hanteras först.",
-      completed: actionsReviewed,
+      description:
+        actionItemCount > 0
+          ? "Åtgärder visar vad som behöver hanteras först."
+          : "Det finns inga åtgärder att granska just nu.",
+      completed: actionsCompleted,
       route: "/dashboard/actions",
       ctaLabel: "Visa åtgärder",
     },
@@ -103,9 +146,9 @@ export function buildDashboardSetupSteps({
       id: "reports",
       title: "Förhandsgranska årsrapport",
       description: "Kontrollera att rapportunderlaget fungerar per fastighet.",
-      completed: annualReportPreviewReviewed,
+      completed: annualReportCompleted,
       route: "/dashboard/reports",
-      ctaLabel: "Gå till rapporter",
+      ctaLabel: "Förhandsgranska årsrapport",
     },
   ]
 }

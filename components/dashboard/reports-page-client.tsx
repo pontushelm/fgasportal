@@ -435,6 +435,17 @@ export default function ReportsPage() {
     }
   }, [isAnnualReport, reportQuery, router, selectedPropertyId])
 
+  useEffect(() => {
+    if (!isAnnualReport || !selectedPropertyId || !reportData?.qualitySummary) {
+      return
+    }
+
+    window.localStorage.setItem(
+      "fgasportal.dashboardSetup.annualReportPreviewReviewed",
+      "1"
+    )
+  }, [isAnnualReport, reportData?.qualitySummary, selectedPropertyId])
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-neutral-950 sm:px-6 lg:px-8">
       <PageHeader

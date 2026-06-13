@@ -10,13 +10,18 @@ import {
 
 const STORAGE_KEYS = {
   actionsReviewed: "fgasportal.dashboardSetup.actionsReviewed",
+  annualReportPageVisited: "fgasportal.dashboardSetup.annualReportPageVisited",
   annualReportPreviewReviewed: "fgasportal.dashboardSetup.annualReportPreviewReviewed",
   collapsed: "fgasportal.dashboardSetup.collapsed",
   servicePartnerSkipped: "fgasportal.dashboardSetup.servicePartnerSkipped",
 }
 
 export type DashboardSetupAssistantData = {
+  actionItemCount: number
+  annualReportReadinessSatisfied: boolean
   companyInfoCompleted: boolean
+  dataQualityIssueCount: number
+  eventCount: number
   installationCount: number
   installationsMissingPropertyCount: number
   propertyCount: number
@@ -31,8 +36,12 @@ export function DashboardSetupAssistant({
   const [actionsReviewed, setActionsReviewed] = useLocalBoolean(
     STORAGE_KEYS.actionsReviewed
   )
-  const [annualReportPreviewReviewed, setAnnualReportPreviewReviewed] =
-    useLocalBoolean(STORAGE_KEYS.annualReportPreviewReviewed)
+  const [annualReportPageVisited, setAnnualReportPageVisited] = useLocalBoolean(
+    STORAGE_KEYS.annualReportPageVisited
+  )
+  const [annualReportPreviewReviewed] = useLocalBoolean(
+    STORAGE_KEYS.annualReportPreviewReviewed
+  )
   const [collapsed, setCollapsed] = useLocalBoolean(STORAGE_KEYS.collapsed)
   const [servicePartnerSkipped, setServicePartnerSkipped] = useLocalBoolean(
     STORAGE_KEYS.servicePartnerSkipped
@@ -44,10 +53,17 @@ export function DashboardSetupAssistant({
       buildDashboardSetupProgress({
         ...setup,
         actionsReviewed,
+        annualReportPageVisited,
         annualReportPreviewReviewed,
         servicePartnerSkipped,
       }),
-    [actionsReviewed, annualReportPreviewReviewed, servicePartnerSkipped, setup]
+    [
+      actionsReviewed,
+      annualReportPageVisited,
+      annualReportPreviewReviewed,
+      servicePartnerSkipped,
+      setup,
+    ]
   )
   const isCollapsed = collapsed || autoCollapsedCompletion
 
@@ -62,8 +78,12 @@ export function DashboardSetupAssistant({
   }, [autoCollapsedCompletion, collapsed, progress.isComplete])
 
   function markStepOpened(stepId: DashboardSetupStepId) {
-    if (stepId === "actions") setActionsReviewed(true)
-    if (stepId === "reports") setAnnualReportPreviewReviewed(true)
+    if (stepId === "actions" && setup.actionItemCount > 0) {
+      setActionsReviewed(true)
+    }
+    if (stepId === "reports") {
+      setAnnualReportPageVisited(true)
+    }
   }
 
   if (isCollapsed) {

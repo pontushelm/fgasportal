@@ -56,6 +56,8 @@ describe("import completion summary", () => {
     expect(recommendations.map((item) => item.title)).toEqual([
       "Lägg till fastigheter",
       "Koppla aggregat till fastigheter",
+      "Fortsätt med kontrollhistorik",
+      "Kontrollera datakvalitet",
       "Sätt upp servicepartner",
     ])
   })
@@ -63,10 +65,14 @@ describe("import completion summary", () => {
   it("selects event and property recommendations", () => {
     expect(
       buildImportCompletionRecommendations("events").map((item) => item.href)
-    ).toEqual(["/dashboard/actions"])
+    ).toEqual([
+      "/dashboard/data-quality",
+      "/dashboard/reports",
+      "/dashboard/actions",
+    ])
     expect(
       buildImportCompletionRecommendations("properties").map((item) => item.href)
-    ).toEqual(["/dashboard/installations"])
+    ).toEqual(["/dashboard/installations/import"])
   })
 
   it("builds warnings from skipped rows, validation issues and unmapped columns", () => {

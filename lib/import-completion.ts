@@ -55,11 +55,21 @@ export function buildImportCompletionRecommendations(
 ): ImportCompletionRecommendation[] {
   const recommendations: ImportCompletionRecommendation[] = []
 
+  if (kind === "properties") {
+    recommendations.push({
+      description:
+        "Nästa steg är att importera aggregat och koppla dem till fastigheterna.",
+      href: "/dashboard/installations/import",
+      label: "Importera aggregat",
+      title: "Fortsätt med aggregatregistret",
+    })
+  }
+
   if (kind === "installations" && context.hasNoProperties) {
     recommendations.push({
       description:
         "Fastigheter behövs för årsrapporter och tydlig uppföljning per byggnad.",
-      href: "/dashboard/properties",
+      href: "/dashboard/properties/import",
       label: "Importera fastigheter",
       title: "Lägg till fastigheter",
     })
@@ -72,9 +82,26 @@ export function buildImportCompletionRecommendations(
     recommendations.push({
       description:
         "Koppla aggregat till fastigheter så årsrapportering och översikter blir rätt.",
-      href: "/dashboard/data-quality",
-      label: "Öppna datakvalitet",
+      href: "/dashboard/installations?quality=missing-property",
+      label: "Visa aggregat",
       title: "Koppla aggregat till fastigheter",
+    })
+  }
+
+  if (kind === "installations") {
+    recommendations.push({
+      description:
+        "Om du har kontrollhistorik, läckage eller påfyllningar i registret är nästa steg att importera händelser.",
+      href: "/dashboard/installations/import-events",
+      label: "Importera händelser",
+      title: "Fortsätt med kontrollhistorik",
+    })
+    recommendations.push({
+      description:
+        "Granska saknade uppgifter innan du förhandsgranskar årsrapporten.",
+      href: "/dashboard/data-quality",
+      label: "Granska datakvalitet",
+      title: "Kontrollera datakvalitet",
     })
   }
 
@@ -91,17 +118,21 @@ export function buildImportCompletionRecommendations(
     })
   }
 
-  if (kind === "properties") {
+  if (kind === "events") {
     recommendations.push({
       description:
-        "Nästa steg är att importera aggregat och koppla dem till fastigheterna.",
-      href: "/dashboard/installations",
-      label: "Importera aggregat",
-      title: "Fortsätt med aggregatregistret",
+        "Granska saknade uppgifter och varningar innan årsrapporten förhandsgranskas.",
+      href: "/dashboard/data-quality",
+      label: "Granska datakvalitet",
+      title: "Kontrollera datakvalitet",
     })
-  }
-
-  if (kind === "events") {
+    recommendations.push({
+      description:
+        "När underlaget ser bra ut kan du välja fastighet och förhandsgranska årsrapporten.",
+      href: "/dashboard/reports",
+      label: "Förhandsgranska årsrapport",
+      title: "Gå vidare till årsrapport",
+    })
     recommendations.push({
       description:
         "Kontrollera om importerade händelser skapade nya uppföljningar.",
