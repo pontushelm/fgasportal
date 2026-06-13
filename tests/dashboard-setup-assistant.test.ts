@@ -18,7 +18,7 @@ describe("dashboard setup assistant", () => {
       servicePartnerConnected: false,
     })
 
-    expect(progress.completedCount).toBe(1)
+    expect(progress.completedCount).toBe(3)
     expect(progress.totalCount).toBe(9)
     expect(progress.nextStep?.id).toBe("company")
   })
@@ -68,9 +68,34 @@ describe("dashboard setup assistant", () => {
       servicePartnerConnected: false,
     })
     expect(noEvents.nextStep).toMatchObject({
-      id: "events",
+      id: "reports",
+      route: "/dashboard/reports",
+    })
+  })
+
+  it("marks event import as recommended without blocking required progress", () => {
+    const progress = buildDashboardSetupProgress({
+      actionItemCount: 0,
+      annualReportPageVisited: true,
+      annualReportReadinessSatisfied: true,
+      companyInfoCompleted: true,
+      dataQualityIssueCount: 0,
+      eventCount: 0,
+      installationCount: 3,
+      installationsMissingPropertyCount: 0,
+      propertyCount: 2,
+      servicePartnerConnected: false,
+    })
+
+    const eventStep = progress.steps.find((step) => step.id === "events")
+
+    expect(eventStep).toMatchObject({
+      completed: false,
+      optional: true,
       route: "/dashboard/installations/import-events",
     })
+    expect(progress.nextStep).toBeNull()
+    expect(progress.isComplete).toBe(true)
   })
 
   it("prioritizes data quality before reports when issues exist", () => {

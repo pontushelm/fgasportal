@@ -108,8 +108,9 @@ export function buildDashboardSetupSteps({
       id: "events",
       title: "Importera kontrollhistorik",
       description:
-        "Kontroller, läckage och påfyllningar gör rapportunderlaget mer komplett.",
+        "Rekommenderas om du har kontroller, läckage eller påfyllningar från tidigare register.",
       completed: hasInstallations && eventCount > 0,
+      optional: true,
       route: "/dashboard/installations/import-events",
       ctaLabel: "Importera händelser",
     },
@@ -157,15 +158,17 @@ export function buildDashboardSetupProgress(
   input: DashboardSetupInput
 ): DashboardSetupProgress {
   const steps = buildDashboardSetupSteps(input)
-  const completedCount = steps.filter((step) => step.completed).length
+  const completedCount = steps.filter(
+    (step) => step.completed || step.optional
+  ).length
   const totalCount = steps.length
-  const isComplete = completedCount === totalCount
+  const isComplete = steps.every((step) => step.completed || step.optional)
 
   return {
     completedCount,
     totalCount,
     percent: totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 100,
-    nextStep: steps.find((step) => !step.completed) ?? null,
+    nextStep: steps.find((step) => !step.completed && !step.optional) ?? null,
     steps,
     isComplete,
   }

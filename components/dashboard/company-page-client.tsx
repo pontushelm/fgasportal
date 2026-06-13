@@ -10,6 +10,19 @@ import {
   isAdminRole,
 } from "@/lib/roles"
 
+const SHOW_DEMO_TENANT_GENERATOR =
+  process.env.NEXT_PUBLIC_ENABLE_DEMO_TENANT_GENERATOR === "true"
+
+export function shouldShowDemoTenantGenerator({
+  enabled = SHOW_DEMO_TENANT_GENERATOR,
+  role,
+}: {
+  enabled?: boolean
+  role?: UserRole | null
+}) {
+  return enabled && role === "OWNER"
+}
+
 type CompanyUser = {
   id: string
   name: string
@@ -1157,7 +1170,7 @@ export default function CompanySettingsPage() {
 
           </Card>
 
-          {currentUser?.role === "OWNER" && (
+          {shouldShowDemoTenantGenerator({ role: currentUser?.role }) && (
             <Card className="mt-8 border-blue-100 bg-blue-50/60 p-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
@@ -1165,8 +1178,11 @@ export default function CompanySettingsPage() {
                     Demo och test
                   </p>
                   <h2 className="mt-1 text-xl font-semibold text-slate-950">
-                    Generate demo data
+                    Skapa demo-data
                   </h2>
+                  <p className="mt-2 inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">
+                    Endast för demo- och testmiljöer.
+                  </p>
                   <p className="mt-2 max-w-2xl text-sm text-slate-700">
                     Skapar en realistisk demo-tenant med svenska fastigheter,
                     aggregat, händelser, servicepartners och avsiktliga
@@ -1180,7 +1196,7 @@ export default function CompanySettingsPage() {
                   type="button"
                   variant="primary"
                 >
-                  {isGeneratingDemoData ? "Skapar demo-data..." : "Generate demo data"}
+                  {isGeneratingDemoData ? "Skapar demo-data..." : "Skapa demo-data"}
                 </Button>
               </div>
             </Card>

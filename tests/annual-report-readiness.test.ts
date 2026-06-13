@@ -13,6 +13,8 @@ describe("annual report readiness panel data", () => {
     })
 
     expect(summary.status).toBe("empty")
+    expect(summary.previewStatus).toBe("empty")
+    expect(summary.signingStatus).toBe("empty")
     expect(item(summary, "properties")).toMatchObject({
       ctaHref: "/dashboard/properties/import",
       ctaLabel: "Importera fastigheter",
@@ -47,6 +49,11 @@ describe("annual report readiness panel data", () => {
     })
 
     expect(summary.status).toBe("needs_data")
+    expect(summary.previewStatus).toBe("needs_data")
+    expect(summary.primaryCta).toEqual({
+      href: "/dashboard/properties?quality=missing-designation",
+      label: "Visa fastigheter",
+    })
     expect(item(summary, "propertyDesignation")).toMatchObject({
       ctaHref: "/dashboard/properties?quality=missing-designation",
       issueCount: 2,
@@ -96,6 +103,12 @@ describe("annual report readiness panel data", () => {
     })
 
     expect(summary.status).toBe("ready")
+    expect(summary.previewStatus).toBe("can_preview")
+    expect(summary.signingStatus).toBe("ready_to_sign")
+    expect(summary.primaryCta).toEqual({
+      href: "#annual-report-overview",
+      label: "Välj fastighet",
+    })
     expect(summary.completedRequiredCount).toBe(summary.requiredCount)
     expect(summary.issueCount).toBe(0)
     summary.items
@@ -103,6 +116,32 @@ describe("annual report readiness panel data", () => {
       .forEach((readinessItem) => {
         expect(readinessItem.status).toBe("complete")
       })
+  })
+
+  it("allows preview but keeps signing readiness stricter for certification issues", () => {
+    const summary = buildAnnualReportReadinessSummary({
+      dataQualityIssues: [
+        {
+          count: 1,
+          ctaLabel: "Visa servicepartners",
+          description: "Saknas",
+          group: "servicepartners",
+          id: "SERVICEPARTNER_CERTIFICATE_MISSING",
+          route: "/dashboard/contractors?quality=missing-company-certificate",
+          severity: "MEDIUM",
+          title: "Servicepartner saknar företagscertifikat",
+        },
+      ],
+      overview: { properties: [{ id: "property-1" }] },
+      properties: [{ id: "property-1", propertyDesignation: "Skolan 1:2" }],
+    })
+
+    expect(summary.previewStatus).toBe("can_preview")
+    expect(summary.signingStatus).toBe("needs_review")
+    expect(item(summary, "certifications")).toMatchObject({
+      requirement: "recommended",
+      status: "recommended",
+    })
   })
 })
 

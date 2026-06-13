@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { Badge, Card } from "@/components/ui"
+import type { ImportType } from "@/components/dashboard/import-data-workspace"
 import {
   buildDashboardSetupProgress,
   type DashboardSetupStepId,
@@ -29,8 +30,10 @@ export type DashboardSetupAssistantData = {
 }
 
 export function DashboardSetupAssistant({
+  onOpenImportData,
   setup,
 }: {
+  onOpenImportData?: (importType?: ImportType) => void
   setup: DashboardSetupAssistantData
 }) {
   const [actionsReviewed, setActionsReviewed] = useLocalBoolean(
@@ -84,6 +87,13 @@ export function DashboardSetupAssistant({
     if (stepId === "reports") {
       setAnnualReportPageVisited(true)
     }
+  }
+
+  function getStepImportType(stepId: DashboardSetupStepId): ImportType | null {
+    if (stepId === "properties") return "properties"
+    if (stepId === "installations") return "installations"
+    if (stepId === "events") return "events"
+    return null
   }
 
   if (isCollapsed) {
@@ -172,13 +182,26 @@ export function DashboardSetupAssistant({
             {progress.nextStep.description}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Link
-              className="rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
-              href={progress.nextStep.route}
-              onClick={() => markStepOpened(progress.nextStep!.id)}
-            >
-              {progress.nextStep.ctaLabel}
-            </Link>
+            {onOpenImportData && getStepImportType(progress.nextStep.id) ? (
+              <button
+                className="rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+                type="button"
+                onClick={() => {
+                  const importType = getStepImportType(progress.nextStep!.id)
+                  if (importType) onOpenImportData(importType)
+                }}
+              >
+                {progress.nextStep.ctaLabel}
+              </button>
+            ) : (
+              <Link
+                className="rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+                href={progress.nextStep.route}
+                onClick={() => markStepOpened(progress.nextStep!.id)}
+              >
+                {progress.nextStep.ctaLabel}
+              </Link>
+            )}
             {progress.nextStep.id === "servicePartner" ? (
               <button
                 className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
@@ -228,7 +251,7 @@ function StatusPill({
   optional?: boolean
 }) {
   if (completed) return <Badge variant="success">Klart</Badge>
-  if (optional) return <Badge variant="neutral">Valfritt</Badge>
+  if (optional) return <Badge variant="info">Rekommenderas</Badge>
   return <Badge variant="warning">Återstår</Badge>
 }
 

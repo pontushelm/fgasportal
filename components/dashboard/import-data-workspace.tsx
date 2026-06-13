@@ -6,7 +6,7 @@ import InstallationEventImportPageClient from "@/components/dashboard/installati
 import PropertiesImportPageClient from "@/components/dashboard/properties-import-page-client"
 import { buttonClassName } from "@/components/ui"
 
-type ImportType = "installations" | "properties" | "events"
+export type ImportType = "installations" | "properties" | "events"
 
 type ImportDataWorkspaceProps = {
   initialImportType?: ImportType

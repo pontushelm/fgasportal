@@ -4,6 +4,10 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useId, useState } from "react"
 import { DashboardSetupAssistant } from "@/components/dashboard/dashboard-setup-assistant"
+import {
+  ImportDataWorkspace,
+  type ImportType,
+} from "@/components/dashboard/import-data-workspace"
 import { Badge, Card, PageHeader } from "@/components/ui"
 import type { DataQualityIssue } from "@/lib/dashboard/data-quality"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
@@ -219,6 +223,8 @@ export default function DashboardPage() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [importWorkspaceType, setImportWorkspaceType] = useState<ImportType | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -257,7 +263,7 @@ export default function DashboardPage() {
     return () => {
       isMounted = false
     }
-  }, [router])
+  }, [refreshKey, router])
 
   const sortedActionItems = dashboardData?.actionItems ?? []
   const visibleActionItems = sortedActionItems.slice(0, ACTION_PREVIEW_LIMIT)
@@ -278,10 +284,17 @@ export default function DashboardPage() {
 
       {dashboardData && (
         <div className="mx-auto max-w-7xl">
-          <DashboardSetupAssistant setup={dashboardData.setup} />
+          <DashboardSetupAssistant
+            setup={dashboardData.setup}
+            onOpenImportData={(importType) =>
+              setImportWorkspaceType(importType ?? "installations")
+            }
+          />
           {dashboardData.setup.propertyCount === 0 &&
             dashboardData.setup.installationCount === 0 && (
-              <DashboardEmptyTenantCallout />
+              <DashboardEmptyTenantCallout
+                onOpenImportData={() => setImportWorkspaceType("properties")}
+              />
             )}
 
           <section className="mt-6">
@@ -464,6 +477,17 @@ export default function DashboardPage() {
             </p>
           )}
 
+          {importWorkspaceType && (
+            <ImportDataWorkspace
+              initialImportType={importWorkspaceType}
+              onClose={() => setImportWorkspaceType(null)}
+              onEventsImported={() => setRefreshKey((current) => current + 1)}
+              onInstallationsImported={() =>
+                setRefreshKey((current) => current + 1)
+              }
+              onPropertiesImported={() => setRefreshKey((current) => current + 1)}
+            />
+          )}
         </div>
       )}
     </main>
@@ -550,7 +574,11 @@ function SectionHeader({
   )
 }
 
-function DashboardEmptyTenantCallout() {
+function DashboardEmptyTenantCallout({
+  onOpenImportData,
+}: {
+  onOpenImportData: () => void
+}) {
   return (
     <Card className="mt-4 border-blue-100 bg-blue-50 p-4 shadow-sm">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -569,12 +597,13 @@ function DashboardEmptyTenantCallout() {
           >
             Ladda ner mallar
           </Link>
-          <Link
+          <button
             className="rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
-            href="/dashboard/installations"
+            type="button"
+            onClick={onOpenImportData}
           >
             Importera data
-          </Link>
+          </button>
         </div>
       </div>
     </Card>

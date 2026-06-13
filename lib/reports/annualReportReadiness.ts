@@ -29,11 +29,17 @@ export type AnnualReportReadinessItem = {
 }
 
 export type AnnualReportReadinessSummary = {
+  previewStatus: "can_preview" | "needs_data" | "empty"
+  signingStatus: "ready_to_sign" | "needs_review" | "empty"
   status: "ready" | "needs_data" | "empty"
   completedRequiredCount: number
   requiredCount: number
   issueCount: number
   items: AnnualReportReadinessItem[]
+  primaryCta: {
+    href: string
+    label: string
+  }
 }
 
 type AnnualReportReadinessProperty = {
@@ -190,11 +196,38 @@ export function buildAnnualReportReadinessSummary({
     0
   )
 
+  const previewStatus =
+    propertyCount === 0
+      ? "empty"
+      : completedRequiredCount === requiredItems.length
+        ? "can_preview"
+        : "needs_data"
+  const signingStatus =
+    previewStatus === "empty"
+      ? "empty"
+      : previewStatus === "can_preview" && certificationIssueCount === 0
+        ? "ready_to_sign"
+        : "needs_review"
+  const firstMissingRequiredItem = requiredItems.find(
+    (item) => item.status === "needs_action"
+  )
+
   return {
     completedRequiredCount,
     issueCount,
     items,
+    previewStatus,
+    primaryCta: firstMissingRequiredItem
+      ? {
+          href: firstMissingRequiredItem.ctaHref,
+          label: firstMissingRequiredItem.ctaLabel,
+        }
+      : {
+          href: "#annual-report-overview",
+          label: "Välj fastighet",
+        },
     requiredCount: requiredItems.length,
+    signingStatus,
     status:
       propertyCount === 0
         ? "empty"

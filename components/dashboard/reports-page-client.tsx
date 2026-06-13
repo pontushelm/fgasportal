@@ -606,6 +606,7 @@ export default function ReportsPage() {
                 dataQualityIssues={dataQualityIssues}
                 overview={reportData.annualReportOverview}
                 properties={properties}
+                selectedPropertyId={selectedPropertyId}
               />
               {reportData.annualReportOverview && (
                 <AnnualReportPropertyOverview
@@ -966,10 +967,12 @@ function AnnualReportReadinessPanel({
   dataQualityIssues,
   overview,
   properties,
+  selectedPropertyId,
 }: {
   dataQualityIssues: DataQualityIssue[]
   overview?: ReportData["annualReportOverview"]
   properties: PropertyOption[]
+  selectedPropertyId: string
 }) {
   const summary = useMemo(
     () =>
@@ -986,6 +989,10 @@ function AnnualReportReadinessPanel({
   const recommendedItems = summary.items.filter(
     (item) => item.requirement === "recommended"
   )
+  const primaryCta =
+    summary.previewStatus === "can_preview" && selectedPropertyId
+      ? { href: "#annual-report-preview", label: "Förhandsgranska årsrapport" }
+      : summary.primaryCta
 
   return (
     <section className="mt-6 rounded-lg border border-blue-100 bg-white p-4 shadow-sm">
@@ -1005,6 +1012,31 @@ function AnnualReportReadinessPanel({
         <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
           {summary.completedRequiredCount} av {summary.requiredCount} krav klara
         </div>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="grid gap-1 text-sm text-slate-700 sm:grid-cols-2 sm:gap-4">
+          <p>
+            <span className="font-semibold text-slate-950">
+              Förhandsgranskning:
+            </span>{" "}
+            {summary.previewStatus === "can_preview"
+              ? "Kan förhandsgranskas"
+              : "Behöver kompletteras"}
+          </p>
+          <p>
+            <span className="font-semibold text-slate-950">Signering:</span>{" "}
+            {summary.signingStatus === "ready_to_sign"
+              ? "Redo att signera"
+              : "Granska underlaget först"}
+          </p>
+        </div>
+        <Link
+          className={buttonClassName({ variant: "primary" })}
+          href={primaryCta.href}
+        >
+          {primaryCta.label}
+        </Link>
       </div>
 
       {summary.status === "empty" && (
@@ -1155,7 +1187,10 @@ function AnnualReportPropertyOverview({
 
   if (overview.properties.length === 0) {
     return (
-      <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
+      <section
+        className="mt-6 rounded-lg border border-slate-200 bg-white p-4"
+        id="annual-report-overview"
+      >
         <h2 className="text-sm font-semibold text-slate-950">
           Årsrapportering {overview.year}
         </h2>
@@ -1165,7 +1200,10 @@ function AnnualReportPropertyOverview({
   }
 
   return (
-    <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
+    <section
+      className="mt-6 rounded-lg border border-slate-200 bg-white p-4"
+      id="annual-report-overview"
+    >
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-sm font-semibold text-slate-950">
@@ -1423,7 +1461,10 @@ function ReportQualityPanel({ reportData }: { reportData: ReportData }) {
   const hiddenWarningCount = warnings.length - visibleWarnings.length
 
   return (
-    <section className={`mt-6 rounded-lg border p-4 text-sm ${tone}`}>
+    <section
+      className={`mt-6 rounded-lg border p-4 text-sm ${tone}`}
+      id="annual-report-preview"
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="font-semibold">{qualityStatusLabel(summary.status)}</h2>
