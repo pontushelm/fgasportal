@@ -129,6 +129,22 @@ type ServicePartnerSettingsFormData = {
   certificateValidUntil: string
 }
 
+type DemoTenantSummary = {
+  eventsCreated: number
+  installationsCreated: number
+  propertiesCreated: number
+  servicePartnerCompaniesCreated: number
+  techniciansCreated: number
+  intentionalIssues: {
+    expiringCertificates: number
+    missingMunicipalityProperties: number
+    missingPropertyAssignments: number
+    missingRefrigerantCharge: number
+    missingRefrigerantType: number
+    unknownRefrigerants: number
+  }
+}
+
 const initialInvitationFormData: InvitationFormData = {
   email: "",
   role: "MEMBER",
@@ -197,6 +213,7 @@ export default function CompanySettingsPage() {
     useState(false)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [isSavingBilling, setIsSavingBilling] = useState(false)
+  const [isGeneratingDemoData, setIsGeneratingDemoData] = useState(false)
   const [isSavingServicePartnerSettings, setIsSavingServicePartnerSettings] =
     useState(false)
   const [companyCertificationDocument, setCompanyCertificationDocument] =
@@ -476,6 +493,54 @@ export default function CompanySettingsPage() {
       message: "Fakturauppgifter har sparats.",
     })
     setIsSavingBilling(false)
+  }
+
+  async function handleGenerateDemoData() {
+    const confirmed = window.confirm(
+      "Demo-data kan bara skapas i en tom tenant och fyller registret med realistiska fastigheter, aggregat, händelser och servicepartners. Vill du fortsätta?"
+    )
+    if (!confirmed) return
+
+    setIsGeneratingDemoData(true)
+    setToast(null)
+
+    try {
+      const response = await fetch("/api/demo/tenant", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ confirm: true }),
+      })
+      const result: { summary?: DemoTenantSummary; error?: string } =
+        await response.json()
+
+      if (!response.ok || !result.summary) {
+        setToast({
+          message:
+            result.error ||
+            "Kunde inte skapa demo-data. Kontrollera att tenantens register är tomt.",
+          title: "Fel",
+          type: "error",
+        })
+        return
+      }
+
+      setToast({
+        message: `${result.summary.propertiesCreated} fastigheter, ${result.summary.installationsCreated} aggregat och ${result.summary.eventsCreated} händelser skapades.`,
+        title: "Demo-data skapad",
+        type: "success",
+      })
+    } catch {
+      setToast({
+        message: "Kunde inte skapa demo-data. Försök igen.",
+        title: "Fel",
+        type: "error",
+      })
+    } finally {
+      setIsGeneratingDemoData(false)
+    }
   }
 
   async function handleServicePartnerSettingsSubmit(event: React.FormEvent) {
@@ -1091,6 +1156,35 @@ export default function CompanySettingsPage() {
             )}
 
           </Card>
+
+          {currentUser?.role === "OWNER" && (
+            <Card className="mt-8 border-blue-100 bg-blue-50/60 p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                    Demo och test
+                  </p>
+                  <h2 className="mt-1 text-xl font-semibold text-slate-950">
+                    Generate demo data
+                  </h2>
+                  <p className="mt-2 max-w-2xl text-sm text-slate-700">
+                    Skapar en realistisk demo-tenant med svenska fastigheter,
+                    aggregat, händelser, servicepartners och avsiktliga
+                    datakvalitetsfrågor. Åtgärden tillåts bara när tenantens
+                    register är tomt.
+                  </p>
+                </div>
+                <Button
+                  disabled={isGeneratingDemoData}
+                  onClick={handleGenerateDemoData}
+                  type="button"
+                  variant="primary"
+                >
+                  {isGeneratingDemoData ? "Skapar demo-data..." : "Generate demo data"}
+                </Button>
+              </div>
+            </Card>
+          )}
 
           {canViewBilling && (
           <Card className="mt-8 border-slate-200 bg-white/80 p-5">
