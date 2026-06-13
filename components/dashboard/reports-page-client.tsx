@@ -3,8 +3,22 @@
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useId, useMemo, useRef, useState } from "react"
-import { Badge, Card, EmptyState as UiEmptyState, PageHeader, SectionHeader, Toast } from "@/components/ui"
+import {
+  Badge,
+  Card,
+  EmptyState as UiEmptyState,
+  PageHeader,
+  SectionHeader,
+  Toast,
+  buttonClassName,
+} from "@/components/ui"
+import type { DataQualityIssue } from "@/lib/dashboard/data-quality"
 import { getInstallationEventAmountLabel } from "@/lib/installation-events"
+import {
+  buildAnnualReportReadinessSummary,
+  type AnnualReportReadinessItem,
+  type AnnualReportReadinessSummary,
+} from "@/lib/reports/annualReportReadiness"
 import {
   getReportTypeMetadata,
   isReportExportAvailable,
@@ -99,6 +113,7 @@ type PropertyOption = {
   id: string
   name: string
   municipality?: string | null
+  propertyDesignation?: string | null
 }
 
 type SignedReportHistoryItem = {
@@ -182,6 +197,7 @@ export default function ReportsPage() {
   )
   const [properties, setProperties] = useState<PropertyOption[]>([])
   const [signedReports, setSignedReports] = useState<SignedReportHistoryItem[]>([])
+  const [dataQualityIssues, setDataQualityIssues] = useState<DataQualityIssue[]>([])
   const [reportData, setReportData] = useState<ReportData | null>(null)
   const annualReportOverviewRef = useRef<AnnualReportOverview | null>(null)
   const propertiesRef = useRef<PropertyOption[]>([])
@@ -335,7 +351,12 @@ export default function ReportsPage() {
       }
       setError("")
 
-      const [response, propertiesResponse, signedReportsResponse] = await Promise.all([
+      const [
+        response,
+        propertiesResponse,
+        signedReportsResponse,
+        dataQualityResponse,
+      ] = await Promise.all([
         fetch(`/api/reports/fgas?${requestParams.toString()}`, {
           credentials: "include",
         }),
@@ -347,18 +368,29 @@ export default function ReportsPage() {
         fetch(`/api/reports/annual-fgas/history?${reportQuery}`, {
           credentials: "include",
         }),
+        isAnnualReport
+          ? fetch("/api/dashboard/data-quality", {
+              credentials: "include",
+            })
+          : Promise.resolve(null),
       ])
 
       if (
         response.status === 401 ||
         propertiesResponse?.status === 401 ||
-        signedReportsResponse.status === 401
+        signedReportsResponse.status === 401 ||
+        dataQualityResponse?.status === 401
       ) {
         router.push("/login")
         return
       }
 
-      if (!response.ok || propertiesResponse?.ok === false || !signedReportsResponse.ok) {
+      if (
+        !response.ok ||
+        propertiesResponse?.ok === false ||
+        !signedReportsResponse.ok ||
+        dataQualityResponse?.ok === false
+      ) {
         if (!isMounted) return
         setError("Kunde inte hämta årsrapporten")
         setIsLoading(false)
@@ -372,6 +404,8 @@ export default function ReportsPage() {
         : propertiesRef.current
       const signedReportsData: SignedReportHistoryItem[] =
         await signedReportsResponse.json()
+      const dataQualityData: { issues?: DataQualityIssue[] } | null =
+        dataQualityResponse ? await dataQualityResponse.json() : null
 
       if (!isMounted) return
 
@@ -385,6 +419,9 @@ export default function ReportsPage() {
         propertiesRef.current = propertiesData
         hasLoadedPropertiesRef.current = true
         setProperties(propertiesData)
+      }
+      if (dataQualityData) {
+        setDataQualityIssues(dataQualityData.issues ?? [])
       }
       setSignedReports(signedReportsData)
       setIsLoading(false)
@@ -554,6 +591,11 @@ export default function ReportsPage() {
         <>
           {selectedReportType === "annual" && (
             <>
+              <AnnualReportReadinessPanel
+                dataQualityIssues={dataQualityIssues}
+                overview={reportData.annualReportOverview}
+                properties={properties}
+              />
               {reportData.annualReportOverview && (
                 <AnnualReportPropertyOverview
                   overview={reportData.annualReportOverview}
@@ -906,6 +948,163 @@ function MetricCard({
       </div>
       <div className="mt-2 text-2xl font-bold text-neutral-950">{value}</div>
     </Card>
+  )
+}
+
+function AnnualReportReadinessPanel({
+  dataQualityIssues,
+  overview,
+  properties,
+}: {
+  dataQualityIssues: DataQualityIssue[]
+  overview?: ReportData["annualReportOverview"]
+  properties: PropertyOption[]
+}) {
+  const summary = useMemo(
+    () =>
+      buildAnnualReportReadinessSummary({
+        dataQualityIssues,
+        overview,
+        properties,
+      }),
+    [dataQualityIssues, overview, properties]
+  )
+  const requiredItems = summary.items.filter(
+    (item) => item.requirement === "required"
+  )
+  const recommendedItems = summary.items.filter(
+    (item) => item.requirement === "recommended"
+  )
+
+  return (
+    <section className="mt-6 rounded-lg border border-blue-100 bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="max-w-3xl">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-base font-semibold text-slate-950">
+              Är årsrapporten redo?
+            </h2>
+            <AnnualReadinessBadge summary={summary} />
+          </div>
+          <p className="mt-2 text-sm text-slate-700">
+            Årsrapporten skapas per fastighet. För att kunna förhandsgranska
+            och signera behöver rapportunderlaget vara komplett.
+          </p>
+        </div>
+        <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
+          {summary.completedRequiredCount} av {summary.requiredCount} krav klara
+        </div>
+      </div>
+
+      {summary.status === "empty" && (
+        <div className="mt-4 flex flex-col gap-2 rounded-lg border border-dashed border-blue-200 bg-blue-50 p-3 text-sm text-blue-950 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            Börja med att importera fastigheter och aggregat. Du kan komplettera
+            händelser och certifikat senare.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              className={buttonClassName({ className: "bg-white", size: "sm" })}
+              href="/dashboard/properties/import"
+            >
+              Importera fastigheter
+            </Link>
+            <Link
+              className={buttonClassName({ className: "bg-white", size: "sm" })}
+              href="/dashboard/installations/import"
+            >
+              Importera aggregat
+            </Link>
+            <Link
+              className={buttonClassName({ className: "bg-white", size: "sm" })}
+              href="/dashboard/help"
+            >
+              Ladda ner importmallar
+            </Link>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        {requiredItems.map((item) => (
+          <AnnualReadinessChecklistItem item={item} key={item.key} />
+        ))}
+      </div>
+
+      <div className="mt-4 border-t border-slate-100 pt-4">
+        <h3 className="text-sm font-semibold text-slate-900">
+          Rekommenderas för kvalitet och spårbarhet
+        </h3>
+        <div className="mt-3 grid gap-3 lg:grid-cols-2">
+          {recommendedItems.map((item) => (
+            <AnnualReadinessChecklistItem item={item} key={item.key} />
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function AnnualReadinessBadge({
+  summary,
+}: {
+  summary: AnnualReportReadinessSummary
+}) {
+  if (summary.status === "ready") {
+    return <Badge variant="success">Redo för förhandsgranskning</Badge>
+  }
+  if (summary.status === "empty") {
+    return <Badge variant="info">Kom igång</Badge>
+  }
+
+  return <Badge variant="warning">Underlag behöver kompletteras</Badge>
+}
+
+function AnnualReadinessChecklistItem({
+  item,
+}: {
+  item: AnnualReportReadinessItem
+}) {
+  const statusClassName =
+    item.status === "complete"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+      : item.status === "needs_action"
+        ? "border-amber-200 bg-amber-50 text-amber-800"
+        : "border-slate-200 bg-slate-50 text-slate-700"
+  const statusLabel =
+    item.status === "complete"
+      ? "Klart"
+      : item.status === "needs_action"
+        ? "Behöver åtgärdas"
+        : "Rekommenderas"
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="font-semibold text-slate-950">{item.label}</div>
+          <p className="mt-1 text-sm text-slate-600">{item.description}</p>
+          {item.issueCount ? (
+            <p className="mt-1 text-xs font-semibold text-slate-500">
+              {item.issueCount} poster behöver kontrolleras.
+            </p>
+          ) : null}
+        </div>
+        <span
+          className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${statusClassName}`}
+        >
+          {statusLabel}
+        </span>
+      </div>
+      {item.status !== "complete" && (
+        <Link
+          className={buttonClassName({ className: "mt-3", size: "sm" })}
+          href={item.ctaHref}
+        >
+          {item.ctaLabel}
+        </Link>
+      )}
+    </div>
   )
 }
 
