@@ -9,6 +9,14 @@ import {
   type ImportType,
 } from "@/components/dashboard/import-data-workspace"
 import { Badge, Card, PageHeader } from "@/components/ui"
+import {
+  API_CACHE_KEYS,
+  invalidateActionCaches,
+  invalidateDashboardCaches,
+  invalidatePropertyCaches,
+  isUnauthorizedApiError,
+  useApiQuery,
+} from "@/lib/client/api-cache"
 import type { DataQualityIssue } from "@/lib/dashboard/data-quality"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 
@@ -220,50 +228,28 @@ const PRIMARY_KPI_KEYS = ["overdue", "dueSoon", "leakage"] as const
 const SECONDARY_KPI_KEYS = ["total", "requiringInspection", "co2e"] as const
 
 export default function DashboardPage() {
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [refreshKey, setRefreshKey] = useState(0)
+  const {
+    data: dashboardData = null,
+    error,
+    isLoading,
+  } = useApiQuery<DashboardData>(API_CACHE_KEYS.dashboard)
   const [importWorkspaceType, setImportWorkspaceType] = useState<ImportType | null>(null)
   const router = useRouter()
+  const hasBlockingError = Boolean(error && !dashboardData)
 
   useEffect(() => {
-    let isMounted = true
-
-    async function fetchDashboardData() {
-      setIsLoading(true)
-      setError("")
-
-      const response = await fetch("/api/dashboard/compliance", {
-        credentials: "include",
-      })
-
-      if (response.status === 401) {
-        router.push("/login")
-        return
-      }
-
-      if (!response.ok) {
-        if (!isMounted) return
-        setError("Kunde inte hämta dashboarden")
-        setIsLoading(false)
-        return
-      }
-
-      const data: DashboardData = await response.json()
-
-      if (!isMounted) return
-
-      setDashboardData(data)
-      setIsLoading(false)
+    if (isUnauthorizedApiError(error)) {
+      router.push("/login")
     }
+  }, [error, router])
 
-    void fetchDashboardData()
-
-    return () => {
-      isMounted = false
-    }
-  }, [refreshKey, router])
+  async function refreshDashboardAfterImport() {
+    await Promise.all([
+      invalidateDashboardCaches(),
+      invalidateActionCaches(),
+      invalidatePropertyCaches(),
+    ])
+  }
 
   const sortedActionItems = dashboardData?.actionItems ?? []
   const visibleActionItems = sortedActionItems.slice(0, ACTION_PREVIEW_LIMIT)
@@ -279,8 +265,12 @@ export default function DashboardPage() {
 
       </section>
 
-      {isLoading && <DashboardLoadingSkeleton />}
-      {error && <p className="mx-auto mt-8 max-w-7xl text-red-700">{error}</p>}
+      {isLoading && !dashboardData && <DashboardLoadingSkeleton />}
+      {hasBlockingError && error && !isUnauthorizedApiError(error) && (
+        <p className="mx-auto mt-8 max-w-7xl text-red-700">
+          {error.message || "Kunde inte hämta dashboarden"}
+        </p>
+      )}
 
       {dashboardData && (
         <div className="mx-auto max-w-7xl">
@@ -481,11 +471,9 @@ export default function DashboardPage() {
             <ImportDataWorkspace
               initialImportType={importWorkspaceType}
               onClose={() => setImportWorkspaceType(null)}
-              onEventsImported={() => setRefreshKey((current) => current + 1)}
-              onInstallationsImported={() =>
-                setRefreshKey((current) => current + 1)
-              }
-              onPropertiesImported={() => setRefreshKey((current) => current + 1)}
+              onEventsImported={() => void refreshDashboardAfterImport()}
+              onInstallationsImported={() => void refreshDashboardAfterImport()}
+              onPropertiesImported={() => void refreshDashboardAfterImport()}
             />
           )}
         </div>

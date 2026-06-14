@@ -7,6 +7,8 @@ export const API_CACHE_KEYS = {
   authMe: "/api/auth/me",
   dashboard: "/api/dashboard/compliance",
   dataQuality: "/api/dashboard/data-quality",
+  notifications: "/api/dashboard/notifications",
+  company: "/api/company",
   properties: "/api/properties",
   propertiesOverview: "/api/properties/overview",
   savedFilters: (page: string) => `/api/saved-filters?page=${page}`,
@@ -70,6 +72,14 @@ export async function invalidatePropertyCaches() {
 export async function invalidateActionCaches() {
   await Promise.all([
     mutateGlobal(API_CACHE_KEYS.actions),
+    mutateGlobal(API_CACHE_KEYS.dashboard),
+  ])
+}
+
+export async function invalidateNotificationCaches() {
+  await Promise.all([
+    mutateGlobal(API_CACHE_KEYS.notifications),
+    mutateGlobal(API_CACHE_KEYS.company),
     mutateGlobal(API_CACHE_KEYS.dashboard),
   ])
 }

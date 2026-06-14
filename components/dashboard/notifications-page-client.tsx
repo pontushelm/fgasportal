@@ -4,6 +4,12 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Badge, Button, Card, PageHeader, Toast, type ToastMessage } from "@/components/ui"
+import {
+  API_CACHE_KEYS,
+  invalidateNotificationCaches,
+  isUnauthorizedApiError,
+  useApiQuery,
+} from "@/lib/client/api-cache"
 import type {
   NotificationDigest,
   NotificationDigestGroup,
@@ -76,54 +82,27 @@ const SEVERITY_VARIANTS: Record<
 
 export default function NotificationsPageClient() {
   const router = useRouter()
-  const [data, setData] = useState<NotificationCenterData | null>(null)
-  const [settings, setSettings] = useState<NotificationSettings | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const {
+    data = null,
+    error,
+    isLoading,
+    mutate: mutateNotifications,
+  } = useApiQuery<NotificationCenterData>(API_CACHE_KEYS.notifications)
+  const [settingsDraft, setSettingsDraft] = useState<NotificationSettings | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [isTestingDigest, setIsTestingDigest] = useState(false)
   const [isSendingDigest, setIsSendingDigest] = useState(false)
   const [dryRunResult, setDryRunResult] = useState<DigestDryRunResult | null>(null)
   const [sendResult, setSendResult] = useState<DigestDryRunResult | null>(null)
-  const [error, setError] = useState("")
   const [toast, setToast] = useState<ToastMessage | null>(null)
+  const settings = settingsDraft ?? data?.settings ?? null
+  const hasBlockingError = Boolean(error && !data)
 
   useEffect(() => {
-    let isMounted = true
-
-    async function fetchNotifications() {
-      setIsLoading(true)
-      setError("")
-
-      const response = await fetch("/api/dashboard/notifications", {
-        credentials: "include",
-      })
-
-      if (response.status === 401) {
-        router.push("/login")
-        return
-      }
-
-      if (!response.ok) {
-        if (!isMounted) return
-        setError("Kunde inte hämta notifieringar.")
-        setIsLoading(false)
-        return
-      }
-
-      const nextData: NotificationCenterData = await response.json()
-      if (!isMounted) return
-
-      setData(nextData)
-      setSettings(nextData.settings)
-      setIsLoading(false)
+    if (isUnauthorizedApiError(error)) {
+      router.push("/login")
     }
-
-    void fetchNotifications()
-
-    return () => {
-      isMounted = false
-    }
-  }, [router])
+  }, [error, router])
 
   async function saveSettings() {
     if (!settings) return
@@ -143,6 +122,11 @@ export default function NotificationsPageClient() {
     const result: { settings?: NotificationSettings; error?: string } =
       await response.json()
 
+    if (response.status === 401) {
+      router.push("/login")
+      return
+    }
+
     if (!response.ok || !result.settings) {
       setToast({
         type: "error",
@@ -153,8 +137,18 @@ export default function NotificationsPageClient() {
       return
     }
 
-    setSettings(result.settings)
-    setData((current) => current ? { ...current, settings: result.settings! } : current)
+    setSettingsDraft(result.settings)
+    await mutateNotifications(
+      (current) =>
+        current
+          ? {
+              ...current,
+              settings: result.settings!,
+            }
+          : current,
+      { revalidate: false }
+    )
+    await invalidateNotificationCaches()
     setToast({
       type: "success",
       title: "Klart",
@@ -170,6 +164,11 @@ export default function NotificationsPageClient() {
       method: "POST",
     })
     const result: DigestDryRunResult & { error?: string } = await response.json()
+
+    if (response.status === 401) {
+      router.push("/login")
+      return
+    }
 
     if (!response.ok) {
       setToast({
@@ -198,6 +197,11 @@ export default function NotificationsPageClient() {
     })
     const result: DigestDryRunResult & { error?: string } = await response.json()
 
+    if (response.status === 401) {
+      router.push("/login")
+      return
+    }
+
     if (!response.ok) {
       setToast({
         type: "error",
@@ -209,6 +213,7 @@ export default function NotificationsPageClient() {
     }
 
     setSendResult(result)
+    await invalidateNotificationCaches()
     setToast({
       type: result.failed > 0 ? "warning" : "success",
       title: result.failed > 0 ? "Varning" : "Klart",
@@ -228,8 +233,12 @@ export default function NotificationsPageClient() {
           subtitle="Samlad översikt över påminnelser som kan skickas som daglig digest."
         />
 
-        {isLoading && <NotificationsSkeleton />}
-        {error && <p className="mt-8 font-semibold text-red-700">{error}</p>}
+        {isLoading && !data && <NotificationsSkeleton />}
+        {hasBlockingError && error && !isUnauthorizedApiError(error) && (
+          <p className="mt-8 font-semibold text-red-700">
+            {error.message || "Kunde inte hämta notifieringar."}
+          </p>
+        )}
 
         {data && settings && (
           <div className="mt-6 grid gap-6">
@@ -307,17 +316,18 @@ export default function NotificationsPageClient() {
                       disabled={!settings.canManageCompanySettings}
                       label="Kontrollpåminnelser"
                       onChange={(value) =>
-                        setSettings((current) =>
-                          current
+                        setSettingsDraft((current) => {
+                          const base = current ?? data?.settings
+                          return base
                             ? {
-                                ...current,
+                                ...base,
                                 company: {
-                                  ...current.company,
+                                  ...base.company,
                                   inspectionReminders: value,
                                 },
                               }
-                            : current
-                        )
+                            : null
+                        })
                       }
                     />
                     <NotificationToggle
@@ -325,17 +335,18 @@ export default function NotificationsPageClient() {
                       disabled={!settings.canManageCompanySettings}
                       label="Certifikatpåminnelser"
                       onChange={(value) =>
-                        setSettings((current) =>
-                          current
+                        setSettingsDraft((current) => {
+                          const base = current ?? data?.settings
+                          return base
                             ? {
-                                ...current,
+                                ...base,
                                 company: {
-                                  ...current.company,
+                                  ...base.company,
                                   certificateReminders: value,
                                 },
                               }
-                            : current
-                        )
+                            : null
+                        })
                       }
                     />
                     <NotificationToggle
@@ -343,17 +354,18 @@ export default function NotificationsPageClient() {
                       disabled={!settings.canManageCompanySettings}
                       label="Årsrapportpåminnelser"
                       onChange={(value) =>
-                        setSettings((current) =>
-                          current
+                        setSettingsDraft((current) => {
+                          const base = current ?? data?.settings
+                          return base
                             ? {
-                                ...current,
+                                ...base,
                                 company: {
-                                  ...current.company,
+                                  ...base.company,
                                   annualReportReminders: value,
                                 },
                               }
-                            : current
-                        )
+                            : null
+                        })
                       }
                     />
                   </div>
@@ -373,16 +385,17 @@ export default function NotificationsPageClient() {
                       checked={settings.user.receiveNotifications}
                       label="Ta emot notifieringar"
                       onChange={(value) =>
-                        setSettings((current) =>
-                          current
+                        setSettingsDraft((current) => {
+                          const base = current ?? data?.settings
+                          return base
                             ? {
-                                ...current,
+                                ...base,
                                 user: {
                                   receiveNotifications: value,
                                 },
                               }
-                            : current
-                        )
+                            : null
+                        })
                       }
                     />
                   </div>

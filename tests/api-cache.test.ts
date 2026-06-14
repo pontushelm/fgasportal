@@ -49,6 +49,8 @@ describe("client API cache helpers", () => {
 
   it("exposes stable cache keys for migrated pages", () => {
     expect(API_CACHE_KEYS.actions).toBe("/api/dashboard/actions")
+    expect(API_CACHE_KEYS.dashboard).toBe("/api/dashboard/compliance")
+    expect(API_CACHE_KEYS.notifications).toBe("/api/dashboard/notifications")
     expect(API_CACHE_KEYS.propertiesOverview).toBe("/api/properties/overview")
     expect(API_CACHE_KEYS.dataQuality).toBe("/api/dashboard/data-quality")
     expect(API_CACHE_KEYS.savedFilters("actions")).toBe(
