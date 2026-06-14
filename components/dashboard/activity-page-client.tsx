@@ -11,6 +11,12 @@ import {
   PageHeader,
   SectionHeader,
 } from "@/components/ui"
+import {
+  API_CACHE_KEYS,
+  isForbiddenApiError,
+  isUnauthorizedApiError,
+  useApiQuery,
+} from "@/lib/client/api-cache"
 
 type ActivityEntry = {
   id: string
@@ -61,10 +67,17 @@ const pageSize = "25"
 export default function ActivityPageClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const queryString = searchParams.toString()
-  const [data, setData] = useState<ActivityResponse | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState("")
+  const activityParams = useMemo(() => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("pageSize", pageSize)
+    return params.toString()
+  }, [searchParams])
+  const {
+    data = null,
+    error,
+    isLoading,
+  } = useApiQuery<ActivityResponse>(API_CACHE_KEYS.activity(activityParams))
+  const hasBlockingError = Boolean(error && !data)
 
   const search = searchParams.get("q") || ""
   const eventType = searchParams.get("eventType") || ""
@@ -79,50 +92,12 @@ export default function ActivityPageClient() {
     searchInputState.sourceValue === search ? searchInputState.value : search
 
   useEffect(() => {
-    let isMounted = true
-
-    async function fetchActivity() {
-      setIsLoading(true)
-      setError("")
-
-      const params = new URLSearchParams(searchParams.toString())
-      params.set("pageSize", pageSize)
-
-      const activityRes = await fetch(`/api/activity?${params.toString()}`, {
-        credentials: "include",
-      })
-
-      if (activityRes.status === 401) {
-        router.push("/login")
-        return
-      }
-
-      if (activityRes.status === 403) {
-        router.replace("/dashboard/settings")
-        return
-      }
-
-      if (!activityRes.ok) {
-        if (!isMounted) return
-        setError("Kunde inte hämta aktivitetsloggen")
-        setIsLoading(false)
-        return
-      }
-
-      const activityData: ActivityResponse = await activityRes.json()
-
-      if (!isMounted) return
-
-      setData(activityData)
-      setIsLoading(false)
+    if (isUnauthorizedApiError(error)) {
+      router.push("/login")
+    } else if (isForbiddenApiError(error)) {
+      router.replace("/dashboard/settings")
     }
-
-    void fetchActivity()
-
-    return () => {
-      isMounted = false
-    }
-  }, [queryString, router, searchParams])
+  }, [error, router])
 
   const hasActiveFilters = useMemo(
     () => Boolean(search || eventType || fromDate || toDate),
@@ -220,12 +195,16 @@ export default function ActivityPageClient() {
         </div>
       </Card>
 
-      {isLoading && (
+      {isLoading && !data && (
         <ActivityLoadingSkeleton />
       )}
-      {error && <p className="mt-8 font-semibold text-red-700">{error}</p>}
+      {hasBlockingError && error && !isUnauthorizedApiError(error) && !isForbiddenApiError(error) && (
+        <p className="mt-8 font-semibold text-red-700">
+          {error.message || "Kunde inte hämta aktivitetsloggen"}
+        </p>
+      )}
 
-      {!isLoading && !error && data && (
+      {(!isLoading || data) && !hasBlockingError && data && (
         <Card className="mt-6 overflow-hidden">
           <div className="flex flex-col gap-3 border-b border-slate-200 p-5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
             <div>

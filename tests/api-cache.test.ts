@@ -51,6 +51,17 @@ describe("client API cache helpers", () => {
     expect(API_CACHE_KEYS.actions).toBe("/api/dashboard/actions")
     expect(API_CACHE_KEYS.dashboard).toBe("/api/dashboard/compliance")
     expect(API_CACHE_KEYS.notifications).toBe("/api/dashboard/notifications")
+    expect(API_CACHE_KEYS.activity("page=1&pageSize=25")).toBe(
+      "/api/activity?page=1&pageSize=25"
+    )
+    expect(API_CACHE_KEYS.company).toBe("/api/company")
+    expect(API_CACHE_KEYS.companyInvitations).toBe("/api/company/invitations")
+    expect(API_CACHE_KEYS.userTechnicianCertification).toBe(
+      "/api/user/technician-certification"
+    )
+    expect(API_CACHE_KEYS.userTechnicianCertificationDocument).toBe(
+      "/api/user/technician-certification/document"
+    )
     expect(API_CACHE_KEYS.contractorsOverview).toBe("/api/contractors/overview")
     expect(API_CACHE_KEYS.serviceDashboard).toBe("/api/dashboard/service")
     expect(API_CACHE_KEYS.serviceTechnicians).toBe(

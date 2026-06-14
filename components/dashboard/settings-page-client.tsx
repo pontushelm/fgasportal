@@ -5,6 +5,14 @@ import { useRouter } from "next/navigation"
 import { Badge, Button, Card, PageHeader, PasswordInput, SectionHeader, Toast, buttonClassName, type ToastMessage } from "@/components/ui"
 import { ThemeSelect } from "@/components/theme/theme-select"
 import type { UserRole } from "@/lib/auth"
+import {
+  API_CACHE_KEYS,
+  invalidateNotificationCaches,
+  invalidateServicepartnerCaches,
+  invalidateSettingsCaches,
+  isUnauthorizedApiError,
+  useApiQuery,
+} from "@/lib/client/api-cache"
 import { formatRoleLabel } from "@/lib/roles"
 
 type CurrentUser = {
@@ -76,27 +84,51 @@ const notificationDescriptions: Record<keyof NotificationPreferences, string> = 
 
 export default function SettingsPageClient() {
   const router = useRouter()
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
-  const [name, setName] = useState("")
-  const [phone, setPhone] = useState("")
-  const [technicianCertification, setTechnicianCertification] =
-    useState<TechnicianCertificationSummary | null>(null)
-  const [certificationNumber, setCertificationNumber] = useState("")
-  const [certificationIssuer, setCertificationIssuer] = useState("")
-  const [certificationValidUntil, setCertificationValidUntil] = useState("")
-  const [certificationCategory, setCertificationCategory] = useState("")
-  const [certificationDocument, setCertificationDocument] =
-    useState<TechnicianCertificationDocument | null>(null)
+  const {
+    data: currentUser = null,
+    error: currentUserError,
+    isLoading: isCurrentUserLoading,
+    mutate: mutateCurrentUser,
+  } = useApiQuery<CurrentUser>(API_CACHE_KEYS.authMe)
+  const {
+    data: technicianCertification = null,
+    error: technicianCertificationErrorResponse,
+    isLoading: isTechnicianCertificationLoading,
+    mutate: mutateTechnicianCertification,
+  } = useApiQuery<TechnicianCertificationSummary>(
+    currentUser?.role === "CONTRACTOR"
+      ? API_CACHE_KEYS.userTechnicianCertification
+      : null
+  )
+  const {
+    data: certificationDocumentResponse,
+    error: certificationDocumentErrorResponse,
+    isLoading: isCertificationDocumentLoading,
+    mutate: mutateCertificationDocument,
+  } = useApiQuery<{ document: TechnicianCertificationDocument | null }>(
+    currentUser?.role === "CONTRACTOR"
+      ? API_CACHE_KEYS.userTechnicianCertificationDocument
+      : null
+  )
+  const [name, setName] = useState<string | null>(null)
+  const [phone, setPhone] = useState<string | null>(null)
+  const [certificationNumber, setCertificationNumber] = useState<string | null>(null)
+  const [certificationIssuer, setCertificationIssuer] = useState<string | null>(null)
+  const [certificationValidUntil, setCertificationValidUntil] = useState<string | null>(null)
+  const [certificationCategory, setCertificationCategory] = useState<string | null>(null)
+  const [
+    certificationDocumentOverride,
+    setCertificationDocumentOverride,
+  ] = useState<TechnicianCertificationDocument | null | undefined>(undefined)
   const [selectedCertificationDocument, setSelectedCertificationDocument] =
     useState<File | null>(null)
-  const [notifications, setNotifications] =
+  const [notificationsDraft, setNotificationsDraft] =
     useState<NotificationPreferences | null>(null)
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",
     confirmNewPassword: "",
   })
-  const [isLoading, setIsLoading] = useState(true)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [isSavingCertification, setIsSavingCertification] = useState(false)
   const [isUploadingCertificationDocument, setIsUploadingCertificationDocument] =
@@ -105,85 +137,46 @@ export default function SettingsPageClient() {
     useState(false)
   const [isSavingPassword, setIsSavingPassword] = useState(false)
   const [isSavingNotifications, setIsSavingNotifications] = useState(false)
-  const [error, setError] = useState("")
+  const [profileError, setProfileError] = useState("")
   const [certificationError, setCertificationError] = useState("")
   const [certificationDocumentError, setCertificationDocumentError] =
     useState("")
   const [passwordError, setPasswordError] = useState("")
   const [notificationError, setNotificationError] = useState("")
   const [toast, setToast] = useState<ToastMessage | null>(null)
+  const loadError =
+    currentUserError ??
+    technicianCertificationErrorResponse ??
+    certificationDocumentErrorResponse
+  const isLoading =
+    isCurrentUserLoading ||
+    (currentUser?.role === "CONTRACTOR"
+      ? isTechnicianCertificationLoading || isCertificationDocumentLoading
+      : false)
+  const hasBlockingError = Boolean(currentUserError && !currentUser)
+  const profileName = name ?? currentUser?.name ?? ""
+  const profilePhone = phone ?? currentUser?.phone ?? ""
+  const certificationNumberValue =
+    certificationNumber ?? technicianCertification?.certificateNumber ?? ""
+  const certificationIssuerValue =
+    certificationIssuer ?? technicianCertification?.issuer ?? ""
+  const certificationValidUntilValue =
+    certificationValidUntil ??
+    toDateInputValue(technicianCertification?.validUntil)
+  const certificationCategoryValue =
+    certificationCategory ?? technicianCertification?.category ?? ""
+  const certificationDocument =
+    certificationDocumentOverride !== undefined
+      ? certificationDocumentOverride
+      : certificationDocumentResponse?.document ?? null
+  const notifications =
+    notificationsDraft ?? (currentUser ? extractNotificationPreferences(currentUser) : null)
 
   useEffect(() => {
-    let isMounted = true
-
-    async function fetchCurrentUser() {
-      const response = await fetch("/api/auth/me", {
-        credentials: "include",
-      })
-
-      if (response.status === 401) {
-        router.push("/login")
-        return
-      }
-
-      if (!response.ok) {
-        if (!isMounted) return
-        setError("Kunde inte hämta dina inställningar")
-        setIsLoading(false)
-        return
-      }
-
-      const user: CurrentUser = await response.json()
-      let certification: TechnicianCertificationSummary | null = null
-      let certificateDocument: TechnicianCertificationDocument | null = null
-
-      if (user.role === "CONTRACTOR") {
-        const [certificationResponse, documentResponse] = await Promise.all([
-          fetch("/api/user/technician-certification", {
-            credentials: "include",
-          }),
-          fetch("/api/user/technician-certification/document", {
-            credentials: "include",
-          }),
-        ])
-
-        if (certificationResponse.ok) {
-          certification = await certificationResponse.json()
-        } else if (isMounted) {
-          setCertificationError("Kunde inte hämta personcertifikatet.")
-        }
-
-        if (documentResponse.ok) {
-          const body: { document: TechnicianCertificationDocument | null } =
-            await documentResponse.json()
-          certificateDocument = body.document
-        } else if (isMounted) {
-          setCertificationDocumentError(
-            "Kunde inte hämta certifikatdokumentet."
-          )
-        }
-      }
-
-      if (!isMounted) return
-      setCurrentUser(user)
-      setName(user.name || "")
-      setPhone(user.phone || "")
-      setTechnicianCertification(certification)
-      setCertificationDocument(certificateDocument)
-      setCertificationNumber(certification?.certificateNumber || "")
-      setCertificationIssuer(certification?.issuer || "")
-      setCertificationValidUntil(toDateInputValue(certification?.validUntil))
-      setCertificationCategory(certification?.category || "")
-      setNotifications(extractNotificationPreferences(user))
-      setIsLoading(false)
+    if (isUnauthorizedApiError(loadError)) {
+      router.push("/login")
     }
-
-    void fetchCurrentUser()
-
-    return () => {
-      isMounted = false
-    }
-  }, [router])
+  }, [loadError, router])
 
   const notificationGroups = useMemo(() => {
     if (!currentUser) return []
@@ -224,8 +217,10 @@ export default function SettingsPageClient() {
 
   async function handleProfileSubmit(event: React.FormEvent) {
     event.preventDefault()
-    setError("")
+    setProfileError("")
     setIsSavingProfile(true)
+    const nextName = profileName
+    const nextPhone = profilePhone
 
     const response = await fetch("/api/user/profile", {
       method: "PATCH",
@@ -234,8 +229,8 @@ export default function SettingsPageClient() {
       },
       credentials: "include",
       body: JSON.stringify({
-        name,
-        phone,
+        name: nextName,
+        phone: nextPhone,
       }),
     })
 
@@ -246,6 +241,7 @@ export default function SettingsPageClient() {
     } = await response.json()
 
     if (!response.ok) {
+      setProfileError(result.error || "Kunde inte spara profilen.")
       setToast({
         type: "error",
         title: "Fel",
@@ -255,15 +251,17 @@ export default function SettingsPageClient() {
       return
     }
 
-    setCurrentUser((user) =>
+    await mutateCurrentUser((user) =>
       user
         ? {
             ...user,
-            name: result.name || name,
-            phone: result.phone ?? phone,
+            name: result.name || nextName,
+            phone: result.phone ?? nextPhone,
           }
-        : user
+        : user,
+      { revalidate: false }
     )
+    await invalidateSettingsCaches()
     setToast({
       type: "success",
       title: "Klart",
@@ -284,10 +282,10 @@ export default function SettingsPageClient() {
       },
       credentials: "include",
       body: JSON.stringify({
-        certificateNumber: certificationNumber,
-        issuer: certificationIssuer,
-        category: certificationCategory,
-        validUntil: certificationValidUntil,
+        certificateNumber: certificationNumberValue,
+        issuer: certificationIssuerValue,
+        category: certificationCategoryValue,
+        validUntil: certificationValidUntilValue,
       }),
     })
 
@@ -305,7 +303,8 @@ export default function SettingsPageClient() {
       return
     }
 
-    setTechnicianCertification(result)
+    await mutateTechnicianCertification(result, { revalidate: false })
+    await invalidateServicepartnerCaches()
     setCertificationNumber(result.certificateNumber || "")
     setCertificationIssuer(result.issuer || "")
     setCertificationValidUntil(toDateInputValue(result.validUntil))
@@ -351,7 +350,12 @@ export default function SettingsPageClient() {
       return
     }
 
-    setCertificationDocument(result.document ?? null)
+    setCertificationDocumentOverride(result.document ?? null)
+    await mutateCertificationDocument(
+      { document: result.document ?? null },
+      { revalidate: false }
+    )
+    await invalidateServicepartnerCaches()
     setSelectedCertificationDocument(null)
     setToast({
       type: "success",
@@ -383,7 +387,9 @@ export default function SettingsPageClient() {
       return
     }
 
-    setCertificationDocument(null)
+    setCertificationDocumentOverride(null)
+    await mutateCertificationDocument({ document: null }, { revalidate: false })
+    await invalidateServicepartnerCaches()
     setToast({
       type: "success",
       title: "Klart",
@@ -470,10 +476,12 @@ export default function SettingsPageClient() {
       return
     }
 
-    setNotifications(result as NotificationPreferences)
-    setCurrentUser((user) =>
-      user ? { ...user, ...(result as NotificationPreferences) } : user
+    setNotificationsDraft(result as NotificationPreferences)
+    await mutateCurrentUser(
+      (user) => (user ? { ...user, ...(result as NotificationPreferences) } : user),
+      { revalidate: false }
     )
+    await invalidateNotificationCaches()
     setToast({
       type: "success",
       title: "Klart",
@@ -493,14 +501,16 @@ export default function SettingsPageClient() {
     key: keyof NotificationPreferences,
     value: boolean
   ) {
-    setNotifications((current) =>
-      current
+    setNotificationsDraft((current) => {
+      const base =
+        current ?? (currentUser ? extractNotificationPreferences(currentUser) : null)
+      return base
         ? {
-            ...current,
+            ...base,
             [key]: value,
           }
-        : current
-    )
+        : null
+    })
   }
 
   return (
@@ -510,10 +520,14 @@ export default function SettingsPageClient() {
         subtitle="Hantera profil, säkerhet, utseende och notifieringar för ditt eget användarkonto."
       />
 
-      {isLoading && <SettingsLoadingSkeleton />}
-      {error && <p className="mt-8 font-semibold text-red-700">{error}</p>}
+      {isLoading && !currentUser && <SettingsLoadingSkeleton />}
+      {hasBlockingError && loadError && !isUnauthorizedApiError(loadError) && (
+        <p className="mt-8 font-semibold text-red-700">
+          {loadError.message || "Kunde inte hämta dina inställningar"}
+        </p>
+      )}
 
-      {!isLoading && currentUser && notifications && (
+      {(!isLoading || currentUser) && !hasBlockingError && currentUser && notifications && (
         <div className="mt-8 grid gap-6">
           <Card className="p-5">
             <SectionHeader
@@ -526,7 +540,7 @@ export default function SettingsPageClient() {
                 <input
                   className={inputClassName}
                   name="name"
-                  value={name}
+                  value={profileName}
                   onChange={(event) => setName(event.target.value)}
                   required
                 />
@@ -539,7 +553,7 @@ export default function SettingsPageClient() {
                   name="phone"
                   placeholder="070-123 45 67"
                   type="tel"
-                  value={phone}
+                  value={profilePhone}
                   onChange={(event) => setPhone(event.target.value)}
                 />
                 <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
@@ -567,6 +581,11 @@ export default function SettingsPageClient() {
                 >
                   {isSavingProfile ? "Sparar..." : "Spara profil"}
                 </Button>
+                {profileError && (
+                  <p className="text-sm font-semibold text-red-700">
+                    {profileError}
+                  </p>
+                )}
               </div>
             </form>
           </Card>
@@ -593,7 +612,7 @@ export default function SettingsPageClient() {
                   <input
                     className={inputClassName}
                     name="certificationNumber"
-                    value={certificationNumber}
+                    value={certificationNumberValue}
                     onChange={(event) =>
                       setCertificationNumber(event.target.value)
                     }
@@ -607,7 +626,7 @@ export default function SettingsPageClient() {
                   <input
                     className={inputClassName}
                     name="certificationIssuer"
-                    value={certificationIssuer}
+                    value={certificationIssuerValue}
                     onChange={(event) =>
                       setCertificationIssuer(event.target.value)
                     }
@@ -618,7 +637,7 @@ export default function SettingsPageClient() {
                   <input
                     className={inputClassName}
                     name="certificationCategory"
-                    value={certificationCategory}
+                    value={certificationCategoryValue}
                     onChange={(event) =>
                       setCertificationCategory(event.target.value)
                     }
@@ -630,7 +649,7 @@ export default function SettingsPageClient() {
                     className={inputClassName}
                     name="certificationValidUntil"
                     type="date"
-                    value={certificationValidUntil}
+                    value={certificationValidUntilValue}
                     onChange={(event) =>
                       setCertificationValidUntil(event.target.value)
                     }
