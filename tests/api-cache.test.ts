@@ -75,6 +75,12 @@ describe("client API cache helpers", () => {
     )
     expect(API_CACHE_KEYS.propertiesOverview).toBe("/api/properties/overview")
     expect(API_CACHE_KEYS.dataQuality).toBe("/api/dashboard/data-quality")
+    expect(API_CACHE_KEYS.reportsFgas("reportType=annual&year=2026")).toBe(
+      "/api/reports/fgas?reportType=annual&year=2026"
+    )
+    expect(
+      API_CACHE_KEYS.reportsAnnualFgasHistory("reportType=annual&year=2026")
+    ).toBe("/api/reports/annual-fgas/history?reportType=annual&year=2026")
     expect(API_CACHE_KEYS.savedFilters("actions")).toBe(
       "/api/saved-filters?page=actions"
     )

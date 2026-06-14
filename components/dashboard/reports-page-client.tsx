@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useEffect, useId, useMemo, useRef, useState } from "react"
+import { useEffect, useId, useMemo, useState } from "react"
 import {
   Badge,
   Card,
@@ -12,6 +12,12 @@ import {
   Toast,
   buttonClassName,
 } from "@/components/ui"
+import {
+  API_CACHE_KEYS,
+  invalidateReportCaches,
+  isUnauthorizedApiError,
+  useApiQuery,
+} from "@/lib/client/api-cache"
 import type { DataQualityIssue } from "@/lib/dashboard/data-quality"
 import { getInstallationEventAmountLabel } from "@/lib/installation-events"
 import {
@@ -195,16 +201,8 @@ export default function ReportsPage() {
   const [selectedPropertyId, setSelectedPropertyId] = useState(
     searchParams.get("propertyId") ?? ""
   )
-  const [properties, setProperties] = useState<PropertyOption[]>([])
-  const [signedReports, setSignedReports] = useState<SignedReportHistoryItem[]>([])
-  const [dataQualityIssues, setDataQualityIssues] = useState<DataQualityIssue[]>([])
-  const [reportData, setReportData] = useState<ReportData | null>(null)
-  const annualReportOverviewRef = useRef<AnnualReportOverview | null>(null)
-  const propertiesRef = useRef<PropertyOption[]>([])
-  const hasLoadedPropertiesRef = useRef(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isDetailLoading, setIsDetailLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [cachedAnnualReportOverview, setCachedAnnualReportOverview] =
+    useState<AnnualReportOverview | null>(null)
   const [reportNotes, setReportNotes] = useState("")
   const [isAnnualExportModalOpen, setIsAnnualExportModalOpen] = useState(false)
   const [isAnnualPdfExporting, setIsAnnualPdfExporting] = useState(false)
@@ -213,6 +211,11 @@ export default function ReportsPage() {
   const [exportFeedback, setExportFeedback] = useState<ExportFeedback | null>(null)
   const router = useRouter()
   const isAnnualReport = selectedReportType === "annual"
+  const {
+    data: properties = [],
+    error: propertiesError,
+    isLoading: isPropertiesLoading,
+  } = useApiQuery<PropertyOption[]>(API_CACHE_KEYS.properties)
   const municipalityOptions = useMemo(
     () =>
       Array.from(
@@ -237,6 +240,22 @@ export default function ReportsPage() {
 
     return params.toString()
   }, [isAnnualReport, selectedMunicipality, selectedPropertyId, selectedReportType, selectedYear])
+  const reportDataQuery = useMemo(() => {
+    const params = new URLSearchParams(reportQuery)
+
+    if (isAnnualReport && !selectedPropertyId) {
+      params.set("overviewOnly", "1")
+    }
+    if (
+      isAnnualReport &&
+      selectedPropertyId &&
+      cachedAnnualReportOverview
+    ) {
+      params.set("includeAnnualOverview", "0")
+    }
+
+    return params.toString()
+  }, [cachedAnnualReportOverview, isAnnualReport, reportQuery, selectedPropertyId])
   const pdfExportHref = useMemo(() => {
     if (!isReportExportAvailable(selectedReportType)) {
       return null
@@ -263,19 +282,65 @@ export default function ReportsPage() {
     isReportExportAvailable(selectedReportType) &&
     (!isAnnualReport || Boolean(selectedPropertyId))
   const shouldShowReportDetails = !isAnnualReport || Boolean(selectedPropertyId)
+  const {
+    data: rawReportData = null,
+    error: reportError,
+    isLoading: isReportLoading,
+    isValidating: isReportValidating,
+  } = useApiQuery<ReportData>(API_CACHE_KEYS.reportsFgas(reportDataQuery), {
+    onSuccess(data) {
+      if (data.annualReportOverview) {
+        setCachedAnnualReportOverview(data.annualReportOverview)
+      }
+    },
+  })
+  const {
+    data: signedReports = [],
+    error: signedReportsError,
+    isLoading: isSignedReportsLoading,
+    mutate: mutateSignedReports,
+  } = useApiQuery<SignedReportHistoryItem[]>(
+    API_CACHE_KEYS.reportsAnnualFgasHistory(reportQuery)
+  )
+  const {
+    data: dataQualityData = null,
+    error: dataQualityError,
+    isLoading: isDataQualityLoading,
+  } = useApiQuery<{ issues?: DataQualityIssue[] }>(
+    isAnnualReport ? API_CACHE_KEYS.dataQuality : null
+  )
+  const reportData = useMemo(() => {
+    if (!rawReportData) return null
+
+    if (rawReportData.annualReportOverview) {
+      return rawReportData
+    }
+    if (cachedAnnualReportOverview) {
+      return {
+        ...rawReportData,
+        annualReportOverview: cachedAnnualReportOverview,
+      }
+    }
+
+    return rawReportData
+  }, [cachedAnnualReportOverview, rawReportData])
+  const dataQualityIssues = dataQualityData?.issues ?? []
+  const loadError =
+    reportError ?? propertiesError ?? signedReportsError ?? dataQualityError
+  const isLoading =
+    (!rawReportData && isReportLoading) ||
+    (properties.length === 0 && isPropertiesLoading) ||
+    (signedReports.length === 0 && isSignedReportsLoading) ||
+    (isAnnualReport && !dataQualityData && isDataQualityLoading)
+  const isDetailLoading =
+    Boolean(
+      selectedPropertyId &&
+        cachedAnnualReportOverview &&
+        rawReportData &&
+        isReportValidating
+    )
   function dismissExportFeedback() {
     setExportFeedback(null)
-  }
-
-  async function refreshSignedReportsHistory() {
-    const response = await fetch(`/api/reports/annual-fgas/history?${reportQuery}`, {
-      credentials: "include",
-    })
-
-    if (response.ok) {
-      const signedReportsData: SignedReportHistoryItem[] = await response.json()
-      setSignedReports(signedReportsData)
-    }
   }
 
   async function handleAnnualPdfExport(signed: boolean) {
@@ -315,7 +380,10 @@ export default function ReportsPage() {
       })
 
       if (signed) {
-        void refreshSignedReportsHistory()
+        void Promise.all([
+          mutateSignedReports(),
+          invalidateReportCaches(),
+        ])
       }
     } catch (error) {
       console.error("Annual PDF export error:", error)
@@ -332,108 +400,10 @@ export default function ReportsPage() {
   }
 
   useEffect(() => {
-    let isMounted = true
-
-    async function fetchReport() {
-      const canReuseAnnualOverview =
-        isAnnualReport && selectedPropertyId && annualReportOverviewRef.current
-      const requestParams = new URLSearchParams(reportQuery)
-      const shouldFetchProperties = !hasLoadedPropertiesRef.current
-
-      if (isAnnualReport && !selectedPropertyId) {
-        requestParams.set("overviewOnly", "1")
-      }
-      if (canReuseAnnualOverview) {
-        requestParams.set("includeAnnualOverview", "0")
-        setIsDetailLoading(true)
-      } else {
-        setIsLoading(true)
-      }
-      setError("")
-
-      const [
-        response,
-        propertiesResponse,
-        signedReportsResponse,
-        dataQualityResponse,
-      ] = await Promise.all([
-        fetch(`/api/reports/fgas?${requestParams.toString()}`, {
-          credentials: "include",
-        }),
-        shouldFetchProperties
-          ? fetch("/api/properties", {
-              credentials: "include",
-            })
-          : Promise.resolve(null),
-        fetch(`/api/reports/annual-fgas/history?${reportQuery}`, {
-          credentials: "include",
-        }),
-        isAnnualReport
-          ? fetch("/api/dashboard/data-quality", {
-              credentials: "include",
-            })
-          : Promise.resolve(null),
-      ])
-
-      if (
-        response.status === 401 ||
-        propertiesResponse?.status === 401 ||
-        signedReportsResponse.status === 401 ||
-        dataQualityResponse?.status === 401
-      ) {
-        router.push("/login")
-        return
-      }
-
-      if (
-        !response.ok ||
-        propertiesResponse?.ok === false ||
-        !signedReportsResponse.ok ||
-        dataQualityResponse?.ok === false
-      ) {
-        if (!isMounted) return
-        setError("Kunde inte hämta årsrapporten")
-        setIsLoading(false)
-        setIsDetailLoading(false)
-        return
-      }
-
-      const data: ReportData = await response.json()
-      const propertiesData: PropertyOption[] = propertiesResponse
-        ? await propertiesResponse.json()
-        : propertiesRef.current
-      const signedReportsData: SignedReportHistoryItem[] =
-        await signedReportsResponse.json()
-      const dataQualityData: { issues?: DataQualityIssue[] } | null =
-        dataQualityResponse ? await dataQualityResponse.json() : null
-
-      if (!isMounted) return
-
-      if (data.annualReportOverview) {
-        annualReportOverviewRef.current = data.annualReportOverview
-      } else if (annualReportOverviewRef.current) {
-        data.annualReportOverview = annualReportOverviewRef.current
-      }
-      setReportData(data)
-      if (propertiesResponse) {
-        propertiesRef.current = propertiesData
-        hasLoadedPropertiesRef.current = true
-        setProperties(propertiesData)
-      }
-      if (dataQualityData) {
-        setDataQualityIssues(dataQualityData.issues ?? [])
-      }
-      setSignedReports(signedReportsData)
-      setIsLoading(false)
-      setIsDetailLoading(false)
+    if (isUnauthorizedApiError(loadError)) {
+      router.push("/login")
     }
-
-    void fetchReport()
-
-    return () => {
-      isMounted = false
-    }
-  }, [isAnnualReport, reportQuery, router, selectedPropertyId])
+  }, [loadError, router])
 
   useEffect(() => {
     if (!isAnnualReport || !selectedPropertyId || !reportData?.qualitySummary) {
@@ -596,7 +566,11 @@ export default function ReportsPage() {
       )}
 
       {isLoading && <ReportsLoadingSkeleton isAnnualReport={isAnnualReport} />}
-      {error && <p className="mt-8 text-red-700">{error}</p>}
+      {loadError && !reportData && !isUnauthorizedApiError(loadError) && (
+        <p className="mt-8 text-red-700">
+          {loadError.message || "Kunde inte hämta årsrapporten"}
+        </p>
+      )}
 
       {reportData && !isLoading && (
         <>

@@ -10,6 +10,10 @@ export const API_CACHE_KEYS = {
   dashboard: "/api/dashboard/compliance",
   dataQuality: "/api/dashboard/data-quality",
   notifications: "/api/dashboard/notifications",
+  reportsFgas: (queryString: string) =>
+    `/api/reports/fgas${queryString ? `?${queryString}` : ""}`,
+  reportsAnnualFgasHistory: (queryString: string) =>
+    `/api/reports/annual-fgas/history${queryString ? `?${queryString}` : ""}`,
   company: "/api/company",
   companyInvitations: "/api/company/invitations",
   contractorCertification: (userId: string) =>
@@ -103,6 +107,24 @@ export async function invalidateNotificationCaches() {
     mutateGlobal(API_CACHE_KEYS.notifications),
     mutateGlobal(API_CACHE_KEYS.company),
     mutateGlobal(API_CACHE_KEYS.dashboard),
+  ])
+}
+
+export async function invalidateReportCaches(queryString?: string) {
+  await Promise.all([
+    queryString
+      ? mutateGlobal(API_CACHE_KEYS.reportsFgas(queryString))
+      : mutateGlobal((key) =>
+          typeof key === "string" && key.startsWith("/api/reports/fgas")
+        ),
+    queryString
+      ? mutateGlobal(API_CACHE_KEYS.reportsAnnualFgasHistory(queryString))
+      : mutateGlobal((key) =>
+          typeof key === "string" &&
+          key.startsWith("/api/reports/annual-fgas/history")
+        ),
+    mutateGlobal(API_CACHE_KEYS.dashboard),
+    mutateGlobal(API_CACHE_KEYS.dataQuality),
   ])
 }
 
