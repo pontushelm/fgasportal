@@ -5,6 +5,7 @@ import {
   ApiFetchError,
   apiFetcher,
   invalidateInstallationCaches,
+  isNotFoundApiError,
   isUnauthorizedApiError,
 } from "@/lib/client/api-cache"
 
@@ -53,6 +54,12 @@ describe("client API cache helpers", () => {
     expect(isUnauthorizedApiError(new ApiFetchError("Logga in", 401))).toBe(true)
     expect(isUnauthorizedApiError(new ApiFetchError("Fel", 500))).toBe(false)
     expect(isUnauthorizedApiError(new Error("Fel"))).toBe(false)
+  })
+
+  it("identifies not found API errors", () => {
+    expect(isNotFoundApiError(new ApiFetchError("Saknas", 404))).toBe(true)
+    expect(isNotFoundApiError(new ApiFetchError("Fel", 500))).toBe(false)
+    expect(isNotFoundApiError(new Error("Fel"))).toBe(false)
   })
 
   it("exposes stable cache keys for migrated pages", () => {

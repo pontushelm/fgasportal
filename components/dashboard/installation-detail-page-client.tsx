@@ -6,6 +6,13 @@ import { Badge, Toast, type ToastMessage } from "@/components/ui"
 import { RefrigerantCombobox } from "@/components/installations/refrigerant-combobox"
 import type { CertificationStatusResult } from "@/lib/certification-status"
 import {
+  API_CACHE_KEYS,
+  invalidateInstallationCaches,
+  isNotFoundApiError,
+  isUnauthorizedApiError,
+  useApiQuery,
+} from "@/lib/client/api-cache"
+import {
   calculateCO2e,
   calculateInspectionObligation,
   calculateInstallationCompliance,
@@ -443,16 +450,59 @@ export default function InstallationDetailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [installation, setInstallation] = useState<InstallationDetail | null>(null)
-  const [events, setEvents] = useState<InstallationEvent[]>([])
-  const [documents, setDocuments] = useState<InstallationDocument[]>([])
-  const [activityLogs, setActivityLogs] = useState<ActivityLogEntry[]>([])
-  const [contractors, setContractors] = useState<Contractor[]>([])
-  const [servicePartnerCompanies, setServicePartnerCompanies] = useState<ServicePartnerCompanySummary[]>([])
-  const [properties, setProperties] = useState<PropertyOption[]>([])
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState("")
+  const installationId = params.id
+  const {
+    data: installation = null,
+    error: installationError,
+    isLoading: isInstallationLoading,
+  } = useApiQuery<InstallationDetail>(API_CACHE_KEYS.installationDetail(installationId))
+  const {
+    data: events = [],
+    error: eventsError,
+    mutate: mutateEvents,
+  } = useApiQuery<InstallationEvent[]>(API_CACHE_KEYS.installationEvents(installationId))
+  const {
+    data: documents = [],
+    error: documentsError,
+    mutate: mutateDocuments,
+  } = useApiQuery<InstallationDocument[]>(
+    API_CACHE_KEYS.installationDocuments(installationId)
+  )
+  const {
+    data: activityLogs = [],
+    error: activityError,
+    mutate: mutateActivity,
+  } = useApiQuery<ActivityLogEntry[]>(API_CACHE_KEYS.installationActivity(installationId))
+  const {
+    data: currentUser = null,
+    error: currentUserError,
+    isLoading: isCurrentUserLoading,
+  } = useApiQuery<CurrentUser>(API_CACHE_KEYS.authMe)
+  const {
+    data: properties = [],
+    error: propertiesError,
+    isLoading: isPropertiesLoading,
+  } = useApiQuery<PropertyOption[]>(
+    currentUser && isAdminRole(currentUser.role) ? API_CACHE_KEYS.properties : null
+  )
+  const {
+    data: contractors = [],
+    error: contractorsError,
+    isLoading: isContractorsLoading,
+  } = useApiQuery<Contractor[]>(
+    currentUser && isAdminRole(currentUser.role)
+      ? API_CACHE_KEYS.companyContractors
+      : null
+  )
+  const {
+    data: servicePartnerCompanies = [],
+    error: servicePartnerCompaniesError,
+    isLoading: isServicePartnerCompaniesLoading,
+  } = useApiQuery<ServicePartnerCompanySummary[]>(
+    currentUser && isAdminRole(currentUser.role)
+      ? API_CACHE_KEYS.servicePartnerCompanies
+      : null
+  )
   const [eventForm, setEventForm] = useState<EventFormData>(initialEventFormData)
   const [documentForm, setDocumentForm] = useState<DocumentFormData>(
     initialDocumentFormData
@@ -488,126 +538,32 @@ export default function InstallationDetailPage() {
   const [isInspectionHistoryExpanded, setIsInspectionHistoryExpanded] = useState(false)
   const [isEventTimelineExpanded, setIsEventTimelineExpanded] = useState(false)
   const [isActivityLogExpanded, setIsActivityLogExpanded] = useState(false)
-  const [refreshKey, setRefreshKey] = useState(0)
+  const loadError =
+    installationError ??
+    eventsError ??
+    documentsError ??
+    activityError ??
+    currentUserError ??
+    propertiesError ??
+    contractorsError ??
+    servicePartnerCompaniesError
+  const isLoading =
+    (!installation && isInstallationLoading) ||
+    (!currentUser && isCurrentUserLoading) ||
+    (currentUser && isAdminRole(currentUser.role) && isPropertiesLoading) ||
+    (currentUser && isAdminRole(currentUser.role) && isContractorsLoading) ||
+    (currentUser && isAdminRole(currentUser.role) && isServicePartnerCompaniesLoading)
+  const error = isNotFoundApiError(loadError)
+    ? "Aggregatet hittades inte"
+    : loadError && !isUnauthorizedApiError(loadError)
+      ? loadError.message || "Kunde inte hämta aggregatet"
+      : ""
 
   useEffect(() => {
-    let isMounted = true
-
-    async function fetchInstallation() {
-      const [installationRes, userRes, eventsRes, documentsRes, activityRes] =
-        await Promise.all([
-          fetch(`/api/installations/${params.id}`, {
-            credentials: "include",
-          }),
-          fetch("/api/auth/me", {
-            credentials: "include",
-          }),
-          fetch(`/api/installations/${params.id}/events`, {
-            credentials: "include",
-          }),
-          fetch(`/api/installations/${params.id}/documents`, {
-            credentials: "include",
-          }),
-          fetch(`/api/installations/${params.id}/activity`, {
-            credentials: "include",
-          }),
-        ])
-
-      if (
-        installationRes.status === 401 ||
-        userRes.status === 401 ||
-        eventsRes.status === 401 ||
-        documentsRes.status === 401 ||
-        activityRes.status === 401
-      ) {
-        router.push("/login")
-        return
-      }
-
-      if (installationRes.status === 404) {
-        if (!isMounted) return
-        setError("Aggregatet hittades inte")
-        setIsLoading(false)
-        return
-      }
-
-      if (
-        !installationRes.ok ||
-        !userRes.ok ||
-        !eventsRes.ok ||
-        !documentsRes.ok ||
-        !activityRes.ok
-      ) {
-        if (!isMounted) return
-        setError("Kunde inte hämta aggregatet")
-        setIsLoading(false)
-        return
-      }
-
-      const data: InstallationDetail = await installationRes.json()
-      const userData: CurrentUser = await userRes.json()
-      const eventsData: InstallationEvent[] = await eventsRes.json()
-      const documentsData: InstallationDocument[] = await documentsRes.json()
-      const activityData: ActivityLogEntry[] = await activityRes.json()
-      const propertiesData: PropertyOption[] =
-        isAdminRole(userData.role)
-          ? await fetch("/api/properties", {
-              credentials: "include",
-            }).then((response) => (response.ok ? response.json() : []))
-          : []
-      const contractorsData: Contractor[] =
-        isAdminRole(userData.role)
-          ? await fetch("/api/company/contractors", {
-              credentials: "include",
-            }).then((response) => (response.ok ? response.json() : []))
-          : []
-      const servicePartnerCompaniesData: ServicePartnerCompanySummary[] =
-        isAdminRole(userData.role)
-          ? await fetch("/api/service-partner-companies", {
-              credentials: "include",
-            }).then((response) => (response.ok ? response.json() : []))
-          : []
-
-      if (!isMounted) return
-
-      setInstallation(data)
-      setEvents(eventsData)
-      setDocuments(documentsData)
-      setActivityLogs(activityData)
-      setContractors(contractorsData)
-      setServicePartnerCompanies(servicePartnerCompaniesData)
-      setProperties(propertiesData)
-      setCurrentUser(userData)
-      setEditForm({
-        name: data.name,
-        location: data.location,
-        propertyId: data.propertyId || "",
-        equipmentId: data.equipmentId || "",
-        serialNumber: data.serialNumber || "",
-        propertyName: data.propertyName || "",
-        equipmentType: data.equipmentType || "",
-        operatorName: data.operatorName || "",
-        refrigerantType: data.refrigerantType,
-        refrigerantAmount: String(data.refrigerantAmount),
-        hasLeakDetectionSystem: data.hasLeakDetectionSystem,
-        installationDate: toDateInputValue(data.installationDate),
-        isInstallationDateUnknown: !data.installationDate,
-        assignedServicePartnerCompanyId:
-          data.assignedServicePartnerCompany?.id ??
-          data.assignedContractor?.servicePartnerCompany?.id ??
-          "",
-        assignedContractorId: data.assignedContractorId || "",
-        notes: data.notes || "",
-      })
-      setIsLoading(false)
+    if (isUnauthorizedApiError(loadError)) {
+      router.push("/login")
     }
-
-    void fetchInstallation()
-
-    return () => {
-      isMounted = false
-    }
-  }, [params.id, refreshKey, router])
+  }, [loadError, router])
 
   function handleEventChange(
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -843,6 +799,9 @@ export default function InstallationDetailPage() {
   }
 
   function openEditModal() {
+    if (installation) {
+      setEditForm(toInstallationEditFormData(installation))
+    }
     setEditError("")
     setIsEditing(true)
   }
@@ -887,7 +846,7 @@ export default function InstallationDetailPage() {
       message: "Aggregatet har uppdaterats.",
     })
     setIsEditing(false)
-    setRefreshKey((current) => current + 1)
+    void invalidateInstallationCaches(installationId)
     setIsSavingEdit(false)
   }
 
@@ -931,6 +890,7 @@ export default function InstallationDetailPage() {
       message: "Aggregatet har arkiverats.",
     })
     setIsEventModalOpen(false)
+    void invalidateInstallationCaches(installationId)
     router.push("/dashboard")
   }
 
@@ -983,7 +943,7 @@ export default function InstallationDetailPage() {
     setEventForm(initialEventFormData)
     setScrapForm(initialScrapFormData)
     setScrapCertificateFile(null)
-    setRefreshKey((current) => current + 1)
+    void invalidateInstallationCaches(installationId)
     setIsScrapping(false)
   }
 
@@ -1062,34 +1022,24 @@ export default function InstallationDetailPage() {
     }
 
     const createdEvent = result.event
-    setEvents((current) =>
-      [
-        createdEvent,
-        ...current.map((existingEvent) =>
-          correctingEvent && existingEvent.id === correctingEvent.id
-            ? {
-                ...existingEvent,
-                supersededAt: new Date().toISOString(),
-                supersededByEventId: createdEvent.id,
-                supersededReason:
-                  eventForm.supersededReason.trim() || "Korrigerad händelse",
-              }
-            : existingEvent
-        ),
-      ].sort(compareEventsByDateDesc)
+    void mutateEvents(
+      (current = []) =>
+        [
+          createdEvent,
+          ...current.map((existingEvent) =>
+            correctingEvent && existingEvent.id === correctingEvent.id
+              ? {
+                  ...existingEvent,
+                  supersededAt: new Date().toISOString(),
+                  supersededByEventId: createdEvent.id,
+                  supersededReason:
+                    eventForm.supersededReason.trim() || "Korrigerad händelse",
+                }
+              : existingEvent
+          ),
+        ].sort(compareEventsByDateDesc),
+      { revalidate: false }
     )
-
-    if (result.inspectionSchedule) {
-      setInstallation((current) =>
-        current
-          ? {
-              ...current,
-              lastInspection: result.inspectionSchedule?.lastInspection ?? null,
-              nextInspection: result.inspectionSchedule?.nextInspection ?? null,
-            }
-          : current
-      )
-    }
 
     setEventForm(initialEventFormData)
     setToast({
@@ -1101,7 +1051,11 @@ export default function InstallationDetailPage() {
     })
     setCorrectingEvent(null)
     setIsEventModalOpen(false)
-    setRefreshKey((current) => current + 1)
+    void Promise.all([
+      mutateEvents(),
+      mutateActivity(),
+      invalidateInstallationCaches(installationId),
+    ])
     setIsSubmittingEvent(false)
   }
 
@@ -1142,7 +1096,9 @@ export default function InstallationDetailPage() {
       return
     }
 
-    setDocuments((current) => [result, ...current])
+    void mutateDocuments((current = []) => [result, ...current], {
+      revalidate: false,
+    })
     setDocumentForm(initialDocumentFormData)
     setDocumentFile(null)
     setToast({
@@ -1151,7 +1107,11 @@ export default function InstallationDetailPage() {
       message: "Dokumentet har laddats upp.",
     })
     setIsDocumentModalOpen(false)
-    setRefreshKey((current) => current + 1)
+    void Promise.all([
+      mutateDocuments(),
+      mutateActivity(),
+      invalidateInstallationCaches(installationId),
+    ])
     setIsUploadingDocument(false)
   }
 
@@ -1178,13 +1138,20 @@ export default function InstallationDetailPage() {
       return
     }
 
-    setDocuments((current) => current.filter((document) => document.id !== documentId))
+    void mutateDocuments(
+      (current = []) => current.filter((document) => document.id !== documentId),
+      { revalidate: false }
+    )
     setToast({
       type: "success",
       title: "Klart",
       message: "Dokumentet har tagits bort.",
     })
-    setRefreshKey((current) => current + 1)
+    void Promise.all([
+      mutateDocuments(),
+      mutateActivity(),
+      invalidateInstallationCaches(installationId),
+    ])
     setDeletingDocumentId(null)
   }
 
@@ -1218,6 +1185,7 @@ export default function InstallationDetailPage() {
       return
     }
 
+    void invalidateInstallationCaches(installationId)
     router.push("/dashboard/installations")
   }
 
@@ -3058,6 +3026,32 @@ function getTodayInputValue() {
 
 function toDateInputValue(value?: string | null) {
   return value ? new Date(value).toISOString().slice(0, 10) : ""
+}
+
+function toInstallationEditFormData(
+  installation: InstallationDetail
+): InstallationEditFormData {
+  return {
+    name: installation.name,
+    location: installation.location,
+    propertyId: installation.propertyId || "",
+    equipmentId: installation.equipmentId || "",
+    serialNumber: installation.serialNumber || "",
+    propertyName: installation.propertyName || "",
+    equipmentType: installation.equipmentType || "",
+    operatorName: installation.operatorName || "",
+    refrigerantType: installation.refrigerantType,
+    refrigerantAmount: String(installation.refrigerantAmount),
+    hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
+    installationDate: toDateInputValue(installation.installationDate),
+    isInstallationDateUnknown: !installation.installationDate,
+    assignedServicePartnerCompanyId:
+      installation.assignedServicePartnerCompany?.id ??
+      installation.assignedContractor?.servicePartnerCompany?.id ??
+      "",
+    assignedContractorId: installation.assignedContractorId || "",
+    notes: installation.notes || "",
+  }
 }
 
 function getCertificationWarning(status: CertificationStatusResult | null) {

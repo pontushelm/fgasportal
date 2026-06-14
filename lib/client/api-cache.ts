@@ -91,6 +91,10 @@ export function isForbiddenApiError(error: unknown) {
   return error instanceof ApiFetchError && error.status === 403
 }
 
+export function isNotFoundApiError(error: unknown) {
+  return error instanceof ApiFetchError && error.status === 404
+}
+
 export async function invalidateDashboardCaches() {
   await Promise.all([
     mutateGlobal(API_CACHE_KEYS.dashboard),
