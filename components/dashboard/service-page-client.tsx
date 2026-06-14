@@ -4,6 +4,14 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import { Badge, Toast, type ToastMessage } from "@/components/ui"
+import {
+  API_CACHE_KEYS,
+  invalidateActionCaches,
+  invalidateDashboardCaches,
+  invalidateServicepartnerCaches,
+  isUnauthorizedApiError,
+  useApiQuery,
+} from "@/lib/client/api-cache"
 import type { CertificationStatusResult } from "@/lib/certification-status"
 import type {
   DashboardActionSeverity,
@@ -132,6 +140,10 @@ type CertificationFormData = {
   certificationValidUntil: string
 }
 
+const EMPTY_SERVICE_INSTALLATIONS: ServiceInstallation[] = []
+const EMPTY_SERVICE_ACTIONS: ServiceAction[] = []
+const EMPTY_SERVICE_TECHNICIANS: ServiceTechnician[] = []
+
 type TechnicianCertificationFormData = {
   certificateNumber: string
   issuer: string
@@ -237,21 +249,47 @@ export default function ServiceDashboardPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const activeQualityFilter = getTechnicianQualityFilter(searchParams.get("quality"))
-  const [installations, setInstallations] = useState<ServiceInstallation[]>([])
-  const [actions, setActions] = useState<ServiceAction[]>([])
-  const [technicians, setTechnicians] = useState<ServiceTechnician[]>([])
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
-  const [certification, setCertification] = useState<CertificationData | null>(null)
+  const {
+    data: installations = EMPTY_SERVICE_INSTALLATIONS,
+    error: installationsError,
+    isLoading: isInstallationsLoading,
+    mutate: mutateInstallations,
+  } = useApiQuery<ServiceInstallation[]>(API_CACHE_KEYS.serviceDashboard)
+  const {
+    data: currentUser = null,
+    error: userError,
+    isLoading: isUserLoading,
+  } = useApiQuery<CurrentUser>(API_CACHE_KEYS.authMe)
+  const {
+    data: actionsData,
+    error: actionsError,
+    isLoading: isActionsLoading,
+  } = useApiQuery<ActionsResponse>(API_CACHE_KEYS.actions)
+  const {
+    data: technicians = EMPTY_SERVICE_TECHNICIANS,
+    error: techniciansError,
+    isLoading: isTechniciansLoading,
+    mutate: mutateTechnicians,
+  } = useApiQuery<ServiceTechnician[]>(
+    currentUser?.isServicePartnerAdmin ? API_CACHE_KEYS.serviceTechnicians : null
+  )
+  const {
+    data: certification = null,
+    error: certificationErrorResponse,
+    isLoading: isCertificationLoading,
+    mutate: mutateCertification,
+  } = useApiQuery<CertificationData>(
+    currentUser ? API_CACHE_KEYS.contractorCertification(currentUser.userId) : null
+  )
   const [certificationForm, setCertificationForm] =
     useState<CertificationFormData>(initialCertificationForm)
   const [eventForm, setEventForm] = useState<EventFormData>(initialEventForm)
-  const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [assigningInstallationId, setAssigningInstallationId] = useState("")
   const [isSavingCertification, setIsSavingCertification] = useState(false)
   const [assignmentFilter, setAssignmentFilter] =
     useState<"all" | "unassigned" | "assigned">("all")
-  const [error, setError] = useState("")
+  const [serviceError, setServiceError] = useState("")
   const [certificationError, setCertificationError] = useState("")
   const [editingTechnician, setEditingTechnician] =
     useState<ServiceTechnician | null>(null)
@@ -284,88 +322,31 @@ export default function ServiceDashboardPage() {
     setIsDeletingTechnicianCertificationDocument,
   ] = useState(false)
   const [toast, setToast] = useState<ToastMessage | null>(null)
+  const actions = actionsData?.actions ?? EMPTY_SERVICE_ACTIONS
+  const loadError =
+    installationsError ??
+    userError ??
+    actionsError ??
+    techniciansError ??
+    certificationErrorResponse
+  const isLoading =
+    isInstallationsLoading ||
+    isUserLoading ||
+    isActionsLoading ||
+    (currentUser?.isServicePartnerAdmin ? isTechniciansLoading : false) ||
+    (currentUser ? isCertificationLoading : false)
+  const hasBlockingError = Boolean(
+    loadError && (installationsError || userError || installations.length === 0)
+  )
 
   useEffect(() => {
-    let isMounted = true
-
-    async function fetchInstallations() {
-      setIsLoading(true)
-      setError("")
-
-      const [response, userResponse, actionsResponse] = await Promise.all([
-        fetch("/api/dashboard/service", {
-          credentials: "include",
-        }),
-        fetch("/api/auth/me", {
-          credentials: "include",
-        }),
-        fetch("/api/dashboard/actions", {
-          credentials: "include",
-        }),
-      ])
-
-      if (
-        response.status === 401 ||
-        userResponse.status === 401 ||
-        actionsResponse.status === 401
-      ) {
-        router.push("/login")
-        return
-      }
-
-      if (response.status === 403) {
-        if (!isMounted) return
-        setError("Serviceuppdrag är endast tillgängligt för servicekontakter.")
-        setIsLoading(false)
-        return
-      }
-
-      if (!response.ok || !userResponse.ok || !actionsResponse.ok) {
-        if (!isMounted) return
-        setError("Kunde inte hämta serviceuppdrag.")
-        setIsLoading(false)
-        return
-      }
-
-      const data: ServiceInstallation[] = await response.json()
-      const userData: CurrentUser = await userResponse.json()
-      const actionsData: ActionsResponse = await actionsResponse.json()
-      const techniciansResponse = userData.isServicePartnerAdmin
-        ? await fetch("/api/dashboard/service/technicians", {
-            credentials: "include",
-          })
-        : null
-      const techniciansData: ServiceTechnician[] | null =
-        techniciansResponse?.ok ? await techniciansResponse.json() : null
-      const certificationResponse = await fetch(
-        `/api/company/contractors/${userData.userId}/certification`,
-        {
-          credentials: "include",
-        }
-      )
-      const certificationData: CertificationData | null = certificationResponse.ok
-        ? await certificationResponse.json()
-        : null
-
-      if (!isMounted) return
-      setInstallations(data)
-      setActions(actionsData.actions ?? [])
-      setTechnicians(techniciansData ?? [])
-      setCurrentUser(userData)
-      setCertification(certificationData)
-      setCertificationForm(toCertificationForm(certificationData))
-      setIsLoading(false)
+    if (isUnauthorizedApiError(loadError)) {
+      router.push("/login")
     }
-
-    void fetchInstallations()
-
-    return () => {
-      isMounted = false
-    }
-  }, [router])
+  }, [loadError, router])
 
   function startEvent(installationId: string, type: ServiceEventType) {
-    setError("")
+    setServiceError("")
     setEventForm({
       installationId,
       type,
@@ -453,7 +434,8 @@ export default function ServiceDashboardPage() {
       return
     }
 
-    setCertification(result)
+    await mutateCertification(result, { revalidate: false })
+    await invalidateServicepartnerCaches(currentUser.servicePartnerCompanyId)
     setCertificationForm(toCertificationForm(result))
     setToast({
       type: "success",
@@ -465,10 +447,10 @@ export default function ServiceDashboardPage() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    setError("")
+    setServiceError("")
 
     if (!eventForm.installationId) {
-      setError("Välj ett aggregat först.")
+      setServiceError("Välj ett aggregat först.")
       return
     }
 
@@ -500,7 +482,7 @@ export default function ServiceDashboardPage() {
     }
 
     if (!response.ok) {
-      setError(result.error || "Kunde inte registrera händelsen.")
+      setServiceError(result.error || "Kunde inte registrera händelsen.")
       setToast({
         type: "error",
         title: "Fel",
@@ -516,11 +498,17 @@ export default function ServiceDashboardPage() {
       message: "Händelsen har registrerats.",
     })
     setEventForm(initialEventForm)
+    await Promise.all([
+      mutateInstallations(),
+      invalidateActionCaches(),
+      invalidateDashboardCaches(),
+      invalidateServicepartnerCaches(currentUser?.servicePartnerCompanyId),
+    ])
     setIsSubmitting(false)
   }
 
   async function assignTechnician(installationId: string, technicianId: string) {
-    setError("")
+    setServiceError("")
     setAssigningInstallationId(installationId)
 
     const response = await fetch("/api/dashboard/service/assign-technician", {
@@ -547,7 +535,7 @@ export default function ServiceDashboardPage() {
     }
 
     if (!response.ok || !result.installationId) {
-      setError(result.error || "Kunde inte tilldela tekniker.")
+      setServiceError(result.error || "Kunde inte tilldela tekniker.")
       setToast({
         type: "error",
         title: "Fel",
@@ -557,17 +545,20 @@ export default function ServiceDashboardPage() {
       return
     }
 
-    setInstallations((current) =>
-      current.map((installation) =>
-        installation.id === result.installationId
-          ? {
-              ...installation,
-              assignedContractorId: result.assignedContractorId ?? null,
-              assignedContractor: result.assignedContractor ?? null,
-            }
-          : installation
-      )
+    await mutateInstallations(
+      (current = EMPTY_SERVICE_INSTALLATIONS) =>
+        current.map((installation) =>
+          installation.id === result.installationId
+            ? {
+                ...installation,
+                assignedContractorId: result.assignedContractorId ?? null,
+                assignedContractor: result.assignedContractor ?? null,
+              }
+            : installation
+        ),
+      { revalidate: false }
     )
+    await invalidateServicepartnerCaches(currentUser?.servicePartnerCompanyId)
     setToast({
       type: "success",
       title: "Klart",
@@ -681,16 +672,19 @@ export default function ServiceDashboardPage() {
       return
     }
 
-    setTechnicians((current) =>
-      current.map((technician) =>
-        technician.id === editingTechnician.id
-          ? {
-              ...technician,
-              certification: result,
-            }
-          : technician
-      )
+    await mutateTechnicians(
+      (current = EMPTY_SERVICE_TECHNICIANS) =>
+        current.map((technician) =>
+          technician.id === editingTechnician.id
+            ? {
+                ...technician,
+                certification: result,
+              }
+            : technician
+        ),
+      { revalidate: false }
     )
+    await invalidateServicepartnerCaches(currentUser?.servicePartnerCompanyId)
     setToast({
       type: "success",
       title: "Klart",
@@ -747,6 +741,7 @@ export default function ServiceDashboardPage() {
 
     setTechnicianCertificationDocument(result.document ?? null)
     setSelectedTechnicianCertificationDocument(null)
+    await invalidateServicepartnerCaches(currentUser?.servicePartnerCompanyId)
     setToast({
       type: "success",
       title: "Klart",
@@ -788,6 +783,7 @@ export default function ServiceDashboardPage() {
     }
 
     setTechnicianCertificationDocument(null)
+    await invalidateServicepartnerCaches(currentUser?.servicePartnerCompanyId)
     setToast({
       type: "success",
       title: "Klart",
@@ -873,11 +869,20 @@ export default function ServiceDashboardPage() {
         </p>
       </div>
 
-      {isLoading && <ServiceDashboardLoadingSkeleton />}
-      {error && <p className="mt-8 text-sm font-semibold text-red-700">{error}</p>}
+      {isLoading && installations.length === 0 && !currentUser && (
+        <ServiceDashboardLoadingSkeleton />
+      )}
+      {hasBlockingError && loadError && !isUnauthorizedApiError(loadError) && (
+        <p className="mt-8 text-sm font-semibold text-red-700">
+          {loadError.message || "Kunde inte hämta serviceuppdrag."}
+        </p>
+      )}
+      {serviceError && (
+        <p className="mt-8 text-sm font-semibold text-red-700">{serviceError}</p>
+      )}
       {toast && <Toast onClose={() => setToast(null)} toast={toast} />}
 
-      {!isLoading && !error && (
+      {(!isLoading || installations.length > 0 || currentUser) && !hasBlockingError && (
         <>
           <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             {summaryCards.map((card) => (
@@ -1061,7 +1066,7 @@ export default function ServiceDashboardPage() {
         </>
       )}
 
-      {showCompanyCertificationPanel && !isLoading && !error && certification && !isServicePartnerAdmin && (
+      {showCompanyCertificationPanel && !isLoading && !hasBlockingError && certification && !isServicePartnerAdmin && (
         <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -1131,7 +1136,7 @@ export default function ServiceDashboardPage() {
         </section>
       )}
 
-      {!isLoading && !error && (
+      {(!isLoading || installations.length > 0 || currentUser) && !hasBlockingError && (
         <section className="mt-8">
           {isServicePartnerAdmin && (
             <div className="mb-4 rounded-lg border border-slate-200 bg-white p-4">

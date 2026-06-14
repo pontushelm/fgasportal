@@ -2,8 +2,13 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { Badge, buttonClassName, Card, EmptyState, PageHeader, SectionHeader } from "@/components/ui"
+import {
+  API_CACHE_KEYS,
+  isUnauthorizedApiError,
+  useApiQuery,
+} from "@/lib/client/api-cache"
 import type { CertificationStatusResult } from "@/lib/certification-status"
 import type { ServicePartnerCompanyCertification } from "@/lib/service-partner-company-certifications"
 import type { ServicepartnerLifecycle } from "@/lib/servicepartner-lifecycle"
@@ -121,49 +126,20 @@ export default function ServicePartnerCompanyDetailPageClient({
   companyId: string
 }) {
   const router = useRouter()
-  const [data, setData] = useState<ServicePartnerCompanyDetail | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState("")
+  const {
+    data = null,
+    error,
+    isLoading,
+  } = useApiQuery<ServicePartnerCompanyDetail>(
+    API_CACHE_KEYS.servicePartnerCompany(companyId)
+  )
+  const hasBlockingError = Boolean(error && !data)
 
   useEffect(() => {
-    let isMounted = true
-
-    async function fetchCompany() {
-      setIsLoading(true)
-      setError("")
-
-      const response = await fetch(`/api/service-partner-companies/${companyId}`, {
-        credentials: "include",
-      })
-
-      if (response.status === 401) {
-        router.push("/login")
-        return
-      }
-
-      if (!response.ok) {
-        if (!isMounted) return
-        setError(
-          response.status === 403
-            ? "Du har inte behörighet att se servicepartnerföretaget."
-            : "Kunde inte hämta servicepartnerföretaget."
-        )
-        setIsLoading(false)
-        return
-      }
-
-      const result: ServicePartnerCompanyDetail = await response.json()
-      if (!isMounted) return
-      setData(result)
-      setIsLoading(false)
+    if (isUnauthorizedApiError(error)) {
+      router.push("/login")
     }
-
-    void fetchCompany()
-
-    return () => {
-      isMounted = false
-    }
-  }, [companyId, router])
+  }, [error, router])
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 text-slate-950 dark:text-slate-100 sm:px-6 lg:px-8">
@@ -185,14 +161,18 @@ export default function ServicePartnerCompanyDetailPageClient({
         Servicekontakt eller tekniker visas när en sådan är kopplad.
       </div>
 
-      {isLoading && (
+      {isLoading && !data && (
         <p className="mt-8 text-sm text-slate-700 dark:text-slate-300">
           Laddar servicepartnerföretag...
         </p>
       )}
-      {error && <p className="mt-8 text-sm font-semibold text-red-700">{error}</p>}
+      {hasBlockingError && error && !isUnauthorizedApiError(error) && (
+        <p className="mt-8 text-sm font-semibold text-red-700">
+          {error.message || "Kunde inte hämta servicepartnerföretaget."}
+        </p>
+      )}
 
-      {!isLoading && !error && data && (
+      {(!isLoading || data) && !hasBlockingError && data && (
         <>
           <div className="mt-6 flex flex-wrap gap-2">
             <Link

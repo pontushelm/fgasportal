@@ -9,9 +9,18 @@ export const API_CACHE_KEYS = {
   dataQuality: "/api/dashboard/data-quality",
   notifications: "/api/dashboard/notifications",
   company: "/api/company",
+  contractorCertification: (userId: string) =>
+    `/api/company/contractors/${userId}/certification`,
+  contractorsOverview: "/api/contractors/overview",
   properties: "/api/properties",
   propertiesOverview: "/api/properties/overview",
   savedFilters: (page: string) => `/api/saved-filters?page=${page}`,
+  serviceDashboard: "/api/dashboard/service",
+  servicePartnerCompany: (companyId: string) =>
+    `/api/service-partner-companies/${companyId}`,
+  serviceTechnicians: "/api/dashboard/service/technicians",
+  technicianCertificationDocument: (userId: string) =>
+    `/api/dashboard/service/technicians/${userId}/certification/document`,
 } as const
 
 export class ApiFetchError extends Error {
@@ -81,6 +90,18 @@ export async function invalidateNotificationCaches() {
     mutateGlobal(API_CACHE_KEYS.notifications),
     mutateGlobal(API_CACHE_KEYS.company),
     mutateGlobal(API_CACHE_KEYS.dashboard),
+  ])
+}
+
+export async function invalidateServicepartnerCaches(companyId?: string | null) {
+  await Promise.all([
+    mutateGlobal(API_CACHE_KEYS.contractorsOverview),
+    mutateGlobal(API_CACHE_KEYS.serviceDashboard),
+    mutateGlobal(API_CACHE_KEYS.serviceTechnicians),
+    mutateGlobal(API_CACHE_KEYS.actions),
+    mutateGlobal(API_CACHE_KEYS.dashboard),
+    mutateGlobal(API_CACHE_KEYS.dataQuality),
+    companyId ? mutateGlobal(API_CACHE_KEYS.servicePartnerCompany(companyId)) : Promise.resolve(),
   ])
 }
 

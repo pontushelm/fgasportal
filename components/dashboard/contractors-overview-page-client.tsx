@@ -14,6 +14,12 @@ import {
 } from "@/components/ui"
 import type { CertificationStatusResult } from "@/lib/certification-status"
 import {
+  API_CACHE_KEYS,
+  invalidateServicepartnerCaches,
+  isUnauthorizedApiError,
+  useApiQuery,
+} from "@/lib/client/api-cache"
+import {
   DATA_QUALITY_FILTER_LABELS,
   getServicePartnerQualityFilter,
   getTechnicianQualityFilter,
@@ -161,9 +167,12 @@ export default function ContractorsOverviewPageClient() {
   const activeTechnicianQualityFilter = getTechnicianQualityFilter(
     searchParams.get("quality")
   )
-  const [data, setData] = useState<ContractorsOverviewResponse | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState("")
+  const {
+    data = null,
+    error,
+    isLoading,
+    mutate: mutateOverview,
+  } = useApiQuery<ContractorsOverviewResponse>(API_CACHE_KEYS.contractorsOverview)
   const [companyForm, setCompanyForm] = useState<ServicePartnerCompanyForm>(
     emptyCompanyForm
   )
@@ -173,60 +182,17 @@ export default function ContractorsOverviewPageClient() {
   const [certificationStatusFilter, setCertificationStatusFilter] =
     useState("ALL")
   const [lifecycleStatusFilter, setLifecycleStatusFilter] = useState("ALL")
+  const hasBlockingError = Boolean(error && !data)
 
   useEffect(() => {
-    let isMounted = true
-
-    async function fetchOverview() {
-      setIsLoading(true)
-      setError("")
-
-      const response = await fetch("/api/contractors/overview", {
-        credentials: "include",
-      })
-
-      if (response.status === 401) {
-        router.push("/login")
-        return
-      }
-
-      if (response.status === 403) {
-        if (!isMounted) return
-      setError("Du har inte behörighet att se servicepartneröversikten.")
-        setIsLoading(false)
-        return
-      }
-
-      if (!response.ok) {
-        if (!isMounted) return
-        setError("Kunde inte hämta servicepartners.")
-        setIsLoading(false)
-        return
-      }
-
-      const overview: ContractorsOverviewResponse = await response.json()
-      if (!isMounted) return
-
-      setData(overview)
-      setIsLoading(false)
+    if (isUnauthorizedApiError(error)) {
+      router.push("/login")
     }
+  }, [error, router])
 
-    void fetchOverview()
-
-    return () => {
-      isMounted = false
-    }
-  }, [router])
-
-  async function refreshOverview() {
-    const response = await fetch("/api/contractors/overview", {
-      credentials: "include",
-    })
-
-    if (response.ok) {
-      const overview: ContractorsOverviewResponse = await response.json()
-      setData(overview)
-    }
+  async function refreshOverview(companyId?: string | null) {
+    await mutateOverview()
+    await invalidateServicepartnerCaches(companyId)
   }
 
   function updateCompanyForm(
@@ -310,6 +276,7 @@ export default function ContractorsOverviewPageClient() {
       return
     }
 
+    const affectedCompanyId = editingCompanyId
     const inviteLink = result.responsibleInvitation?.inviteLink ?? null
     showFeedback({
       type: inviteLink ? "info" : "success",
@@ -324,7 +291,7 @@ export default function ContractorsOverviewPageClient() {
     })
     setIsSavingCompany(false)
     resetCompanyForm()
-    await refreshOverview()
+    await refreshOverview(affectedCompanyId)
   }
 
   const servicePartnerMetrics = data?.servicePartnerCompanyMetrics ?? []
@@ -387,10 +354,14 @@ export default function ContractorsOverviewPageClient() {
         subtitle="Bjud in servicepartner, följ certifiering och se operativ status för tilldelade aggregat."
       />
 
-      {isLoading && (
+      {isLoading && !data && (
         <ServicepartnersLoadingSkeleton />
       )}
-      {error && <p className="mt-8 text-sm font-semibold text-red-700">{error}</p>}
+      {hasBlockingError && error && !isUnauthorizedApiError(error) && (
+        <p className="mt-8 text-sm font-semibold text-red-700">
+          {error.message || "Kunde inte hämta servicepartners."}
+        </p>
+      )}
       {feedback && (
         <Toast
           autoDismissMs={feedback.inviteLink ? 0 : undefined}
@@ -419,7 +390,7 @@ export default function ContractorsOverviewPageClient() {
         </Toast>
       )}
 
-      {!isLoading && !error && data && (
+      {(!isLoading || data) && !hasBlockingError && data && (
         <>
           <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <MetricCard
