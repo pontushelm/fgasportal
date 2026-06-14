@@ -137,6 +137,10 @@ export async function invalidateCompanySettingsCaches() {
     mutateGlobal(API_CACHE_KEYS.notifications),
     mutateGlobal(API_CACHE_KEYS.dashboard),
     mutateGlobal(API_CACHE_KEYS.dataQuality),
+    mutateGlobal(API_CACHE_KEYS.actions),
+    mutateGlobal(API_CACHE_KEYS.contractorsOverview),
+    mutateGlobal(API_CACHE_KEYS.serviceDashboard),
+    mutateGlobal(API_CACHE_KEYS.serviceTechnicians),
   ])
 }
 

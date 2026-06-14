@@ -5,6 +5,16 @@ import { useRouter } from "next/navigation"
 import { Badge, Button, Card, PageHeader, Toast, type ToastMessage } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
 import {
+  API_CACHE_KEYS,
+  invalidateActionCaches,
+  invalidateCompanySettingsCaches,
+  invalidateDashboardCaches,
+  invalidatePropertyCaches,
+  invalidateServicepartnerCaches,
+  isUnauthorizedApiError,
+  useApiQuery,
+} from "@/lib/client/api-cache"
+import {
   formatRoleDescription,
   formatRoleLabel,
   isAdminRole,
@@ -198,14 +208,48 @@ const inputClassName = "rounded-md border border-slate-300 bg-white px-3 py-2 te
 
 export default function CompanySettingsPage() {
   const router = useRouter()
-  const [data, setData] = useState<CompanySettingsData>({
-    users: [],
-    invitations: [],
-  })
-  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null)
-  const [servicePartnerSettings, setServicePartnerSettings] =
-    useState<ServicePartnerSettings | null>(null)
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
+  const {
+    data: currentUser = null,
+    error: currentUserError,
+    isLoading: isCurrentUserLoading,
+    mutate: mutateCurrentUser,
+  } = useApiQuery<CurrentUser>(API_CACHE_KEYS.authMe)
+  const {
+    data: companyProfile = null,
+    error: companyError,
+    isLoading: isCompanyLoading,
+    mutate: mutateCompanyProfile,
+  } = useApiQuery<CompanyProfile>(
+    currentUser && currentUser.role !== "CONTRACTOR" ? API_CACHE_KEYS.company : null
+  )
+  const {
+    data: data = { users: [], invitations: [] },
+    error: invitationsError,
+    isLoading: isInvitationsLoading,
+    mutate: mutateInvitations,
+  } = useApiQuery<CompanySettingsData>(
+    currentUser && currentUser.role !== "CONTRACTOR" && isAdminRole(currentUser.role)
+      ? API_CACHE_KEYS.companyInvitations
+      : null
+  )
+  const {
+    data: servicePartnerSettings = null,
+    error: servicePartnerSettingsLoadError,
+    isLoading: isServicePartnerSettingsLoading,
+    mutate: mutateServicePartnerSettings,
+  } = useApiQuery<ServicePartnerSettings>(
+    currentUser?.role === "CONTRACTOR" ? API_CACHE_KEYS.serviceCompany : null
+  )
+  const {
+    data: companyCertificationDocumentResponse,
+    error: companyCertificationDocumentLoadError,
+    isLoading: isCompanyCertificationDocumentLoading,
+    mutate: mutateCompanyCertificationDocument,
+  } = useApiQuery<{ document: CertificationDocument | null }>(
+    currentUser?.role === "CONTRACTOR" && currentUser.isServicePartnerAdmin
+      ? API_CACHE_KEYS.serviceCompanyCertificationDocument
+      : null
+  )
   const [profileForm, setProfileForm] = useState<CompanyProfileFormData>(
     initialProfileFormData
   )
@@ -219,7 +263,6 @@ export default function CompanySettingsPage() {
   const [invitationForm, setInvitationForm] = useState<InvitationFormData>(
     initialInvitationFormData
   )
-  const [isLoading, setIsLoading] = useState(true)
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [isEditingBilling, setIsEditingBilling] = useState(false)
   const [isEditingServicePartnerSettings, setIsEditingServicePartnerSettings] =
@@ -229,8 +272,10 @@ export default function CompanySettingsPage() {
   const [isGeneratingDemoData, setIsGeneratingDemoData] = useState(false)
   const [isSavingServicePartnerSettings, setIsSavingServicePartnerSettings] =
     useState(false)
-  const [companyCertificationDocument, setCompanyCertificationDocument] =
-    useState<CertificationDocument | null>(null)
+  const [
+    companyCertificationDocumentOverride,
+    setCompanyCertificationDocumentOverride,
+  ] = useState<CertificationDocument | null | undefined>(undefined)
   const [selectedCompanyCertificationDocument, setSelectedCompanyCertificationDocument] =
     useState<File | null>(null)
   const [companyCertificationDocumentError, setCompanyCertificationDocumentError] =
@@ -240,7 +285,6 @@ export default function CompanySettingsPage() {
   const [isDeletingCompanyCertificationDocument, setIsDeletingCompanyCertificationDocument] =
     useState(false)
   const [isSubmittingInvite, setIsSubmittingInvite] = useState(false)
-  const [error, setError] = useState("")
   const [profileError, setProfileError] = useState("")
   const [billingError, setBillingError] = useState("")
   const [servicePartnerSettingsError, setServicePartnerSettingsError] =
@@ -255,121 +299,39 @@ export default function CompanySettingsPage() {
   const [removeTargetUser, setRemoveTargetUser] = useState<CompanyUser | null>(null)
   const [isTransferringOwnership, setIsTransferringOwnership] = useState(false)
   const [toast, setToast] = useState<ToastMessage | null>(null)
+  const loadError =
+    currentUserError ??
+    companyError ??
+    invitationsError ??
+    servicePartnerSettingsLoadError ??
+    companyCertificationDocumentLoadError
+  const isLoading =
+    isCurrentUserLoading ||
+    (currentUser?.role === "CONTRACTOR"
+      ? isServicePartnerSettingsLoading ||
+        (currentUser.isServicePartnerAdmin
+          ? isCompanyCertificationDocumentLoading
+          : false)
+      : currentUser
+        ? isCompanyLoading || (isAdminRole(currentUser.role) ? isInvitationsLoading : false)
+        : false)
+  const hasBlockingError = Boolean(
+    loadError &&
+      (currentUserError ||
+        (currentUser?.role === "CONTRACTOR"
+          ? !servicePartnerSettings
+          : !companyProfile))
+  )
+  const companyCertificationDocument =
+    companyCertificationDocumentOverride !== undefined
+      ? companyCertificationDocumentOverride
+      : companyCertificationDocumentResponse?.document ?? null
 
   useEffect(() => {
-    let isMounted = true
-
-    async function fetchCompanySettings() {
-      const accessRes = await fetch("/api/auth/me", {
-        credentials: "include",
-      })
-
-      if (accessRes.status === 401) {
-        router.push("/login")
-        return
-      }
-
-      if (!accessRes.ok) {
-        if (!isMounted) return
-        setError("Kunde inte hämta företagsinställningar")
-        setIsLoading(false)
-        return
-      }
-
-      const accessUser: CurrentUser = await accessRes.json()
-
-      if (!isMounted) return
-
-      if (accessUser.role === "CONTRACTOR") {
-        const servicePartnerRes = await fetch("/api/dashboard/service/company", {
-          credentials: "include",
-        })
-
-        if (servicePartnerRes.status === 401) {
-          router.push("/login")
-          return
-        }
-
-        if (!servicePartnerRes.ok) {
-          if (!isMounted) return
-          setCurrentUser(accessUser)
-          setError("Kunde inte hämta servicepartnerinställningar")
-          setIsLoading(false)
-          return
-        }
-
-        const servicePartnerData: ServicePartnerSettings =
-          await servicePartnerRes.json()
-        const documentRes = accessUser.isServicePartnerAdmin
-          ? await fetch("/api/dashboard/service/company/certification/document", {
-              credentials: "include",
-            })
-          : null
-        const documentData: { document: CertificationDocument | null } | null =
-          documentRes?.ok ? await documentRes.json() : null
-
-        if (!isMounted) return
-        setCurrentUser(accessUser)
-        setServicePartnerSettings(servicePartnerData)
-        setCompanyCertificationDocument(documentData?.document ?? null)
-        if (documentRes && !documentRes.ok) {
-          setCompanyCertificationDocumentError(
-            "Kunde inte hämta certifikatdokumentet."
-          )
-        }
-        setServicePartnerSettingsForm(
-          toServicePartnerSettingsFormData(servicePartnerData)
-        )
-        setIsLoading(false)
-        return
-      }
-
-      const [companyRes, invitationsRes] = await Promise.all([
-        fetch("/api/company", {
-          credentials: "include",
-        }),
-        isAdminRole(accessUser.role)
-          ? fetch("/api/company/invitations", {
-              credentials: "include",
-            })
-          : Promise.resolve(null),
-      ])
-
-      if (
-        companyRes.status === 401 ||
-        invitationsRes?.status === 401
-      ) {
-        router.push("/login")
-        return
-      }
-
-      if (!companyRes.ok) {
-        if (!isMounted) return
-        setError("Kunde inte hämta företagsinställningar")
-        setIsLoading(false)
-        return
-      }
-
-      const company: CompanyProfile = await companyRes.json()
-      const invitationsData: CompanySettingsData =
-        invitationsRes?.ok ? await invitationsRes.json() : { users: [], invitations: [] }
-
-      if (!isMounted) return
-
-      setCompanyProfile(company)
-      setProfileForm(toProfileFormData(company))
-      setBillingForm(toBillingFormData(company))
-      setCurrentUser(accessUser)
-      setData(invitationsData)
-      setIsLoading(false)
+    if (isUnauthorizedApiError(loadError)) {
+      router.push("/login")
     }
-
-    void fetchCompanySettings()
-
-    return () => {
-      isMounted = false
-    }
-  }, [router])
+  }, [loadError, router])
 
   const canAdminister = isAdminRole(currentUser?.role)
   const canEditProfile = currentUser?.role === "OWNER"
@@ -454,7 +416,8 @@ export default function CompanySettingsPage() {
       return
     }
 
-    setCompanyProfile(result)
+    await mutateCompanyProfile(result, { revalidate: false })
+    await invalidateCompanySettingsCaches()
     setProfileForm(toProfileFormData(result))
     setIsEditingProfile(false)
     setToast({
@@ -497,7 +460,8 @@ export default function CompanySettingsPage() {
       ...companyProfile,
       ...result,
     } as CompanyProfile
-    setCompanyProfile(updatedCompany)
+    await mutateCompanyProfile(updatedCompany, { revalidate: false })
+    await invalidateCompanySettingsCaches()
     setBillingForm(toBillingFormData(updatedCompany))
     setIsEditingBilling(false)
     setToast({
@@ -545,6 +509,13 @@ export default function CompanySettingsPage() {
         title: "Demo-data skapad",
         type: "success",
       })
+      await Promise.all([
+        invalidateCompanySettingsCaches(),
+        invalidateDashboardCaches(),
+        invalidatePropertyCaches(),
+        invalidateActionCaches(),
+        invalidateServicepartnerCaches(),
+      ])
     } catch {
       setToast({
         message: "Kunde inte skapa demo-data. Försök igen.",
@@ -584,7 +555,9 @@ export default function CompanySettingsPage() {
       return
     }
 
-    setServicePartnerSettings(result)
+    await mutateServicePartnerSettings(result, { revalidate: false })
+    await invalidateServicepartnerCaches(result.id)
+    await invalidateCompanySettingsCaches()
     setServicePartnerSettingsForm(toServicePartnerSettingsFormData(result))
     setIsEditingServicePartnerSettings(false)
     setToast({
@@ -629,7 +602,13 @@ export default function CompanySettingsPage() {
       return
     }
 
-    setCompanyCertificationDocument(result.document ?? null)
+    setCompanyCertificationDocumentOverride(result.document ?? null)
+    await mutateCompanyCertificationDocument(
+      { document: result.document ?? null },
+      { revalidate: false }
+    )
+    await invalidateServicepartnerCaches(servicePartnerSettings?.id)
+    await invalidateCompanySettingsCaches()
     setSelectedCompanyCertificationDocument(null)
     setToast({
       type: "success",
@@ -662,7 +641,10 @@ export default function CompanySettingsPage() {
       return
     }
 
-    setCompanyCertificationDocument(null)
+    setCompanyCertificationDocumentOverride(null)
+    await mutateCompanyCertificationDocument({ document: null }, { revalidate: false })
+    await invalidateServicepartnerCaches(servicePartnerSettings?.id)
+    await invalidateCompanySettingsCaches()
     setToast({
       type: "success",
       title: "Klart",
@@ -733,14 +715,8 @@ export default function CompanySettingsPage() {
     setInvitationForm(initialInvitationFormData)
     setIsSubmittingInvite(false)
 
-    const refreshRes = await fetch("/api/company/invitations", {
-      credentials: "include",
-    })
-
-    if (refreshRes.ok) {
-      const refreshedData: CompanySettingsData = await refreshRes.json()
-      setData(refreshedData)
-    }
+    await mutateInvitations()
+    await invalidateCompanySettingsCaches()
   }
 
   async function handleTechnicianInviteSubmit(event: React.FormEvent) {
@@ -803,6 +779,8 @@ export default function CompanySettingsPage() {
     setInviteLink(result.inviteLink || "")
     setInvitationForm(initialInvitationFormData)
     setIsSubmittingInvite(false)
+    await mutateInvitations()
+    await invalidateCompanySettingsCaches()
   }
 
   async function handleRoleChange(user: CompanyUser, role: UserRole) {
@@ -840,12 +818,16 @@ export default function CompanySettingsPage() {
       return
     }
 
-    setData((current) => ({
-      ...current,
-      users: current.users.map((currentUser) =>
-        currentUser.id === result.id ? result : currentUser
-      ),
-    }))
+    await mutateInvitations(
+      (current = { users: [], invitations: [] }) => ({
+        ...current,
+        users: current.users.map((currentUser) =>
+          currentUser.id === result.id ? result : currentUser
+        ),
+      }),
+      { revalidate: false }
+    )
+    await invalidateCompanySettingsCaches()
     setToast({
       type: "success",
       title: "Klart",
@@ -886,12 +868,16 @@ export default function CompanySettingsPage() {
       return
     }
 
-    setData((current) => ({
-      ...current,
-      users: current.users.map((currentUser) =>
-        currentUser.id === result.id ? result : currentUser
-      ),
-    }))
+    await mutateInvitations(
+      (current = { users: [], invitations: [] }) => ({
+        ...current,
+        users: current.users.map((currentUser) =>
+          currentUser.id === result.id ? result : currentUser
+        ),
+      }),
+      { revalidate: false }
+    )
+    await invalidateCompanySettingsCaches()
     setToast({
       type: "success",
       title: "Klart",
@@ -936,15 +922,22 @@ export default function CompanySettingsPage() {
       return
     }
 
-    setData((current) => ({
-      ...current,
-      users: current.users.map((user) => {
-        if (user.id === result.newOwner?.id) return result.newOwner
-        if (user.id === result.previousOwner?.id) return result.previousOwner
-        return user
+    await mutateInvitations(
+      (current = { users: [], invitations: [] }) => ({
+        ...current,
+        users: current.users.map((user) => {
+          if (user.id === result.newOwner?.id) return result.newOwner
+          if (user.id === result.previousOwner?.id) return result.previousOwner
+          return user
+        }),
       }),
-    }))
-    setCurrentUser((user) => (user ? { ...user, role: "ADMIN" } : user))
+      { revalidate: false }
+    )
+    await mutateCurrentUser(
+      (user) => (user ? { ...user, role: "ADMIN" } : user),
+      { revalidate: false }
+    )
+    await invalidateCompanySettingsCaches()
     setTransferTargetUser(null)
     setIsTransferringOwnership(false)
     setUpdatingUserId(null)
@@ -981,12 +974,16 @@ export default function CompanySettingsPage() {
         </p>
       </div>
 
-      {isLoading && <CompanySettingsLoadingSkeleton />}
-      {error && <p className="mt-8 font-semibold text-red-700">{error}</p>}
+      {isLoading && !currentUser && <CompanySettingsLoadingSkeleton />}
+      {hasBlockingError && loadError && !isUnauthorizedApiError(loadError) && (
+        <p className="mt-8 font-semibold text-red-700">
+          {loadError.message || "Kunde inte hämta företagsinställningar"}
+        </p>
+      )}
       {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
 
-      {!isLoading &&
-        !error &&
+      {(!isLoading || currentUser) &&
+        !hasBlockingError &&
         currentUser?.role === "CONTRACTOR" &&
         servicePartnerSettings && (
           <>
@@ -1019,7 +1016,12 @@ export default function CompanySettingsPage() {
             onCertificationDocumentUpload={
               handleCompanyCertificationDocumentUpload
             }
-            onEdit={() => setIsEditingServicePartnerSettings(true)}
+            onEdit={() => {
+              setServicePartnerSettingsForm(
+                toServicePartnerSettingsFormData(servicePartnerSettings)
+              )
+              setIsEditingServicePartnerSettings(true)
+            }}
             onSubmit={handleServicePartnerSettingsSubmit}
           />
           {currentUser.isServicePartnerAdmin && (
@@ -1038,7 +1040,10 @@ export default function CompanySettingsPage() {
           </>
         )}
 
-      {!isLoading && !error && currentUser?.role !== "CONTRACTOR" && companyProfile && (
+      {(!isLoading || currentUser) &&
+        !hasBlockingError &&
+        currentUser?.role !== "CONTRACTOR" &&
+        companyProfile && (
         <>
           <Card className="mt-8 p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1052,7 +1057,10 @@ export default function CompanySettingsPage() {
                 <button
                   className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
                   type="button"
-                  onClick={() => setIsEditingProfile(true)}
+                  onClick={() => {
+                    setProfileForm(toProfileFormData(companyProfile))
+                    setIsEditingProfile(true)
+                  }}
                 >
                   Redigera
                 </button>
@@ -1216,7 +1224,10 @@ export default function CompanySettingsPage() {
                 <button
                   className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
                   type="button"
-                  onClick={() => setIsEditingBilling(true)}
+                  onClick={() => {
+                    setBillingForm(toBillingFormData(companyProfile))
+                    setIsEditingBilling(true)
+                  }}
                 >
                   Redigera
                 </button>
