@@ -7,6 +7,12 @@ import { ImportDataWorkspace } from "@/components/dashboard/import-data-workspac
 import { Badge, Button, Card, EmptyState, PageHeader, Toast, type ToastMessage } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
 import {
+  API_CACHE_KEYS,
+  invalidatePropertyCaches,
+  isUnauthorizedApiError,
+  useApiQuery,
+} from "@/lib/client/api-cache"
+import {
   DATA_QUALITY_FILTER_LABELS,
   getPropertyQualityFilter,
   matchesPropertyQualityFilter,
@@ -76,22 +82,31 @@ export default function PropertiesPageClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const activeQualityFilter = getPropertyQualityFilter(searchParams.get("quality"))
-  const [properties, setProperties] = useState<PropertySummary[]>([])
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
+  const {
+    data: properties = [],
+    error: propertiesError,
+    isLoading: isPropertiesLoading,
+    mutate: mutateProperties,
+  } = useApiQuery<PropertySummary[]>(API_CACHE_KEYS.propertiesOverview)
+  const {
+    data: currentUser = null,
+    error: userError,
+    isLoading: isUserLoading,
+  } = useApiQuery<CurrentUser>(API_CACHE_KEYS.authMe)
   const [propertyForm, setPropertyForm] = useState<PropertyFormData>(
     initialPropertyFormData
   )
-  const [isLoading, setIsLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
   const [isImportWorkspaceOpen, setIsImportWorkspaceOpen] = useState(false)
-  const [error, setError] = useState("")
   const [createError, setCreateError] = useState("")
   const [toast, setToast] = useState<ToastMessage | null>(null)
-  const [refreshKey, setRefreshKey] = useState(0)
   const [sort, setSort] = useState<{
     key: PropertySortKey | ""
     direction: SortDirection | ""
   }>({ key: "", direction: "" })
+  const isLoading = isPropertiesLoading || isUserLoading
+  const error = propertiesError ?? userError
+  const hasBlockingError = Boolean(error && properties.length === 0)
   const visibleProperties = useMemo(
     () =>
       sortProperties(
@@ -105,48 +120,10 @@ export default function PropertiesPageClient() {
   )
 
   useEffect(() => {
-    let isMounted = true
-
-    async function fetchProperties() {
-      setIsLoading(true)
-      setError("")
-
-      const [propertiesResponse, userResponse] = await Promise.all([
-        fetch("/api/properties/overview", {
-          credentials: "include",
-        }),
-        fetch("/api/auth/me", {
-          credentials: "include",
-        }),
-      ])
-
-      if (propertiesResponse.status === 401 || userResponse.status === 401) {
-        router.push("/login")
-        return
-      }
-
-      if (!propertiesResponse.ok || !userResponse.ok) {
-        if (!isMounted) return
-        setError("Kunde inte hämta fastigheter")
-        setIsLoading(false)
-        return
-      }
-
-      const data: PropertySummary[] = await propertiesResponse.json()
-      const userData: CurrentUser = await userResponse.json()
-      if (!isMounted) return
-
-      setProperties(data)
-      setCurrentUser(userData)
-      setIsLoading(false)
+    if (isUnauthorizedApiError(error)) {
+      router.push("/login")
     }
-
-    void fetchProperties()
-
-    return () => {
-      isMounted = false
-    }
-  }, [refreshKey, router])
+  }, [error, router])
 
   const canCreateProperties = isAdminRole(currentUser?.role)
 
@@ -206,28 +183,8 @@ export default function PropertiesPageClient() {
       return
     }
 
-    const overviewResponse = await fetch("/api/properties/overview", {
-      credentials: "include",
-    })
-
-    if (overviewResponse.status === 401) {
-      router.push("/login")
-      return
-    }
-
-    if (!overviewResponse.ok) {
-      setCreateError("Fastigheten skapades, men listan kunde inte uppdateras")
-      setToast({
-        type: "warning",
-        title: "Varning",
-        message: "Fastigheten skapades, men listan kunde inte uppdateras.",
-      })
-      setIsCreating(false)
-      return
-    }
-
-    const overviewData: PropertySummary[] = await overviewResponse.json()
-    setProperties(overviewData)
+    await mutateProperties()
+    await invalidatePropertyCaches()
     setPropertyForm(initialPropertyFormData)
     setToast({
       type: "success",
@@ -255,10 +212,14 @@ export default function PropertiesPageClient() {
         subtitle="Följ kontrollstatus, risk och klimatpåverkan per fastighet."
       />
 
-      {isLoading && <PropertiesLoadingSkeleton />}
-      {error && <p className="mt-8 font-semibold text-red-700">{error}</p>}
+      {isLoading && properties.length === 0 && <PropertiesLoadingSkeleton />}
+      {hasBlockingError && error && !isUnauthorizedApiError(error) && (
+        <p className="mt-8 font-semibold text-red-700">
+          {error.message || "Kunde inte hämta fastigheter"}
+        </p>
+      )}
 
-      {!isLoading && !error && canCreateProperties && (
+      {(!isLoading || properties.length > 0) && !hasBlockingError && canCreateProperties && (
         <Card className="mt-6 p-5">
           <div>
             <h2 className="text-lg font-semibold text-slate-950">
@@ -336,7 +297,7 @@ export default function PropertiesPageClient() {
         </Card>
       )}
 
-      {!isLoading && !error && properties.length === 0 && (
+      {!isLoading && !hasBlockingError && properties.length === 0 && (
         <EmptyState
           className="mt-6"
           title="Inga fastigheter att visa"
@@ -344,7 +305,7 @@ export default function PropertiesPageClient() {
         />
       )}
 
-      {!isLoading && !error && properties.length > 0 && (
+      {(!isLoading || properties.length > 0) && !hasBlockingError && properties.length > 0 && (
         <>
         {activeQualityFilter && (
           <QualityFilterBanner
@@ -452,9 +413,9 @@ export default function PropertiesPageClient() {
         <ImportDataWorkspace
           initialImportType="properties"
           onClose={() => setIsImportWorkspaceOpen(false)}
-          onEventsImported={() => setRefreshKey((current) => current + 1)}
-          onInstallationsImported={() => setRefreshKey((current) => current + 1)}
-          onPropertiesImported={() => setRefreshKey((current) => current + 1)}
+          onEventsImported={() => void invalidatePropertyCaches()}
+          onInstallationsImported={() => void invalidatePropertyCaches()}
+          onPropertiesImported={() => void invalidatePropertyCaches()}
         />
       )}
     </main>

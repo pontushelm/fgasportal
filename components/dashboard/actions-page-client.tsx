@@ -20,6 +20,11 @@ import type {
   DashboardActionSource,
   DashboardActionType,
 } from "@/lib/actions/generate-actions"
+import {
+  API_CACHE_KEYS,
+  isUnauthorizedApiError,
+  useApiQuery,
+} from "@/lib/client/api-cache"
 
 type ActionItem = {
   id: string
@@ -49,6 +54,8 @@ type ActionItem = {
 type ActionsResponse = {
   actions: ActionItem[]
 }
+
+const EMPTY_ACTIONS: ActionItem[] = []
 
 type RegisteredProperty = {
   id: string
@@ -194,9 +201,23 @@ const SUMMARY_CARDS = [
 export default function ActionsPageClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [actions, setActions] = useState<ActionItem[]>([])
-  const [registeredProperties, setRegisteredProperties] = useState<RegisteredProperty[]>([])
-  const [savedViews, setSavedViews] = useState<SavedActionView[]>([])
+  const savedViewsKey = API_CACHE_KEYS.savedFilters(ACTION_SAVED_FILTER_PAGE)
+  const {
+    data: actionsData,
+    error: actionsError,
+    isLoading: isActionsLoading,
+  } = useApiQuery<ActionsResponse>(API_CACHE_KEYS.actions)
+  const {
+    data: registeredProperties = [],
+    error: propertiesError,
+    isLoading: isPropertiesLoading,
+  } = useApiQuery<RegisteredProperty[]>(API_CACHE_KEYS.properties)
+  const {
+    data: savedViews = [],
+    error: savedViewsError,
+    isLoading: isSavedViewsLoading,
+    mutate: mutateSavedViews,
+  } = useApiQuery<SavedActionView[]>(savedViewsKey)
   const [selectedSavedViewId, setSelectedSavedViewId] = useState("")
   const [isSaveViewOpen, setIsSaveViewOpen] = useState(false)
   const [saveViewName, setSaveViewName] = useState("")
@@ -204,8 +225,10 @@ export default function ActionsPageClient() {
   const [savedViewError, setSavedViewError] = useState("")
   const [toast, setToast] = useState<ToastMessage | null>(null)
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState("")
+  const actions = actionsData?.actions ?? EMPTY_ACTIONS
+  const isLoading = isActionsLoading || isPropertiesLoading || isSavedViewsLoading
+  const error = actionsError ?? propertiesError ?? savedViewsError
+  const hasBlockingError = Boolean(error && actions.length === 0)
   const activeCategory = getActionFilter(searchParams.get("filter"))
   const activeSeverity = getSeverityFilter(searchParams.get("severity"))
   const activeDueDate = getDueDateFilter(searchParams.get("due"))
@@ -215,57 +238,10 @@ export default function ActionsPageClient() {
   const activeSearch = searchParams.get("q") ?? ""
 
   useEffect(() => {
-    let isMounted = true
-
-    async function fetchActions() {
-      setIsLoading(true)
-      setError("")
-
-      const [actionsResponse, propertiesResponse, savedViewsResponse] = await Promise.all([
-        fetch("/api/dashboard/actions", {
-          credentials: "include",
-        }),
-        fetch("/api/properties", {
-          credentials: "include",
-        }),
-        fetch(`/api/saved-filters?page=${ACTION_SAVED_FILTER_PAGE}`, {
-          credentials: "include",
-        }),
-      ])
-
-      if (
-        actionsResponse.status === 401 ||
-        propertiesResponse.status === 401 ||
-        savedViewsResponse.status === 401
-      ) {
-        router.push("/login")
-        return
-      }
-
-      if (!actionsResponse.ok || !propertiesResponse.ok || !savedViewsResponse.ok) {
-        if (!isMounted) return
-        setError("Kunde inte hämta åtgärder")
-        setIsLoading(false)
-        return
-      }
-
-      const data: ActionsResponse = await actionsResponse.json()
-      const propertiesData: RegisteredProperty[] = await propertiesResponse.json()
-      const savedViewsData: SavedActionView[] = await savedViewsResponse.json()
-      if (!isMounted) return
-
-      setActions(data.actions)
-      setRegisteredProperties(propertiesData)
-      setSavedViews(savedViewsData)
-      setIsLoading(false)
+    if (isUnauthorizedApiError(error)) {
+      router.push("/login")
     }
-
-    void fetchActions()
-
-    return () => {
-      isMounted = false
-    }
-  }, [router])
+  }, [error, router])
 
   const summaryCounts = useMemo(() => getActionSummaryCounts(actions), [actions])
   const hasActionsWithoutRegisteredProperty = useMemo(
@@ -401,7 +377,9 @@ export default function ActionsPageClient() {
       return
     }
 
-    setSavedViews((current) => [result, ...current])
+    await mutateSavedViews((current = []) => [result, ...current], {
+      revalidate: false,
+    })
     setSelectedSavedViewId(result.id)
     setSaveViewName("")
     setIsSaveViewOpen(false)
@@ -445,7 +423,10 @@ export default function ActionsPageClient() {
       return
     }
 
-    setSavedViews((current) => current.filter((view) => view.id !== selectedSavedViewId))
+    await mutateSavedViews(
+      (current = []) => current.filter((view) => view.id !== selectedSavedViewId),
+      { revalidate: false }
+    )
     setSelectedSavedViewId("")
     setToast({
       type: "success",
@@ -465,7 +446,7 @@ export default function ActionsPageClient() {
 
       <div className="mx-auto mt-6 max-w-7xl">
         <section className="grid gap-2 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-7 xl:gap-3">
-          {isLoading
+          {isLoading && actions.length === 0
             ? Array.from({ length: SUMMARY_CARDS.length }).map((_, index) => (
                 <Card
                   className="border-l-4 border-l-slate-200 px-3 py-3"
@@ -736,10 +717,14 @@ export default function ActionsPageClient() {
           </div>
         </Card>
 
-        {isLoading && <ActionsLoadingSkeleton />}
-        {error && <p className="mt-6 font-semibold text-red-700">{error}</p>}
+        {isLoading && actions.length === 0 && <ActionsLoadingSkeleton />}
+        {hasBlockingError && error && !isUnauthorizedApiError(error) && (
+          <p className="mt-6 font-semibold text-red-700">
+            {error.message || "Kunde inte hämta åtgärder"}
+          </p>
+        )}
 
-        {!isLoading && !error && (
+        {(!isLoading || actions.length > 0) && !hasBlockingError && (
           <Card className="mt-4 overflow-hidden">
             <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
               <p className="text-sm font-semibold text-slate-950">

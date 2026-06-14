@@ -2,8 +2,13 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { Badge, Card, PageHeader } from "@/components/ui"
+import {
+  API_CACHE_KEYS,
+  isUnauthorizedApiError,
+  useApiQuery,
+} from "@/lib/client/api-cache"
 import type {
   DataQualityIssue,
   DataQualityReport,
@@ -24,46 +29,18 @@ const SEVERITY_VARIANTS: Record<DataQualitySeverity, "danger" | "warning" | "neu
 
 export default function DataQualityPageClient() {
   const router = useRouter()
-  const [report, setReport] = useState<DataQualityReport | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState("")
+  const {
+    data: report,
+    error,
+    isLoading,
+  } = useApiQuery<DataQualityReport>(API_CACHE_KEYS.dataQuality)
+  const hasBlockingError = Boolean(error && !report)
 
   useEffect(() => {
-    let isMounted = true
-
-    async function fetchDataQuality() {
-      setIsLoading(true)
-      setError("")
-
-      const response = await fetch("/api/dashboard/data-quality", {
-        credentials: "include",
-      })
-
-      if (response.status === 401) {
-        router.push("/login")
-        return
-      }
-
-      if (!response.ok) {
-        if (!isMounted) return
-        setError("Kunde inte hämta datakvalitet")
-        setIsLoading(false)
-        return
-      }
-
-      const data: DataQualityReport = await response.json()
-      if (!isMounted) return
-
-      setReport(data)
-      setIsLoading(false)
+    if (isUnauthorizedApiError(error)) {
+      router.push("/login")
     }
-
-    void fetchDataQuality()
-
-    return () => {
-      isMounted = false
-    }
-  }, [router])
+  }, [error, router])
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
@@ -73,8 +50,12 @@ export default function DataQualityPageClient() {
           subtitle="Hitta saknade uppgifter som påverkar årsrapporter, efterlevnad och operativ uppföljning."
         />
 
-        {isLoading && <DataQualitySkeleton />}
-        {error && <p className="mt-8 text-sm text-red-700">{error}</p>}
+        {isLoading && !report && <DataQualitySkeleton />}
+        {hasBlockingError && error && !isUnauthorizedApiError(error) && (
+          <p className="mt-8 text-sm text-red-700">
+            {error.message || "Kunde inte hämta datakvalitet"}
+          </p>
+        )}
 
         {report && (
           <div className="mt-6 space-y-6">
