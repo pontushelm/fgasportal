@@ -8,6 +8,12 @@ import CreateInstallationForm from "@/components/installations/create-installati
 import { Button, Card, PageHeader, Toast } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
 import {
+  API_CACHE_KEYS,
+  invalidateInstallationCaches,
+  isUnauthorizedApiError,
+  useApiQuery,
+} from "@/lib/client/api-cache"
+import {
   DATA_QUALITY_FILTER_LABELS,
   getInstallationQualityFilter,
   matchesInstallationQualityFilter,
@@ -211,13 +217,67 @@ export default function InstallationsPageClient() {
   }))
   const sortFieldValue = columnSort.key
   const sortDirectionValue = columnSort.direction
-  const [installations, setInstallations] = useState<Installation[]>([])
-  const [filterSourceInstallations, setFilterSourceInstallations] = useState<FilterSourceInstallation[]>([])
-  const [contractors, setContractors] = useState<Contractor[]>([])
-  const [technicians, setTechnicians] = useState<ServiceTechnician[]>([])
-  const [servicePartnerCompanies, setServicePartnerCompanies] = useState<ServicePartnerCompanySummary[]>([])
-  const [properties, setProperties] = useState<PropertyOption[]>([])
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
+  const {
+    data: currentUser = null,
+    error: currentUserError,
+    isLoading: isCurrentUserLoading,
+  } = useApiQuery<CurrentUser>(API_CACHE_KEYS.authMe)
+  const {
+    data: installations = [],
+    error: installationsError,
+    isLoading: isInstallationsLoading,
+    mutate: mutateInstallations,
+  } = useApiQuery<Installation[]>(API_CACHE_KEYS.installations)
+  const {
+    data: filterSourceInstallations = [],
+    error: filterSourceError,
+    isLoading: isFilterSourceLoading,
+  } = useApiQuery<FilterSourceInstallation[]>(
+    API_CACHE_KEYS.installationsFilterSource
+  )
+  const {
+    data: savedFilters = [],
+    error: savedFiltersError,
+    isLoading: isSavedFiltersLoading,
+    mutate: mutateSavedFilters,
+  } = useApiQuery<SavedFilter[]>(API_CACHE_KEYS.savedFilters(SAVED_FILTER_PAGE))
+  const {
+    data: properties = [],
+    error: propertiesError,
+    isLoading: isPropertiesLoading,
+  } = useApiQuery<PropertyOption[]>(API_CACHE_KEYS.properties)
+  const {
+    data: servicePartnerCompanies = [],
+    error: servicePartnerCompaniesError,
+    isLoading: isServicePartnerCompaniesLoading,
+  } = useApiQuery<ServicePartnerCompanySummary[]>(
+    API_CACHE_KEYS.servicePartnerCompanies
+  )
+  const {
+    data: companyContractors = [],
+    error: companyContractorsError,
+    isLoading: isCompanyContractorsLoading,
+  } = useApiQuery<Contractor[]>(
+    currentUser && isAdminRole(currentUser.role)
+      ? API_CACHE_KEYS.companyContractors
+      : null
+  )
+  const {
+    data: technicians = [],
+    error: techniciansError,
+    isLoading: isTechniciansLoading,
+  } = useApiQuery<ServiceTechnician[]>(
+    currentUser?.role === "CONTRACTOR" && currentUser.isServicePartnerAdmin
+      ? API_CACHE_KEYS.serviceTechnicians
+      : null
+  )
+  const contractors = useMemo(
+    () =>
+      currentUser && isAdminRole(currentUser.role)
+        ? companyContractors
+        : deriveContractors(filterSourceInstallations),
+    [companyContractors, currentUser, filterSourceInstallations]
+  )
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [visibleInstallationCount, setVisibleInstallationCount] = useState(
     INITIAL_VISIBLE_INSTALLATION_COUNT
@@ -230,7 +290,6 @@ export default function InstallationsPageClient() {
   const [isPropertyModalOpen, setIsPropertyModalOpen] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isImportWorkspaceOpen, setIsImportWorkspaceOpen] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [pendingBulkAction, setPendingBulkAction] = useState<
     "servicepartner" | "property" | "archive" | "technician" | null
@@ -242,13 +301,11 @@ export default function InstallationsPageClient() {
   } | null>(null)
   const [isBulkPanelFloating, setIsBulkPanelFloating] = useState(false)
   const bulkPanelSentinelRef = useRef<HTMLDivElement | null>(null)
-  const [refreshKey, setRefreshKey] = useState(0)
   const [selectedInstallation, setSelectedInstallation] =
     useState<Installation | null>(null)
   const [selectedEvents, setSelectedEvents] = useState<InstallationEvent[]>([])
   const [isQuickViewLoading, setIsQuickViewLoading] = useState(false)
   const [quickViewError, setQuickViewError] = useState("")
-  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([])
   const [selectedSavedFilterId, setSelectedSavedFilterId] = useState("")
   const [technicianFilterValue, setTechnicianFilterValue] = useState("")
   const [assigningTechnicianInstallationId, setAssigningTechnicianInstallationId] =
@@ -271,93 +328,34 @@ export default function InstallationsPageClient() {
     currentUser?.role === "CONTRACTOR" && currentUser.isServicePartnerAdmin
   )
   const canSelectInstallations = canManage || isServicePartnerAdmin
+  const loadError =
+    currentUserError ??
+    installationsError ??
+    filterSourceError ??
+    savedFiltersError ??
+    propertiesError ??
+    servicePartnerCompaniesError ??
+    companyContractorsError ??
+    techniciansError
+  const isLoading =
+    (!currentUser && isCurrentUserLoading) ||
+    (installations.length === 0 && isInstallationsLoading) ||
+    (filterSourceInstallations.length === 0 && isFilterSourceLoading) ||
+    (savedFilters.length === 0 && isSavedFiltersLoading) ||
+    (properties.length === 0 && isPropertiesLoading) ||
+    (servicePartnerCompanies.length === 0 && isServicePartnerCompaniesLoading) ||
+    (currentUser && isAdminRole(currentUser.role) && isCompanyContractorsLoading) ||
+    (isServicePartnerAdmin && isTechniciansLoading)
+  const loadErrorMessage =
+    loadError && !isUnauthorizedApiError(loadError)
+      ? loadError.message || "Kunde inte hämta aggregat"
+      : ""
 
   useEffect(() => {
-    let isMounted = true
-
-    async function fetchData() {
-      setIsLoading(true)
-      setError("")
-
-      const [installationsRes, userRes, filterSourceRes, savedFiltersRes, propertiesRes, servicePartnerCompaniesRes] = await Promise.all([
-        fetch("/api/installations", {
-          credentials: "include",
-        }),
-        fetch("/api/auth/me", {
-          credentials: "include",
-        }),
-        fetch("/api/installations?mode=filter-source", {
-          credentials: "include",
-        }),
-        fetch(`/api/saved-filters?page=${SAVED_FILTER_PAGE}`, {
-          credentials: "include",
-        }),
-        fetch("/api/properties", {
-          credentials: "include",
-        }),
-        fetch("/api/service-partner-companies", {
-          credentials: "include",
-        }),
-      ])
-
-      if (
-        installationsRes.status === 401 ||
-        userRes.status === 401 ||
-        savedFiltersRes.status === 401 ||
-        propertiesRes.status === 401
-      ) {
-        router.push("/login")
-        return
-      }
-
-      if (!installationsRes.ok || !userRes.ok || !filterSourceRes.ok || !savedFiltersRes.ok || !propertiesRes.ok) {
-        if (!isMounted) return
-        setError("Kunde inte hämta aggregat")
-        setIsLoading(false)
-        return
-      }
-
-      const installationsData: Installation[] = await installationsRes.json()
-      const userData: CurrentUser = await userRes.json()
-      const filterSourceData: FilterSourceInstallation[] = await filterSourceRes.json()
-      const savedFiltersData: SavedFilter[] = await savedFiltersRes.json()
-      const propertiesData: PropertyOption[] = await propertiesRes.json()
-      const servicePartnerCompaniesData: ServicePartnerCompanySummary[] =
-        servicePartnerCompaniesRes.ok ? await servicePartnerCompaniesRes.json() : []
-      const contractorsData: Contractor[] =
-        isAdminRole(userData.role)
-          ? await fetch("/api/company/contractors", {
-              credentials: "include",
-            }).then((response) => (response.ok ? response.json() : []))
-          : deriveContractors(filterSourceData)
-      const techniciansData: ServiceTechnician[] =
-        userData.role === "CONTRACTOR" && userData.isServicePartnerAdmin
-          ? await fetch("/api/dashboard/service/technicians", {
-              credentials: "include",
-            }).then((response) => (response.ok ? response.json() : []))
-          : []
-
-      if (!isMounted) return
-
-      setInstallations(installationsData)
-      setFilterSourceInstallations(filterSourceData)
-      setCurrentUser(userData)
-      setContractors(contractorsData)
-      setTechnicians(techniciansData)
-      setServicePartnerCompanies(servicePartnerCompaniesData)
-      setProperties(propertiesData)
-      setSavedFilters(savedFiltersData)
-      setSelectedIds([])
-      setVisibleInstallationCount(INITIAL_VISIBLE_INSTALLATION_COUNT)
-      setIsLoading(false)
+    if (isUnauthorizedApiError(loadError)) {
+      router.push("/login")
     }
-
-    void fetchData()
-
-    return () => {
-      isMounted = false
-    }
-  }, [refreshKey, router])
+  }, [loadError, router])
 
   useEffect(() => {
     let isMounted = true
@@ -730,7 +728,10 @@ export default function InstallationsPageClient() {
       return
     }
 
-    setSavedFilters((current) => [result, ...current])
+    await mutateSavedFilters((current = []) => [result, ...current], {
+      revalidate: false,
+    })
+    void mutateSavedFilters()
     setSelectedSavedFilterId(result.id)
     setSaveFilterName("")
     setIsSaveFilterOpen(false)
@@ -771,7 +772,9 @@ export default function InstallationsPageClient() {
         ids.has(installation.id) ? updater(installation) : installation
       )
 
-    setInstallations(updateList)
+    void mutateInstallations((current = []) => updateList(current), {
+      revalidate: false,
+    })
     setSelectedInstallation((current) =>
       current && ids.has(current.id) ? updater(current) : current
     )
@@ -794,12 +797,15 @@ export default function InstallationsPageClient() {
     )
 
     if (archivedValue === "all") {
-      setInstallations((current) => current.map(updateArchived))
+      void mutateInstallations((current = []) => current.map(updateArchived), {
+        revalidate: false,
+      })
       return
     }
 
-    setInstallations((current) =>
-      current.filter((installation) => !ids.has(installation.id))
+    void mutateInstallations(
+      (current = []) => current.filter((installation) => !ids.has(installation.id)),
+      { revalidate: false }
     )
   }
 
@@ -880,6 +886,7 @@ export default function InstallationsPageClient() {
     setSelectedIds([])
     setIsSubmitting(false)
     setPendingBulkAction(null)
+    void invalidateInstallationCaches()
   }
 
   async function handleArchiveSelected() {
@@ -934,6 +941,7 @@ export default function InstallationsPageClient() {
     setSelectedIds([])
     setIsSubmitting(false)
     setPendingBulkAction(null)
+    void invalidateInstallationCaches()
   }
 
   async function handleAssignProperty(event: React.FormEvent) {
@@ -995,6 +1003,7 @@ export default function InstallationsPageClient() {
     setSelectedIds([])
     setIsSubmitting(false)
     setPendingBulkAction(null)
+    void invalidateInstallationCaches()
   }
 
   async function assignTechnicianToInstallation(
@@ -1058,6 +1067,7 @@ export default function InstallationsPageClient() {
         : "Teknikertilldelningen togs bort.",
     })
     setAssigningTechnicianInstallationId("")
+    void invalidateInstallationCaches(installationId)
   }
 
   async function handleBulkAssignTechnician() {
@@ -1128,6 +1138,7 @@ export default function InstallationsPageClient() {
     })
     setIsSubmitting(false)
     setPendingBulkAction(null)
+    void invalidateInstallationCaches()
   }
 
   return (
@@ -1174,6 +1185,8 @@ export default function InstallationsPageClient() {
       />
       {isLoading ? (
         <InstallationsLoadingSkeleton />
+      ) : loadErrorMessage && installations.length === 0 ? (
+        <p className="mt-8 font-semibold text-red-700">{loadErrorMessage}</p>
       ) : (
       <Card className="mt-6 p-4">
         <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -1862,7 +1875,7 @@ export default function InstallationsPageClient() {
               }
               onInstallationCreated={() => {
                 setIsCreateModalOpen(false)
-                setRefreshKey((current) => current + 1)
+                void invalidateInstallationCaches()
               }}
             />
           </div>
@@ -1872,9 +1885,9 @@ export default function InstallationsPageClient() {
       {isImportWorkspaceOpen && (
         <ImportDataWorkspace
           onClose={() => setIsImportWorkspaceOpen(false)}
-          onEventsImported={() => setRefreshKey((current) => current + 1)}
-          onInstallationsImported={() => setRefreshKey((current) => current + 1)}
-          onPropertiesImported={() => setRefreshKey((current) => current + 1)}
+          onEventsImported={() => void invalidateInstallationCaches()}
+          onInstallationsImported={() => void invalidateInstallationCaches()}
+          onPropertiesImported={() => void invalidateInstallationCaches()}
         />
       )}
 

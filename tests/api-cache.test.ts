@@ -1,14 +1,22 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { mutate as mutateGlobal } from "swr"
 import {
   API_CACHE_KEYS,
   ApiFetchError,
   apiFetcher,
+  invalidateInstallationCaches,
   isUnauthorizedApiError,
 } from "@/lib/client/api-cache"
+
+vi.mock("swr", () => ({
+  default: vi.fn(),
+  mutate: vi.fn(),
+}))
 
 describe("client API cache helpers", () => {
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.mocked(mutateGlobal).mockReset()
   })
 
   it("fetches API data with credentials", async () => {
@@ -75,6 +83,26 @@ describe("client API cache helpers", () => {
     )
     expect(API_CACHE_KEYS.propertiesOverview).toBe("/api/properties/overview")
     expect(API_CACHE_KEYS.dataQuality).toBe("/api/dashboard/data-quality")
+    expect(API_CACHE_KEYS.installations).toBe("/api/installations")
+    expect(API_CACHE_KEYS.installationsFilterSource).toBe(
+      "/api/installations?mode=filter-source"
+    )
+    expect(API_CACHE_KEYS.installationDetail("inst_1")).toBe(
+      "/api/installations/inst_1"
+    )
+    expect(API_CACHE_KEYS.installationEvents("inst_1")).toBe(
+      "/api/installations/inst_1/events"
+    )
+    expect(API_CACHE_KEYS.installationDocuments("inst_1")).toBe(
+      "/api/installations/inst_1/documents"
+    )
+    expect(API_CACHE_KEYS.installationActivity("inst_1")).toBe(
+      "/api/installations/inst_1/activity"
+    )
+    expect(API_CACHE_KEYS.servicePartnerCompanies).toBe(
+      "/api/service-partner-companies"
+    )
+    expect(API_CACHE_KEYS.companyContractors).toBe("/api/company/contractors")
     expect(API_CACHE_KEYS.reportsFgas("reportType=annual&year=2026")).toBe(
       "/api/reports/fgas?reportType=annual&year=2026"
     )
@@ -84,5 +112,35 @@ describe("client API cache helpers", () => {
     expect(API_CACHE_KEYS.savedFilters("actions")).toBe(
       "/api/saved-filters?page=actions"
     )
+  })
+
+  it("invalidates installation-related caches conservatively", async () => {
+    vi.mocked(mutateGlobal).mockResolvedValue(undefined)
+
+    await invalidateInstallationCaches("inst_1")
+
+    const invalidatedKeys = vi.mocked(mutateGlobal).mock.calls.map(([key]) => key)
+    expect(invalidatedKeys).toContain(API_CACHE_KEYS.installations)
+    expect(invalidatedKeys).toContain(API_CACHE_KEYS.installationsFilterSource)
+    expect(invalidatedKeys).toContain(API_CACHE_KEYS.dashboard)
+    expect(invalidatedKeys).toContain(API_CACHE_KEYS.actions)
+    expect(invalidatedKeys).toContain(API_CACHE_KEYS.dataQuality)
+    expect(invalidatedKeys).toContain(API_CACHE_KEYS.properties)
+    expect(invalidatedKeys).toContain(API_CACHE_KEYS.propertiesOverview)
+    expect(invalidatedKeys).toContain(API_CACHE_KEYS.serviceDashboard)
+    expect(invalidatedKeys).toContain(API_CACHE_KEYS.contractorsOverview)
+    expect(invalidatedKeys).toContain(API_CACHE_KEYS.installationDetail("inst_1"))
+    expect(invalidatedKeys).toContain(API_CACHE_KEYS.installationEvents("inst_1"))
+    expect(invalidatedKeys).toContain(
+      API_CACHE_KEYS.installationDocuments("inst_1")
+    )
+    expect(invalidatedKeys).toContain(
+      API_CACHE_KEYS.installationActivity("inst_1")
+    )
+    expect(
+      invalidatedKeys.some(
+        (key) => typeof key === "function"
+      )
+    ).toBe(true)
   })
 })
