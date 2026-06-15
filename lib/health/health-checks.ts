@@ -220,14 +220,14 @@ function checkCron(
       id: "cron",
       component: "Cron",
       status: "SUCCESS",
-      explanation: `Cron-jobb för kontrollpåminnelser och notifieringsdigest är konfigurerade (${configuredInspectionCron.schedule}, ${configuredNotificationCron.schedule}).`,
+      explanation: `Cron-jobb för kontrollpåminnelser och e-postsammanfattning är konfigurerade (${configuredInspectionCron.schedule}, ${configuredNotificationCron.schedule}).`,
       suggestedFix: null,
     }
   }
 
   const missingParts = [
     !configuredInspectionCron ? "cron för kontrollpåminnelser" : null,
-    !configuredNotificationCron ? "cron för notifieringsdigest" : null,
+    !configuredNotificationCron ? "cron för e-postsammanfattning" : null,
     !env.CRON_SECRET ? "CRON_SECRET" : null,
   ].filter((value): value is string => Boolean(value))
 

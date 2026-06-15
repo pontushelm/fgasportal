@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     console.error("Notification digest dry-run error:", error)
 
     return NextResponse.json(
-      { error: "Kunde inte testa notifieringsdigest" },
+      { error: "Kunde inte testa e-postsammanfattningen" },
       { status: 500 }
     )
   }

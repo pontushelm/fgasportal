@@ -341,8 +341,21 @@ export default function PropertiesPageClient() {
       {!isLoading && !hasBlockingError && properties.length === 0 && (
         <EmptyState
           className="mt-6"
-          title="Inga fastigheter att visa"
-          description="Lägg till en fastighet här eller koppla aggregat till en fastighet."
+          title="Inga fastigheter i registret än"
+          description="Börja med att importera fastigheter eller lägg till den första manuellt. Fastigheter behövs för årsrapport och registerstatus."
+          action={
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="primary" onClick={() => setIsImportWorkspaceOpen(true)}>
+                Importera fastigheter
+              </Button>
+              <Link
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                href="/dashboard/data-quality"
+              >
+                Öppna registerstatus
+              </Link>
+            </div>
+          }
         />
       )}
 

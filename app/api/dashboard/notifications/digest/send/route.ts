@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     console.error("Notification digest send error:", error)
 
     return NextResponse.json(
-      { error: "Kunde inte skicka notifieringsdigest" },
+      { error: "Kunde inte skicka e-postsammanfattningen" },
       { status: 500 }
     )
   }

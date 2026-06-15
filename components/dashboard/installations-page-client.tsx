@@ -1724,10 +1724,27 @@ export default function InstallationsPageClient() {
 
       {!isLoading && displayedInstallations.length === 0 && (
         <div className="mt-6 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-          <h2 className="text-lg font-semibold text-slate-950">Inga aggregat matchar filtret</h2>
+          <h2 className="text-lg font-semibold text-slate-950">
+            {hasActiveFilters ? "Inga aggregat matchar filtret" : "Inga aggregat i registret än"}
+          </h2>
           <p className="mt-2 text-sm text-slate-700">
-            Justera sökning, filter eller sortering för att hitta rätt aggregat.
+            {hasActiveFilters
+              ? "Justera sökning, filter eller sortering för att hitta rätt aggregat."
+              : "Importera aggregatregistret eller skapa första aggregatet manuellt. Aggregat behövs för kontroller, åtgärder och årsrapport."}
           </p>
+          {!hasActiveFilters && (
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <Button type="button" variant="primary" onClick={() => setIsImportWorkspaceOpen(true)}>
+                Importera data
+              </Button>
+              <Link
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                href="/dashboard/help"
+              >
+                Visa kom igång-guide
+              </Link>
+            </div>
+          )}
           {hasActiveFilters && (
             <button
               className="mt-4 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"

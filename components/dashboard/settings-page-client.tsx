@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
+import NotificationCenterPanel from "@/components/dashboard/notifications-page-client"
 import { Badge, Button, Card, PageHeader, PasswordInput, SectionHeader, Toast, buttonClassName, type ToastMessage } from "@/components/ui"
 import { ThemeSelect } from "@/components/theme/theme-select"
 import type { UserRole } from "@/lib/auth"
@@ -895,6 +896,8 @@ export default function SettingsPageClient() {
               </div>
             </form>
           </Card>
+
+          <NotificationCenterPanel embedded />
         </div>
       )}
       {toast && <Toast onClose={() => setToast(null)} toast={toast} />}

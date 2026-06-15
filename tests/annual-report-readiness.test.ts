@@ -52,7 +52,7 @@ describe("annual report readiness panel data", () => {
     expect(summary.previewStatus).toBe("needs_data")
     expect(summary.primaryCta).toEqual({
       href: "/dashboard/properties?quality=missing-designation",
-      label: "Visa fastigheter",
+      label: "Öppna registerstatus",
     })
     expect(item(summary, "propertyDesignation")).toMatchObject({
       ctaHref: "/dashboard/properties?quality=missing-designation",

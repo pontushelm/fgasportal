@@ -80,7 +80,11 @@ const SEVERITY_VARIANTS: Record<
   LOW: "neutral",
 }
 
-export default function NotificationsPageClient() {
+export default function NotificationsPageClient({
+  embedded = false,
+}: {
+  embedded?: boolean
+} = {}) {
   const router = useRouter()
   const {
     data = null,
@@ -174,7 +178,7 @@ export default function NotificationsPageClient() {
       setToast({
         type: "error",
         title: "Fel",
-        message: result.error || "Kunde inte testa notifieringsdigest.",
+        message: result.error || "Kunde inte testa e-postsammanfattningen.",
       })
       setIsTestingDigest(false)
       return
@@ -184,7 +188,8 @@ export default function NotificationsPageClient() {
     setToast({
       type: "success",
       title: "Klart",
-      message: "Digest-testet är klart. Inga e-postmeddelanden skickades.",
+      message:
+        "Testet av e-postsammanfattningen är klart. Inga e-postmeddelanden skickades.",
     })
     setIsTestingDigest(false)
   }
@@ -206,7 +211,7 @@ export default function NotificationsPageClient() {
       setToast({
         type: "error",
         title: "Fel",
-        message: result.error || "Kunde inte skicka notifieringsdigest.",
+        message: result.error || "Kunde inte skicka e-postsammanfattningen.",
       })
       setIsSendingDigest(false)
       return
@@ -219,18 +224,17 @@ export default function NotificationsPageClient() {
       title: result.failed > 0 ? "Varning" : "Klart",
       message:
         result.failed > 0
-          ? "Digest-körningen är klar, men några utskick misslyckades."
-          : "Digest har skickats.",
+          ? "E-postsammanfattningen är klar, men några utskick misslyckades."
+          : "E-postsammanfattningen har skickats.",
     })
     setIsSendingDigest(false)
   }
 
-  return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
-      <section className="mx-auto max-w-6xl">
+  const content = (
+      <section className={embedded ? "text-slate-900" : "mx-auto max-w-6xl"}>
         <PageHeader
-          title="Notifieringar"
-          subtitle="Samlad översikt över påminnelser som kan skickas som daglig digest."
+          title={embedded ? "Notifieringar och e-postsammanfattning" : "Notifieringar"}
+          subtitle="Samlad översikt över påminnelser och e-postsammanfattningar."
         />
 
         {isLoading && !data && <NotificationsSkeleton />}
@@ -254,7 +258,7 @@ export default function NotificationsPageClient() {
                   <p className="mt-1 text-sm text-slate-600">
                     {data.digest.totalItems === 0
                       ? "Inga aktuella påminnelser just nu."
-                      : "Poster som kan ingå i kommande notifieringsdigest."}
+                      : "Poster som kan ingå i kommande e-postsammanfattning."}
                   </p>
                 </div>
                 <Link
@@ -290,17 +294,17 @@ export default function NotificationsPageClient() {
 
               <div className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
                 <p className="text-sm font-semibold text-slate-950">
-                  Senaste digestaktivitet
+                  Senaste e-postsammanfattning
                 </p>
                 {data.latestDigest ? (
                   <p className="mt-1 text-sm text-slate-600">
-                    {formatDigestType(data.latestDigest.digestType)} digest skickades{" "}
+                    {formatDigestType(data.latestDigest.digestType)} e-postsammanfattning skickades{" "}
                     {formatDateTime(data.latestDigest.sentAt)} med{" "}
                     {data.latestDigest.totalItems} poster.
                   </p>
                 ) : (
                   <p className="mt-1 text-sm text-slate-600">
-                    Ingen digest har skickats ännu.
+                    Ingen e-postsammanfattning har skickats ännu.
                   </p>
                 )}
               </div>
@@ -408,7 +412,7 @@ export default function NotificationsPageClient() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <h2 className="text-xl font-semibold text-slate-950">
-                      Testa digest
+                      Testa e-postsammanfattning
                     </h2>
                     <p className="mt-1 text-sm text-slate-600">
                       Kör en torrkörning av leveransbeslut. Inga
@@ -421,14 +425,14 @@ export default function NotificationsPageClient() {
                       type="button"
                       onClick={runDigestDryRun}
                     >
-                      {isTestingDigest ? "Testar..." : "Testa digest"}
+                      {isTestingDigest ? "Testar..." : "Testa e-postsammanfattning"}
                     </Button>
                     <Button
                       disabled={isTestingDigest || isSendingDigest}
                       type="button"
                       onClick={sendDigestNow}
                     >
-                      {isSendingDigest ? "Skickar..." : "Skicka digest nu"}
+                      {isSendingDigest ? "Skickar..." : "Skicka e-postsammanfattning nu"}
                     </Button>
                   </div>
                 </div>
@@ -462,7 +466,7 @@ export default function NotificationsPageClient() {
                     </div>
                     {dryRunResult.results.length === 0 ? (
                       <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
-                        Inga mottagare hittades för digest-testet.
+                        Inga mottagare hittades för testet av e-postsammanfattningen.
                       </p>
                     ) : (
                       <div className="overflow-hidden rounded-xl border border-slate-200">
@@ -554,6 +558,20 @@ export default function NotificationsPageClient() {
           </div>
         )}
       </section>
+  )
+
+  if (embedded) {
+    return (
+      <>
+        {content}
+        {toast && <Toast onClose={() => setToast(null)} toast={toast} />}
+      </>
+    )
+  }
+
+  return (
+    <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
+      {content}
       {toast && <Toast onClose={() => setToast(null)} toast={toast} />}
     </main>
   )

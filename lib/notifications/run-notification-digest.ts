@@ -293,7 +293,7 @@ async function evaluateRecipient({
       user,
       digest.totalItems,
       "FAILED",
-      error instanceof Error ? error.message : "Kunde inte skicka digest"
+      error instanceof Error ? error.message : "Kunde inte skicka e-postsammanfattningen"
     )
   }
 }

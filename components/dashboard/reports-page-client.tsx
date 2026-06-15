@@ -1016,6 +1016,24 @@ function AnnualReportReadinessPanel({
         </Link>
       </div>
 
+      {!isPreviewReady && (
+        <div className="mt-4 flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-semibold">Nästa steg för rapportunderlaget</p>
+            <p className="mt-1">
+              Åtgärda den högst prioriterade punkten nedan. Registerstatus visar
+              berörda poster när länken går dit.
+            </p>
+          </div>
+          <Link
+            className={buttonClassName({ className: "shrink-0", variant: "primary" })}
+            href={primaryCta.href}
+          >
+            {primaryCta.label}
+          </Link>
+        </div>
+      )}
+
       {isPreviewReady ? (
         <div className="mt-4 flex flex-col gap-2 rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-900 sm:flex-row sm:items-center sm:justify-between">
           <p>
@@ -1191,7 +1209,24 @@ function AnnualReportPropertyOverview({
         <h2 className="text-sm font-semibold text-slate-950">
           Årsrapportering {overview.year}
         </h2>
-        <EmptyState text="Inga fastigheter med aggregat finns för valt år." />
+        <UiEmptyState
+          className="mt-5"
+          title="Inget rapportunderlag för valt år"
+          description="Importera eller koppla aggregat till fastigheter innan årsrapporten kan förhandsgranskas."
+          action={
+            <div className="flex flex-wrap gap-2">
+              <Link className={buttonClassName({ size: "sm" })} href="/dashboard/installations">
+                Visa aggregat
+              </Link>
+              <Link
+                className={buttonClassName({ size: "sm", variant: "secondary" })}
+                href="/dashboard/data-quality"
+              >
+                Öppna registerstatus
+              </Link>
+            </div>
+          }
+        />
       </section>
     )
   }

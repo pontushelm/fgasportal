@@ -441,6 +441,30 @@ export default function ContractorsOverviewPageClient() {
             />
           </section>
 
+          <Card className="mt-6 p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-950 dark:text-slate-100">
+                  Servicepartnerns väg till drift
+                </h2>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                  Följ om partnern bara är tillagd, väntar på inbjudan, är redo
+                  eller redan arbetar med tilldelade aggregat.
+                </p>
+              </div>
+              <ol className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                {["Tillagd", "Inbjuden", "Redo", "I drift"].map((step, index, steps) => (
+                  <li className="flex items-center gap-2" key={step}>
+                    <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 dark:border-slate-700 dark:bg-slate-950">
+                      {step}
+                    </span>
+                    {index < steps.length - 1 && <span className="text-slate-300">→</span>}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </Card>
+
           <Card className="mt-6 p-5">
             <div className="grid gap-5 lg:grid-cols-[1fr_1.1fr]">
               <div className="min-h-0">
@@ -448,9 +472,28 @@ export default function ContractorsOverviewPageClient() {
                   title="Kopplade servicepartners"
                 />
                 {data.servicePartnerCompanies.length === 0 ? (
-                  <p className="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
-                    Inga servicepartners har kopplats ännu.
-                  </p>
+                  <div className="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
+                    <p className="font-semibold text-slate-950 dark:text-slate-100">
+                      Inga servicepartners har kopplats ännu.
+                    </p>
+                    <p className="mt-1">
+                      Bjud in en servicepartner när de ska få åtkomst till tilldelade
+                      aggregat, certifikat och serviceuppdrag.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {canManageServicePartners && (
+                        <a className={buttonClassName({ size: "sm" })} href="#invite-servicepartner">
+                          Bjud in servicepartner
+                        </a>
+                      )}
+                      <Link
+                        className={buttonClassName({ size: "sm", variant: "secondary" })}
+                        href="/dashboard/help"
+                      >
+                        Läs kom igång-guiden
+                      </Link>
+                    </div>
+                  </div>
                 ) : (
                   <div className="mt-4 max-h-[34rem] overflow-y-auto pr-1">
                     <div className="grid gap-2">
@@ -501,7 +544,7 @@ export default function ContractorsOverviewPageClient() {
               </div>
 
               {canManageServicePartners && (
-              <form className="grid gap-3" onSubmit={handleCompanySubmit}>
+              <form className="grid gap-3" id="invite-servicepartner" onSubmit={handleCompanySubmit}>
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {editingCompanyId ? "Redigera servicepartner" : "Bjud in servicepartner"}
                 </h3>

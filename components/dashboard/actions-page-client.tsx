@@ -787,9 +787,29 @@ export default function ActionsPageClient() {
               <InfoTooltip text={SORT_TOOLTIP} />
             </div>
             {visibleActions.length === 0 ? (
-              <p className="px-4 py-8 text-sm text-slate-600">
-                Inga åtgärder finns just nu.
-              </p>
+              <div className="px-4 py-8">
+                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-700">
+                  <h2 className="font-semibold text-slate-950">Inga åtgärder att visa</h2>
+                  <p className="mt-1">
+                    När registerstatus, kontroller eller certifikat behöver följas upp
+                    visas de här som prioriterade åtgärder.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Link
+                      className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                      href="/dashboard/data-quality"
+                    >
+                      Öppna registerstatus
+                    </Link>
+                    <Link
+                      className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                      href="/dashboard/installations"
+                    >
+                      Visa aggregat
+                    </Link>
+                  </div>
+                </div>
+              </div>
             ) : (
               <div className="divide-y divide-slate-200">
                 {displayedActions.map((action) => (

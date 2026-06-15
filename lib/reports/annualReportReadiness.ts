@@ -103,7 +103,7 @@ export function buildAnnualReportReadinessSummary({
           : "needs_action",
       requirement: "required",
       ctaHref: DATA_QUALITY_ISSUE_ROUTES.PROPERTY_MISSING_DESIGNATION,
-      ctaLabel: "Visa fastigheter",
+      ctaLabel: "Öppna registerstatus",
       issueCount: missingDesignationCount || (propertyCount > 0 ? undefined : 1),
     },
     {
@@ -125,13 +125,13 @@ export function buildAnnualReportReadinessSummary({
           ? DATA_QUALITY_ISSUE_ROUTES.INSTALLATION_MISSING_PROPERTY
           : "/dashboard/installations/import",
       ctaLabel:
-        missingPropertyCount > 0 ? "Visa aggregat" : "Importera aggregat",
+        missingPropertyCount > 0 ? "Öppna registerstatus" : "Importera aggregat",
       issueCount:
         missingPropertyCount || (overviewPropertyCount > 0 ? undefined : 1),
     },
     buildQualityItem({
       completeDescription: "Köldmedium finns angivet för aggregaten.",
-      ctaLabel: "Visa aggregat",
+      ctaLabel: "Öppna registerstatus",
       id: "INSTALLATION_MISSING_REFRIGERANT",
       issueCounts,
       key: "refrigerant",
@@ -141,7 +141,7 @@ export function buildAnnualReportReadinessSummary({
     }),
     buildQualityItem({
       completeDescription: "Fyllnadsmängd finns angiven där den behövs.",
-      ctaLabel: "Visa aggregat",
+      ctaLabel: "Öppna registerstatus",
       id: "INSTALLATION_MISSING_CHARGE",
       issueCounts,
       key: "charge",
@@ -151,7 +151,7 @@ export function buildAnnualReportReadinessSummary({
     }),
     buildQualityItem({
       completeDescription: "GWP/CO₂e kan beräknas för kända köldmedier.",
-      ctaLabel: "Visa aggregat",
+      ctaLabel: "Öppna registerstatus",
       id: "INSTALLATION_MISSING_GWP",
       issueCounts,
       key: "gwp",
