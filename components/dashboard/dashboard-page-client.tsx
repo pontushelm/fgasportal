@@ -17,6 +17,10 @@ import {
   isUnauthorizedApiError,
   useApiQuery,
 } from "@/lib/client/api-cache"
+import {
+  shouldRunDashboardCacheWarmup,
+  warmDashboardCache,
+} from "@/lib/client/cache-warmup"
 import type { DataQualityIssue } from "@/lib/dashboard/data-quality"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 
@@ -234,6 +238,7 @@ export default function DashboardPage() {
     isLoading,
   } = useApiQuery<DashboardData>(API_CACHE_KEYS.dashboard)
   const [importWorkspaceType, setImportWorkspaceType] = useState<ImportType | null>(null)
+  const [isCacheWarmupVisible, setIsCacheWarmupVisible] = useState(false)
   const router = useRouter()
   const hasBlockingError = Boolean(error && !dashboardData)
 
@@ -242,6 +247,29 @@ export default function DashboardPage() {
       router.push("/login")
     }
   }, [error, router])
+
+  useEffect(() => {
+    if (!dashboardData || !shouldRunDashboardCacheWarmup()) return
+
+    let isCancelled = false
+    const timeoutId = window.setTimeout(() => {
+      if (isCancelled) return
+
+      setIsCacheWarmupVisible(true)
+      void warmDashboardCache({
+        reportYear: dashboardData.annualReportStatus.year,
+      }).finally(() => {
+        if (!isCancelled) {
+          setIsCacheWarmupVisible(false)
+        }
+      })
+    }, 0)
+
+    return () => {
+      isCancelled = true
+      window.clearTimeout(timeoutId)
+    }
+  }, [dashboardData])
 
   async function refreshDashboardAfterImport() {
     await Promise.all([
@@ -274,6 +302,7 @@ export default function DashboardPage() {
 
       {dashboardData && (
         <div className="mx-auto max-w-7xl">
+          {isCacheWarmupVisible && <CacheWarmupStatusCard />}
           <DashboardSetupAssistant
             setup={dashboardData.setup}
             onOpenImportData={(importType) =>
@@ -595,6 +624,20 @@ function DashboardEmptyTenantCallout({
         </div>
       </div>
     </Card>
+  )
+}
+
+function CacheWarmupStatusCard() {
+  return (
+    <aside
+      aria-live="polite"
+      className="fixed bottom-5 right-5 z-40 max-w-xs rounded-xl border border-blue-100 bg-white px-4 py-3 text-sm text-slate-700 shadow-lg"
+    >
+      <p className="font-semibold text-slate-950">Förbereder arbetsytan</p>
+      <p className="mt-1 text-xs leading-5 text-slate-600">
+        Hämtar översikter så att sidor öppnas snabbare.
+      </p>
+    </aside>
   )
 }
 
