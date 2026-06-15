@@ -17,14 +17,24 @@ import {
   getPropertyQualityFilter,
   matchesPropertyQualityFilter,
 } from "@/lib/dashboard/data-quality-filters"
+import {
+  EMPTY_PROPERTY_LIST_FILTERS,
+  buildPropertyFilterOptions,
+  hasActivePropertyListFilters,
+  matchesPropertyListFilters,
+  type PropertyListFilterKey,
+  type PropertyListFilters,
+} from "@/lib/dashboard/property-list-filters"
 import { isAdminRole } from "@/lib/roles"
 
 type PropertySummary = {
+  address: string | null
+  city: string | null
   id: string
   name: string
+  postalCode: string | null
   propertyDesignation: string | null
   municipality: string | null
-  city: string | null
   installationsCount: number
   totalCo2eTon: number
   dueSoonInspections: number
@@ -100,6 +110,9 @@ export default function PropertiesPageClient() {
   const [isImportWorkspaceOpen, setIsImportWorkspaceOpen] = useState(false)
   const [createError, setCreateError] = useState("")
   const [toast, setToast] = useState<ToastMessage | null>(null)
+  const [propertyFilters, setPropertyFilters] = useState<PropertyListFilters>(
+    EMPTY_PROPERTY_LIST_FILTERS
+  )
   const [sort, setSort] = useState<{
     key: PropertySortKey | ""
     direction: SortDirection | ""
@@ -110,14 +123,21 @@ export default function PropertiesPageClient() {
   const visibleProperties = useMemo(
     () =>
       sortProperties(
-        properties.filter((property) =>
-          matchesPropertyQualityFilter(property, activeQualityFilter)
+        properties.filter(
+          (property) =>
+            matchesPropertyQualityFilter(property, activeQualityFilter) &&
+            matchesPropertyListFilters(property, propertyFilters)
         ),
         sort.key,
         sort.direction
       ),
-    [activeQualityFilter, properties, sort.direction, sort.key]
+    [activeQualityFilter, properties, propertyFilters, sort.direction, sort.key]
   )
+  const propertyFilterOptions = useMemo(
+    () => buildPropertyFilterOptions(properties),
+    [properties]
+  )
+  const hasPropertyFilters = hasActivePropertyListFilters(propertyFilters)
 
   useEffect(() => {
     if (isUnauthorizedApiError(error)) {
@@ -143,6 +163,17 @@ export default function PropertiesPageClient() {
     const params = new URLSearchParams(searchParams.toString())
     params.delete("quality")
     router.replace(`/dashboard/properties${params.toString() ? `?${params.toString()}` : ""}`)
+  }
+
+  function updatePropertyFilter(key: PropertyListFilterKey, value: string) {
+    setPropertyFilters((current) => ({
+      ...current,
+      [key]: value,
+    }))
+  }
+
+  function clearPropertyFilters() {
+    setPropertyFilters(EMPTY_PROPERTY_LIST_FILTERS)
   }
 
   function handlePropertyChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -313,6 +344,13 @@ export default function PropertiesPageClient() {
             onClear={clearQualityFilter}
           />
         )}
+        <PropertyFilterBar
+          filters={propertyFilters}
+          hasActiveFilters={hasPropertyFilters}
+          onClear={clearPropertyFilters}
+          onChange={updatePropertyFilter}
+          options={propertyFilterOptions}
+        />
         <Card className="mt-6 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -374,6 +412,9 @@ export default function PropertiesPageClient() {
                       {property.city && (
                         <p className="mt-1 text-xs text-slate-500">{property.city}</p>
                       )}
+                      {property.address && (
+                        <p className="mt-1 text-xs text-slate-500">{property.address}</p>
+                      )}
                     </TableCell>
                     <TableCell>{property.municipality || "-"}</TableCell>
                     <TableCell>{property.installationsCount}</TableCell>
@@ -403,7 +444,7 @@ export default function PropertiesPageClient() {
         </Card>
         {visibleProperties.length === 0 && (
           <div className="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-700">
-            Inga fastigheter matchar datakvalitetsfiltret.
+            Inga fastigheter matchar valda registerstatus- eller fältfilter.
           </div>
         )}
         </>
@@ -419,6 +460,111 @@ export default function PropertiesPageClient() {
         />
       )}
     </main>
+  )
+}
+
+function PropertyFilterBar({
+  filters,
+  hasActiveFilters,
+  onChange,
+  onClear,
+  options,
+}: {
+  filters: PropertyListFilters
+  hasActiveFilters: boolean
+  onChange: (key: PropertyListFilterKey, value: string) => void
+  onClear: () => void
+  options: Record<PropertyListFilterKey, string[]>
+}) {
+  const filterConfigs = [
+    ["name", "Fastighetsnamn"],
+    ["propertyDesignation", "Fastighetsbeteckning"],
+    ["address", "Adress"],
+    ["municipality", "Kommun"],
+    ["city", "Ort"],
+  ] satisfies Array<[PropertyListFilterKey, string]>
+
+  return (
+    <Card className="mt-6 border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-950">
+            Filtrera fastigheter
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Sök eller välj bland befintliga värden i registret.
+          </p>
+        </div>
+        {hasActiveFilters ? (
+          <button
+            className="self-start rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            type="button"
+            onClick={onClear}
+          >
+            Rensa filter
+          </button>
+        ) : null}
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        {filterConfigs.map(([key, label]) => (
+          <PropertySearchableFilter
+            key={key}
+            label={label}
+            name={key}
+            onChange={(value) => onChange(key, value)}
+            options={options[key]}
+            value={filters[key]}
+          />
+        ))}
+      </div>
+    </Card>
+  )
+}
+
+function PropertySearchableFilter({
+  label,
+  name,
+  onChange,
+  options,
+  value,
+}: {
+  label: string
+  name: PropertyListFilterKey
+  onChange: (value: string) => void
+  options: string[]
+  value: string
+}) {
+  const listId = `property-filter-${name}`
+
+  return (
+    <label className="grid gap-1 text-sm font-medium text-slate-700">
+      {label}
+      <div className="relative">
+        <input
+          className={`${inputClassName} w-full pr-9`}
+          list={listId}
+          placeholder="Sök eller välj"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        {value ? (
+          <button
+            aria-label={`Rensa ${label.toLowerCase()}`}
+            className="absolute right-1.5 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            type="button"
+            onClick={() => onChange("")}
+          >
+            ×
+          </button>
+        ) : null}
+      </div>
+      <datalist id={listId}>
+        {options.map((option) => (
+          <option key={option} value={option} />
+        ))}
+      </datalist>
+    </label>
   )
 }
 
@@ -523,14 +669,14 @@ function QualityFilterBanner({
   return (
     <div className="mt-6 flex flex-col gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-950 sm:flex-row sm:items-center sm:justify-between">
       <span>
-        Visar poster från datakvalitet: <strong>{label}</strong>
+        Visar poster från registerstatus: <strong>{label}</strong>
       </span>
       <button
         className="font-semibold text-blue-800 underline-offset-4 hover:underline"
         type="button"
         onClick={onClear}
       >
-        Rensa datakvalitetsfilter
+        Rensa registerstatusfilter
       </button>
     </div>
   )

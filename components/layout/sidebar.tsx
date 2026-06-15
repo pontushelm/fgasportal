@@ -66,7 +66,7 @@ const primaryNavigation: NavigationItem[] = [
   },
   {
     href: "/dashboard/data-quality",
-    label: "Datakvalitet",
+    label: "Registerstatus",
     roles: ["OWNER", "ADMIN", "MEMBER"],
   },
   {

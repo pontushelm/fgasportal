@@ -692,7 +692,7 @@ export default function ContractorsOverviewPageClient() {
           {activeTechnicianQualityFilter && (
             <Card className="mt-6 p-5">
               <SectionHeader
-                title="Tekniker från datakvalitet"
+                title="Tekniker från registerstatus"
                 subtitle="Servicekontakter med personcertifikat som behöver följas upp."
               />
               <QualityFilterBanner
@@ -702,7 +702,7 @@ export default function ContractorsOverviewPageClient() {
               <div className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200">
                 {visibleTechnicians.length === 0 ? (
                   <p className="bg-slate-50 p-4 text-sm text-slate-600 dark:bg-slate-950 dark:text-slate-300">
-                    Inga tekniker matchar datakvalitetsfiltret.
+                    Inga tekniker matchar registerstatusfiltret.
                   </p>
                 ) : (
                   visibleTechnicians.map((contractor) => (
@@ -1098,14 +1098,14 @@ function QualityFilterBanner({
   return (
     <div className="mt-4 flex flex-col gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-950 sm:flex-row sm:items-center sm:justify-between">
       <span>
-        Visar poster från datakvalitet: <strong>{label}</strong>
+        Visar poster från registerstatus: <strong>{label}</strong>
       </span>
       <button
         className="font-semibold text-blue-800 underline-offset-4 hover:underline"
         type="button"
         onClick={onClear}
       >
-        Rensa datakvalitetsfilter
+        Rensa registerstatusfilter
       </button>
     </div>
   )

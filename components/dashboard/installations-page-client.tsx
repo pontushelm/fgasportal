@@ -2149,14 +2149,14 @@ function QualityFilterBanner({
   return (
     <div className="mt-4 flex flex-col gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-950 sm:flex-row sm:items-center sm:justify-between">
       <span>
-        Visar poster från datakvalitet: <strong>{label}</strong>
+        Visar poster från registerstatus: <strong>{label}</strong>
       </span>
       <button
         className="font-semibold text-blue-800 underline-offset-4 hover:underline"
         type="button"
         onClick={onClear}
       >
-        Rensa datakvalitetsfilter
+        Rensa registerstatusfilter
       </button>
     </div>
   )

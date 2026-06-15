@@ -46,14 +46,14 @@ export default function DataQualityPageClient() {
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
       <section className="mx-auto max-w-7xl">
         <PageHeader
-          title="Datakvalitet"
-          subtitle="Hitta saknade uppgifter som påverkar årsrapporter, efterlevnad och operativ uppföljning."
+          title="Registerstatus"
+          subtitle="Se om registerunderlaget är komplett inför årsrapporter, efterlevnad och löpande uppföljning."
         />
 
         {isLoading && !report && <DataQualitySkeleton />}
         {hasBlockingError && error && !isUnauthorizedApiError(error) && (
           <p className="mt-8 text-sm text-red-700">
-            {error.message || "Kunde inte hämta datakvalitet"}
+            {error.message || "Kunde inte hämta registerstatus"}
           </p>
         )}
 
@@ -62,7 +62,7 @@ export default function DataQualityPageClient() {
             <div className="grid gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]">
               <Card className="border-slate-200 bg-white p-5 shadow-sm">
                 <p className="text-sm font-semibold text-slate-600">
-                  Kvalitetspoäng
+                  Registerpoäng
                 </p>
                 <div className="mt-3 flex items-end gap-2">
                   <span className="text-5xl font-semibold text-slate-950">
@@ -78,7 +78,7 @@ export default function DataQualityPageClient() {
                 </div>
                 <p className="mt-3 text-sm text-slate-600">
                   {report.totalIssueCount === 0
-                    ? "Inga datakvalitetsproblem hittades."
+                    ? "Inga brister i registerunderlaget hittades."
                     : `${report.totalIssueCount} uppgifter behöver ses över i ${report.issueCategoryCount} kategorier.`}
                 </p>
               </Card>
@@ -89,7 +89,7 @@ export default function DataQualityPageClient() {
                 </h2>
                 {report.topIssues.length === 0 ? (
                   <p className="mt-3 text-sm text-slate-600">
-                    Registret har inga kända datakvalitetsproblem just nu.
+                    Registret har inga kända brister just nu.
                   </p>
                 ) : (
                   <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -111,7 +111,7 @@ export default function DataQualityPageClient() {
                       </h2>
                       <p className="mt-1 text-sm text-slate-600">
                         {group.totalIssueCount === 0
-                          ? "Inga kända problem."
+                          ? "Inga kända brister."
                           : `${group.totalIssueCount} uppgifter behöver ses över.`}
                       </p>
                     </div>

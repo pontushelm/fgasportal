@@ -44,7 +44,7 @@ const helpSections: HelpSection[] = [
       "Importera fastigheter först. Fastighetsbeteckning är den viktigaste juridiska identifieraren för årsrapportering.",
       "Importera aggregat och koppla dem till fastigheter när uppgifterna finns i registret.",
       "Importera kontrollhistorik och händelser, till exempel kontroller, läckage, påfyllningar och servicehistorik.",
-      "Granska Datakvalitet för att hitta saknade fastighetsbeteckningar, köldmedium, fyllnadsmängder, GWP/CO₂e och certifikat.",
+      "Granska Registerstatus för att hitta saknade fastighetsbeteckningar, köldmedium, fyllnadsmängder, GWP/CO₂e och certifikat.",
       "Koppla servicepartner när aggregat ska följas upp av externa tekniker eller serviceorganisationer.",
       "Kontrollera företagscertifikat och personcertifikat så att servicepartnerunderlaget blir spårbart.",
       "Förhandsgranska årsrapporten per fastighet och åtgärda kompletteringar innan signering eller PDF-export.",
@@ -55,7 +55,7 @@ const helpSections: HelpSection[] = [
       { href: "/dashboard/properties/import", label: "Importera fastigheter" },
       { href: "/dashboard/installations/import", label: "Importera aggregat" },
       { href: "/dashboard/installations/import-events", label: "Importera händelser" },
-      { href: "/dashboard/data-quality", label: "Datakvalitet" },
+      { href: "/dashboard/data-quality", label: "Registerstatus" },
       { href: "/dashboard/contractors", label: "Servicepartners" },
       { href: "/dashboard/reports", label: "Årsrapport" },
     ],
@@ -447,7 +447,7 @@ export default function HelpPageClient() {
                       Aggregat
                     </Link>
                     <Link className={buttonClassName({ className: "justify-start" })} href="/dashboard/data-quality">
-                      Datakvalitet
+                      Registerstatus
                     </Link>
                     <Link className={buttonClassName({ className: "justify-start" })} href="/dashboard/properties">
                       Fastigheter

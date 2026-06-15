@@ -808,7 +808,7 @@ export default function ImportInstallationsPage({
             },
             {
               href: "/dashboard/data-quality",
-              label: "Öppna datakvalitet",
+              label: "Öppna registerstatus",
             },
           ]}
           context={{

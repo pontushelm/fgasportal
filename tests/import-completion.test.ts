@@ -13,7 +13,7 @@ describe("import completion summary", () => {
       createElement(ImportCompletionSummary, {
         actions: [
           { href: "/dashboard/installations", label: "Visa aggregat" },
-          { href: "/dashboard/data-quality", label: "Öppna datakvalitet" },
+          { href: "/dashboard/data-quality", label: "Öppna registerstatus" },
         ],
         errors: [{ row: 12, message: "Saknar köldmedium" }],
         importedCount: 8,
@@ -30,7 +30,7 @@ describe("import completion summary", () => {
     expect(html).toContain("Hoppade över")
     expect(html).toContain("ignorerade kolumner")
     expect(html).toContain("Saknar köldmedium")
-    expect(html).toContain("Öppna datakvalitet")
+    expect(html).toContain("Öppna registerstatus")
   })
 
   it("renders an empty warning state", () => {
@@ -57,7 +57,7 @@ describe("import completion summary", () => {
       "Lägg till fastigheter",
       "Koppla aggregat till fastigheter",
       "Fortsätt med kontrollhistorik",
-      "Kontrollera datakvalitet",
+      "Kontrollera registerstatus",
       "Sätt upp servicepartner",
     ])
   })

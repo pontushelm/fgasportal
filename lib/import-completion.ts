@@ -100,8 +100,8 @@ export function buildImportCompletionRecommendations(
       description:
         "Granska saknade uppgifter innan du förhandsgranskar årsrapporten.",
       href: "/dashboard/data-quality",
-      label: "Granska datakvalitet",
-      title: "Kontrollera datakvalitet",
+      label: "Granska registerstatus",
+      title: "Kontrollera registerstatus",
     })
   }
 
@@ -123,8 +123,8 @@ export function buildImportCompletionRecommendations(
       description:
         "Granska saknade uppgifter och varningar innan årsrapporten förhandsgranskas.",
       href: "/dashboard/data-quality",
-      label: "Granska datakvalitet",
-      title: "Kontrollera datakvalitet",
+      label: "Granska registerstatus",
+      title: "Kontrollera registerstatus",
     })
     recommendations.push({
       description:
@@ -145,10 +145,10 @@ export function buildImportCompletionRecommendations(
   if (recommendations.length === 0) {
     recommendations.push({
       description:
-        "Öppna datakvalitet för att se om registret behöver kompletteras.",
+        "Öppna registerstatus för att se om registret behöver kompletteras.",
       href: "/dashboard/data-quality",
-      label: "Öppna datakvalitet",
-      title: "Kontrollera datakvalitet",
+      label: "Öppna registerstatus",
+      title: "Kontrollera registerstatus",
     })
   }
 

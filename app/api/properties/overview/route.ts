@@ -12,11 +12,13 @@ import {
 import { calculateInstallationRisk } from "@/lib/risk-classification"
 
 type PropertySummary = {
+  address: string | null
+  city: string | null
   id: string
   name: string
+  postalCode: string | null
   propertyDesignation: string | null
   municipality: string | null
-  city: string | null
   installationsCount: number
   totalCo2eTon: number
   dueSoonInspections: number
@@ -56,11 +58,13 @@ export async function GET(request: NextRequest) {
           nextInspection: true,
           property: {
             select: {
+              address: true,
+              city: true,
               id: true,
               name: true,
+              postalCode: true,
               propertyDesignation: true,
               municipality: true,
-              city: true,
             },
           },
           events: {
@@ -106,11 +110,13 @@ export async function GET(request: NextRequest) {
         companyId,
       },
       select: {
+        address: true,
+        city: true,
         id: true,
         name: true,
+        postalCode: true,
         propertyDesignation: true,
         municipality: true,
-        city: true,
         installations: {
           where: {
             archivedAt: null,
@@ -180,11 +186,13 @@ function logDevelopmentTiming(label: string, startTime: number | null) {
 function aggregateInstallationsByProperty(
   installations: Array<{
     property: {
+      address: string | null
+      city: string | null
       id: string
       name: string
+      postalCode: string | null
       propertyDesignation: string | null
       municipality: string | null
-      city: string | null
     } | null
     refrigerantType: string
     refrigerantAmount: number
@@ -211,18 +219,22 @@ function aggregateInstallationsByProperty(
 }
 
 function createEmptyPropertySummary(property: {
+  address: string | null
+  city: string | null
   id: string
   name: string
+  postalCode: string | null
   propertyDesignation: string | null
   municipality: string | null
-  city: string | null
 }): PropertySummary {
   return {
+    address: property.address,
+    city: property.city,
     id: property.id,
     name: property.name,
+    postalCode: property.postalCode,
     propertyDesignation: property.propertyDesignation,
     municipality: property.municipality,
-    city: property.city,
     installationsCount: 0,
     totalCo2eTon: 0,
     dueSoonInspections: 0,

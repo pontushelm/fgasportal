@@ -116,12 +116,12 @@ export function buildDashboardSetupSteps({
     },
     {
       id: "dataQuality",
-      title: "Granska datakvalitet",
+      title: "Granska registerstatus",
       description:
-        "Datakvalitet visar saknade uppgifter som kan hindra eller försvaga årsrapporten.",
+        "Registerstatus visar saknade uppgifter som kan hindra eller försvaga årsrapporten.",
       completed: hasInstallations && dataQualityIssueCount === 0,
       route: "/dashboard/data-quality",
-      ctaLabel: "Granska datakvalitet",
+      ctaLabel: "Granska registerstatus",
     },
     {
       id: "servicePartner",

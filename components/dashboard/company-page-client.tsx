@@ -1194,7 +1194,7 @@ export default function CompanySettingsPage() {
                   <p className="mt-2 max-w-2xl text-sm text-slate-700">
                     Skapar en realistisk demo-tenant med svenska fastigheter,
                     aggregat, händelser, servicepartners och avsiktliga
-                    datakvalitetsfrågor. Åtgärden tillåts bara när tenantens
+                    registerstatusfrågor. Åtgärden tillåts bara när tenantens
                     register är tomt.
                   </p>
                 </div>

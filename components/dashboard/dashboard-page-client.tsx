@@ -304,6 +304,12 @@ export default function DashboardPage() {
         <div className="mx-auto max-w-7xl">
           {isCacheWarmupVisible && <CacheWarmupStatusCard />}
           <DashboardSetupAssistant
+            defaultCollapsed={
+              !(
+                dashboardData.setup.propertyCount === 0 &&
+                dashboardData.setup.installationCount === 0
+              )
+            }
             setup={dashboardData.setup}
             onOpenImportData={(importType) =>
               setImportWorkspaceType(importType ?? "installations")
@@ -527,7 +533,7 @@ function DataQualitySummaryCard({
     <Card className="border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="grid gap-4 lg:grid-cols-[14rem_minmax(0,1fr)_auto] lg:items-center">
         <div>
-          <p className="text-sm font-semibold text-slate-600">Datakvalitet</p>
+          <p className="text-sm font-semibold text-slate-600">Registerstatus</p>
           <div className="mt-2 flex items-end gap-2">
             <span className={`text-4xl font-semibold ${scoreTone}`}>
               {dataQuality.score}
@@ -536,7 +542,7 @@ function DataQualitySummaryCard({
           </div>
           <p className="mt-2 text-sm text-slate-600">
             {dataQuality.totalIssueCount === 0
-              ? "Inga kända problem."
+              ? "Inga kända brister."
               : `${dataQuality.totalIssueCount} uppgifter behöver ses över.`}
           </p>
         </div>
@@ -547,7 +553,7 @@ function DataQualitySummaryCard({
           </p>
           {dataQuality.topIssues.length === 0 ? (
             <p className="mt-2 text-sm text-slate-700">
-              Registret har inga kända datakvalitetsproblem.
+              Registret har inga kända brister just nu.
             </p>
           ) : (
             <div className="mt-2 flex flex-wrap gap-2">
@@ -567,7 +573,7 @@ function DataQualitySummaryCard({
           className="inline-flex justify-center rounded-lg border border-blue-200 bg-white px-3.5 py-2 text-sm font-semibold text-blue-700 shadow-sm hover:bg-blue-50"
           href="/dashboard/data-quality"
         >
-          Visa datakvalitet
+          Visa registerstatus
         </Link>
       </div>
     </Card>
@@ -631,7 +637,7 @@ function CacheWarmupStatusCard() {
   return (
     <aside
       aria-live="polite"
-      className="fixed bottom-5 right-5 z-40 max-w-xs rounded-xl border border-blue-100 bg-white px-4 py-3 text-sm text-slate-700 shadow-lg"
+      className="fixed bottom-5 left-5 z-40 max-w-xs rounded-xl border border-blue-100 bg-white px-4 py-3 text-sm text-slate-700 shadow-lg"
     >
       <p className="font-semibold text-slate-950">Förbereder arbetsytan</p>
       <p className="mt-1 text-xs leading-5 text-slate-600">
