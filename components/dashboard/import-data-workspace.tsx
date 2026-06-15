@@ -161,10 +161,14 @@ export function ImportDataWorkspace({
     <div
       aria-labelledby="import-workspace-title"
       aria-modal="true"
-      className="fixed inset-0 z-50 bg-slate-950/45 p-0 sm:p-3"
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-slate-950/45 p-0 sm:items-center sm:p-4"
       role="dialog"
     >
-      <div className="flex h-full w-full flex-col overflow-hidden bg-slate-50 shadow-2xl sm:rounded-2xl sm:border sm:border-slate-200">
+      <div
+        className={`flex h-full w-full flex-col overflow-hidden bg-slate-50 shadow-2xl sm:h-[min(92vh,900px)] sm:rounded-2xl sm:border sm:border-slate-200 ${
+          activeImportType ? "sm:max-w-6xl" : "sm:max-w-4xl"
+        }`}
+      >
         <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-4 backdrop-blur sm:px-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -226,7 +230,7 @@ export function ImportDataWorkspace({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
           {activeImportType ? (
-            <div className="mx-auto max-w-6xl">
+            <div className="mx-auto max-w-5xl">
               <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-950">
                 <p className="font-semibold">{activeOption?.title}</p>
                 <p className="mt-1 text-blue-900">{activeOption?.description}</p>
@@ -253,7 +257,7 @@ export function ImportDataWorkspace({
               )}
             </div>
           ) : (
-            <div className="mx-auto grid max-w-5xl gap-4 lg:grid-cols-3">
+            <div className="mx-auto grid max-w-4xl gap-4 lg:grid-cols-3">
               {importOptions.map((option) => (
                 <button
                   className={`rounded-2xl border bg-white p-5 text-left shadow-sm transition ${

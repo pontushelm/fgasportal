@@ -15,6 +15,11 @@ import {
   type ActionSeverityFilter,
   type ActionSummaryCounts,
 } from "@/lib/actions/action-filters"
+import {
+  ACTION_LIST_PAGE_SIZE,
+  getInitialVisibleActionCount,
+  getVisibleActionCount,
+} from "@/lib/actions/action-list-display"
 import type {
   DashboardActionSeverity,
   DashboardActionSource,
@@ -225,6 +230,8 @@ export default function ActionsPageClient() {
   const [savedViewError, setSavedViewError] = useState("")
   const [toast, setToast] = useState<ToastMessage | null>(null)
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false)
+  const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false)
+  const [visibleActionCount, setVisibleActionCount] = useState(ACTION_LIST_PAGE_SIZE)
   const actions = actionsData?.actions ?? EMPTY_ACTIONS
   const isLoading = isActionsLoading || isPropertiesLoading || isSavedViewsLoading
   const error = actionsError ?? propertiesError ?? savedViewsError
@@ -236,6 +243,13 @@ export default function ActionsPageClient() {
   const activeServiceContact = searchParams.get("serviceContact") ?? ""
   const activeServicePartnerCompany = searchParams.get("servicePartnerCompany") ?? ""
   const activeSearch = searchParams.get("q") ?? ""
+  const advancedFilterCount = [
+    activeDueDate !== "ALL",
+    Boolean(activeProperty),
+    Boolean(activeServiceContact),
+    Boolean(activeServicePartnerCompany),
+    Boolean(selectedSavedViewId),
+  ].filter(Boolean).length
 
   useEffect(() => {
     if (isUnauthorizedApiError(error)) {
@@ -302,6 +316,24 @@ export default function ActionsPageClient() {
       servicePartnerCompanyOptions,
     ]
   )
+  const displayedActions = visibleActions.slice(0, visibleActionCount)
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setVisibleActionCount(getInitialVisibleActionCount(visibleActions.length))
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [
+    activeCategory,
+    activeDueDate,
+    activeProperty,
+    activeSearch,
+    activeServiceContact,
+    activeServicePartnerCompany,
+    activeSeverity,
+    visibleActions.length,
+  ])
 
   function updateParam(key: string, value: string, emptyValue = "ALL") {
     const params = new URLSearchParams(searchParams.toString())
@@ -445,7 +477,7 @@ export default function ActionsPageClient() {
       </section>
 
       <div className="mx-auto mt-6 max-w-7xl">
-        <section className="grid gap-2 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-7 xl:gap-3">
+        <section className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:gap-3">
           {isLoading && actions.length === 0
             ? Array.from({ length: SUMMARY_CARDS.length }).map((_, index) => (
                 <Card
@@ -525,7 +557,32 @@ export default function ActionsPageClient() {
           )}
 
           <div className={`${isFilterPanelOpen ? "block" : "hidden"} sm:block`}>
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1 sm:mt-0 sm:flex-wrap sm:overflow-visible sm:pb-0">
+          <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_14rem]">
+            <FilterField label="Sök">
+              <input
+                className={filterControlClassName}
+                placeholder="Aggregat, ID, fastighet..."
+                type="search"
+                value={activeSearch}
+                onChange={(event) => updateParam("q", event.target.value, "")}
+              />
+            </FilterField>
+            <FilterField label="Prioritet">
+              <select
+                className={filterControlClassName}
+                value={activeSeverity}
+                onChange={(event) => updateParam("severity", event.target.value)}
+              >
+                {SEVERITY_FILTERS.map((filter) => (
+                  <option key={filter.value} value={filter.value}>
+                    {filter.label}
+                  </option>
+                ))}
+              </select>
+            </FilterField>
+          </div>
+
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
             {CATEGORY_FILTERS.map((filter) => (
               <button
                 className={`min-h-10 shrink-0 rounded-md border px-3 py-2 text-sm font-semibold ${
@@ -542,21 +599,25 @@ export default function ActionsPageClient() {
             ))}
           </div>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-            <FilterField label="Prioritet">
-              <select
-                className={filterControlClassName}
-                value={activeSeverity}
-                onChange={(event) => updateParam("severity", event.target.value)}
-              >
-                {SEVERITY_FILTERS.map((filter) => (
-                  <option key={filter.value} value={filter.value}>
-                    {filter.label}
-                  </option>
-                ))}
-              </select>
-            </FilterField>
+          <div className="mt-4 flex flex-col gap-2 border-t border-slate-200 pt-3 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              className="self-start rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+              type="button"
+              onClick={() => setIsAdvancedFiltersOpen((current) => !current)}
+            >
+              {isAdvancedFiltersOpen ? "Dölj fler filter" : "Fler filter"}
+              {advancedFilterCount > 0 ? ` (${advancedFilterCount})` : ""}
+            </button>
+            {advancedFilterCount > 0 ? (
+              <span className="text-xs font-semibold text-blue-800">
+                {advancedFilterCount} dolda filter är aktiva
+              </span>
+            ) : null}
+          </div>
 
+          {isAdvancedFiltersOpen || advancedFilterCount > 0 ? (
+          <>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <FilterField label="Fastighet">
               <select
                 className={filterControlClassName}
@@ -604,15 +665,6 @@ export default function ActionsPageClient() {
               </select>
             </FilterField>
 
-            <FilterField label="Sök">
-              <input
-                className={filterControlClassName}
-                placeholder="Aggregat, ID, fastighet..."
-                type="search"
-                value={activeSearch}
-                onChange={(event) => updateParam("q", event.target.value, "")}
-              />
-            </FilterField>
           </div>
 
           <div className="mt-3 max-w-sm">
@@ -713,6 +765,8 @@ export default function ActionsPageClient() {
           {savedViewError ? (
             <p className="mt-3 text-sm font-semibold text-red-700">{savedViewError}</p>
           ) : null}
+          </>
+          ) : null}
 
           </div>
         </Card>
@@ -738,11 +792,43 @@ export default function ActionsPageClient() {
               </p>
             ) : (
               <div className="divide-y divide-slate-200">
-                {visibleActions.map((action) => (
+                {displayedActions.map((action) => (
                   <ActionRow action={action} key={getActionStableKey(action)} />
                 ))}
               </div>
             )}
+            {visibleActions.length > ACTION_LIST_PAGE_SIZE ? (
+              <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  Visar {displayedActions.length} av {visibleActions.length} åtgärder
+                </span>
+                {displayedActions.length < visibleActions.length ? (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      className="rounded-md border border-slate-300 bg-white px-3 py-2 font-semibold text-slate-800 hover:bg-slate-50"
+                      type="button"
+                      onClick={() =>
+                        setVisibleActionCount((current) =>
+                          getVisibleActionCount({
+                            totalCount: visibleActions.length,
+                            visibleCount: current,
+                          })
+                        )
+                      }
+                    >
+                      Visa fler
+                    </button>
+                    <button
+                      className="rounded-md border border-blue-200 bg-white px-3 py-2 font-semibold text-blue-700 hover:bg-blue-50"
+                      type="button"
+                      onClick={() => setVisibleActionCount(visibleActions.length)}
+                    >
+                      Visa alla
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </Card>
         )}
       </div>

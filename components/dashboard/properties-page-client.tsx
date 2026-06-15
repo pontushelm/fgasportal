@@ -4,7 +4,17 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import { ImportDataWorkspace } from "@/components/dashboard/import-data-workspace"
-import { Badge, Button, Card, EmptyState, PageHeader, Toast, type ToastMessage } from "@/components/ui"
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  PageHeader,
+  SearchableSelect,
+  Toast,
+  type SearchableSelectOption,
+  type ToastMessage,
+} from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
 import {
   API_CACHE_KEYS,
@@ -508,12 +518,14 @@ function PropertyFilterBar({
 
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         {filterConfigs.map(([key, label]) => (
-          <PropertySearchableFilter
+          <SearchableSelect
             key={key}
+            clearLabel={`Rensa ${label.toLowerCase()}`}
+            emptyLabel="Inga träffar"
             label={label}
             name={key}
             onChange={(value) => onChange(key, value)}
-            options={options[key]}
+            options={options[key].map(toSearchableSelectOption)}
             value={filters[key]}
           />
         ))}
@@ -522,50 +534,11 @@ function PropertyFilterBar({
   )
 }
 
-function PropertySearchableFilter({
-  label,
-  name,
-  onChange,
-  options,
-  value,
-}: {
-  label: string
-  name: PropertyListFilterKey
-  onChange: (value: string) => void
-  options: string[]
-  value: string
-}) {
-  const listId = `property-filter-${name}`
-
-  return (
-    <label className="grid gap-1 text-sm font-medium text-slate-700">
-      {label}
-      <div className="relative">
-        <input
-          className={`${inputClassName} w-full pr-9`}
-          list={listId}
-          placeholder="Sök eller välj"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-        />
-        {value ? (
-          <button
-            aria-label={`Rensa ${label.toLowerCase()}`}
-            className="absolute right-1.5 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-            type="button"
-            onClick={() => onChange("")}
-          >
-            ×
-          </button>
-        ) : null}
-      </div>
-      <datalist id={listId}>
-        {options.map((option) => (
-          <option key={option} value={option} />
-        ))}
-      </datalist>
-    </label>
-  )
+function toSearchableSelectOption(value: string): SearchableSelectOption {
+  return {
+    label: value,
+    value,
+  }
 }
 
 function ControlStatusSummary({ property }: { property: PropertySummary }) {

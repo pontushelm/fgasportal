@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, type ReactNode } from "react"
+import { SearchableSelect, type SearchableSelectOption } from "@/components/ui"
 import {
   calculateCO2e,
   calculateInspectionObligation,
@@ -30,9 +31,12 @@ type InstallationFormData = {
 }
 
 type PropertyOption = {
+  address?: string | null
+  city?: string | null
   id: string
   name: string
   municipality?: string | null
+  propertyDesignation?: string | null
 }
 
 type CreatedInstallation = {
@@ -190,6 +194,13 @@ export default function CreateInstallationForm({
     }))
   }
 
+  function handlePropertyChange(value: string) {
+    setFormData((current) => ({
+      ...current,
+      propertyId: value,
+    }))
+  }
+
   const inspectionPreview = calculateInspectionPreview(
     formData.refrigerantType,
     formData.refrigerantAmount,
@@ -205,6 +216,7 @@ export default function CreateInstallationForm({
           contractor.servicePartnerCompany?.id === formData.assignedServicePartnerCompanyId
       )
     : contractors
+  const propertyOptions = properties.map(toPropertySearchOption)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -258,17 +270,15 @@ export default function CreateInstallationForm({
         <input className={inputClassName} name="location" placeholder="Plats eller placering" value={formData.location} onChange={handleChange} />
       </label>
 
-      <label className={labelClassName}>
-        <span>Fastighet <RequiredMark /></span>
-        <select className={inputClassName} name="propertyId" value={formData.propertyId} onChange={handleChange} required>
-          <option value="">Välj fastighet</option>
-          {properties.map((property) => (
-            <option key={property.id} value={property.id}>
-              {property.name}{property.municipality ? `, ${property.municipality}` : ""}
-            </option>
-          ))}
-        </select>
-      </label>
+      <SearchableSelect
+        label="Fastighet"
+        name="propertyId"
+        onChange={handlePropertyChange}
+        options={propertyOptions}
+        placeholder="Sök fastighet"
+        required
+        value={formData.propertyId}
+      />
       <input className={inputClassName} name="equipmentId" placeholder="Utrustnings-ID" value={formData.equipmentId} onChange={handleChange} />
       <input className={inputClassName} name="serialNumber" placeholder="Serienummer" value={formData.serialNumber} onChange={handleChange} />
       <input className={inputClassName} name="equipmentType" placeholder="Utrustningstyp" value={formData.equipmentType} onChange={handleChange} />
@@ -402,6 +412,21 @@ export default function CreateInstallationForm({
 
 function RequiredMark() {
   return <span aria-hidden="true" className="text-xs text-red-500">*</span>
+}
+
+function toPropertySearchOption(property: PropertyOption): SearchableSelectOption {
+  const details = [
+    property.propertyDesignation,
+    property.address,
+    property.city,
+    property.municipality,
+  ].filter(Boolean)
+
+  return {
+    label: details.length > 0 ? `${property.name} - ${details.join(", ")}` : property.name,
+    searchText: details.join(" "),
+    value: property.id,
+  }
 }
 
 function calculateNextInspectionPreview(

@@ -948,6 +948,7 @@ function AnnualReportReadinessPanel({
   properties: PropertyOption[]
   selectedPropertyId: string
 }) {
+  const [detailsExpanded, setDetailsExpanded] = useState(false)
   const summary = useMemo(
     () =>
       buildAnnualReportReadinessSummary({
@@ -967,6 +968,8 @@ function AnnualReportReadinessPanel({
     summary.previewStatus === "can_preview" && selectedPropertyId
       ? { href: "#annual-report-preview", label: "Förhandsgranska årsrapport" }
       : summary.primaryCta
+  const isPreviewReady = summary.previewStatus === "can_preview"
+  const showDetails = !isPreviewReady || detailsExpanded
 
   return (
     <section className="mt-6 rounded-lg border border-blue-100 bg-white p-4 shadow-sm">
@@ -1013,6 +1016,22 @@ function AnnualReportReadinessPanel({
         </Link>
       </div>
 
+      {isPreviewReady ? (
+        <div className="mt-4 flex flex-col gap-2 rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-900 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            Rapportunderlaget kan förhandsgranskas. Detaljerna är minimerade för
+            att ge mer plats åt rapportöversikten.
+          </p>
+          <button
+            className="self-start rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50"
+            type="button"
+            onClick={() => setDetailsExpanded((current) => !current)}
+          >
+            {detailsExpanded ? "Dölj detaljer" : "Visa detaljer"}
+          </button>
+        </div>
+      ) : null}
+
       {summary.status === "empty" && (
         <div className="mt-4 flex flex-col gap-2 rounded-lg border border-dashed border-blue-200 bg-blue-50 p-3 text-sm text-blue-950 sm:flex-row sm:items-center sm:justify-between">
           <p>
@@ -1042,22 +1061,26 @@ function AnnualReportReadinessPanel({
         </div>
       )}
 
-      <div className="mt-4 grid gap-3 lg:grid-cols-2">
-        {requiredItems.map((item) => (
-          <AnnualReadinessChecklistItem item={item} key={item.key} />
-        ))}
-      </div>
+      {showDetails ? (
+        <>
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            {requiredItems.map((item) => (
+              <AnnualReadinessChecklistItem item={item} key={item.key} />
+            ))}
+          </div>
 
-      <div className="mt-4 border-t border-slate-100 pt-4">
-        <h3 className="text-sm font-semibold text-slate-900">
-          Rekommenderas för kvalitet och spårbarhet
-        </h3>
-        <div className="mt-3 grid gap-3 lg:grid-cols-2">
-          {recommendedItems.map((item) => (
-            <AnnualReadinessChecklistItem item={item} key={item.key} />
-          ))}
-        </div>
-      </div>
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            <h3 className="text-sm font-semibold text-slate-900">
+              Rekommenderas för kvalitet och spårbarhet
+            </h3>
+            <div className="mt-3 grid gap-3 lg:grid-cols-2">
+              {recommendedItems.map((item) => (
+                <AnnualReadinessChecklistItem item={item} key={item.key} />
+              ))}
+            </div>
+          </div>
+        </>
+      ) : null}
     </section>
   )
 }
