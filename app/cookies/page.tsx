@@ -3,8 +3,8 @@ import Link from "next/link"
 import { LegalLinks } from "@/components/legal-links"
 
 export const metadata: Metadata = {
-  title: "Cookies | FgasPortal",
-  description: "Information om cookies och lokal lagring i FgasPortal.",
+  title: "Cookies | Helm Polar",
+  description: "Information om cookies och lokal lagring i Helm Polar.",
 }
 
 export default function CookiesPage() {
@@ -12,7 +12,7 @@ export default function CookiesPage() {
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
         <Link className="text-sm font-semibold text-blue-700 hover:text-blue-800" href="/">
-          Tillbaka till FgasPortal
+          Tillbaka till Helm Polar
         </Link>
         <header className="mt-8 border-b border-slate-200 pb-6">
           <h1 className="text-3xl font-bold tracking-tight">Cookies</h1>
@@ -25,13 +25,13 @@ export default function CookiesPage() {
           <section className="space-y-3">
             <h2 className="text-xl font-semibold text-slate-950">Översikt</h2>
             <p>
-              FgasPortal använder för närvarande endast en nödvändig
+              Helm Polar använder för närvarande endast en nödvändig
               förstapartscookie för inloggning och säker åtkomst. Tjänsten
               använder även lokal lagring i webbläsaren för att komma ihåg
               användarens tema.
             </p>
             <p>
-              FgasPortal använder i nuläget inga annonseringscookies,
+              Helm Polar använder i nuläget inga annonseringscookies,
               marknadsföringscookies eller tredjepartscookies för spårning.
             </p>
           </section>
@@ -70,7 +70,7 @@ export default function CookiesPage() {
               Lokal lagring för tema
             </h2>
             <p>
-              FgasPortal använder nyckeln <strong>fgasportal-theme</strong> i
+              Helm Polar använder nyckeln <strong>fgasportal-theme</strong> i
               localStorage för att komma ihåg om användaren valt ljust eller
               mörkt tema. Detta är en preferensinställning och används inte för
               annonsering eller spårning.
@@ -82,7 +82,7 @@ export default function CookiesPage() {
               Ingen marknadsföringsspårning
             </h2>
             <p>
-              FgasPortal använder för närvarande inte Google Analytics, Google
+              Helm Polar använder för närvarande inte Google Analytics, Google
               Tag Manager, PostHog, Plausible, Hotjar, Sentry-baserad
               webbläsarspårning, annonseringspixlar eller motsvarande
               tredjepartsspårning.

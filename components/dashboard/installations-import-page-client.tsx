@@ -372,7 +372,7 @@ export default function ImportInstallationsPage({
     setIsDownloadingTemplate(true)
     const workbook = XLSX.utils.book_new()
     const instructionSheet = XLSX.utils.aoa_to_sheet([
-      ["FgasPortal - importmall för aggregat"],
+      ["Helm Polar - importmall för aggregat"],
       [""],
       ["Fyll i fliken Aggregat och behåll rubrikraden överst."],
       ["Obligatoriska fält", TEMPLATE_REQUIRED_COLUMNS.join(", ")],
@@ -380,7 +380,7 @@ export default function ImportInstallationsPage({
       ["Datumformat", "Använd helst ÅÅÅÅ-MM-DD, till exempel 2026-01-15."],
       [
         "Beräkningar",
-        "Importera normalt inte GWP eller CO₂e. FgasPortal beräknar detta från köldmedium och fyllnadsmängd.",
+        "Importera normalt inte GWP eller CO₂e. Helm Polar beräknar detta från köldmedium och fyllnadsmängd.",
       ],
       [
         "Historik",
@@ -411,7 +411,7 @@ export default function ImportInstallationsPage({
 
     XLSX.utils.book_append_sheet(workbook, instructionSheet, "Läs först")
     XLSX.utils.book_append_sheet(workbook, worksheet, "Aggregat")
-    XLSX.writeFile(workbook, "fgasportal-importmall-aggregat.xlsx")
+    XLSX.writeFile(workbook, "helm-polar-importmall-aggregat.xlsx")
     window.setTimeout(() => {
       templateDownloadInProgressRef.current = false
       setIsDownloadingTemplate(false)
@@ -508,7 +508,7 @@ export default function ImportInstallationsPage({
               <ul className="mt-2 list-disc space-y-1.5 pl-4">
                 <li>Använd tydliga datumformat, till exempel 2026-01-15.</li>
                 <li>Aggregat-ID används som primär identitet vid import.</li>
-                <li>Låt FgasPortal beräkna GWP och CO₂e i stället för att importera manuella värden.</li>
+                <li>Låt Helm Polar beräkna GWP och CO₂e i stället för att importera manuella värden.</li>
                 <li>Lämna okända värden tomma hellre än att fylla i uppskattningar.</li>
                 <li>Se till att märkning eller Aggregat-ID är unik och konsekvent i filen.</li>
               </ul>
@@ -571,7 +571,7 @@ export default function ImportInstallationsPage({
                 Kontrollera fält
               </h2>
               <p className="mt-1 text-sm text-slate-600">
-                FgasPortal föreslår matchningar baserat på kolumnnamn. Kontrollera
+                Helm Polar föreslår matchningar baserat på kolumnnamn. Kontrollera
                 de viktigaste fälten först.
               </p>
               <p className="mt-1 text-xs text-slate-500">
@@ -662,7 +662,7 @@ export default function ImportInstallationsPage({
               )}
               {duplicatedFields.length > 0 && (
                 <p className="mt-1">
-                  Samma fält i FgasPortal är valt flera gånger:{" "}
+                  Samma fält i Helm Polar är valt flera gånger:{" "}
                   {[...new Set(duplicatedFields)].map(getImportFieldLabel).join(", ")}.
                   Välj ett unikt fält per kolumn eller lämna extra kolumner
                   utan koppling.

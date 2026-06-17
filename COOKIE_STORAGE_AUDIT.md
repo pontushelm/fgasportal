@@ -6,7 +6,7 @@ Scope: Codebase audit only. No runtime cookie values or secret values were inspe
 
 ## Summary
 
-FgasPortal currently uses one first-party authentication cookie and one first-party localStorage key for theme preference.
+Helm Polar currently uses one first-party authentication cookie and one first-party localStorage key for theme preference.
 
 No code-level use of Google Analytics, GA4, Google Tag Manager, Vercel Analytics, Vercel Speed Insights, PostHog, Plausible, Hotjar, Sentry, tracking pixels, embedded tracking scripts, `document.cookie`, `sessionStorage`, or `indexedDB` was found.
 

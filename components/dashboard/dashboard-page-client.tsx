@@ -341,7 +341,7 @@ export default function DashboardPage() {
               description=""
               label="Årsrapporter återstår"
               tone={dashboardData.annualReportStatus.remainingRequiredReports > 0 ? "amber" : "emerald"}
-              tooltip="Antal fastigheter med minst 14 ton CO₂e där signerad rapport saknas i FgasPortal."
+              tooltip="Antal fastigheter med minst 14 ton CO₂e där signerad rapport saknas i Helm Polar."
               value={dashboardData.annualReportStatus.remainingRequiredReports}
             />
             </div>

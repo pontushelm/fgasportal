@@ -3,8 +3,8 @@ import Link from "next/link"
 import { LegalLinks } from "@/components/legal-links"
 
 export const metadata: Metadata = {
-  title: "Användarvillkor | FgasPortal",
-  description: "Användarvillkor för FgasPortal.",
+  title: "Användarvillkor | Helm Polar",
+  description: "Användarvillkor för Helm Polar.",
 }
 
 export default function TermsPage() {
@@ -12,7 +12,7 @@ export default function TermsPage() {
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
         <Link className="text-sm font-semibold text-blue-700 hover:text-blue-800" href="/">
-          Tillbaka till FgasPortal
+          Tillbaka till Helm Polar
         </Link>
         <header className="mt-8 border-b border-slate-200 pb-6">
           <h1 className="text-3xl font-bold tracking-tight">Användarvillkor</h1>
@@ -24,7 +24,7 @@ export default function TermsPage() {
         <div className="mt-8 space-y-8 text-sm leading-7 text-slate-700">
           <Section title="Om tjänsten">
             <p>
-              FgasPortal är en webbaserad plattform för F-gasregister,
+              Helm Polar är en webbaserad plattform för F-gasregister,
               aggregatdata, fastighetskopplingar, kontrollhistorik,
               dokumentation, servicepartnerflöden och rapportunderlag.
             </p>
@@ -32,7 +32,7 @@ export default function TermsPage() {
 
           <Section title="Ansvarsfördelning">
             <p>
-              FgasPortal tillhandahåller systemstöd för struktur, spårbarhet och
+              Helm Polar tillhandahåller systemstöd för struktur, spårbarhet och
               uppföljning. Kunden ansvarar för att uppgifter som registreras i
               tjänsten är korrekta, aktuella och fullständiga samt för att
               uppfylla tillämpliga lagkrav och myndighetskrav.
@@ -41,7 +41,7 @@ export default function TermsPage() {
 
           <Section title="Användning av tjänsten">
             <p>
-              Användare ska använda FgasPortal på ett ansvarsfullt sätt och
+              Användare ska använda Helm Polar på ett ansvarsfullt sätt och
               endast inom ramen för sin behörighet. Inloggningsuppgifter är
               personliga och ska skyddas mot obehörig åtkomst.
             </p>
@@ -59,7 +59,7 @@ export default function TermsPage() {
 
           <Section title="Tillgänglighet">
             <p>
-              FgasPortal strävar efter god tillgänglighet och stabil drift.
+              Helm Polar strävar efter god tillgänglighet och stabil drift.
               Planerat underhåll, tekniska störningar eller driftproblem hos
               underliggande leverantörer kan påverka åtkomsten till tjänsten.
             </p>
@@ -67,7 +67,7 @@ export default function TermsPage() {
 
           <Section title="Begränsning av ansvar">
             <p>
-              FgasPortal ersätter inte kundens juridiska, tekniska eller
+              Helm Polar ersätter inte kundens juridiska, tekniska eller
               regulatoriska ansvar. Tjänsten ska ses som ett stöd för
               registerhållning och uppföljning. Kunden ansvarar för egna
               beslut, rapportering och kontakter med tillsynsmyndigheter.

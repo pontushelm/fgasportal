@@ -146,7 +146,7 @@ describe("service partner notification copy", () => {
     })
 
     expect(text).not.toContain("servicekontakt hos")
-    expect(text).toContain("Ett aggregat har kontroll inom 30 dagar i FgasPortal.")
+    expect(text).toContain("Ett aggregat har kontroll inom 30 dagar i Helm Polar.")
   })
 
   it("adds service partner company context to assignment notifications", () => {

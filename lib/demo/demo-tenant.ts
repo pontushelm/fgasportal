@@ -275,7 +275,7 @@ export function createDemoTenantPlan({
     if (partner.lifecycle === "expiredInvite") {
       invitations.push({
         companyId,
-        email: `serviceansvarig+${partnerIndex + 1}@demo.fgasportal.se`,
+        email: `serviceansvarig+${partnerIndex + 1}@demo.helmpolar.se`,
         expiresAt: addDays(today, -12),
         invitedByUserId: ownerUserId,
         isServicePartnerAdminInvite: true,
@@ -296,7 +296,7 @@ export function createDemoTenantPlan({
       users.push({
         id: userId,
         companyId,
-        email: `demo.sp${partnerIndex + 1}.tech${userIndex + 1}+${safeCompanyId}@fgasportal.se`,
+        email: `demo.sp${partnerIndex + 1}.tech${userIndex + 1}+${safeCompanyId}@demo.helmpolar.se`,
         name: isAdmin
           ? `${partner.name.split(" ")[0]} Serviceansvarig`
           : `${partner.name.split(" ")[0]} Tekniker ${userIndex + 1}`,

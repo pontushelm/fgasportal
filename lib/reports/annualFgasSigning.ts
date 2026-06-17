@@ -1,7 +1,7 @@
 import type { AnnualFgasSigningMetadata } from "@/lib/reports/annualFgasReportTypes"
 
 export const ANNUAL_FGAS_SIGNING_ATTESTATION =
-  "Rapporten har signerats elektroniskt av inloggad användare i FgasPortal. Signeringshändelsen loggas i systemets aktivitetslogg."
+  "Rapporten har signerats elektroniskt av inloggad användare i Helm Polar. Signeringshändelsen loggas i systemets aktivitetslogg."
 
 export type AnnualFgasSigningValidationResult =
   | { ok: true; metadata: AnnualFgasSigningMetadata | null }

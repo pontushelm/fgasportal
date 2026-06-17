@@ -202,7 +202,7 @@ export function Sidebar() {
             href={homeHref}
           >
             <Image
-              alt="FgasPortal"
+              alt="Helm Polar"
               className="h-auto w-32"
               height={130}
               priority
@@ -251,7 +251,7 @@ export function Sidebar() {
               href={homeHref}
             >
               <Image
-                alt="FgasPortal"
+                alt="Helm Polar"
                 className="h-auto w-40"
                 height={130}
                 priority

@@ -122,7 +122,7 @@ export async function sendInspectionReminderEmail({
   const result = await resend.emails.send({
     from,
     to,
-    subject: `FgasPortal: ${subjectStatus} - ${input.installationName}`,
+    subject: `Helm Polar: ${subjectStatus} - ${input.installationName}`,
     text,
   })
 
@@ -153,7 +153,7 @@ export async function sendOperationalDigestEmail({
   const result = await resend.emails.send({
     from,
     to,
-    subject: `FgasPortal – ${totalItems} aggregat kräver uppföljning`,
+    subject: `Helm Polar – ${totalItems} aggregat kräver uppföljning`,
     text,
   })
 
@@ -177,7 +177,7 @@ export async function sendNotificationDigestEmail({
   const result = await resend.emails.send({
     from,
     to,
-    subject: "FgasPortal: daglig sammanställning",
+    subject: "Helm Polar: daglig sammanställning",
     text,
   })
 
@@ -214,7 +214,7 @@ export function buildNotificationDigestEmailText({
     actionsUrl,
     "",
     "Vänliga hälsningar,",
-    "FgasPortal",
+    "Helm Polar",
   ].join("\n")
 }
 
@@ -279,20 +279,20 @@ export function buildOperationalDigestEmailText({
     inspectionRows.length > 0 ? "Kontroller:" : null,
     ...inspectionRows,
     inspectionReminders.length > inspectionRows.length
-      ? `Ytterligare ${inspectionReminders.length - inspectionRows.length} kontrollpunkter finns i FgasPortal.`
+      ? `Ytterligare ${inspectionReminders.length - inspectionRows.length} kontrollpunkter finns i Helm Polar.`
       : null,
     "",
     leakRows.length > 0 ? "Läckage:" : null,
     ...leakRows,
     leakEvents.length > leakRows.length
-      ? `Ytterligare ${leakEvents.length - leakRows.length} läckage finns i FgasPortal.`
+      ? `Ytterligare ${leakEvents.length - leakRows.length} läckage finns i Helm Polar.`
       : null,
     "",
-    "Öppna FgasPortal för att se detaljer och åtgärder:",
+    "Öppna Helm Polar för att se detaljer och åtgärder:",
     actionQueueUrl,
     "",
     "Vänliga hälsningar,",
-    "FgasPortal",
+    "Helm Polar",
   ]
     .filter(Boolean)
     .join("\n")
@@ -322,7 +322,7 @@ export function buildInspectionReminderEmailText({
   return [
     `Kontrollpåminnelse: ${installationName}`,
     "",
-    `Ett aggregat har ${subjectStatus} i FgasPortal.`,
+    `Ett aggregat har ${subjectStatus} i Helm Polar.`,
     servicePartnerCompanyName
       ? `Påminnelsen gäller aggregat som är tilldelade dig som servicekontakt hos ${servicePartnerCompanyName}.`
       : null,
@@ -340,7 +340,7 @@ export function buildInspectionReminderEmailText({
     installationUrl,
     "",
     "Vänliga hälsningar,",
-    "FgasPortal",
+    "Helm Polar",
   ]
     .filter(Boolean)
     .join("\n")
@@ -359,7 +359,7 @@ export async function sendContractorAssignmentEmail({
   const result = await resend.emails.send({
     from,
     to,
-    subject: "FgasPortal: nya tilldelade aggregat",
+    subject: "Helm Polar: nya tilldelade aggregat",
     text,
   })
 
@@ -380,7 +380,7 @@ export function buildContractorAssignmentEmailText({
     "",
     servicePartnerCompanyName
       ? `Ett eller flera aggregat har tilldelats dig som servicekontakt hos ${servicePartnerCompanyName}.`
-      : "Du har tilldelats ett eller flera aggregat i FgasPortal.",
+      : "Du har tilldelats ett eller flera aggregat i Helm Polar.",
     "",
     "Logga in för att se tilldelade aggregat, kontrollstatus och eventuella kommande åtgärder.",
     "",
@@ -391,7 +391,7 @@ export function buildContractorAssignmentEmailText({
     contractorPortalUrl,
     "",
     "Vänliga hälsningar,",
-    "FgasPortal",
+    "Helm Polar",
   ].join("\n")
 }
 
@@ -410,7 +410,7 @@ export async function sendLeakNotificationEmail({
   const text = [
     `Läckage registrerat: ${installationName}`,
     "",
-    "Ett läckage har registrerats i FgasPortal och bör följas upp i compliancearbetet.",
+    "Ett läckage har registrerats i Helm Polar och bör följas upp i compliancearbetet.",
     "",
     `Aggregat: ${installationName}`,
     equipmentId ? `Aggregat-ID / märkning: ${equipmentId}` : null,
@@ -427,7 +427,7 @@ export async function sendLeakNotificationEmail({
     installationUrl,
     "",
     "Vänliga hälsningar,",
-    "FgasPortal",
+    "Helm Polar",
   ]
     .filter(Boolean)
     .join("\n")
@@ -437,7 +437,7 @@ export async function sendLeakNotificationEmail({
   const result = await resend.emails.send({
     from,
     to,
-    subject: `FgasPortal: läckage registrerat - ${installationName}`,
+    subject: `Helm Polar: läckage registrerat - ${installationName}`,
     text,
   })
 
@@ -457,7 +457,7 @@ export async function sendPasswordResetEmail({
   const text = [
     "Hej,",
     "",
-    "Vi har tagit emot en begäran om att återställa lösenordet till ditt FgasPortal-konto.",
+    "Vi har tagit emot en begäran om att återställa lösenordet till ditt Helm Polar-konto.",
     "",
     "Återställ lösenordet via länken nedan. Länken gäller i 1 timme och kan bara användas en gång.",
     "",
@@ -466,7 +466,7 @@ export async function sendPasswordResetEmail({
     "Om du inte begärde detta kan du bortse från meddelandet.",
     "",
     "Vänliga hälsningar,",
-    "FgasPortal",
+    "Helm Polar",
   ].join("\n")
 
   resend ??= new Resend(apiKey)
@@ -474,7 +474,7 @@ export async function sendPasswordResetEmail({
   const result = await resend.emails.send({
     from,
     to,
-    subject: "Återställ ditt lösenord i FgasPortal",
+    subject: "Återställ ditt lösenord i Helm Polar",
     text,
   })
 
@@ -498,8 +498,8 @@ export async function sendInvitationEmail({
     "Hej,",
     "",
     isServicePartnerInvite
-      ? `${companyName} har bjudit in ert servicepartnerföretag till FgasPortal.`
-      : `Du har blivit inbjuden till ${companyName} i FgasPortal.`,
+      ? `${companyName} har bjudit in ert servicepartnerföretag till Helm Polar.`
+      : `Du har blivit inbjuden till ${companyName} i Helm Polar.`,
     ...(isServicePartnerInvite
       ? [
           "",
@@ -512,7 +512,7 @@ export async function sendInvitationEmail({
     inviteUrl,
     "",
     "Vänliga hälsningar,",
-    "FgasPortal",
+    "Helm Polar",
   ].join("\n")
 
   resend ??= new Resend(apiKey)
@@ -522,7 +522,7 @@ export async function sendInvitationEmail({
     to,
     subject: isServicePartnerInvite
       ? `Inbjudan som servicepartner till ${companyName}`
-      : `Inbjudan till ${companyName} i FgasPortal`,
+      : `Inbjudan till ${companyName} i Helm Polar`,
     text,
   })
 
@@ -543,7 +543,7 @@ export async function sendFeedbackEmail(input: SendFeedbackEmailInput) {
   }
 
   const text = [
-    "Ny feedback i FgasPortal",
+    "Ny feedback i Helm Polar",
     "",
     `Typ: ${input.type}`,
     `Rubrik: ${input.title}`,
@@ -564,7 +564,7 @@ export async function sendFeedbackEmail(input: SendFeedbackEmailInput) {
     `Namn: ${input.company.name ?? "Saknas"}`,
     "",
     "Vänliga hälsningar,",
-    "FgasPortal",
+    "Helm Polar",
   ].join("\n")
 
   resend ??= new Resend(apiKey)
@@ -572,7 +572,7 @@ export async function sendFeedbackEmail(input: SendFeedbackEmailInput) {
   const result = await resend.emails.send({
     from,
     to,
-    subject: `FgasPortal feedback: ${input.title}`,
+    subject: `Helm Polar feedback: ${input.title}`,
     text,
   })
 
@@ -589,7 +589,7 @@ export async function sendDemoRequestEmail(input: SendDemoRequestEmailInput) {
   const to = requireEnv("DEMO_REQUEST_TO_EMAIL")
 
   const text = [
-    "Ny demo-förfrågan i FgasPortal",
+    "Ny demo-förfrågan i Helm Polar",
     "",
     `Namn: ${input.name}`,
     `Organisation: ${input.organization}`,
@@ -601,7 +601,7 @@ export async function sendDemoRequestEmail(input: SendDemoRequestEmailInput) {
     input.message ?? "Ej angivet",
     "",
     "Vänliga hälsningar,",
-    "FgasPortal",
+    "Helm Polar",
   ].join("\n")
 
   resend ??= new Resend(apiKey)
@@ -610,7 +610,7 @@ export async function sendDemoRequestEmail(input: SendDemoRequestEmailInput) {
     from,
     to,
     replyTo: input.email,
-    subject: `FgasPortal demo-förfrågan: ${input.organization}`,
+    subject: `Helm Polar demo-förfrågan: ${input.organization}`,
     text,
   })
 

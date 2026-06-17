@@ -242,7 +242,7 @@ async function backfillScrapCertificate(
 }
 
 function printSummary(summary: BackfillScrapCertificatesSummary) {
-  console.log("FgasPortal scrap certificate backfill")
+  console.log("Helm Polar scrap certificate backfill")
   console.log("====================================")
   console.log(`Dry run: ${summary.dryRun ? "ja" : "nej"}`)
   console.log(`Installations scanned: ${summary.installationsScanned}`)

@@ -137,7 +137,7 @@ export function DashboardSetupAssistant({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-semibold text-slate-950">
-                Kom igång med FgasPortal
+                Kom igång med Helm Polar
               </h2>
               {progress.isComplete ? (
                 <Badge variant="success">Klart</Badge>

@@ -133,7 +133,7 @@ export async function storeSignedReportPdfArtifact({
     : Buffer.from(args.pdfBuffer)
 
   const blob = await put(metadata.pdfStorageKey, pdfBody, {
-    // Current FgasPortal Blob store is public. Signed report access must still be
+    // Current Helm Polar Blob store is public. Signed report access must still be
     // enforced by future authenticated download routes; do not expose blob URLs.
     access: SIGNED_REPORT_BLOB_ACCESS,
     addRandomSuffix: false,

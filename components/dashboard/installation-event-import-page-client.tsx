@@ -445,14 +445,14 @@ export default function InstallationEventImportPageClient({
     setIsDownloadingTemplate(true)
     const workbook = XLSX.utils.book_new()
     const instructionSheet = XLSX.utils.aoa_to_sheet([
-      ["FgasPortal - importmall för händelser"],
+      ["Helm Polar - importmall för händelser"],
       [""],
       ["Fyll i fliken Händelser och behåll rubrikraden överst."],
       ["Obligatoriska fält", TEMPLATE_REQUIRED_COLUMNS.join(", ")],
       ["Rekommenderade fält", TEMPLATE_RECOMMENDED_COLUMNS.join(", ")],
       [
         "Aggregat-ID",
-        "Måste matcha ett befintligt aggregat i FgasPortal. Nya aggregat skapas inte i händelseimporten.",
+        "Måste matcha ett befintligt aggregat i Helm Polar. Nya aggregat skapas inte i händelseimporten.",
       ],
       [
         "Händelsetyper",
@@ -491,7 +491,7 @@ export default function InstallationEventImportPageClient({
 
     XLSX.utils.book_append_sheet(workbook, instructionSheet, "Läs först")
     XLSX.utils.book_append_sheet(workbook, worksheet, "Händelser")
-    XLSX.writeFile(workbook, "fgasportal-importmall-handelser.xlsx")
+    XLSX.writeFile(workbook, "helm-polar-importmall-handelser.xlsx")
     window.setTimeout(() => {
       templateDownloadInProgressRef.current = false
       setIsDownloadingTemplate(false)
@@ -573,7 +573,7 @@ export default function InstallationEventImportPageClient({
               <li>Händelser kopplas till befintliga aggregat via aggregat-ID.</li>
               <li>Om exakt datum saknas kan du ange händelseår. Händelsen registreras då på årets sista dag och markeras som importerad utan exakt datum.</li>
               <li>Om samma aggregat-ID finns på flera platser kan fastighet användas för att hitta rätt aggregat.</li>
-              <li>Aggregatet måste redan finnas i FgasPortal för att händelsen ska kunna kopplas. Nya aggregat skapas inte i den här importen.</li>
+              <li>Aggregatet måste redan finnas i Helm Polar för att händelsen ska kunna kopplas. Nya aggregat skapas inte i den här importen.</li>
             </ul>
           </div>
           <button
@@ -633,7 +633,7 @@ export default function InstallationEventImportPageClient({
                 Kontrollera fält
               </h2>
               <p className="mt-1 text-sm text-slate-600">
-                FgasPortal föreslår matchningar baserat på kolumnnamn. Kontrollera
+                Helm Polar föreslår matchningar baserat på kolumnnamn. Kontrollera
                 de viktigaste fälten först.
               </p>
               <p className="mt-1 text-xs text-slate-500">
@@ -719,7 +719,7 @@ export default function InstallationEventImportPageClient({
               )}
               {duplicatedFields.length > 0 && (
                 <p className="mt-1">
-                  Samma fält i FgasPortal är valt flera gånger:{" "}
+                  Samma fält i Helm Polar är valt flera gånger:{" "}
                   {[...new Set(duplicatedFields)].map(getEventImportFieldLabel).join(", ")}.
                 </p>
               )}

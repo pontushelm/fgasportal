@@ -153,7 +153,7 @@ export function ReportHeader({ report }: { report: AnnualFgasReportData }) {
       <div className="header-meta">
         {logoDataUri && (
           <img
-            alt="FgasPortal"
+            alt="Helm Polar"
             className="report-logo"
             src={logoDataUri}
           />
@@ -245,7 +245,7 @@ export function SigningMetadataSection({ report }: { report: AnnualFgasReportDat
   return (
     <ReportSection title="Elektronisk signering">
       <div className="signing-box">
-        <p className="strong">Elektroniskt signerad via FgasPortal</p>
+        <p className="strong">Elektroniskt signerad via Helm Polar</p>
         <p className="signing-text">{signing.attestationText}</p>
         <div className="field-grid field-grid-2 signing-fields">
           <Field label="Signerad av" value={signing.signerName} />

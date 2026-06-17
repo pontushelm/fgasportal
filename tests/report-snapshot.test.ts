@@ -23,7 +23,7 @@ function createReport(overrides: Partial<AnnualFgasReportData> = {}): AnnualFgas
       endDate: new Date("2025-12-31T23:59:59.999Z"),
     },
     operator: {
-      name: "FgasPortal Test AB",
+      name: "Helm Polar Test AB",
       organizationNumber: "559000-0000",
       postalAddress: "Testgatan 1",
       billingAddress: "Fakturagatan 2",
@@ -153,7 +153,7 @@ describe("annual F-gas report snapshots", () => {
         billingAddress: "Fakturagatan 2",
         postalAddress: "Testgatan 1",
         organizationNumber: "559000-0000",
-        name: "FgasPortal Test AB",
+        name: "Helm Polar Test AB",
       },
     }
 

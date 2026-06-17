@@ -76,12 +76,12 @@ export default function Home() {
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <Link
-            aria-label="FgasPortal startsida"
+            aria-label="Helm Polar startsida"
             className="inline-flex items-center"
             href="/"
           >
             <Image
-              alt="FgasPortal"
+              alt="Helm Polar"
               className="h-auto w-40 sm:w-44"
               height={130}
               priority
@@ -112,7 +112,7 @@ export default function Home() {
             Få kontroll på köldmedieaggregat och F-gasrapportering
           </h1>
           <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-700">
-            FgasPortal samlar register, kontroller, dokumentation,
+            Helm Polar samlar register, kontroller, dokumentation,
             servicepartners och rapportunderlag i ett webbaserat system för
             verksamheter som omfattas av F-gasförordningen.
           </p>
@@ -135,7 +135,7 @@ export default function Home() {
       <Section
         eyebrow="Översikt"
         title="Det viktigaste samlat på ett ställe"
-        description="FgasPortal ger organisationen en tydlig grund för registerhållning, uppföljning och rapportering."
+        description="Helm Polar ger organisationen en tydlig grund för registerhållning, uppföljning och rapportering."
       >
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {valueCards.map((feature) => (
@@ -154,7 +154,7 @@ export default function Home() {
               Arbetsflöde
             </p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
-              Så hjälper FgasPortal i vardagen
+              Så hjälper Helm Polar i vardagen
             </h2>
             <p className="mt-4 text-sm leading-6 text-slate-600">
               Ett kompakt arbetsflöde från registrering till uppföljning,
@@ -235,7 +235,7 @@ export default function Home() {
             Vill ni få bättre kontroll över ert F-gasregister?
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600">
-            Boka en demo för att se hur FgasPortal kan samla register,
+            Boka en demo för att se hur Helm Polar kan samla register,
             kontroller, dokumentation, serviceuppföljning och rapportunderlag.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
@@ -255,9 +255,9 @@ export default function Home() {
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 text-sm text-slate-600 sm:px-6 lg:px-8">
           <div>
-            <p className="font-semibold text-slate-950">FgasPortal</p>
+            <p className="font-semibold text-slate-950">Helm Polar</p>
             <p className="mt-2 max-w-3xl">
-              FgasPortal hjälper till att strukturera register, uppföljning och
+              Helm Polar hjälper till att strukturera register, uppföljning och
               rapportunderlag. Operatören ansvarar fortsatt för att uppgifter och
               rapportering är korrekta.
             </p>

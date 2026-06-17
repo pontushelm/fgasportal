@@ -3,8 +3,8 @@ import Link from "next/link"
 import { LegalLinks } from "@/components/legal-links"
 
 export const metadata: Metadata = {
-  title: "Integritetspolicy | FgasPortal",
-  description: "Integritetspolicy för FgasPortal.",
+  title: "Integritetspolicy | Helm Polar",
+  description: "Integritetspolicy för Helm Polar.",
 }
 
 export default function PrivacyPolicyPage() {
@@ -12,14 +12,14 @@ export default function PrivacyPolicyPage() {
     <LegalPageShell title="Integritetspolicy" updatedAt="Senast uppdaterad: 2026-05-07">
       <Section title="Översikt">
         <p>
-          FgasPortal är en B2B-tjänst för F-gasregister, uppföljning,
+          Helm Polar är en B2B-tjänst för F-gasregister, uppföljning,
           dokumentation och rapportering. Denna integritetspolicy beskriver på
           ett praktiskt sätt vilka personuppgifter och verksamhetsuppgifter som
           kan behandlas i tjänsten.
         </p>
         <p>
           Kunden ansvarar normalt för de uppgifter som läggs in i tjänsten.
-          FgasPortal behandlar uppgifter för att kunna tillhandahålla,
+          Helm Polar behandlar uppgifter för att kunna tillhandahålla,
           administrera, säkra och vidareutveckla plattformen.
         </p>
       </Section>
@@ -34,7 +34,7 @@ export default function PrivacyPolicyPage() {
 
       <Section title="Användarkonton och kontaktuppgifter">
         <p>
-          FgasPortal behandlar uppgifter om användarkonton för att kunna hantera
+          Helm Polar behandlar uppgifter om användarkonton för att kunna hantera
           inloggning, behörigheter, rollfördelning, företagsmedlemskap och
           servicepartneråtkomst. Kontaktuppgifter kan användas för viktiga
           systemmeddelanden, inbjudningar, lösenordsåterställning och
@@ -55,7 +55,7 @@ export default function PrivacyPolicyPage() {
 
       <Section title="Aktivitetsloggar">
         <p>
-          FgasPortal sparar aktivitetsloggar för spårbarhet, säkerhet och
+          Helm Polar sparar aktivitetsloggar för spårbarhet, säkerhet och
           regelefterlevnad. Loggar kan visa vem som registrerat, ändrat,
           arkiverat, skrotat, tilldelat eller laddat upp information i
           systemet.
@@ -75,7 +75,7 @@ export default function PrivacyPolicyPage() {
       <Section title="Varför data behandlas">
         <p>Data behandlas för att:</p>
         <ul>
-          <li>tillhandahålla och säkra FgasPortal,</li>
+          <li>tillhandahålla och säkra Helm Polar,</li>
           <li>hantera inloggning, behörighet och multi-tenant åtkomst,</li>
           <li>möjliggöra registerhållning och F-gasuppföljning,</li>
           <li>skapa rapporter, påminnelser och dokumentationsunderlag,</li>
@@ -97,7 +97,7 @@ export default function PrivacyPolicyPage() {
 
       <Section title="Underbiträden och tjänsteleverantörer">
         <p>
-          FgasPortal kan använda följande leverantörer för drift och
+          Helm Polar kan använda följande leverantörer för drift och
           tillhandahållande av tjänsten:
         </p>
         <ul>
@@ -115,7 +115,7 @@ export default function PrivacyPolicyPage() {
       <Section title="Kontakt för integritetsfrågor">
         <p>
           Vid frågor om integritet, personuppgifter, registerutdrag, rättelse
-          eller radering, kontakta FgasPortal via{" "}
+          eller radering, kontakta Helm Polar via{" "}
           <a href="mailto:info@fgasportal.se">info@fgasportal.se</a>.
         </p>
       </Section>
@@ -136,7 +136,7 @@ function LegalPageShell({
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
         <Link className="text-sm font-semibold text-blue-700 hover:text-blue-800" href="/">
-          Tillbaka till FgasPortal
+          Tillbaka till Helm Polar
         </Link>
         <header className="mt-8 border-b border-slate-200 pb-6">
           <h1 className="text-3xl font-bold tracking-tight">{title}</h1>

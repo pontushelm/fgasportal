@@ -324,7 +324,7 @@ export default function PropertiesImportPageClient({
     setIsDownloadingTemplate(true)
     const workbook = XLSX.utils.book_new()
     const instructionSheet = XLSX.utils.aoa_to_sheet([
-      ["FgasPortal - importmall för fastigheter"],
+      ["Helm Polar - importmall för fastigheter"],
       [""],
       ["Fyll i fliken Fastigheter och behåll rubrikraden överst."],
       ["Obligatoriska fält", TEMPLATE_REQUIRED_COLUMNS.join(", ")],
@@ -366,7 +366,7 @@ export default function PropertiesImportPageClient({
 
     XLSX.utils.book_append_sheet(workbook, instructionSheet, "Läs först")
     XLSX.utils.book_append_sheet(workbook, worksheet, "Fastigheter")
-    XLSX.writeFile(workbook, "fgasportal-importmall-fastigheter.xlsx")
+    XLSX.writeFile(workbook, "helm-polar-importmall-fastigheter.xlsx")
     window.setTimeout(() => {
       templateDownloadInProgressRef.current = false
       setIsDownloadingTemplate(false)
@@ -498,7 +498,7 @@ export default function PropertiesImportPageClient({
                 Kontrollera fält
               </h2>
               <p className="mt-1 text-sm text-slate-600">
-                FgasPortal föreslår matchningar baserat på kolumnnamn. Kontrollera
+                Helm Polar föreslår matchningar baserat på kolumnnamn. Kontrollera
                 de viktigaste fälten först.
               </p>
               <p className="mt-1 text-xs text-slate-500">
@@ -580,7 +580,7 @@ export default function PropertiesImportPageClient({
               )}
               {duplicatedFields.length > 0 && (
                 <p className="mt-1">
-                  Samma fält i FgasPortal är valt flera gånger:{" "}
+                  Samma fält i Helm Polar är valt flera gånger:{" "}
                   {[...new Set(duplicatedFields)]
                     .map(getPropertyImportFieldLabel)
                     .join(", ")}

@@ -18,7 +18,7 @@ export function AuthShell({
         <section className="max-w-xl">
           <Link className="inline-flex items-center" href="/">
             <Image
-              alt="FgasPortal"
+              alt="Helm Polar"
               className="h-auto w-44"
               height={130}
               priority

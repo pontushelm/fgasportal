@@ -94,7 +94,7 @@ export default function HealthPageClient() {
         <PageHeader
           eyebrow="Intern drift"
           title="Systemhälsa"
-          subtitle="Snabb kontroll av FgasPortals viktigaste integrationer och driftkonfiguration."
+          subtitle="Snabb kontroll av Helm Polars viktigaste integrationer och driftkonfiguration."
         />
 
         {isLoading && <HealthSkeleton />}

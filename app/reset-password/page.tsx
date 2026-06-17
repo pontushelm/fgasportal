@@ -11,7 +11,7 @@ export default async function ResetPasswordPage({
   return (
     <AuthShell
       title="Återställ lösenord"
-      subtitle="Välj ett nytt lösenord för ditt FgasPortal-konto."
+      subtitle="Välj ett nytt lösenord för ditt Helm Polar-konto."
     >
       <ResetPasswordForm token={token} />
     </AuthShell>

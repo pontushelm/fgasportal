@@ -313,7 +313,7 @@ async function createDocumentLinkIfMissing(
 }
 
 function printSummary(summary: BackfillDocumentsSummary) {
-  console.log("FgasPortal document backfill")
+  console.log("Helm Polar document backfill")
   console.log("============================")
   console.log(`Dry run: ${summary.dryRun ? "ja" : "nej"}`)
   console.log(`InstallationDocument-rader: ${summary.installationDocumentCount}`)

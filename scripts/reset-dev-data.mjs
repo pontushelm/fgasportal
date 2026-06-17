@@ -58,7 +58,7 @@ function assertSafeToRun() {
 function printTarget(databaseUrl) {
   const target = describeDatabaseTarget(databaseUrl)
 
-  console.log("FgasPortal dev/testdata-reset")
+  console.log("Helm Polar dev/testdata-reset")
   console.log("================================")
   console.log(`NODE_ENV: ${process.env.NODE_ENV || "(inte satt)"}`)
   console.log(`Databas: ${target.protocol}://${target.host}:${target.port}/${target.databaseName}`)

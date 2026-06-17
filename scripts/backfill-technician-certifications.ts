@@ -294,7 +294,7 @@ function resolveServiceOrganizationId(
 }
 
 function printSummary(summary: BackfillTechnicianCertificationsSummary) {
-  console.log("FgasPortal technician certification backfill")
+  console.log("Helm Polar technician certification backfill")
   console.log("===========================================")
   console.log(`Dry run: ${summary.dryRun ? "ja" : "nej"}`)
   console.log(`Memberships scanned: ${summary.membershipsScanned}`)

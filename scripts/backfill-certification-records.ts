@@ -253,7 +253,7 @@ async function findExistingCertificationRecord(
 }
 
 function printSummary(summary: BackfillCertificationRecordsSummary) {
-  console.log("FgasPortal certification record backfill")
+  console.log("Helm Polar certification record backfill")
   console.log("=======================================")
   console.log(`Dry run: ${summary.dryRun ? "ja" : "nej"}`)
   console.log(

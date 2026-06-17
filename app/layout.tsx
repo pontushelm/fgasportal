@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "FgasPortal",
+  title: "Helm Polar",
   description: "F-gasregister för aggregat, kontroller, CO₂e och påminnelser.",
 }
 

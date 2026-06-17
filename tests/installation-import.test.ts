@@ -166,7 +166,7 @@ describe("installation import parsing", () => {
     expect(getSuggestedImportField("Anläggnings-ID")).toBe("equipmentId")
   })
 
-  it("maps FgasPortal template name column to name", () => {
+  it("maps Helm Polar template name column to name", () => {
     expect(getSuggestedImportField("Aggregatnamn / benämning")).toBe("name")
   })
 

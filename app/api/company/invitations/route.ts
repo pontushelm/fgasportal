@@ -318,7 +318,7 @@ export async function POST(request: NextRequest) {
       await sendInvitationEmail({
         to: invitation.email,
         inviteUrl: inviteLink,
-        companyName: company?.name || "FgasPortal",
+        companyName: company?.name || "Helm Polar",
         role: validatedData.role,
       })
       emailSent = true

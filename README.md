@@ -1,6 +1,6 @@
-# FgasPortal
+# Helm Polar
 
-FgasPortal is a SaaS register for companies that manage refrigerant installations under Swedish F-gas requirements.
+Helm Polar is a SaaS register for companies that manage refrigerant installations under Swedish F-gas requirements.
 
 This branch is prepared for PostgreSQL deployment with a fresh database. It does not migrate existing SQLite data.
 

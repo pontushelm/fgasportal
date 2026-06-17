@@ -162,7 +162,7 @@ export function buildSigningMetadataFromHistory(record: {
     signingDate: record.signingDate,
     comment: record.comment,
     attestationText:
-      "Rapporten har signerats elektroniskt av inloggad användare i FgasPortal. Signeringshändelsen loggas i systemets aktivitetslogg.",
+      "Rapporten har signerats elektroniskt av inloggad användare i Helm Polar. Signeringshändelsen loggas i systemets aktivitetslogg.",
   }
 }
 
