@@ -27,6 +27,7 @@ export default function TermsPage() {
               Helm Polar är en webbaserad plattform för F-gasregister,
               aggregatdata, fastighetskopplingar, kontrollhistorik,
               dokumentation, servicepartnerflöden och rapportunderlag.
+              Tjänsten tillhandahålls av Helm Systems.
             </p>
           </Section>
 
@@ -77,7 +78,7 @@ export default function TermsPage() {
           <Section title="Kontaktinformation">
             <p>
               Frågor om villkoren eller användning av tjänsten kan skickas till{" "}
-              <a href="mailto:info@fgasportal.se">info@fgasportal.se</a>.
+              <a href="mailto:kontakt@helmpolar.se">kontakt@helmpolar.se</a>.
             </p>
           </Section>
         </div>

@@ -28,7 +28,7 @@ export default function CookiesPage() {
               Helm Polar använder för närvarande endast en nödvändig
               förstapartscookie för inloggning och säker åtkomst. Tjänsten
               använder även lokal lagring i webbläsaren för att komma ihåg
-              användarens tema.
+              användarens tema. Tjänsten tillhandahålls av Helm Systems.
             </p>
             <p>
               Helm Polar använder i nuläget inga annonseringscookies,

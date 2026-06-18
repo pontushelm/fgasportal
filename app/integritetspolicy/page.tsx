@@ -15,7 +15,7 @@ export default function PrivacyPolicyPage() {
           Helm Polar är en B2B-tjänst för F-gasregister, uppföljning,
           dokumentation och rapportering. Denna integritetspolicy beskriver på
           ett praktiskt sätt vilka personuppgifter och verksamhetsuppgifter som
-          kan behandlas i tjänsten.
+          kan behandlas i tjänsten. Tjänsten tillhandahålls av Helm Systems.
         </p>
         <p>
           Kunden ansvarar normalt för de uppgifter som läggs in i tjänsten.
@@ -116,7 +116,7 @@ export default function PrivacyPolicyPage() {
         <p>
           Vid frågor om integritet, personuppgifter, registerutdrag, rättelse
           eller radering, kontakta Helm Polar via{" "}
-          <a href="mailto:info@fgasportal.se">info@fgasportal.se</a>.
+          <a href="mailto:kontakt@helmpolar.se">kontakt@helmpolar.se</a>.
         </p>
       </Section>
     </LegalPageShell>

@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://app.helmpolar.se"),
   title: "Helm Polar",
   description: "F-gasregister för aggregat, kontroller, CO₂e och påminnelser.",
 }
