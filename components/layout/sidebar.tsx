@@ -204,10 +204,10 @@ export function Sidebar() {
             <Image
               alt="Helm Polar"
               className="h-auto w-32"
-              height={130}
+              height={403}
               priority
-              src="/fgasportal-logo-transparent.png"
-              width={520}
+              src="/helm-polar-logo.png"
+              width={1200}
             />
           </Link>
           <CompanySwitcher
@@ -253,10 +253,10 @@ export function Sidebar() {
               <Image
                 alt="Helm Polar"
                 className="h-auto w-40"
-                height={130}
+                height={403}
                 priority
-                src="/fgasportal-logo-transparent.png"
-                width={520}
+                src="/helm-polar-logo.png"
+                width={1200}
               />
             </Link>
             <div className="mt-2 flex items-center gap-2">

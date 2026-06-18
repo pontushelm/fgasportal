@@ -83,10 +83,10 @@ export default function Home() {
             <Image
               alt="Helm Polar"
               className="h-auto w-40 sm:w-44"
-              height={130}
+              height={403}
               priority
-              src="/fgasportal-logo-transparent.png"
-              width={520}
+              src="/helm-polar-logo.png"
+              width={1200}
             />
           </Link>
           <div className="flex items-center gap-2">

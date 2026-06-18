@@ -457,7 +457,7 @@ function formatHandlingRefrigerant(row: AnnualFgasRefrigerantHandlingRow) {
 }
 
 function getReportLogoDataUri() {
-  const logoPath = join(process.cwd(), "public", "fgasportal-logo-transparent.png")
+  const logoPath = join(process.cwd(), "public", "helm-polar-logo.png")
 
   if (!existsSync(logoPath)) return null
 

@@ -20,10 +20,10 @@ export function AuthShell({
             <Image
               alt="Helm Polar"
               className="h-auto w-44"
-              height={130}
+              height={403}
               priority
-              src="/fgasportal-logo-transparent.png"
-              width={520}
+              src="/helm-polar-logo.png"
+              width={1200}
             />
           </Link>
           <p className="mt-6 text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
