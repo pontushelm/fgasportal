@@ -106,13 +106,14 @@ type SendDemoRequestEmailInput = {
 }
 
 let resend: Resend | null = null
+const DEFAULT_FROM_EMAIL = "Helm Polar <noreply@helmpolar.se>"
 
 export async function sendInspectionReminderEmail({
   to,
   ...input
 }: SendInspectionReminderEmailInput) {
   const apiKey = requireEnv("RESEND_API_KEY")
-  const from = requireEnv("REMINDER_FROM_EMAIL")
+  const from = getFromEmail()
   const subjectStatus =
     input.status === "OVERDUE" ? "försenad kontroll" : "kontroll inom 30 dagar"
   const text = buildInspectionReminderEmailText(input)
@@ -138,7 +139,7 @@ export async function sendOperationalDigestEmail({
   ...input
 }: SendOperationalDigestEmailInput) {
   const apiKey = requireEnv("RESEND_API_KEY")
-  const from = requireEnv("REMINDER_FROM_EMAIL")
+  const from = getFromEmail()
   const inspectionReminders = input.inspectionReminders ?? []
   const leakEvents = input.leakEvents ?? []
   const totalItems = inspectionReminders.length + leakEvents.length
@@ -169,7 +170,7 @@ export async function sendNotificationDigestEmail({
   ...input
 }: SendNotificationDigestEmailInput) {
   const apiKey = requireEnv("RESEND_API_KEY")
-  const from = requireEnv("REMINDER_FROM_EMAIL")
+  const from = getFromEmail()
   const text = buildNotificationDigestEmailText(input)
 
   resend ??= new Resend(apiKey)
@@ -351,7 +352,7 @@ export async function sendContractorAssignmentEmail({
   ...input
 }: SendContractorAssignmentEmailInput) {
   const apiKey = requireEnv("RESEND_API_KEY")
-  const from = requireEnv("REMINDER_FROM_EMAIL")
+  const from = getFromEmail()
   const text = buildContractorAssignmentEmailText(input)
 
   resend ??= new Resend(apiKey)
@@ -406,7 +407,7 @@ export async function sendLeakNotificationEmail({
   actionQueueUrl,
 }: SendLeakNotificationEmailInput) {
   const apiKey = requireEnv("RESEND_API_KEY")
-  const from = requireEnv("REMINDER_FROM_EMAIL")
+  const from = getFromEmail()
   const text = [
     `Läckage registrerat: ${installationName}`,
     "",
@@ -453,7 +454,7 @@ export async function sendPasswordResetEmail({
   resetUrl,
 }: SendPasswordResetEmailInput) {
   const apiKey = requireEnv("RESEND_API_KEY")
-  const from = requireEnv("REMINDER_FROM_EMAIL")
+  const from = getFromEmail()
   const text = [
     "Hej,",
     "",
@@ -492,7 +493,7 @@ export async function sendInvitationEmail({
   role,
 }: SendInvitationEmailInput) {
   const apiKey = requireEnv("RESEND_API_KEY")
-  const from = requireEnv("REMINDER_FROM_EMAIL")
+  const from = getFromEmail()
   const isServicePartnerInvite = role === "CONTRACTOR"
   const text = [
     "Hej,",
@@ -535,7 +536,7 @@ export async function sendInvitationEmail({
 
 export async function sendFeedbackEmail(input: SendFeedbackEmailInput) {
   const apiKey = requireEnv("RESEND_API_KEY")
-  const from = requireEnv("REMINDER_FROM_EMAIL")
+  const from = getFromEmail()
   const to = getOptionalEnv("FEEDBACK_TO_EMAIL") ?? getOptionalEnv("SUPPORT_EMAIL")
 
   if (!to) {
@@ -585,7 +586,7 @@ export async function sendFeedbackEmail(input: SendFeedbackEmailInput) {
 
 export async function sendDemoRequestEmail(input: SendDemoRequestEmailInput) {
   const apiKey = requireEnv("RESEND_API_KEY")
-  const from = requireEnv("REMINDER_FROM_EMAIL")
+  const from = getFromEmail()
   const to = requireEnv("DEMO_REQUEST_TO_EMAIL")
 
   const text = [
@@ -634,6 +635,10 @@ function requireEnv(name: string) {
 function getOptionalEnv(name: string) {
   const value = process.env[name]
   return value?.trim() || null
+}
+
+function getFromEmail() {
+  return getOptionalEnv("REMINDER_FROM_EMAIL") ?? DEFAULT_FROM_EMAIL
 }
 
 function formatDigestGroupForEmail(

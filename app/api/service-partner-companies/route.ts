@@ -2,6 +2,7 @@ import crypto from "crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { Prisma } from "@prisma/client"
 import { z, ZodError } from "zod"
+import { getAppUrl } from "@/lib/app-url"
 import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { sendInvitationEmail } from "@/lib/email"
@@ -153,7 +154,7 @@ export async function POST(request: NextRequest) {
       ? await createResponsibleServicePartnerInvitation({
           companyId: auth.user.companyId,
           invitedByUserId: auth.user.userId,
-          origin: request.nextUrl.origin,
+          origin: getAppUrl(),
           serviceOrganizationId: servicePartnerCompany.serviceOrganizationId!,
           servicePartnerCompanyId: servicePartnerCompany.id,
           servicePartnerCompanyName:

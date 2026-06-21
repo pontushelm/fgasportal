@@ -1,6 +1,7 @@
 import type { NotificationDigestType, PrismaClient } from "@prisma/client"
 import type { UserRole } from "@/lib/auth"
 import { loadDashboardActions } from "@/lib/actions/load-dashboard-actions"
+import { getAppUrl } from "@/lib/app-url"
 import { sendNotificationDigestEmail } from "@/lib/email"
 import {
   buildNotificationDigest,
@@ -81,7 +82,7 @@ type DigestUser = {
 type DigestEmailSender = typeof sendNotificationDigestEmail
 
 export async function runNotificationDigest({
-  appUrl = process.env.APP_URL,
+  appUrl = getAppUrl(),
   digestDate = new Date(),
   digestType = "DAILY",
   loadActions = loadDashboardActions,
@@ -202,7 +203,7 @@ async function evaluateRecipient({
   sendDigestEmail,
   user,
 }: {
-  appUrl?: string
+  appUrl: string
   company: DigestCompany
   digestDate: Date
   digestType: NotificationDigestType
@@ -266,10 +267,6 @@ async function evaluateRecipient({
   }
 
   try {
-    if (!appUrl) {
-      throw new Error("APP_URL is required")
-    }
-
     await sendDigestEmail({
       actionsUrl: buildAppUrl(appUrl, "/dashboard/actions"),
       companyName: company.name,

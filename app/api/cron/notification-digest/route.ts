@@ -15,13 +15,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!process.env.APP_URL) {
-      return NextResponse.json(
-        { ok: false, error: "APP_URL is required" },
-        { status: 500 }
-      )
-    }
-
     const result = await runNotificationDigest({
       digestType: "DAILY",
       mode: "send",

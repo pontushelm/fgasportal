@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client"
 import { buildActionQueueUrl } from "@/lib/actions/action-links"
+import { getAppUrl } from "@/lib/app-url"
 import { prisma } from "@/lib/db"
 import { sendOperationalDigestEmail } from "@/lib/email"
 import {
@@ -281,16 +282,6 @@ export function classifyInspectionReminderStatus(
 
 function createReminderKey(type: ReminderType, nextInspection: Date) {
   return `${type}:${formatDate(startOfDay(nextInspection))}`
-}
-
-function getAppUrl() {
-  const appUrl = process.env.APP_URL
-
-  if (!appUrl) {
-    throw new Error("APP_URL is required")
-  }
-
-  return appUrl.replace(/\/$/, "")
 }
 
 function formatDate(date: Date) {

@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client"
 import { NextRequest, NextResponse } from "next/server"
 import { ZodError } from "zod"
 import { logActivity } from "@/lib/activity-log"
+import { buildAppUrl } from "@/lib/app-url"
 import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
 import { COMPANY_SETTINGS_USER_ROLES } from "@/lib/company-settings-users"
 import { prisma } from "@/lib/db"
@@ -303,7 +304,7 @@ export async function POST(request: NextRequest) {
         expiresAt,
       },
     })
-    const inviteLink = `${request.nextUrl.origin}/register?invite=${token}`
+    const inviteLink = buildAppUrl(`/register?invite=${token}`)
     const company = await prisma.company.findUnique({
       where: {
         id: companyId,

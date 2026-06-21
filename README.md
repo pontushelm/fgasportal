@@ -68,9 +68,10 @@ npm run dev
 
 - `DATABASE_URL`: PostgreSQL connection string. Recommended providers: Neon, Supabase, or Railway.
 - `JWT_SECRET`: Required for signing auth cookies. Use a long random value.
-- `RESEND_API_KEY`: Resend API key used for inspection reminder emails.
-- `REMINDER_FROM_EMAIL`: Verified sender address for reminder emails.
-- `APP_URL`: Public application URL used in reminder email links.
+- `RESEND_API_KEY`: Resend API key used for transactional emails.
+- `REMINDER_FROM_EMAIL`: Verified sender for all outgoing email. Defaults to `Helm Polar <noreply@helmpolar.se>`.
+- `APP_URL`: Public application URL used in email links. Defaults to `https://app.helmpolar.se`.
+- `NEXT_PUBLIC_APP_URL`: Public application URL used by browser metadata.
 - `CRON_SECRET`: Bearer token required to call cron endpoints.
 
 ## Prisma Commands
@@ -112,6 +113,7 @@ Set these Vercel environment variables:
 - `RESEND_API_KEY`
 - `REMINDER_FROM_EMAIL`
 - `APP_URL`
+- `NEXT_PUBLIC_APP_URL`
 - `CRON_SECRET`
 
 Recommended build command:

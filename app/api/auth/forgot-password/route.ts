@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { ZodError } from "zod"
+import { buildAppUrl } from "@/lib/app-url"
 import { prisma } from "@/lib/db"
 import { sendPasswordResetEmail } from "@/lib/email"
 import {
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
 
       await sendPasswordResetEmail({
         to: user.email,
-        resetUrl: `${request.nextUrl.origin}/reset-password?token=${token}`,
+        resetUrl: buildAppUrl(`/reset-password?token=${token}`),
       })
     }
 

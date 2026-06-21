@@ -1,4 +1,5 @@
 import { buildActionQueueUrl } from "@/lib/actions/action-links"
+import { getAppUrl } from "@/lib/app-url"
 import { prisma } from "@/lib/db"
 import { sendContractorAssignmentEmail } from "@/lib/email"
 
@@ -85,14 +86,4 @@ export async function notifyContractorsAboutNewAssignments(
       error,
     })
   }
-}
-
-function getAppUrl() {
-  const appUrl = process.env.APP_URL
-
-  if (!appUrl) {
-    throw new Error("APP_URL is required")
-  }
-
-  return appUrl.replace(/\/$/, "")
 }
