@@ -2,234 +2,116 @@ import { describe, expect, it } from "vitest"
 import {
   buildDashboardSetupProgress,
   buildDashboardSetupSteps,
+  type DashboardSetupInput,
+  type DashboardSetupStepId,
 } from "@/lib/dashboard/setup-assistant"
+import {
+  addCompletedSetupStep,
+  getSetupCompletedStepsStorageKey,
+  parseCompletedSetupSteps,
+  serializeCompletedSetupSteps,
+} from "@/lib/dashboard/setup-progress-storage"
+
+const readyTenant: DashboardSetupInput = {
+  actionItemCount: 0,
+  annualReportReadinessSatisfied: true,
+  companyInfoCompleted: true,
+  dataQualityIssueCount: 0,
+  eventCount: 12,
+  installationCount: 3,
+  installationsMissingPropertyCount: 0,
+  propertyCount: 2,
+  servicePartnerConnected: true,
+}
 
 describe("dashboard setup assistant", () => {
-  it("starts with company information as the next step for an empty account", () => {
-    const progress = buildDashboardSetupProgress({
-      actionItemCount: 0,
-      annualReportReadinessSatisfied: false,
-      companyInfoCompleted: false,
-      dataQualityIssueCount: 0,
-      eventCount: 0,
-      installationCount: 0,
-      installationsMissingPropertyCount: 0,
-      propertyCount: 0,
-      servicePartnerConnected: false,
-    })
+  it("starts first-time onboarding at zero even when tenant data is ready", () => {
+    const progress = buildDashboardSetupProgress(readyTenant)
 
-    expect(progress.completedCount).toBe(3)
+    expect(progress.completedCount).toBe(0)
     expect(progress.totalCount).toBe(9)
+    expect(progress.percent).toBe(0)
     expect(progress.nextStep?.id).toBe("company")
   })
 
-  it("selects the recommended import sequence before reports", () => {
-    const noProperties = buildDashboardSetupProgress({
-      actionItemCount: 0,
-      annualReportReadinessSatisfied: false,
-      companyInfoCompleted: true,
-      dataQualityIssueCount: 0,
-      eventCount: 0,
-      installationCount: 0,
-      installationsMissingPropertyCount: 0,
-      propertyCount: 0,
-      servicePartnerConnected: false,
-    })
-    expect(noProperties.nextStep).toMatchObject({
-      id: "properties",
-      route: "/dashboard/properties/import",
-    })
-
-    const noInstallations = buildDashboardSetupProgress({
-      actionItemCount: 0,
-      annualReportReadinessSatisfied: false,
-      companyInfoCompleted: true,
-      dataQualityIssueCount: 0,
-      eventCount: 0,
-      installationCount: 0,
-      installationsMissingPropertyCount: 0,
-      propertyCount: 2,
-      servicePartnerConnected: false,
-    })
-    expect(noInstallations.nextStep).toMatchObject({
-      id: "installations",
-      route: "/dashboard/installations/import",
-    })
-
-    const noEvents = buildDashboardSetupProgress({
-      actionItemCount: 0,
-      annualReportReadinessSatisfied: false,
-      companyInfoCompleted: true,
-      dataQualityIssueCount: 0,
-      eventCount: 0,
-      installationCount: 3,
-      installationsMissingPropertyCount: 0,
-      propertyCount: 2,
-      servicePartnerConnected: false,
-    })
-    expect(noEvents.nextStep).toMatchObject({
-      id: "reports",
-      route: "/dashboard/reports",
-    })
-  })
-
-  it("marks event import as recommended without blocking required progress", () => {
-    const progress = buildDashboardSetupProgress({
-      actionItemCount: 0,
-      annualReportPageVisited: true,
-      annualReportReadinessSatisfied: true,
-      companyInfoCompleted: true,
-      dataQualityIssueCount: 0,
-      eventCount: 0,
-      installationCount: 3,
-      installationsMissingPropertyCount: 0,
-      propertyCount: 2,
-      servicePartnerConnected: false,
-    })
-
-    const eventStep = progress.steps.find((step) => step.id === "events")
-
-    expect(eventStep).toMatchObject({
-      completed: false,
-      optional: true,
-      route: "/dashboard/installations/import-events",
-    })
-    expect(progress.nextStep).toBeNull()
-    expect(progress.isComplete).toBe(true)
-  })
-
-  it("prioritizes data quality before reports when issues exist", () => {
-    const progress = buildDashboardSetupProgress({
-      actionItemCount: 0,
-      annualReportReadinessSatisfied: false,
-      companyInfoCompleted: true,
-      dataQualityIssueCount: 4,
-      eventCount: 2,
-      installationCount: 3,
-      installationsMissingPropertyCount: 0,
-      propertyCount: 2,
-      servicePartnerConnected: true,
-    })
-
-    expect(progress.nextStep).toMatchObject({
-      id: "dataQuality",
-      route: "/dashboard/data-quality",
-    })
-  })
-
-  it("treats servicepartner as complete when skipped", () => {
-    const steps = buildDashboardSetupSteps({
-      actionItemCount: 0,
-      annualReportReadinessSatisfied: false,
-      companyInfoCompleted: true,
-      dataQualityIssueCount: 0,
-      eventCount: 1,
-      installationCount: 1,
-      installationsMissingPropertyCount: 0,
-      propertyCount: 1,
-      servicePartnerConnected: false,
-      servicePartnerSkipped: true,
-    })
-
-    expect(steps.find((step) => step.id === "servicePartner")).toMatchObject({
-      completed: true,
-      optional: true,
-    })
-  })
-
-  it("completes actions automatically when there are no actions", () => {
-    const steps = buildDashboardSetupSteps({
-      actionItemCount: 0,
-      actionsReviewed: false,
-      annualReportReadinessSatisfied: false,
-      companyInfoCompleted: true,
-      dataQualityIssueCount: 0,
-      eventCount: 1,
-      installationCount: 1,
-      installationsMissingPropertyCount: 0,
-      propertyCount: 1,
-      servicePartnerConnected: true,
-    })
+  it("does not complete actions just because there are no actions", () => {
+    const steps = buildDashboardSetupSteps(readyTenant)
 
     expect(steps.find((step) => step.id === "actions")).toMatchObject({
-      completed: true,
+      completed: false,
+      description: expect.stringContaining("inga åtgärder"),
     })
   })
 
-  it("requires opening Actions when actionable items exist", () => {
-    const unread = buildDashboardSetupSteps({
-      actionItemCount: 2,
-      actionsReviewed: false,
-      annualReportReadinessSatisfied: false,
-      companyInfoCompleted: true,
-      dataQualityIssueCount: 0,
-      eventCount: 1,
-      installationCount: 1,
-      installationsMissingPropertyCount: 0,
-      propertyCount: 1,
-      servicePartnerConnected: true,
-    })
-    expect(unread.find((step) => step.id === "actions")?.completed).toBe(false)
+  it("does not complete reports just because report data is ready", () => {
+    const steps = buildDashboardSetupSteps(readyTenant)
 
-    const reviewed = buildDashboardSetupSteps({
-      actionItemCount: 2,
-      actionsReviewed: true,
-      annualReportReadinessSatisfied: false,
-      companyInfoCompleted: true,
-      dataQualityIssueCount: 0,
-      eventCount: 1,
-      installationCount: 1,
-      installationsMissingPropertyCount: 0,
-      propertyCount: 1,
-      servicePartnerConnected: true,
+    expect(steps.find((step) => step.id === "reports")).toMatchObject({
+      completed: false,
+      description: expect.stringContaining("redo"),
     })
-    expect(reviewed.find((step) => step.id === "actions")?.completed).toBe(true)
   })
 
-  it("requires actual preview or readiness plus report page visit before report completion", () => {
-    const notVisited = buildDashboardSetupSteps({
-      actionItemCount: 0,
-      annualReportPageVisited: false,
-      annualReportPreviewReviewed: false,
-      annualReportReadinessSatisfied: true,
-      companyInfoCompleted: true,
-      dataQualityIssueCount: 0,
-      eventCount: 1,
-      installationCount: 1,
-      installationsMissingPropertyCount: 0,
-      propertyCount: 1,
-      servicePartnerConnected: true,
+  it("completes only explicitly acknowledged steps", () => {
+    const completedStepIds: DashboardSetupStepId[] = [
+      "company",
+      "properties",
+      "actions",
+    ]
+    const progress = buildDashboardSetupProgress({
+      ...readyTenant,
+      completedStepIds,
     })
-    expect(notVisited.find((step) => step.id === "reports")?.completed).toBe(false)
 
-    const visitedAndReady = buildDashboardSetupSteps({
-      actionItemCount: 0,
-      annualReportPageVisited: true,
-      annualReportPreviewReviewed: false,
-      annualReportReadinessSatisfied: true,
-      companyInfoCompleted: true,
-      dataQualityIssueCount: 0,
-      eventCount: 1,
-      installationCount: 1,
-      installationsMissingPropertyCount: 0,
-      propertyCount: 1,
-      servicePartnerConnected: true,
-    })
-    expect(visitedAndReady.find((step) => step.id === "reports")?.completed).toBe(true)
+    expect(progress.completedCount).toBe(3)
+    expect(progress.percent).toBe(33)
+    expect(progress.nextStep?.id).toBe("installations")
+    expect(progress.steps.find((step) => step.id === "actions")?.completed).toBe(
+      true
+    )
+    expect(progress.steps.find((step) => step.id === "reports")?.completed).toBe(
+      false
+    )
+  })
 
-    const previewed = buildDashboardSetupSteps({
-      actionItemCount: 0,
-      annualReportPageVisited: false,
-      annualReportPreviewReviewed: true,
-      annualReportReadinessSatisfied: false,
-      companyInfoCompleted: true,
-      dataQualityIssueCount: 0,
-      eventCount: 1,
-      installationCount: 1,
-      installationsMissingPropertyCount: 0,
-      propertyCount: 1,
-      servicePartnerConnected: true,
+  it("keeps optional steps recommended but does not count them as complete", () => {
+    const progress = buildDashboardSetupProgress({
+      ...readyTenant,
+      completedStepIds: [
+        "company",
+        "properties",
+        "installations",
+        "installationProperties",
+      ],
     })
-    expect(previewed.find((step) => step.id === "reports")?.completed).toBe(true)
+    const eventStep = progress.steps.find((step) => step.id === "events")
+
+    expect(eventStep).toMatchObject({ completed: false, optional: true })
+    expect(progress.completedCount).toBe(4)
+    expect(progress.nextStep?.id).toBe("events")
+  })
+
+  it("persists completed steps in a company-scoped value", () => {
+    const firstStep = addCompletedSetupStep([], "company")
+    const nextSteps = addCompletedSetupStep(firstStep, "actions")
+    const storedValue = serializeCompletedSetupSteps(nextSteps)
+
+    expect(getSetupCompletedStepsStorageKey("company-a")).toBe(
+      "helmpolar_setup_completed_steps:company-a"
+    )
+    expect(getSetupCompletedStepsStorageKey("company-b")).not.toBe(
+      getSetupCompletedStepsStorageKey("company-a")
+    )
+    expect(parseCompletedSetupSteps(storedValue)).toEqual([
+      "company",
+      "actions",
+    ])
+  })
+
+  it("ignores invalid or corrupt persisted step data", () => {
+    expect(parseCompletedSetupSteps("not-json")).toEqual([])
+    expect(
+      parseCompletedSetupSteps(JSON.stringify(["company", "unknown", 42]))
+    ).toEqual(["company"])
   })
 })

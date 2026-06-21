@@ -12,13 +12,15 @@ import {
   getDemoIntroStorageKey,
   shouldShowDemoIntroduction,
 } from "@/lib/dashboard/demo-introduction"
+import {
+  addCompletedSetupStep,
+  getSetupCompletedStepsStorageKey,
+  parseCompletedSetupSteps,
+  serializeCompletedSetupSteps,
+} from "@/lib/dashboard/setup-progress-storage"
 
 const STORAGE_KEYS = {
-  actionsReviewed: "fgasportal.dashboardSetup.actionsReviewed",
-  annualReportPageVisited: "fgasportal.dashboardSetup.annualReportPageVisited",
-  annualReportPreviewReviewed: "fgasportal.dashboardSetup.annualReportPreviewReviewed",
   collapsed: "fgasportal.dashboardSetup.collapsed",
-  servicePartnerSkipped: "fgasportal.dashboardSetup.servicePartnerSkipped",
 }
 
 export type DashboardSetupAssistantData = {
@@ -44,27 +46,33 @@ export function DashboardSetupAssistant({
   onOpenImportData?: (importType?: ImportType) => void
   setup: DashboardSetupAssistantData
 }) {
-  const [actionsReviewed, setActionsReviewed] = useLocalBoolean(
-    STORAGE_KEYS.actionsReviewed
-  )
-  const [annualReportPageVisited, setAnnualReportPageVisited] = useLocalBoolean(
-    STORAGE_KEYS.annualReportPageVisited
-  )
-  const [annualReportPreviewReviewed] = useLocalBoolean(
-    STORAGE_KEYS.annualReportPreviewReviewed
-  )
   const [collapsed, setCollapsed] = useLocalBoolean(
     STORAGE_KEYS.collapsed,
     defaultCollapsed
   )
-  const [servicePartnerSkipped, setServicePartnerSkipped] = useLocalBoolean(
-    STORAGE_KEYS.servicePartnerSkipped
-  )
   const [autoCollapsedCompletion, setAutoCollapsedCompletion] = useState(false)
+  const [setupProgressState, setSetupProgressState] = useState<{
+    companyId: string | null
+    completedStepIds: DashboardSetupStepId[]
+  }>({ companyId: null, completedStepIds: [] })
   const [demoIntroState, setDemoIntroState] = useState<
     "checking" | "visible" | "hidden"
   >("checking")
   const demoIntroButtonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    const storageKey = getSetupCompletedStepsStorageKey(setup.companyId)
+    const frameId = window.requestAnimationFrame(() => {
+      setSetupProgressState({
+        companyId: setup.companyId,
+        completedStepIds: parseCompletedSetupSteps(
+          window.localStorage.getItem(storageKey)
+        ),
+      })
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
+  }, [setup.companyId])
 
   useEffect(() => {
     const storageKey = getDemoIntroStorageKey(setup.companyId)
@@ -90,18 +98,12 @@ export function DashboardSetupAssistant({
     () =>
       buildDashboardSetupProgress({
         ...setup,
-        actionsReviewed,
-        annualReportPageVisited,
-        annualReportPreviewReviewed,
-        servicePartnerSkipped,
+        completedStepIds:
+          setupProgressState.companyId === setup.companyId
+            ? setupProgressState.completedStepIds
+            : [],
       }),
-    [
-      actionsReviewed,
-      annualReportPageVisited,
-      annualReportPreviewReviewed,
-      servicePartnerSkipped,
-      setup,
-    ]
+    [setup, setupProgressState]
   )
   const isCollapsed = collapsed || autoCollapsedCompletion
 
@@ -115,19 +117,29 @@ export function DashboardSetupAssistant({
     return () => window.clearTimeout(timeout)
   }, [autoCollapsedCompletion, collapsed, progress.isComplete])
 
-  function markStepOpened(stepId: DashboardSetupStepId) {
-    if (stepId === "actions" && setup.actionItemCount > 0) {
-      setActionsReviewed(true)
-    }
-    if (stepId === "reports") {
-      setAnnualReportPageVisited(true)
-    }
+  function completeStep(stepId: DashboardSetupStepId) {
+    const currentStepIds =
+      setupProgressState.companyId === setup.companyId
+        ? setupProgressState.completedStepIds
+        : []
+    const completedStepIds = addCompletedSetupStep(currentStepIds, stepId)
+
+    window.localStorage.setItem(
+      getSetupCompletedStepsStorageKey(setup.companyId),
+      serializeCompletedSetupSteps(completedStepIds)
+    )
+    setSetupProgressState({
+      companyId: setup.companyId,
+      completedStepIds,
+    })
   }
 
   function getStepImportType(stepId: DashboardSetupStepId): ImportType | null {
-    if (stepId === "properties") return "properties"
-    if (stepId === "installations") return "installations"
-    if (stepId === "events") return "events"
+    if (stepId === "properties" && setup.propertyCount === 0) return "properties"
+    if (stepId === "installations" && setup.installationCount === 0) {
+      return "installations"
+    }
+    if (stepId === "events" && setup.eventCount === 0) return "events"
     return null
   }
 
@@ -157,9 +169,8 @@ export function DashboardSetupAssistant({
           <div className="mt-4 space-y-3 text-sm leading-6 text-slate-700 sm:text-base sm:leading-7">
             <p>
               Det här är en demomiljö med exempeldata så att du snabbt kan se
-              hur systemet fungerar i praktiken. Vissa steg i kom igång-guiden
-              kan därför redan vara markerade som klara, till exempel att
-              granska åtgärder eller förhandsgranska årsrapporten.
+              hur systemet fungerar i praktiken. Kom igång-guiden börjar ändå
+              från noll så att du själv kan utforska och bekräfta varje steg.
             </p>
             <p>
               Guiden hjälper dig att utforska de viktigaste delarna:
@@ -182,6 +193,8 @@ export function DashboardSetupAssistant({
       </div>
     )
   }
+
+  if (setupProgressState.companyId !== setup.companyId) return null
 
   if (isCollapsed) {
     return (
@@ -276,7 +289,10 @@ export function DashboardSetupAssistant({
                   type="button"
                   onClick={() => {
                     const importType = getStepImportType(progress.nextStep!.id)
-                    if (importType) onOpenImportData(importType)
+                    if (importType) {
+                      completeStep(progress.nextStep!.id)
+                      onOpenImportData(importType)
+                    }
                   }}
                 >
                   {progress.nextStep.ctaLabel}
@@ -285,15 +301,15 @@ export function DashboardSetupAssistant({
                 <Link
                   className="rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
                   href={progress.nextStep.route}
-                  onClick={() => markStepOpened(progress.nextStep!.id)}
+                  onClick={() => completeStep(progress.nextStep!.id)}
                 >
                   {progress.nextStep.ctaLabel}
                 </Link>
               )}
-              {progress.nextStep.id === "servicePartner" ? (
+              {progress.nextStep.optional ? (
                 <button
                   className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  onClick={() => setServicePartnerSkipped(true)}
+                  onClick={() => completeStep(progress.nextStep!.id)}
                   type="button"
                 >
                   Hoppa över för nu

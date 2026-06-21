@@ -1,19 +1,3 @@
-export type DashboardSetupInput = {
-  actionItemCount?: number
-  actionsReviewed?: boolean
-  annualReportPageVisited?: boolean
-  annualReportPreviewReviewed?: boolean
-  annualReportReadinessSatisfied?: boolean
-  companyInfoCompleted: boolean
-  dataQualityIssueCount?: number
-  eventCount?: number
-  installationCount: number
-  installationsMissingPropertyCount: number
-  propertyCount: number
-  servicePartnerConnected: boolean
-  servicePartnerSkipped?: boolean
-}
-
 export type DashboardSetupStepId =
   | "company"
   | "properties"
@@ -24,6 +8,19 @@ export type DashboardSetupStepId =
   | "servicePartner"
   | "actions"
   | "reports"
+
+export type DashboardSetupInput = {
+  actionItemCount?: number
+  annualReportReadinessSatisfied?: boolean
+  companyInfoCompleted: boolean
+  completedStepIds?: readonly DashboardSetupStepId[]
+  dataQualityIssueCount?: number
+  eventCount?: number
+  installationCount: number
+  installationsMissingPropertyCount: number
+  propertyCount: number
+  servicePartnerConnected: boolean
+}
 
 export type DashboardSetupStep = {
   id: DashboardSetupStepId
@@ -46,108 +43,134 @@ export type DashboardSetupProgress = {
 
 export function buildDashboardSetupSteps({
   actionItemCount = 0,
-  actionsReviewed = false,
-  annualReportPageVisited = false,
-  annualReportPreviewReviewed = false,
   annualReportReadinessSatisfied = false,
   companyInfoCompleted,
+  completedStepIds = [],
   dataQualityIssueCount = 0,
   eventCount = 0,
   installationCount,
   installationsMissingPropertyCount,
   propertyCount,
   servicePartnerConnected,
-  servicePartnerSkipped = false,
 }: DashboardSetupInput): DashboardSetupStep[] {
-  const hasInstallations = installationCount > 0
-  const actionsCompleted = actionItemCount === 0 || actionsReviewed
-  const annualReportCompleted =
-    annualReportPreviewReviewed ||
-    (annualReportReadinessSatisfied && annualReportPageVisited)
+  const completedSteps = new Set(completedStepIds)
+  const isCompleted = (stepId: DashboardSetupStepId) =>
+    completedSteps.has(stepId)
 
   return [
     {
       id: "company",
       title: "Komplettera företagsuppgifter",
-      description:
-        "Operatörsuppgifter används i rapporter, inbjudningar och kontaktinformation.",
-      completed: companyInfoCompleted,
+      description: companyInfoCompleted
+        ? "Företagsuppgifter finns registrerade. Öppna och kontrollera att de stämmer."
+        : "Operatörsuppgifter används i rapporter, inbjudningar och kontaktinformation.",
+      completed: isCompleted("company"),
       route: "/dashboard/company",
-      ctaLabel: "Gå till företagsinställningar",
+      ctaLabel: companyInfoCompleted
+        ? "Granska företagsuppgifter"
+        : "Gå till företagsinställningar",
     },
     {
       id: "properties",
       title: "Importera fastigheter",
-      description: "Årsrapporter och uppföljning görs per fastighet.",
-      completed: propertyCount > 0,
-      route: "/dashboard/properties/import",
-      ctaLabel: "Importera fastigheter",
+      description:
+        propertyCount > 0
+          ? `${propertyCount} fastigheter finns i registret. Öppna och bekanta dig med dem.`
+          : "Årsrapporter och uppföljning görs per fastighet.",
+      completed: isCompleted("properties"),
+      route:
+        propertyCount > 0
+          ? "/dashboard/properties"
+          : "/dashboard/properties/import",
+      ctaLabel: propertyCount > 0 ? "Granska fastigheter" : "Importera fastigheter",
     },
     {
       id: "installations",
       title: "Importera aggregat",
       description:
-        "Aggregatregistret är grunden för kontrollintervall, risk och rapportering.",
-      completed: hasInstallations,
-      route: "/dashboard/installations/import",
-      ctaLabel: "Importera aggregat",
+        installationCount > 0
+          ? `${installationCount} aggregat finns i registret. Öppna och bekanta dig med dem.`
+          : "Aggregatregistret är grunden för kontrollintervall, risk och rapportering.",
+      completed: isCompleted("installations"),
+      route:
+        installationCount > 0
+          ? "/dashboard/installations"
+          : "/dashboard/installations/import",
+      ctaLabel: installationCount > 0 ? "Granska aggregat" : "Importera aggregat",
     },
     {
       id: "installationProperties",
       title: "Koppla aggregat till fastigheter",
       description:
-        "Kopplingen behövs för fastighetsvisa rapporter och tydlig uppföljning.",
-      completed: hasInstallations && installationsMissingPropertyCount === 0,
+        installationCount > 0 && installationsMissingPropertyCount === 0
+          ? "Alla aggregat är kopplade till en fastighet. Öppna registret och kontrollera kopplingarna."
+          : "Kopplingen behövs för fastighetsvisa rapporter och tydlig uppföljning.",
+      completed: isCompleted("installationProperties"),
       route:
         installationsMissingPropertyCount > 0
           ? "/dashboard/installations?quality=missing-property"
           : "/dashboard/installations",
-      ctaLabel: "Koppla aggregat",
+      ctaLabel: installationsMissingPropertyCount > 0
+        ? "Koppla aggregat"
+        : "Granska kopplingar",
     },
     {
       id: "events",
       title: "Importera kontrollhistorik",
       description:
-        "Rekommenderas om du har kontroller, läckage eller påfyllningar från tidigare register.",
-      completed: hasInstallations && eventCount > 0,
+        eventCount > 0
+          ? `${eventCount} händelser finns registrerade. Granska historiken eller komplettera den vid behov.`
+          : "Rekommenderas om du har kontroller, läckage eller påfyllningar från tidigare register.",
+      completed: isCompleted("events"),
       optional: true,
-      route: "/dashboard/installations/import-events",
-      ctaLabel: "Importera händelser",
+      route:
+        eventCount > 0
+          ? "/dashboard/installations"
+          : "/dashboard/installations/import-events",
+      ctaLabel: eventCount > 0 ? "Granska kontrollhistorik" : "Importera händelser",
     },
     {
       id: "dataQuality",
       title: "Granska registerstatus",
       description:
-        "Registerstatus visar saknade uppgifter som kan hindra eller försvaga årsrapporten.",
-      completed: hasInstallations && dataQualityIssueCount === 0,
+        dataQualityIssueCount > 0
+          ? `Registerstatus visar ${dataQualityIssueCount} typer av brister att granska.`
+          : "Registerstatus visar om underlaget är komplett inför uppföljning och rapportering.",
+      completed: isCompleted("dataQuality"),
       route: "/dashboard/data-quality",
       ctaLabel: "Granska registerstatus",
     },
     {
       id: "servicePartner",
       title: "Bjud in servicepartner",
-      description: "Servicepartners kan arbeta direkt i operatörens register.",
-      completed: servicePartnerConnected || servicePartnerSkipped,
+      description: servicePartnerConnected
+        ? "En servicepartner är ansluten. Öppna sidan och kontrollera samarbetet."
+        : "Servicepartners kan arbeta direkt i operatörens register.",
+      completed: isCompleted("servicePartner"),
       optional: true,
       route: "/dashboard/contractors",
-      ctaLabel: "Gå till servicepartners",
+      ctaLabel: servicePartnerConnected
+        ? "Granska servicepartner"
+        : "Gå till servicepartners",
     },
     {
       id: "actions",
       title: "Granska åtgärder",
       description:
         actionItemCount > 0
-          ? "Åtgärder visar vad som behöver hanteras först."
-          : "Det finns inga åtgärder att granska just nu.",
-      completed: actionsCompleted,
+          ? `Det finns ${actionItemCount} åtgärder att prioritera och följa upp.`
+          : "Det finns inga åtgärder just nu. Öppna sidan för att se hur uppföljningen fungerar.",
+      completed: isCompleted("actions"),
       route: "/dashboard/actions",
-      ctaLabel: "Visa åtgärder",
+      ctaLabel: "Granska åtgärder",
     },
     {
       id: "reports",
       title: "Förhandsgranska årsrapport",
-      description: "Kontrollera att rapportunderlaget fungerar per fastighet.",
-      completed: annualReportCompleted,
+      description: annualReportReadinessSatisfied
+        ? "Rapportunderlaget är redo. Öppna rapporter och förhandsgranska resultatet."
+        : "Kontrollera rapportunderlaget och se vad som återstår per fastighet.",
+      completed: isCompleted("reports"),
       route: "/dashboard/reports",
       ctaLabel: "Förhandsgranska årsrapport",
     },
@@ -158,17 +181,15 @@ export function buildDashboardSetupProgress(
   input: DashboardSetupInput
 ): DashboardSetupProgress {
   const steps = buildDashboardSetupSteps(input)
-  const completedCount = steps.filter(
-    (step) => step.completed || step.optional
-  ).length
+  const completedCount = steps.filter((step) => step.completed).length
   const totalCount = steps.length
-  const isComplete = steps.every((step) => step.completed || step.optional)
+  const isComplete = steps.every((step) => step.completed)
 
   return {
     completedCount,
     totalCount,
     percent: totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 100,
-    nextStep: steps.find((step) => !step.completed && !step.optional) ?? null,
+    nextStep: steps.find((step) => !step.completed) ?? null,
     steps,
     isComplete,
   }
