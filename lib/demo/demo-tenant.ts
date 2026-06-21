@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client"
 import bcrypt from "bcryptjs"
+import { getDemoTenantPropertyIdPrefix } from "@/lib/demo/demo-tenant-marker"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 
 const DEMO_PROPERTY_COUNT = 24
@@ -212,8 +213,9 @@ export function createDemoTenantPlan({
   today?: Date
 }): DemoTenantPlan {
   const safeCompanyId = safeId(companyId)
+  const demoPropertyIdPrefix = getDemoTenantPropertyIdPrefix(companyId)
   const properties = propertySeeds.map((property, index) => ({
-    id: `demo_${safeCompanyId}_property_${index + 1}`,
+    id: `${demoPropertyIdPrefix}${index + 1}`,
     companyId,
     name: property[0],
     municipality: property[1],

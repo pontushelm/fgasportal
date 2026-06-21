@@ -11,6 +11,7 @@ import {
 } from "@/lib/dashboard/compliance-metrics"
 import { loadDataQualityReport } from "@/lib/dashboard/load-data-quality-report"
 import { prisma } from "@/lib/db"
+import { getDemoTenantPropertyIdPrefix } from "@/lib/demo/demo-tenant-marker"
 import {
   calculateInstallationCompliance,
   type ComplianceStatus,
@@ -48,7 +49,14 @@ export async function GET(request: NextRequest) {
     const { companyId, userId } = auth.user
     const currentYearRange = getCurrentYearRange()
     const queryStartTime = getDevelopmentTimingStart()
-    const [company, installations, propertyCount, eventCount, dataQuality] = await Promise.all([
+    const [
+      company,
+      installations,
+      propertyCount,
+      eventCount,
+      dataQuality,
+      demoProperty,
+    ] = await Promise.all([
       prisma.company.findUnique({
         where: {
           id: companyId,
@@ -164,6 +172,17 @@ export async function GET(request: NextRequest) {
         },
       }),
       loadDataQualityReport(auth.user),
+      prisma.property.findFirst({
+        where: {
+          companyId,
+          id: {
+            startsWith: getDemoTenantPropertyIdPrefix(companyId),
+          },
+        },
+        select: {
+          id: true,
+        },
+      }),
     ])
     const servicePartnerCompanies = isContractor(auth.user)
       ? []
@@ -477,11 +496,13 @@ export async function GET(request: NextRequest) {
             propertyCount > 0 &&
             installationRows.length > 0,
           companyInfoCompleted: isCompanyInfoCompleted(company),
+          companyId,
           dataQualityIssueCount: dataQuality.totalIssueCount,
           eventCount,
           propertyCount,
           installationCount: installationRows.length,
           installationsMissingPropertyCount,
+          isDemoTenant: Boolean(demoProperty),
           servicePartnerConnected:
             servicePartnerCompanies.length > 0 ||
             installationRows.some((installation) =>

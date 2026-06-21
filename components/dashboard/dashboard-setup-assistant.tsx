@@ -1,13 +1,17 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Badge, Card } from "@/components/ui"
 import type { ImportType } from "@/components/dashboard/import-data-workspace"
 import {
   buildDashboardSetupProgress,
   type DashboardSetupStepId,
 } from "@/lib/dashboard/setup-assistant"
+import {
+  getDemoIntroStorageKey,
+  shouldShowDemoIntroduction,
+} from "@/lib/dashboard/demo-introduction"
 
 const STORAGE_KEYS = {
   actionsReviewed: "fgasportal.dashboardSetup.actionsReviewed",
@@ -21,10 +25,12 @@ export type DashboardSetupAssistantData = {
   actionItemCount: number
   annualReportReadinessSatisfied: boolean
   companyInfoCompleted: boolean
+  companyId: string
   dataQualityIssueCount: number
   eventCount: number
   installationCount: number
   installationsMissingPropertyCount: number
+  isDemoTenant: boolean
   propertyCount: number
   servicePartnerConnected: boolean
 }
@@ -55,6 +61,30 @@ export function DashboardSetupAssistant({
     STORAGE_KEYS.servicePartnerSkipped
   )
   const [autoCollapsedCompletion, setAutoCollapsedCompletion] = useState(false)
+  const [demoIntroState, setDemoIntroState] = useState<
+    "checking" | "visible" | "hidden"
+  >("checking")
+  const demoIntroButtonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    const storageKey = getDemoIntroStorageKey(setup.companyId)
+    const frameId = window.requestAnimationFrame(() => {
+      setDemoIntroState(
+        shouldShowDemoIntroduction({
+          isDemoTenant: setup.isDemoTenant,
+          storedValue: window.localStorage.getItem(storageKey),
+        })
+          ? "visible"
+          : "hidden"
+      )
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
+  }, [setup.companyId, setup.isDemoTenant])
+
+  useEffect(() => {
+    if (demoIntroState === "visible") demoIntroButtonRef.current?.focus()
+  }, [demoIntroState])
 
   const progress = useMemo(
     () =>
@@ -99,6 +129,58 @@ export function DashboardSetupAssistant({
     if (stepId === "installations") return "installations"
     if (stepId === "events") return "events"
     return null
+  }
+
+  function dismissDemoIntroduction() {
+    window.localStorage.setItem(getDemoIntroStorageKey(setup.companyId), "1")
+    setDemoIntroState("hidden")
+  }
+
+  if (demoIntroState === "checking" && setup.isDemoTenant) return null
+
+  if (demoIntroState === "visible") {
+    return (
+      <div
+        aria-labelledby="demo-introduction-title"
+        aria-modal="true"
+        className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/45 p-4 sm:p-6"
+        role="dialog"
+      >
+        <Card className="w-full max-w-xl border-slate-200 bg-white p-5 shadow-2xl sm:p-7">
+          <Badge variant="info">Förberedd demomiljö</Badge>
+          <h2
+            className="mt-4 text-2xl font-semibold text-slate-950"
+            id="demo-introduction-title"
+          >
+            Välkommen till Helm Polar
+          </h2>
+          <div className="mt-4 space-y-3 text-sm leading-6 text-slate-700 sm:text-base sm:leading-7">
+            <p>
+              Det här är en demomiljö med exempeldata så att du snabbt kan se
+              hur systemet fungerar i praktiken. Vissa steg i kom igång-guiden
+              kan därför redan vara markerade som klara, till exempel att
+              granska åtgärder eller förhandsgranska årsrapporten.
+            </p>
+            <p>
+              Guiden hjälper dig att utforska de viktigaste delarna:
+              fastigheter, aggregat, servicepartner, åtgärder, rapporter och
+              registerstatus.
+            </p>
+          </div>
+          <button
+            className="mt-6 w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm outline-none hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:w-auto"
+            onClick={dismissDemoIntroduction}
+            ref={demoIntroButtonRef}
+            type="button"
+          >
+            Starta genomgången
+          </button>
+          <p className="mt-3 text-xs leading-5 text-slate-500">
+            Du kan när som helst minimera guiden och öppna den igen via Kom igång.
+          </p>
+        </Card>
+      </div>
+    )
   }
 
   if (isCollapsed) {

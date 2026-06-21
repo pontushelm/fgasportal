@@ -138,10 +138,12 @@ type DashboardData = {
     actionItemCount: number
     annualReportReadinessSatisfied: boolean
     companyInfoCompleted: boolean
+    companyId: string
     dataQualityIssueCount: number
     eventCount: number
     installationCount: number
     installationsMissingPropertyCount: number
+    isDemoTenant: boolean
     propertyCount: number
     servicePartnerConnected: boolean
   }
