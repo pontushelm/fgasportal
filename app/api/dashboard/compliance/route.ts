@@ -508,6 +508,7 @@ export async function GET(request: NextRequest) {
             installationRows.some((installation) =>
               Boolean(installation.servicePartnerCompanyId)
             ),
+          userId,
         },
       },
       { status: 200 }

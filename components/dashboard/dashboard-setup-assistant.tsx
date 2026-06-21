@@ -13,6 +13,11 @@ import {
   shouldShowDemoIntroduction,
 } from "@/lib/dashboard/demo-introduction"
 import {
+  getFirstDashboardOnboardingOverlay,
+  getPilotWelcomeStorageKey,
+  type DashboardOnboardingOverlay,
+} from "@/lib/dashboard/pilot-welcome"
+import {
   addCompletedSetupStep,
   getSetupCompletedStepsStorageKey,
   parseCompletedSetupSteps,
@@ -35,6 +40,7 @@ export type DashboardSetupAssistantData = {
   isDemoTenant: boolean
   propertyCount: number
   servicePartnerConnected: boolean
+  userId: string
 }
 
 export function DashboardSetupAssistant({
@@ -55,10 +61,10 @@ export function DashboardSetupAssistant({
     companyId: string | null
     completedStepIds: DashboardSetupStepId[]
   }>({ companyId: null, completedStepIds: [] })
-  const [demoIntroState, setDemoIntroState] = useState<
-    "checking" | "visible" | "hidden"
+  const [onboardingOverlayState, setOnboardingOverlayState] = useState<
+    "checking" | DashboardOnboardingOverlay
   >("checking")
-  const demoIntroButtonRef = useRef<HTMLButtonElement>(null)
+  const onboardingOverlayButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     const storageKey = getSetupCompletedStepsStorageKey(setup.companyId)
@@ -75,24 +81,31 @@ export function DashboardSetupAssistant({
   }, [setup.companyId])
 
   useEffect(() => {
-    const storageKey = getDemoIntroStorageKey(setup.companyId)
     const frameId = window.requestAnimationFrame(() => {
-      setDemoIntroState(
-        shouldShowDemoIntroduction({
+      setOnboardingOverlayState(
+        getFirstDashboardOnboardingOverlay({
+          demoIntroStoredValue: window.localStorage.getItem(
+            getDemoIntroStorageKey(setup.companyId)
+          ),
           isDemoTenant: setup.isDemoTenant,
-          storedValue: window.localStorage.getItem(storageKey),
+          pilotWelcomeStoredValue: window.localStorage.getItem(
+            getPilotWelcomeStorageKey(setup.companyId, setup.userId)
+          ),
         })
-          ? "visible"
-          : "hidden"
       )
     })
 
     return () => window.cancelAnimationFrame(frameId)
-  }, [setup.companyId, setup.isDemoTenant])
+  }, [setup.companyId, setup.isDemoTenant, setup.userId])
 
   useEffect(() => {
-    if (demoIntroState === "visible") demoIntroButtonRef.current?.focus()
-  }, [demoIntroState])
+    if (
+      onboardingOverlayState === "pilotWelcome" ||
+      onboardingOverlayState === "demoIntroduction"
+    ) {
+      onboardingOverlayButtonRef.current?.focus()
+    }
+  }, [onboardingOverlayState])
 
   const progress = useMemo(
     () =>
@@ -143,14 +156,80 @@ export function DashboardSetupAssistant({
     return null
   }
 
-  function dismissDemoIntroduction() {
-    window.localStorage.setItem(getDemoIntroStorageKey(setup.companyId), "1")
-    setDemoIntroState("hidden")
+  function dismissPilotWelcome() {
+    window.localStorage.setItem(
+      getPilotWelcomeStorageKey(setup.companyId, setup.userId),
+      "1"
+    )
+    setOnboardingOverlayState(
+      shouldShowDemoIntroduction({
+        isDemoTenant: setup.isDemoTenant,
+        storedValue: window.localStorage.getItem(
+          getDemoIntroStorageKey(setup.companyId)
+        ),
+      })
+        ? "demoIntroduction"
+        : null
+    )
   }
 
-  if (demoIntroState === "checking" && setup.isDemoTenant) return null
+  function dismissDemoIntroduction() {
+    window.localStorage.setItem(getDemoIntroStorageKey(setup.companyId), "1")
+    setOnboardingOverlayState(null)
+  }
 
-  if (demoIntroState === "visible") {
+  if (onboardingOverlayState === "checking") return null
+
+  if (onboardingOverlayState === "pilotWelcome") {
+    return (
+      <div
+        aria-labelledby="pilot-welcome-title"
+        aria-modal="true"
+        className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/45 p-4 sm:p-6"
+        role="dialog"
+      >
+        <Card className="w-full max-w-xl border-slate-200 bg-white p-5 shadow-2xl sm:p-7">
+          <Badge variant="info">Pilotversion</Badge>
+          <h2
+            className="mt-4 text-2xl font-semibold text-slate-950"
+            id="pilot-welcome-title"
+          >
+            Välkommen till Helm Polar
+          </h2>
+          <div className="mt-4 space-y-3 text-sm leading-6 text-slate-700 sm:text-base sm:leading-7">
+            <p>
+              Helm Polar är just nu i pilotfas. Det betyder att systemet är
+              redo att testas i verkliga arbetsflöden, men att vissa delar
+              fortfarande kan justeras baserat på feedback från de första
+              användarna.
+            </p>
+            <p>
+              Du kan använda systemet för att bygga upp eller granska ett
+              F-gasregister, följa upp kontrollintervall, hantera servicepartner
+              och förbereda årsrapportering.
+            </p>
+            <p>
+              Om något känns otydligt eller om du saknar något är feedback
+              extra värdefull i den här fasen.
+            </p>
+          </div>
+          <button
+            className="mt-6 w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm outline-none hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:w-auto"
+            onClick={dismissPilotWelcome}
+            ref={onboardingOverlayButtonRef}
+            type="button"
+          >
+            Kom igång
+          </button>
+          <p className="mt-3 text-xs leading-5 text-slate-500">
+            Guiden hjälper dig genom de viktigaste stegen.
+          </p>
+        </Card>
+      </div>
+    )
+  }
+
+  if (onboardingOverlayState === "demoIntroduction") {
     return (
       <div
         aria-labelledby="demo-introduction-title"
@@ -181,7 +260,7 @@ export function DashboardSetupAssistant({
           <button
             className="mt-6 w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm outline-none hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:w-auto"
             onClick={dismissDemoIntroduction}
-            ref={demoIntroButtonRef}
+            ref={onboardingOverlayButtonRef}
             type="button"
           >
             Starta genomgången

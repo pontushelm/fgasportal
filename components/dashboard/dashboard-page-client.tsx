@@ -146,6 +146,7 @@ type DashboardData = {
     isDemoTenant: boolean
     propertyCount: number
     servicePartnerConnected: boolean
+    userId: string
   }
 }
 
