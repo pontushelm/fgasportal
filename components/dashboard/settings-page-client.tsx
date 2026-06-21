@@ -836,7 +836,7 @@ export default function SettingsPageClient() {
           <Card className="p-5">
             <SectionHeader
               title="Utseende"
-              subtitle="Välj om Helm Polar ska visas i ljust eller mörkt läge."
+              subtitle="Välj om Polar ska visas i ljust eller mörkt läge."
             />
             <div className="mt-5">
               <ThemeSelect />

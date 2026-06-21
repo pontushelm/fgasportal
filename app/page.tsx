@@ -112,7 +112,7 @@ export default function Home() {
             Få kontroll på köldmedieaggregat och F-gasrapportering
           </h1>
           <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-700">
-            Helm Polar samlar register, kontroller, dokumentation,
+            Polar samlar register, kontroller, dokumentation,
             servicepartners och rapportunderlag i ett webbaserat system för
             verksamheter som omfattas av F-gasförordningen.
           </p>
@@ -135,7 +135,7 @@ export default function Home() {
       <Section
         eyebrow="Översikt"
         title="Det viktigaste samlat på ett ställe"
-        description="Helm Polar ger organisationen en tydlig grund för registerhållning, uppföljning och rapportering."
+        description="Polar ger organisationen en tydlig grund för registerhållning, uppföljning och rapportering."
       >
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {valueCards.map((feature) => (
@@ -154,7 +154,7 @@ export default function Home() {
               Arbetsflöde
             </p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
-              Så hjälper Helm Polar i vardagen
+              Så hjälper Polar i vardagen
             </h2>
             <p className="mt-4 text-sm leading-6 text-slate-600">
               Ett kompakt arbetsflöde från registrering till uppföljning,
@@ -235,7 +235,7 @@ export default function Home() {
             Vill ni få bättre kontroll över ert F-gasregister?
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600">
-            Boka en demo för att se hur Helm Polar kan samla register,
+            Boka en demo för att se hur Polar kan samla register,
             kontroller, dokumentation, serviceuppföljning och rapportunderlag.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
@@ -257,7 +257,7 @@ export default function Home() {
           <div>
             <p className="font-semibold text-slate-950">Helm Polar</p>
             <p className="mt-2 max-w-3xl">
-              Helm Polar hjälper till att strukturera register, uppföljning och
+              Polar hjälper till att strukturera register, uppföljning och
               rapportunderlag. Operatören ansvarar fortsatt för att uppgifter och
               rapportering är korrekta.
             </p>

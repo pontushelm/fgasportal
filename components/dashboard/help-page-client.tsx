@@ -35,7 +35,7 @@ type CurrentUser = {
 const helpSections: HelpSection[] = [
   {
     id: "getting-started",
-    title: "Kom igång med Helm Polar på 30 minuter",
+    title: "Kom igång med Polar på 30 minuter",
     summary: "Rekommenderat första arbetsflöde för en ny kundtenant.",
     icon: ClipboardCheck,
     items: [
@@ -290,12 +290,12 @@ const faqItems = [
   {
     question: "Varför visas inte en fastighet som kopplad efter import?",
     answer:
-      "Fastigheten måste redan finnas i Helm Polar och namnet behöver matcha importfilen. Om ingen match hittas importeras aggregatet utan fastighetskoppling med en varning.",
+      "Fastigheten måste redan finnas i Polar och namnet behöver matcha importfilen. Om ingen match hittas importeras aggregatet utan fastighetskoppling med en varning.",
   },
   {
     question: "Ska GWP eller CO₂e importeras från Excel?",
     answer:
-      "Normalt nej. Helm Polar beräknar CO₂e utifrån köldmedium och fyllnadsmängd. Om GWP saknas visas det som ofullständig data i stället för ett missvisande nollvärde.",
+      "Normalt nej. Polar beräknar CO₂e utifrån köldmedium och fyllnadsmängd. Om GWP saknas visas det som ofullständig data i stället för ett missvisande nollvärde.",
   },
   {
     question: "När ska jag arkivera eller skrota ett aggregat?",
@@ -394,7 +394,7 @@ export default function HelpPageClient() {
           subtitle={
             isServicePartnerUser
               ? "Kom igång med tilldelade aggregat, händelser och servicepartnerinställningar."
-              : "Kom igång med Helm Polar och vanliga arbetsflöden."
+              : "Kom igång med Polar och vanliga arbetsflöden."
           }
         />
 

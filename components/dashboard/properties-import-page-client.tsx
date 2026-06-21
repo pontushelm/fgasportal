@@ -498,7 +498,7 @@ export default function PropertiesImportPageClient({
                 Kontrollera fält
               </h2>
               <p className="mt-1 text-sm text-slate-600">
-                Helm Polar föreslår matchningar baserat på kolumnnamn. Kontrollera
+                Polar föreslår matchningar baserat på kolumnnamn. Kontrollera
                 de viktigaste fälten först.
               </p>
               <p className="mt-1 text-xs text-slate-500">
@@ -580,7 +580,7 @@ export default function PropertiesImportPageClient({
               )}
               {duplicatedFields.length > 0 && (
                 <p className="mt-1">
-                  Samma fält i Helm Polar är valt flera gånger:{" "}
+                  Samma fält i Polar är valt flera gånger:{" "}
                   {[...new Set(duplicatedFields)]
                     .map(getPropertyImportFieldLabel)
                     .join(", ")}

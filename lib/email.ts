@@ -280,16 +280,16 @@ export function buildOperationalDigestEmailText({
     inspectionRows.length > 0 ? "Kontroller:" : null,
     ...inspectionRows,
     inspectionReminders.length > inspectionRows.length
-      ? `Ytterligare ${inspectionReminders.length - inspectionRows.length} kontrollpunkter finns i Helm Polar.`
+      ? `Ytterligare ${inspectionReminders.length - inspectionRows.length} kontrollpunkter finns i Polar.`
       : null,
     "",
     leakRows.length > 0 ? "Läckage:" : null,
     ...leakRows,
     leakEvents.length > leakRows.length
-      ? `Ytterligare ${leakEvents.length - leakRows.length} läckage finns i Helm Polar.`
+      ? `Ytterligare ${leakEvents.length - leakRows.length} läckage finns i Polar.`
       : null,
     "",
-    "Öppna Helm Polar för att se detaljer och åtgärder:",
+    "Öppna Polar för att se detaljer och åtgärder:",
     actionQueueUrl,
     "",
     "Vänliga hälsningar,",
@@ -323,7 +323,7 @@ export function buildInspectionReminderEmailText({
   return [
     `Kontrollpåminnelse: ${installationName}`,
     "",
-    `Ett aggregat har ${subjectStatus} i Helm Polar.`,
+    `Ett aggregat har ${subjectStatus} i Polar.`,
     servicePartnerCompanyName
       ? `Påminnelsen gäller aggregat som är tilldelade dig som servicekontakt hos ${servicePartnerCompanyName}.`
       : null,
@@ -381,7 +381,7 @@ export function buildContractorAssignmentEmailText({
     "",
     servicePartnerCompanyName
       ? `Ett eller flera aggregat har tilldelats dig som servicekontakt hos ${servicePartnerCompanyName}.`
-      : "Du har tilldelats ett eller flera aggregat i Helm Polar.",
+      : "Du har tilldelats ett eller flera aggregat i Polar.",
     "",
     "Logga in för att se tilldelade aggregat, kontrollstatus och eventuella kommande åtgärder.",
     "",
@@ -411,7 +411,7 @@ export async function sendLeakNotificationEmail({
   const text = [
     `Läckage registrerat: ${installationName}`,
     "",
-    "Ett läckage har registrerats i Helm Polar och bör följas upp i compliancearbetet.",
+    "Ett läckage har registrerats i Polar och bör följas upp i compliancearbetet.",
     "",
     `Aggregat: ${installationName}`,
     equipmentId ? `Aggregat-ID / märkning: ${equipmentId}` : null,

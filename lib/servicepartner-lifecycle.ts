@@ -138,7 +138,7 @@ export function buildServicepartnerLifecycle({
     checklist.push(
       checklistItem({
         completed: true,
-        helperText: "Servicepartnern har registrerad aktivitet i Helm Polar.",
+        helperText: "Servicepartnern har registrerad aktivitet i Polar.",
         key: "latest-activity",
         label: "Senaste aktivitet",
         severity: "success",

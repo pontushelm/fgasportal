@@ -79,7 +79,7 @@ const REFRIGERANT_RULES: Record<string, RefrigerantRegulatoryRule> = {
   },
   R32: {
     status: "OK",
-    label: "Inga särskilda varningssignaler i Helm Polar",
+    label: "Inga särskilda varningssignaler i Polar",
     shortLabel: "OK",
     description:
       "R32 har lägre GWP än flera äldre HFC-blandningar. Kontrollera alltid gällande krav vid åtgärd.",
@@ -105,7 +105,7 @@ export function getRefrigerantRegulatoryStatus({
       label: "Okänt köldmedium",
       shortLabel: "Okänt köldmedium",
       description:
-        "Köldmediet saknar känt GWP-värde i Helm Polar. Kontrollera gällande krav innan rapportering eller service.",
+        "Köldmediet saknar känt GWP-värde i Polar. Kontrollera gällande krav innan rapportering eller service.",
       actionTitle: "Kontrollera okänt köldmedium",
       actionDescription:
         "Aggregatet saknar känt GWP-värde. Komplettera köldmedium för säkrare F-gasuppföljning.",
@@ -168,10 +168,10 @@ export function getRefrigerantRegulatoryStatus({
     status: "OK",
     code,
     gwp,
-    label: "Inga särskilda varningssignaler i Helm Polar",
+    label: "Inga särskilda varningssignaler i Polar",
     shortLabel: "OK",
     description:
-      "Helm Polar visar ingen särskild köldmedievarning. Kontrollera alltid gällande krav vid större åtgärder.",
+      "Polar visar ingen särskild köldmedievarning. Kontrollera alltid gällande krav vid större åtgärder.",
   }
 }
 

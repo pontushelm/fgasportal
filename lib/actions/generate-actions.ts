@@ -778,7 +778,7 @@ function buildServicePartnerCertificateDescription({
   const details = [
     certificateNumber ? `Certifikat: ${certificateNumber}.` : null,
     validUntil ? `Giltigt till: ${formatDate(validUntil)}.` : null,
-    "Kontrollera certifieringen med servicepartnern och be dem uppdatera uppgifterna i Helm Polar.",
+    "Kontrollera certifieringen med servicepartnern och be dem uppdatera uppgifterna i Polar.",
   ]
     .filter(Boolean)
     .join(" ")
@@ -798,7 +798,7 @@ function buildTechnicianCertificateDescription({
   const details = [
     certificateNumber ? `Certifikat: ${certificateNumber}.` : null,
     validUntil ? `Giltigt till: ${formatDate(validUntil)}.` : "Giltighet saknas.",
-    "Uppdatera personcertifikatet i Helm Polar.",
+    "Uppdatera personcertifikatet i Polar.",
   ]
     .filter(Boolean)
     .join(" ")

@@ -194,11 +194,11 @@ export function DashboardSetupAssistant({
             className="mt-4 text-2xl font-semibold text-slate-950"
             id="pilot-welcome-title"
           >
-            Välkommen till Helm Polar
+            Välkommen till Polar
           </h2>
           <div className="mt-4 space-y-3 text-sm leading-6 text-slate-700 sm:text-base sm:leading-7">
             <p>
-              Helm Polar är just nu i pilotfas. Det betyder att systemet är
+              Polar är just nu i pilotfas. Det betyder att systemet är
               redo att testas i verkliga arbetsflöden, men att vissa delar
               fortfarande kan justeras baserat på feedback från de första
               användarna.
@@ -243,7 +243,7 @@ export function DashboardSetupAssistant({
             className="mt-4 text-2xl font-semibold text-slate-950"
             id="demo-introduction-title"
           >
-            Välkommen till Helm Polar
+            Välkommen till Polar
           </h2>
           <div className="mt-4 space-y-3 text-sm leading-6 text-slate-700 sm:text-base sm:leading-7">
             <p>
@@ -311,7 +311,7 @@ export function DashboardSetupAssistant({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-semibold text-slate-950">
-                Kom igång med Helm Polar
+                Kom igång med Polar
               </h2>
               {progress.isComplete ? (
                 <Badge variant="success">Klart</Badge>
