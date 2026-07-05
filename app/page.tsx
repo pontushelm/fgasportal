@@ -2,6 +2,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { DemoRequestButton } from "@/components/demo-request-button"
 import { LegalLinks } from "@/components/legal-links"
+import { ProductScreenshotShowcase } from "@/components/product-screenshot-showcase"
 
 const previewStats = [
   { label: "Totalt aggregat", value: "248", tone: "border-l-blue-500" },
@@ -131,6 +132,8 @@ export default function Home() {
 
         <DashboardPreview />
       </section>
+
+      <ProductScreenshotShowcase />
 
       <Section
         eyebrow="Översikt"
