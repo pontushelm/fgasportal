@@ -25,7 +25,7 @@ const showcaseItems = [
   {
     title: "Servicepartnerhantering",
     description:
-      "Håll koll på ansvar, certifikat, giltighet och kompletteringar från era servicepartner.",
+      "Låt servicepartner registrera kontroller och händelser direkt i ert register. Polar samlar historiken på ett ställe och ger full spårbarhet.",
     image: "/screenshots/servicepartner-oversikt.jpg",
     width: 736,
     height: 489,
@@ -43,7 +43,7 @@ const showcaseItems = [
   {
     title: "Årsrapportering",
     description:
-      "Se om årsrapporten är redo, vilka uppgifter som saknas och vad som behöver granskas.",
+      "Se om årsrapporten är redo, vilka uppgifter som saknas och vilka avvikelser som behöver granskas innan rapporten skickas.",
     image: "/screenshots/skapa-rapport.jpg",
     width: 1278,
     height: 845,
@@ -52,7 +52,7 @@ const showcaseItems = [
   {
     title: "Färdig rapport",
     description:
-      "Förhandsgranska och exportera en årsrapport enligt F-gasförordningen med ett klick.",
+      "Förhandsgranska och exportera en årsrapport enligt F-gasförordningen, med tydliga markeringar av brister och kompletteringsbehov.",
     image: "/screenshots/arsrapport.jpg",
     width: 1077,
     height: 845,

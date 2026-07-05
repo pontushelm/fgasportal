@@ -15,29 +15,29 @@ const previewTags = ["Årsrapport", "Fastigheter", "Dokument", "Servicepartners"
 
 const valueCards = [
   {
-    title: "Samlat F-gasregister",
-    text: "Samla aggregat, köldmedium, mängder, fastigheter och servicepartners i ett strukturerat register.",
+    title: "Minska risken för sanktionsavgifter",
+    text: "Polar identifierar brister, påminner om kommande kontroller och visar vad som behöver åtgärdas innan rapporter skickas till kommun eller miljöförvaltning.",
   },
   {
-    title: "Kontroll på intervall och status",
-    text: "Följ kommande och försenade kontroller, riskstatus och prioriterade åtgärder.",
+    title: "Styr klimatpåverkan",
+    text: "Följ installerad CO₂e, identifiera aggregat med störst klimatpåverkan och prioritera utfasning av köldmedier med hög klimatbelastning.",
   },
   {
-    title: "Rapporter och dokumentation",
-    text: "Samla historik, dokument och underlag för årsrapportering till kommun.",
+    title: "Rapporter med inbyggd kvalitetskontroll",
+    text: "Innan rapporten exporteras granskar Polar underlaget och markerar fel, saknade uppgifter och avvikelser så att ni kan rätta dem i tid.",
   },
   {
-    title: "Klimatpåverkan och CO₂e",
-    text: "Få överblick över klimatpåverkan per aggregat, fastighet och köldmedium.",
+    title: "Samarbeta direkt med servicepartner",
+    text: "Låt certifierade tekniker registrera kontroller, läckage, service och reparationer direkt i ert register med bibehållen spårbarhet.",
   },
 ]
 
 const workflowSteps = [
   "Registrera eller importera aggregat",
   "Koppla till fastigheter och servicepartners",
-  "Följ kontrollintervall, läckage och risk",
+  "Följ kontrollintervall, läckage, risk och CO₂e",
   "Samla dokument och historik",
-  "Exportera årsrapport och klimatunderlag",
+  "Kvalitetsgranska och exportera årsrapport",
 ]
 
 const audiences = [
@@ -65,10 +65,17 @@ const audiences = [
 
 const riskPoints = [
   "CO₂e per aggregat",
+  "Installerad CO₂e per fastighet",
   "Riskklassning",
   "Läckagehistorik över tid",
   "Försenade kontroller",
-  "Fastigheter med hög klimatpåverkan",
+  "Utfasning av köldmedier",
+]
+
+const heroValueBullets = [
+  "Uppfyll F-gasförordningen",
+  "Minska klimatpåverkan",
+  "Slipp manuella årsrapporter",
 ]
 
 export default function Home() {
@@ -110,13 +117,23 @@ export default function Home() {
             Digitalt F-gasregister för uppföljning och årsrapportering
           </p>
           <h1 className="mt-4 max-w-4xl text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
-            Få kontroll på köldmedieaggregat och F-gasrapportering
+            Full kontroll över era F-gaser - för efterlevnad, klimatmål och enklare drift.
           </h1>
           <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-700">
-            Polar samlar register, kontroller, dokumentation,
-            servicepartners och rapportunderlag i ett webbaserat system för
-            verksamheter som omfattas av F-gasförordningen.
+            Polar hjälper fastighetsägare och förvaltare att uppfylla
+            F-gasförordningen, minska klimatpåverkan och få full kontroll över
+            aggregat, service och rapportering - i ett och samma system.
           </p>
+          <div className="mt-6 flex flex-wrap gap-2">
+            {heroValueBullets.map((bullet) => (
+              <span
+                className="rounded-full border border-blue-100 bg-white px-3 py-1 text-sm font-semibold text-blue-800 shadow-sm"
+                key={bullet}
+              >
+                {bullet}
+              </span>
+            ))}
+          </div>
           <div className="mt-8 flex flex-wrap gap-3">
             <DemoRequestButton className={primaryLargeLinkClassName}>
               Boka demo
@@ -137,8 +154,8 @@ export default function Home() {
 
       <Section
         eyebrow="Översikt"
-        title="Det viktigaste samlat på ett ställe"
-        description="Polar ger organisationen en tydlig grund för registerhållning, uppföljning och rapportering."
+        title="Efterlevnad, klimatkontroll och drift samlat på ett ställe"
+        description="Polar ger organisationen ett tydligt arbetssätt för att minska regelefterlevnadsrisk, planera klimatåtgärder och samla servicehistorik i samma system."
       >
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {valueCards.map((feature) => (
@@ -187,26 +204,27 @@ export default function Home() {
               Servicepartners
             </p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
-              Samarbeta med servicepartnerföretag direkt i systemet
+              Samarbeta direkt med era servicepartner
             </h2>
             <p className="mt-4 text-sm leading-6 text-slate-600">
-              Bjud in servicepartnerföretag så att de kan se tilldelade aggregat,
-              registrera kontroller, läckage, service och ladda upp dokument
-              direkt på rätt aggregat.
+              Bjud in certifierade tekniker och servicepartner till era
+              aggregat. De kan registrera kontroller, läckage, service och
+              reparationer direkt i Polar, medan ni behåller full överblick och
+              spårbarhet.
             </p>
           </div>
           <div className="grid gap-3">
-            <ServicePoint>Operatören behåller kontrollen över sitt F-gasregister</ServicePoint>
-            <ServicePoint>Servicepartners kan registrera läckagekontroller, service och andra händelser direkt i operatörens register.</ServicePoint>
-            <ServicePoint>Byggt för organisationer med flera fastigheter och externa servicepartners</ServicePoint>
+            <ServicePoint>Operatören behåller kontrollen över register och rapportering</ServicePoint>
+            <ServicePoint>Servicepartner kan lägga in kontroller, läckage, service och reparationer direkt på rätt aggregat</ServicePoint>
+            <ServicePoint>Certifikat, ansvar och kompletteringar blir synliga för både drift och förvaltning</ServicePoint>
           </div>
         </div>
       </section>
 
       <Section
         eyebrow="Risk och klimat"
-        title="Prioritera rätt med risk- och klimatöversikt"
-        description="Se vilka aggregat och fastigheter som bör prioriteras baserat på CO₂e, riskklassning, läckagehistorik och kontrollstatus - och använd översikten som stöd för att minska klimatpåverkan över tid."
+        title="Styr klimatpåverkan och minska efterlevnadsrisken"
+        description="Följ installerad CO₂e, identifiera aggregat med hög klimatbelastning och se vilka kontroller, läckage eller avvikelser som behöver åtgärdas innan de blir ett större drift- eller rapporteringsproblem."
       >
         <div className="flex flex-wrap gap-3">
           {riskPoints.map((point) => (
@@ -235,11 +253,12 @@ export default function Home() {
       <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
         <div className="rounded-2xl border border-blue-100 bg-white p-8 shadow-sm sm:p-10">
           <h2 className="max-w-3xl text-3xl font-bold tracking-tight text-slate-950">
-            Vill ni få bättre kontroll över ert F-gasregister?
+            Vill ni få bättre kontroll över efterlevnad, klimatpåverkan och rapportering?
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600">
             Boka en demo för att se hur Polar kan samla register,
-            kontroller, dokumentation, serviceuppföljning och rapportunderlag.
+            kontroller, servicepartner, klimatunderlag och årsrapportering i ett
+            tydligt arbetsflöde.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <DemoRequestButton className={primaryLargeLinkClassName}>
