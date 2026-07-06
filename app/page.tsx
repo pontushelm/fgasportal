@@ -80,9 +80,9 @@ const heroValueBullets = [
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
+    <main className="min-h-screen overflow-x-hidden bg-slate-50 text-slate-950">
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
-        <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+        <nav className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:flex-nowrap sm:px-6 sm:py-4 lg:px-8">
           <Link
             aria-label="Helm Polar startsida"
             className="inline-flex items-center"
@@ -90,14 +90,14 @@ export default function Home() {
           >
             <Image
               alt="Helm Polar"
-              className="h-auto w-40 sm:w-44"
+              className="h-auto w-28 sm:w-44"
               height={403}
               priority
               src="/helm-polar-logo.png"
               width={1200}
             />
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 sm:flex-none sm:gap-2">
             <Link className={secondaryLinkClassName} href="/login">
               Logga in
             </Link>
@@ -111,30 +111,30 @@ export default function Home() {
         </nav>
       </header>
 
-      <section className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(420px,0.82fr)] lg:items-center lg:px-8 lg:py-24">
+      <section className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,1fr)_minmax(420px,0.82fr)] lg:items-center lg:gap-10 lg:px-8 lg:py-24">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700 sm:text-sm sm:tracking-[0.18em]">
             Digitalt F-gasregister för uppföljning och årsrapportering
           </p>
-          <h1 className="mt-4 max-w-4xl text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
+          <h1 className="mt-3 max-w-4xl text-3xl font-bold leading-[1.08] tracking-tight text-slate-950 sm:mt-4 sm:text-5xl sm:leading-tight lg:text-6xl">
             Full kontroll över era F-gaser - för efterlevnad, klimatmål och enklare drift.
           </h1>
-          <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-700">
+          <p className="mt-5 max-w-3xl text-base leading-7 text-slate-700 sm:mt-6 sm:text-lg sm:leading-8">
             Polar hjälper fastighetsägare och förvaltare att uppfylla
             F-gasförordningen, minska klimatpåverkan och få full kontroll över
             aggregat, service och rapportering - i ett och samma system.
           </p>
-          <div className="mt-6 flex flex-wrap gap-2">
+          <div className="mt-5 flex flex-wrap gap-2 sm:mt-6">
             {heroValueBullets.map((bullet) => (
               <span
-                className="rounded-full border border-blue-100 bg-white px-3 py-1 text-sm font-semibold text-blue-800 shadow-sm"
+                className="rounded-full border border-blue-100 bg-white px-3 py-1.5 text-xs font-semibold leading-5 text-blue-800 shadow-sm sm:text-sm"
                 key={bullet}
               >
                 {bullet}
               </span>
             ))}
           </div>
-          <div className="mt-8 flex flex-wrap gap-3">
+          <div className="mt-7 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:flex-wrap">
             <DemoRequestButton className={primaryLargeLinkClassName}>
               Boka demo
             </DemoRequestButton>
@@ -168,15 +168,15 @@ export default function Home() {
       </Section>
 
       <section className="border-y border-slate-200 bg-white">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[0.85fr_1.15fr] lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[0.85fr_1.15fr] lg:gap-10 lg:px-8">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700 sm:text-sm sm:tracking-[0.18em]">
               Arbetsflöde
             </p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
+            <h2 className="mt-3 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
               Så hjälper Polar i vardagen
             </h2>
-            <p className="mt-4 text-sm leading-6 text-slate-600">
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600">
               Ett kompakt arbetsflöde från registrering till uppföljning,
               dokumentation och export.
             </p>
@@ -184,7 +184,7 @@ export default function Home() {
           <div className="grid gap-3">
             {workflowSteps.map((step, index) => (
               <div
-                className="flex gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4"
+                className="flex gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:gap-4"
                 key={step}
               >
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
@@ -198,15 +198,15 @@ export default function Home() {
       </section>
 
       <section className="border-y border-slate-200 bg-white">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:px-8">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700 sm:text-sm sm:tracking-[0.18em]">
               Servicepartners
             </p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
+            <h2 className="mt-3 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
               Samarbeta direkt med era servicepartner
             </h2>
-            <p className="mt-4 text-sm leading-6 text-slate-600">
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600">
               Bjud in certifierade tekniker och servicepartner till era
               aggregat. De kan registrera kontroller, läckage, service och
               reparationer direkt i Polar, medan ni behåller full överblick och
@@ -228,7 +228,7 @@ export default function Home() {
       >
         <div className="flex flex-wrap gap-3">
           {riskPoints.map((point) => (
-            <div className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-900" key={point}>
+            <div className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900 sm:px-4" key={point}>
               {point}
             </div>
           ))}
@@ -242,7 +242,7 @@ export default function Home() {
       >
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {audiences.map((audience) => (
-            <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" key={audience.title}>
+            <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" key={audience.title}>
               <h3 className="font-semibold text-slate-950">{audience.title}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">{audience.text}</p>
             </article>
@@ -250,9 +250,9 @@ export default function Home() {
         </div>
       </Section>
 
-      <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
-        <div className="rounded-2xl border border-blue-100 bg-white p-8 shadow-sm sm:p-10">
-          <h2 className="max-w-3xl text-3xl font-bold tracking-tight text-slate-950">
+      <section className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 sm:pb-16 lg:px-8">
+        <div className="rounded-2xl border border-blue-100 bg-white p-6 shadow-sm sm:p-10">
+          <h2 className="max-w-3xl text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
             Vill ni få bättre kontroll över efterlevnad, klimatpåverkan och rapportering?
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600">
@@ -260,7 +260,7 @@ export default function Home() {
             kontroller, servicepartner, klimatunderlag och årsrapportering i ett
             tydligt arbetsflöde.
           </p>
-          <div className="mt-7 flex flex-wrap gap-3">
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <DemoRequestButton className={primaryLargeLinkClassName}>
               Boka demo
             </DemoRequestButton>
@@ -275,7 +275,7 @@ export default function Home() {
       </section>
 
       <footer className="border-t border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 text-sm text-slate-600 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 text-sm leading-6 text-slate-600 sm:px-6 lg:px-8">
           <div>
             <p className="font-semibold text-slate-950">Helm Polar</p>
             <p className="mt-2 max-w-3xl">
@@ -293,11 +293,11 @@ export default function Home() {
 
 function DashboardPreview() {
   return (
-    <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
+    <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
           <p className="text-sm font-semibold text-slate-500">Produktöversikt</p>
-          <h2 className="mt-1 text-xl font-bold text-slate-950">
+          <h2 className="mt-1 text-lg font-bold text-slate-950 sm:text-xl">
             Kontrollstatus och uppföljning
           </h2>
         </div>
@@ -306,7 +306,7 @@ function DashboardPreview() {
         </span>
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+      <div className="mt-4 grid gap-3 sm:mt-5 sm:grid-cols-2">
         {previewStats.map((item) => (
           <div
             className={`rounded-xl border border-slate-200 border-l-4 bg-slate-50 p-4 ${item.tone}`}
@@ -315,12 +315,12 @@ function DashboardPreview() {
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               {item.label}
             </p>
-            <p className="mt-2 text-2xl font-bold text-slate-950">{item.value}</p>
+            <p className="mt-2 text-xl font-bold text-slate-950 sm:text-2xl">{item.value}</p>
           </div>
         ))}
       </div>
 
-      <div className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
+      <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 sm:mt-5">
         <p className="text-sm font-semibold text-slate-950">Prioriterade åtgärder</p>
         <div className="mt-3 grid gap-2">
           <MockAction title="Försenad kontroll" meta="Kylaggregat hus A" tone="red" />
@@ -370,7 +370,7 @@ function MockAction({
 
 function ServicePoint({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-900">
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold leading-6 text-slate-900">
       {children}
     </div>
   )
@@ -388,29 +388,29 @@ function Section({
   title: string
 }) {
   return (
-    <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+    <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
       <div className="max-w-3xl">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700 sm:text-sm sm:tracking-[0.18em]">
           {eyebrow}
         </p>
-        <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
+        <h2 className="mt-3 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
           {title}
         </h2>
-        <p className="mt-4 text-sm leading-6 text-slate-600">{description}</p>
+        <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600">{description}</p>
       </div>
-      <div className="mt-8">{children}</div>
+      <div className="mt-6 sm:mt-8">{children}</div>
     </section>
   )
 }
 
 const cardClassName =
-  "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+  "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
 
 const primaryLinkClassName =
-  "rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+  "rounded-lg bg-blue-600 px-2.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 sm:px-3.5 sm:text-sm"
 const secondaryLinkClassName =
-  "rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+  "rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs font-semibold text-slate-800 shadow-sm hover:bg-slate-50 sm:px-3.5 sm:text-sm"
 const primaryLargeLinkClassName =
-  "rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+  "inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-blue-600 px-5 py-3 text-center text-sm font-semibold text-white shadow-sm hover:bg-blue-700 sm:w-auto"
 const secondaryLargeLinkClassName =
-  "rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+  "inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-5 py-3 text-center text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 sm:w-auto"

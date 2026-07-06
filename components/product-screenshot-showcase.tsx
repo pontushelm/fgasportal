@@ -66,29 +66,29 @@ export function ProductScreenshotShowcase() {
 
   return (
     <section className="border-y border-slate-200 bg-white">
-      <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
         <div className="max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700 sm:text-sm sm:tracking-[0.18em]">
             Produktvy
           </p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+          <h2 className="mt-3 text-2xl font-bold tracking-tight text-slate-950 sm:text-4xl">
             Se Polar i praktiken
           </h2>
-          <p className="mt-4 text-base leading-7 text-slate-600">
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base sm:leading-7">
             Från aggregatregister till färdig årsrapport - Polar samlar
             F-gasarbetet i ett tydligt och spårbart arbetsflöde.
           </p>
         </div>
 
-        <div className="mt-9 grid gap-6 lg:grid-cols-[0.9fr_1.45fr] lg:items-start">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+        <div className="mt-7 grid gap-5 sm:mt-9 lg:grid-cols-[0.9fr_1.45fr] lg:items-start lg:gap-6">
+          <div className="order-2 grid gap-3 sm:grid-cols-2 lg:order-1 lg:grid-cols-1">
             {showcaseItems.map((item, index) => {
               const isActive = index === activeIndex
 
               return (
                 <button
                   aria-current={isActive ? "true" : undefined}
-                  className={`rounded-2xl border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 ${
+                  className={`rounded-2xl border p-3 text-left transition focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 sm:p-4 ${
                     isActive
                       ? "border-blue-200 bg-blue-50 shadow-sm"
                       : "border-slate-200 bg-white hover:border-blue-200 hover:bg-slate-50"
@@ -104,7 +104,7 @@ export function ProductScreenshotShowcase() {
                   >
                     {item.title}
                   </span>
-                  <span className="mt-2 block text-sm leading-6 text-slate-600">
+                  <span className="mt-1.5 block text-sm leading-6 text-slate-600 sm:mt-2">
                     {item.description}
                   </span>
                 </button>
@@ -112,11 +112,11 @@ export function ProductScreenshotShowcase() {
             })}
           </div>
 
-          <div className="overflow-hidden rounded-[1.35rem] border border-slate-200 bg-slate-50 p-3 shadow-xl shadow-slate-200/70 sm:p-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+          <div className="order-1 max-w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-2 shadow-lg shadow-slate-200/70 sm:rounded-[1.35rem] sm:p-4 sm:shadow-xl lg:order-2">
+            <div className="rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm sm:rounded-2xl sm:p-2">
               <Image
                 alt={activeItem.alt}
-                className="h-auto w-full rounded-xl border border-slate-100 object-contain"
+                className="h-auto max-h-[62vh] w-full rounded-lg border border-slate-100 object-contain sm:max-h-none sm:rounded-xl"
                 height={activeItem.height}
                 priority={activeIndex === 0}
                 sizes="(max-width: 1024px) 100vw, 760px"
@@ -124,9 +124,9 @@ export function ProductScreenshotShowcase() {
                 width={activeItem.width}
               />
             </div>
-            <div className="flex flex-col gap-3 px-1 pb-1 pt-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex flex-col gap-3 px-1 pb-1 pt-3 sm:flex-row sm:items-start sm:justify-between sm:pt-4">
               <div>
-                <h3 className="text-lg font-bold text-slate-950">
+                <h3 className="text-base font-bold text-slate-950 sm:text-lg">
                   {activeItem.title}
                 </h3>
                 <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
