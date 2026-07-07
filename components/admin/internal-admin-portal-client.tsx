@@ -1,6 +1,8 @@
 "use client"
 
+import type { FormEvent } from "react"
 import { useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Badge, Card } from "@/components/ui"
 import { formatRoleLabel } from "@/lib/roles"
 
@@ -31,7 +33,22 @@ export function InternalAdminPortalClient({
   companies: InternalAdminCompany[]
   users: InternalAdminUserRow[]
 }) {
+  const router = useRouter()
   const [query, setQuery] = useState("")
+  const [organizationName, setOrganizationName] = useState("")
+  const [contactName, setContactName] = useState("")
+  const [contactEmail, setContactEmail] = useState("")
+  const [sendInvitationEmail, setSendInvitationEmail] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [formError, setFormError] = useState("")
+  const [formSuccess, setFormSuccess] = useState<{
+    companyName: string
+    contactEmail: string
+    emailSent: boolean
+    existingUserReused: boolean
+    inviteLink: string | null
+    invitationCreated: boolean
+  } | null>(null)
   const [selectedCompany, setSelectedCompany] =
     useState<InternalAdminCompany | null>(null)
   const [selectedUser, setSelectedUser] = useState<InternalAdminUserRow | null>(
@@ -55,8 +72,188 @@ export function InternalAdminPortalClient({
     [normalizedQuery, users]
   )
 
+  async function handleCreatePilotOrganization(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault()
+    setFormError("")
+    setFormSuccess(null)
+    setIsSubmitting(true)
+
+    const response = await fetch("/api/admin/pilot-organizations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        organizationName,
+        contactName,
+        contactEmail,
+        sendInvitationEmail,
+      }),
+    })
+    const result: {
+      company?: { name: string }
+      contactEmail?: string
+      emailSent?: boolean
+      error?: string
+      existingUserReused?: boolean
+      invitationCreated?: boolean
+      inviteLink?: string | null
+    } = await response.json()
+
+    if (!response.ok) {
+      setFormError(result.error || "Kunde inte skapa pilotorganisationen.")
+      setIsSubmitting(false)
+      return
+    }
+
+    setFormSuccess({
+      companyName: result.company?.name ?? organizationName,
+      contactEmail: result.contactEmail ?? contactEmail,
+      emailSent: Boolean(result.emailSent),
+      existingUserReused: Boolean(result.existingUserReused),
+      inviteLink: result.inviteLink ?? null,
+      invitationCreated: Boolean(result.invitationCreated),
+    })
+    setOrganizationName("")
+    setContactName("")
+    setContactEmail("")
+    setSendInvitationEmail(true)
+    setIsSubmitting(false)
+    router.refresh()
+  }
+
   return (
     <div className="grid gap-6">
+      <Card className="border-blue-100 bg-white p-4 shadow-sm sm:p-5">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.7fr)]">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-950">
+              Ny pilotorganisation
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-slate-600">
+              Skapa en organisation och bjud in första ägaren.
+            </p>
+            <form
+              className="mt-4 grid gap-4"
+              onSubmit={handleCreatePilotOrganization}
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1 text-sm font-semibold text-slate-700">
+                  Organisation
+                  <input
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    maxLength={160}
+                    onChange={(event) => setOrganizationName(event.target.value)}
+                    placeholder="Exempel: Polar Fastigheter AB"
+                    required
+                    value={organizationName}
+                  />
+                </label>
+                <label className="grid gap-1 text-sm font-semibold text-slate-700">
+                  Kontaktperson
+                  <input
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    maxLength={160}
+                    onChange={(event) => setContactName(event.target.value)}
+                    placeholder="Namn på första ägaren"
+                    required
+                    value={contactName}
+                  />
+                </label>
+              </div>
+              <label className="grid gap-1 text-sm font-semibold text-slate-700">
+                Kontaktens e-post
+                <input
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  maxLength={240}
+                  onChange={(event) => setContactEmail(event.target.value)}
+                  placeholder="namn@organisation.se"
+                  required
+                  type="email"
+                  value={contactEmail}
+                />
+              </label>
+              <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                <input
+                  checked={sendInvitationEmail}
+                  className="mt-1"
+                  onChange={(event) =>
+                    setSendInvitationEmail(event.target.checked)
+                  }
+                  type="checkbox"
+                />
+                <span>
+                  <span className="block font-semibold">
+                    Skicka inbjudan direkt
+                  </span>
+                  <span className="text-slate-600">
+                    Om e-post inte skickas visas en inbjudningslänk efter skapande.
+                  </span>
+                </span>
+              </label>
+              {formError ? (
+                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+                  {formError}
+                </p>
+              ) : null}
+              <div>
+                <button
+                  className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={isSubmitting}
+                  type="submit"
+                >
+                  {isSubmitting ? "Skapar..." : "Skapa pilotorganisation"}
+                </button>
+              </div>
+            </form>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+            {formSuccess ? (
+              <div>
+                <p className="font-semibold text-emerald-700">
+                  Pilotorganisation skapad.
+                </p>
+                <dl className="mt-3 grid gap-2">
+                  <div>
+                    <dt className="font-semibold text-slate-900">Organisation</dt>
+                    <dd>{formSuccess.companyName}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-semibold text-slate-900">Ägare</dt>
+                    <dd>{formSuccess.contactEmail}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-semibold text-slate-900">Inbjudan</dt>
+                    <dd>
+                      {formSuccess.existingUserReused
+                        ? "Befintlig användare kopplades som ägare."
+                        : formSuccess.emailSent
+                          ? "E-post skickades."
+                          : formSuccess.invitationCreated
+                            ? "Inbjudningslänk skapades."
+                            : "Ingen inbjudan skapades."}
+                    </dd>
+                  </div>
+                </dl>
+                {formSuccess.inviteLink ? (
+                  <p className="mt-3 break-all rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    {formSuccess.inviteLink}
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <p>
+                Organisationen får plan <span className="font-semibold">pilot</span>.
+                För nya användare skapas en vanlig inbjudan till registreringsflödet.
+              </p>
+            )}
+          </div>
+        </div>
+      </Card>
+
       <Card className="border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <label className="block text-sm font-semibold text-slate-800">
           Sök pilotorganisation eller användare
