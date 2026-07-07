@@ -130,6 +130,11 @@ export default function RegisterForm({ inviteToken }: { inviteToken?: string }) 
 
       {!isInviteMode && (
         <>
+          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-950">
+            Polar är för närvarande i pilotfas. Fyll bara i uppgifterna här om
+            ni har haft dialog med Helm Systems eller fått instruktion att
+            registrera organisationen.
+          </div>
           <h3 className={sectionTitleClassName}>Företag</h3>
 
           <Field label="Företagsnamn" error={errors.companyName?.message as string}>
@@ -182,7 +187,7 @@ export default function RegisterForm({ inviteToken }: { inviteToken?: string }) 
         type="submit"
         disabled={isSubmitting || Boolean(inviteToken && !inviteContext)}
       >
-        {isSubmitting ? "Registrerar..." : isInviteMode ? "Skapa användare" : "Skapa organisationskonto"}
+        {isSubmitting ? "Registrerar..." : isInviteMode ? "Skapa användare" : "Skicka registrering"}
       </button>
 
       <div className="grid gap-2 border-t border-slate-200 pt-4 text-sm text-slate-600">

@@ -69,7 +69,7 @@ export function DemoRequestButton({
     setIsSubmitting(false)
 
     if (!response.ok) {
-      setError(result.error || "Kunde inte skicka demo-förfrågan.")
+      setError(result.error || "Kunde inte skicka förfrågan.")
       return
     }
 
@@ -87,13 +87,14 @@ export function DemoRequestButton({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
-              Boka demo
+              Pilot och demo
             </p>
             <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
               Berätta kort om er organisation
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Skicka en förfrågan så återkommer vi med nästa steg.
+              Skicka en förfrågan om pilotplats eller demo så återkommer vi
+              med nästa steg.
             </p>
           </div>
           <button
@@ -199,7 +200,7 @@ export function DemoRequestButton({
                 type="submit"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Skickar..." : "Skicka demo-förfrågan"}
+                {isSubmitting ? "Skickar..." : "Skicka förfrågan"}
               </button>
             </div>
           </form>

@@ -11,11 +11,11 @@ function RegisterContent() {
 
   return (
     <AuthShell
-      title={inviteToken ? "Acceptera inbjudan" : "Skapa organisationskonto"}
+      title={inviteToken ? "Acceptera inbjudan" : "Pilotregistrering"}
       subtitle={
         inviteToken
           ? "Skapa en användare för den inbjudna organisationen."
-          : "Skapa ett konto för organisationens F-gasregister."
+          : "Polar är för närvarande i pilotfas. Nya organisationer aktiveras via inbjudan eller efter dialog."
       }
     >
       <RegisterForm inviteToken={inviteToken} />
@@ -27,7 +27,7 @@ export default function RegisterPage() {
   return (
     <Suspense
       fallback={
-        <AuthShell title="Skapa organisationskonto" subtitle="Skapa ett konto för organisationens F-gasregister.">
+        <AuthShell title="Pilotregistrering" subtitle="Polar är för närvarande i pilotfas.">
           <p className="text-sm text-slate-600">Laddar...</p>
         </AuthShell>
       }

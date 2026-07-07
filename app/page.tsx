@@ -101,11 +101,8 @@ export default function Home() {
             <Link className={secondaryLinkClassName} href="/login">
               Logga in
             </Link>
-            <Link className={secondaryLinkClassName} href="/register">
-              Skapa konto
-            </Link>
             <DemoRequestButton className={primaryLinkClassName}>
-              Boka demo
+              Ansök om pilotplats
             </DemoRequestButton>
           </div>
         </nav>
@@ -124,6 +121,10 @@ export default function Home() {
             F-gasförordningen, minska klimatpåverkan och få full kontroll över
             aggregat, service och rapportering - i ett och samma system.
           </p>
+          <p className="mt-4 max-w-2xl text-sm font-medium leading-6 text-slate-600">
+            Polar tar just nu in ett begränsat antal pilotorganisationer som
+            vill förenkla F-gasregister, läckagekontroller och årsrapportering.
+          </p>
           <div className="mt-5 flex flex-wrap gap-2 sm:mt-6">
             {heroValueBullets.map((bullet) => (
               <span
@@ -136,11 +137,11 @@ export default function Home() {
           </div>
           <div className="mt-7 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:flex-wrap">
             <DemoRequestButton className={primaryLargeLinkClassName}>
+              Ansök om pilotplats
+            </DemoRequestButton>
+            <DemoRequestButton className={secondaryLargeLinkClassName}>
               Boka demo
             </DemoRequestButton>
-            <Link className={secondaryLargeLinkClassName} href="/register">
-              Skapa konto
-            </Link>
             <Link className={secondaryLargeLinkClassName} href="/login">
               Logga in
             </Link>
@@ -262,11 +263,11 @@ export default function Home() {
           </p>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <DemoRequestButton className={primaryLargeLinkClassName}>
+              Ansök om pilotplats
+            </DemoRequestButton>
+            <DemoRequestButton className={secondaryLargeLinkClassName}>
               Boka demo
             </DemoRequestButton>
-            <Link className={secondaryLargeLinkClassName} href="/register">
-              Skapa konto
-            </Link>
             <Link className={secondaryLargeLinkClassName} href="/login">
               Logga in
             </Link>

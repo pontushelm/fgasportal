@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     body = (await request.json()) as DemoRequestBody
   } catch {
     return NextResponse.json(
-      { error: "Kunde inte läsa demo-förfrågan." },
+      { error: "Kunde inte läsa förfrågan." },
       { status: 400 }
     )
   }
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Failed to send demo request email", error)
     return NextResponse.json(
-      { error: "Kunde inte skicka demo-förfrågan." },
+      { error: "Kunde inte skicka förfrågan." },
       { status: 500 }
     )
   }

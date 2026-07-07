@@ -99,9 +99,9 @@ export default function LoginForm() {
 
       <div className="grid gap-2 border-t border-slate-200 pt-4 text-sm text-slate-600">
         <p>
-          Saknar konto?{" "}
-          <Link className="font-semibold text-blue-700 hover:text-blue-800" href="/register">
-            Skapa organisationskonto
+          Vill ni testa Polar?{" "}
+          <Link className="font-semibold text-blue-700 hover:text-blue-800" href="/">
+            Ansök om pilotplats via startsidan
           </Link>
         </p>
         <Link className="font-semibold text-slate-700 hover:text-slate-950" href="/">

@@ -590,7 +590,7 @@ export async function sendDemoRequestEmail(input: SendDemoRequestEmailInput) {
   const to = requireEnv("DEMO_REQUEST_TO_EMAIL")
 
   const text = [
-    "Ny demo-förfrågan i Helm Polar",
+    "Ny pilot-/demo-förfrågan i Helm Polar",
     "",
     `Namn: ${input.name}`,
     `Organisation: ${input.organization}`,
@@ -611,7 +611,7 @@ export async function sendDemoRequestEmail(input: SendDemoRequestEmailInput) {
     from,
     to,
     replyTo: input.email,
-    subject: `Helm Polar demo-förfrågan: ${input.organization}`,
+    subject: `Helm Polar pilot-/demo-förfrågan: ${input.organization}`,
     text,
   })
 
