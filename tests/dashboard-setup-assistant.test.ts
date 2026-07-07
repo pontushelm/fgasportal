@@ -84,6 +84,8 @@ describe("dashboard setup assistant", () => {
         "installations",
         "dataQuality",
         "colleagues",
+        "reports",
+        "actions",
       ],
     })
     const servicePartnerStep = progress.steps.find(
@@ -91,7 +93,7 @@ describe("dashboard setup assistant", () => {
     )
 
     expect(servicePartnerStep).toMatchObject({ completed: false, optional: true })
-    expect(progress.completedCount).toBe(6)
+    expect(progress.completedCount).toBe(8)
     expect(progress.nextStep?.id).toBe("servicePartner")
   })
 
@@ -103,11 +105,11 @@ describe("dashboard setup assistant", () => {
       "dashboard",
       "properties",
       "installations",
-      "dataQuality",
-      "colleagues",
-      "servicePartner",
       "reports",
+      "dataQuality",
       "actions",
+      "servicePartner",
+      "colleagues",
       "company",
     ])
     expect(adminSteps.map((step) => step.id)).toEqual(
@@ -177,5 +179,27 @@ describe("dashboard setup assistant", () => {
     expect(
       parseCompletedSetupSteps(JSON.stringify(["company", "unknown", 42]))
     ).toEqual(["company"])
+  })
+
+  it("is complete only when all role-specific setup steps are completed", () => {
+    const progress = buildDashboardSetupProgress({
+      ...readyTenant,
+      completedStepIds: [
+        "dashboard",
+        "properties",
+        "installations",
+        "reports",
+        "dataQuality",
+        "actions",
+        "servicePartner",
+        "colleagues",
+        "company",
+      ],
+      role: "OWNER",
+    })
+
+    expect(progress.isComplete).toBe(true)
+    expect(progress.completedCount).toBe(progress.totalCount)
+    expect(progress.nextStep).toBeNull()
   })
 })

@@ -134,11 +134,8 @@ function buildAdminSetupSteps({
           ? `${propertyCount} fastigheter finns i registret. Öppna och bekanta dig med dem.`
           : "Årsrapporter och uppföljning görs per fastighet.",
       completed: isCompleted("properties"),
-      route:
-        propertyCount > 0
-          ? "/dashboard/properties"
-          : "/dashboard/properties/import",
-      ctaLabel: propertyCount > 0 ? "Granska fastigheter" : "Importera fastigheter",
+      route: "/dashboard/properties",
+      ctaLabel: propertyCount > 0 ? "Granska fastigheter" : "Öppna fastigheter",
     },
     {
       id: "installations",
@@ -148,11 +145,18 @@ function buildAdminSetupSteps({
           ? `${installationCount} aggregat finns i registret. Öppna och bekanta dig med dem.`
           : "Aggregatregistret är grunden för kontrollintervall, risk och rapportering.",
       completed: isCompleted("installations"),
-      route:
-        installationCount > 0
-          ? "/dashboard/installations"
-          : "/dashboard/installations/import",
-      ctaLabel: installationCount > 0 ? "Granska aggregat" : "Importera aggregat",
+      route: "/dashboard/installations",
+      ctaLabel: installationCount > 0 ? "Granska aggregat" : "Öppna aggregat",
+    },
+    {
+      id: "reports",
+      title: "Granska årsrapportens underlag",
+      description: annualReportReadinessSatisfied
+        ? "Rapportunderlaget är redo. Öppna rapporter och förhandsgranska resultatet."
+        : "Kontrollera rapportunderlaget och se vad som återstår per fastighet.",
+      completed: isCompleted("reports"),
+      route: "/dashboard/reports",
+      ctaLabel: "Förhandsgranska årsrapport",
     },
     {
       id: "dataQuality",
@@ -166,13 +170,15 @@ function buildAdminSetupSteps({
       ctaLabel: "Granska registerstatus",
     },
     {
-      id: "colleagues",
-      title: "Bjud in kollegor",
+      id: "actions",
+      title: "Granska åtgärder",
       description:
-        "Lägg till personer som ska kunna granska register, rapporter och åtgärder.",
-      completed: isCompleted("colleagues"),
-      route: "/dashboard/company",
-      ctaLabel: "Hantera användare",
+        actionItemCount > 0
+          ? `Det finns ${actionItemCount} åtgärder att prioritera och följa upp.`
+          : "Det finns inga åtgärder just nu. Öppna sidan för att se hur uppföljningen fungerar.",
+      completed: isCompleted("actions"),
+      route: "/dashboard/actions",
+      ctaLabel: "Granska åtgärder",
     },
     {
       id: "servicePartner",
@@ -188,25 +194,13 @@ function buildAdminSetupSteps({
         : "Gå till servicepartners",
     },
     {
-      id: "reports",
-      title: "Granska årsrapportens underlag",
-      description: annualReportReadinessSatisfied
-        ? "Rapportunderlaget är redo. Öppna rapporter och förhandsgranska resultatet."
-        : "Kontrollera rapportunderlaget och se vad som återstår per fastighet.",
-      completed: isCompleted("reports"),
-      route: "/dashboard/reports",
-      ctaLabel: "Förhandsgranska årsrapport",
-    },
-    {
-      id: "actions",
-      title: "Granska åtgärder",
+      id: "colleagues",
+      title: "Bjud in kollegor",
       description:
-        actionItemCount > 0
-          ? `Det finns ${actionItemCount} åtgärder att prioritera och följa upp.`
-          : "Det finns inga åtgärder just nu. Öppna sidan för att se hur uppföljningen fungerar.",
-      completed: isCompleted("actions"),
-      route: "/dashboard/actions",
-      ctaLabel: "Granska åtgärder",
+        "Lägg till personer som ska kunna granska register, rapporter och åtgärder.",
+      completed: isCompleted("colleagues"),
+      route: "/dashboard/company",
+      ctaLabel: "Hantera användare",
     },
     {
       id: "company",

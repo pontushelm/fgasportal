@@ -2,6 +2,8 @@ import type { DashboardSetupStepId } from "@/lib/dashboard/setup-assistant"
 
 const SETUP_PROGRESS_STORAGE_PREFIX = "helmpolar_setup_completed_steps"
 
+export const SETUP_PROGRESS_UPDATED_EVENT = "helmpolar:setup-progress-updated"
+
 export const DASHBOARD_SETUP_STEP_IDS: readonly DashboardSetupStepId[] = [
   "dashboard",
   "company",

@@ -19,11 +19,16 @@ import {
   type DashboardOnboardingOverlay,
 } from "@/lib/dashboard/pilot-welcome"
 import {
+  SETUP_PROGRESS_UPDATED_EVENT,
   addCompletedSetupStep,
   getSetupCompletedStepsStorageKey,
   parseCompletedSetupSteps,
   serializeCompletedSetupSteps,
 } from "@/lib/dashboard/setup-progress-storage"
+import {
+  getSetupGuideHref,
+  shouldUseSetupGuide,
+} from "@/lib/dashboard/setup-guides"
 
 const STORAGE_KEYS = {
   collapsed: "fgasportal.dashboardSetup.collapsed",
@@ -70,16 +75,35 @@ export function DashboardSetupAssistant({
 
   useEffect(() => {
     const storageKey = getSetupCompletedStepsStorageKey(setup.companyId)
-    const frameId = window.requestAnimationFrame(() => {
+    function loadCompletedSteps() {
       setSetupProgressState({
         companyId: setup.companyId,
         completedStepIds: parseCompletedSetupSteps(
           window.localStorage.getItem(storageKey)
         ),
       })
-    })
+    }
 
-    return () => window.cancelAnimationFrame(frameId)
+    const frameId = window.requestAnimationFrame(loadCompletedSteps)
+    function handleSetupProgressUpdated(event: Event) {
+      const updatedCompanyId = (event as CustomEvent<{ companyId?: string }>).detail
+        ?.companyId
+      if (updatedCompanyId && updatedCompanyId !== setup.companyId) return
+      loadCompletedSteps()
+    }
+
+    window.addEventListener(
+      SETUP_PROGRESS_UPDATED_EVENT,
+      handleSetupProgressUpdated
+    )
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+      window.removeEventListener(
+        SETUP_PROGRESS_UPDATED_EVENT,
+        handleSetupProgressUpdated
+      )
+    }
   }, [setup.companyId])
 
   useEffect(() => {
@@ -277,6 +301,8 @@ export function DashboardSetupAssistant({
 
   if (setupProgressState.companyId !== setup.companyId) return null
 
+  if (progress.isComplete) return null
+
   if (isCollapsed) {
     return (
       <aside className="fixed bottom-4 right-4 z-30 w-[calc(100vw-2rem)] max-w-xs">
@@ -364,7 +390,14 @@ export function DashboardSetupAssistant({
               {progress.nextStep.description}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              {onOpenImportData && getStepImportType(progress.nextStep.id) ? (
+              {shouldUseSetupGuide(setup.role, progress.nextStep.id) ? (
+                <Link
+                  className="rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+                  href={getSetupGuideHref(progress.nextStep)}
+                >
+                  {progress.nextStep.ctaLabel}
+                </Link>
+              ) : onOpenImportData && getStepImportType(progress.nextStep.id) ? (
                 <button
                   className="rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
                   type="button"
