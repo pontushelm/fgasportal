@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { authenticateApiRequest } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { isInternalAdminEmail } from "@/lib/internal-admin-config"
 import {
   getActiveMembership,
   getMembershipById,
@@ -81,6 +82,7 @@ export async function GET(request: NextRequest) {
         memberships: normalizedMemberships,
         activeMembershipId: membership?.id ?? null,
         email: user?.email ?? null,
+        isInternalAdmin: isInternalAdminEmail(user?.email),
         name: user?.name ?? null,
         phone: user?.phone ?? null,
         certificationNumber: user?.certificationNumber ?? null,

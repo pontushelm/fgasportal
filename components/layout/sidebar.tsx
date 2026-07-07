@@ -15,6 +15,7 @@ type CurrentUser = {
   companyId: string
   companyName: string | null
   email: string | null
+  isInternalAdmin: boolean
   name: string | null
   role: UserRole
   servicePartnerCompanyId: string | null
@@ -98,6 +99,11 @@ const secondaryNavigation: NavigationItem[] = [
     label: "Hjälp",
   },
 ]
+
+const internalAdminNavigation: NavigationItem = {
+  href: "/admin",
+  label: "Admin",
+}
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -658,8 +664,12 @@ function getSecondaryNavigation(currentUser: CurrentUser | null) {
       }
     )
 
-    return items
+    return currentUser.isInternalAdmin
+      ? [...items, internalAdminNavigation]
+      : items
   }
 
-  return filterNavigationByRole(secondaryNavigation, currentUser?.role)
+  const items = filterNavigationByRole(secondaryNavigation, currentUser?.role)
+
+  return currentUser?.isInternalAdmin ? [...items, internalAdminNavigation] : items
 }
