@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { isInternalAdminEmail } from "@/lib/internal-admin-config"
 import {
   registerSchema,
   type InvitedRegisterData,
@@ -23,6 +24,17 @@ export async function POST(request: NextRequest) {
     }
 
     const normalData: NormalRegisterData = validatedData
+
+    if (!isInternalAdminEmail(normalData.userEmail)) {
+      return NextResponse.json(
+        {
+          error:
+            "Polar Ã¤r fÃ¶r nÃ¤rvarande i pilotfas. Registrering sker via personlig inbjudan eller efter godkÃ¤nd pilotansÃ¶kan.",
+        },
+        { status: 403 }
+      )
+    }
+
     const orgNumber = normalData.orgNumber
     const existingCompany = await prisma.company.findUnique({
       where: {
