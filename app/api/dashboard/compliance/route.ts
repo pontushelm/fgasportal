@@ -503,6 +503,7 @@ export async function GET(request: NextRequest) {
           installationCount: installationRows.length,
           installationsMissingPropertyCount,
           isDemoTenant: Boolean(demoProperty),
+          role: auth.user.role,
           servicePartnerConnected:
             servicePartnerCompanies.length > 0 ||
             installationRows.some((installation) =>

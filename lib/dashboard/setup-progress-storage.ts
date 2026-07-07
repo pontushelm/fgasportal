@@ -3,7 +3,9 @@ import type { DashboardSetupStepId } from "@/lib/dashboard/setup-assistant"
 const SETUP_PROGRESS_STORAGE_PREFIX = "helmpolar_setup_completed_steps"
 
 export const DASHBOARD_SETUP_STEP_IDS: readonly DashboardSetupStepId[] = [
+  "dashboard",
   "company",
+  "colleagues",
   "properties",
   "installations",
   "installationProperties",
@@ -12,6 +14,13 @@ export const DASHBOARD_SETUP_STEP_IDS: readonly DashboardSetupStepId[] = [
   "servicePartner",
   "actions",
   "reports",
+  "documentsEvents",
+  "personalOverview",
+  "contractorDashboard",
+  "assignedInstallations",
+  "registerServiceEvent",
+  "certificateStatus",
+  "servicePartnerSetup",
 ]
 
 export function getSetupCompletedStepsStorageKey(companyId: string) {

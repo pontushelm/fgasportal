@@ -145,6 +145,7 @@ type DashboardData = {
     installationsMissingPropertyCount: number
     isDemoTenant: boolean
     propertyCount: number
+    role: "OWNER" | "ADMIN" | "MEMBER" | "CONTRACTOR"
     servicePartnerConnected: boolean
     userId: string
   }

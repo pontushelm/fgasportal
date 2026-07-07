@@ -31,7 +31,7 @@ describe("dashboard setup assistant", () => {
     expect(progress.completedCount).toBe(0)
     expect(progress.totalCount).toBe(9)
     expect(progress.percent).toBe(0)
-    expect(progress.nextStep?.id).toBe("company")
+    expect(progress.nextStep?.id).toBe("dashboard")
   })
 
   it("does not complete actions just because there are no actions", () => {
@@ -54,7 +54,7 @@ describe("dashboard setup assistant", () => {
 
   it("completes only explicitly acknowledged steps", () => {
     const completedStepIds: DashboardSetupStepId[] = [
-      "company",
+      "dashboard",
       "properties",
       "actions",
     ]
@@ -78,17 +78,81 @@ describe("dashboard setup assistant", () => {
     const progress = buildDashboardSetupProgress({
       ...readyTenant,
       completedStepIds: [
+        "dashboard",
         "company",
         "properties",
         "installations",
-        "installationProperties",
+        "dataQuality",
+        "colleagues",
       ],
     })
-    const eventStep = progress.steps.find((step) => step.id === "events")
+    const servicePartnerStep = progress.steps.find(
+      (step) => step.id === "servicePartner"
+    )
 
-    expect(eventStep).toMatchObject({ completed: false, optional: true })
-    expect(progress.completedCount).toBe(4)
-    expect(progress.nextStep?.id).toBe("events")
+    expect(servicePartnerStep).toMatchObject({ completed: false, optional: true })
+    expect(progress.completedCount).toBe(6)
+    expect(progress.nextStep?.id).toBe("servicePartner")
+  })
+
+  it("uses the admin setup steps for owners and admins", () => {
+    const ownerSteps = buildDashboardSetupSteps({ ...readyTenant, role: "OWNER" })
+    const adminSteps = buildDashboardSetupSteps({ ...readyTenant, role: "ADMIN" })
+
+    expect(ownerSteps.map((step) => step.id)).toEqual([
+      "dashboard",
+      "properties",
+      "installations",
+      "dataQuality",
+      "colleagues",
+      "servicePartner",
+      "reports",
+      "actions",
+      "company",
+    ])
+    expect(adminSteps.map((step) => step.id)).toEqual(
+      ownerSteps.map((step) => step.id)
+    )
+  })
+
+  it("uses member-oriented setup steps", () => {
+    const progress = buildDashboardSetupProgress({
+      ...readyTenant,
+      completedStepIds: ["dashboard", "installations"],
+      role: "MEMBER",
+    })
+
+    expect(progress.totalCount).toBe(6)
+    expect(progress.completedCount).toBe(2)
+    expect(progress.percent).toBe(33)
+    expect(progress.steps.map((step) => step.id)).toEqual([
+      "dashboard",
+      "installations",
+      "actions",
+      "reports",
+      "documentsEvents",
+      "personalOverview",
+    ])
+  })
+
+  it("uses contractor-oriented setup steps", () => {
+    const progress = buildDashboardSetupProgress({
+      ...readyTenant,
+      completedStepIds: ["contractorDashboard", "assignedInstallations"],
+      role: "CONTRACTOR",
+    })
+
+    expect(progress.totalCount).toBe(6)
+    expect(progress.completedCount).toBe(2)
+    expect(progress.percent).toBe(33)
+    expect(progress.steps.map((step) => step.id)).toEqual([
+      "contractorDashboard",
+      "assignedInstallations",
+      "registerServiceEvent",
+      "certificateStatus",
+      "actions",
+      "servicePartnerSetup",
+    ])
   })
 
   it("persists completed steps in a company-scoped value", () => {

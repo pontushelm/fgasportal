@@ -6,6 +6,7 @@ import { Badge, Card } from "@/components/ui"
 import type { ImportType } from "@/components/dashboard/import-data-workspace"
 import {
   buildDashboardSetupProgress,
+  type DashboardSetupRole,
   type DashboardSetupStepId,
 } from "@/lib/dashboard/setup-assistant"
 import {
@@ -39,6 +40,7 @@ export type DashboardSetupAssistantData = {
   installationsMissingPropertyCount: number
   isDemoTenant: boolean
   propertyCount: number
+  role: DashboardSetupRole
   servicePartnerConnected: boolean
   userId: string
 }
@@ -321,8 +323,8 @@ export function DashboardSetupAssistant({
             </div>
             <p className="mt-1 text-sm leading-6 text-slate-600">
               {progress.isComplete
-                ? "Registret är redo för löpande uppföljning."
-                : "Följ stegen från tomt konto till ett användbart F-gasregister."}
+                ? getCompletedDescription(setup.role)
+                : getSetupDescription(setup.role)}
             </p>
           </div>
 
@@ -437,6 +439,30 @@ function StatusPill({
   if (completed) return <Badge variant="success">Klart</Badge>
   if (optional) return <Badge variant="info">Rekommenderas</Badge>
   return <Badge variant="warning">Återstår</Badge>
+}
+
+function getSetupDescription(role: DashboardSetupRole) {
+  if (role === "CONTRACTOR") {
+    return "Följ stegen för att komma igång med tilldelade aggregat och servicearbete."
+  }
+
+  if (role === "MEMBER") {
+    return "Följ stegen för att hitta register, åtgärder och rapportstatus."
+  }
+
+  return "Följ stegen från tomt konto till ett användbart F-gasregister."
+}
+
+function getCompletedDescription(role: DashboardSetupRole) {
+  if (role === "CONTRACTOR") {
+    return "Servicepartneröversikten är redo för löpande uppföljning."
+  }
+
+  if (role === "MEMBER") {
+    return "Din översikt är redo för löpande uppföljning."
+  }
+
+  return "Registret är redo för löpande uppföljning."
 }
 
 function useLocalBoolean(key: string, defaultValue = false) {
