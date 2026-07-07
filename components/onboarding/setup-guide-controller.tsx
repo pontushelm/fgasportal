@@ -18,21 +18,24 @@ import {
   getDashboardSetupGuide,
   SETUP_GUIDE_QUERY_PARAM,
 } from "@/lib/dashboard/setup-guides"
+import type { DashboardSetupRole } from "@/lib/dashboard/setup-assistant"
 
 type CurrentUserResponse = {
   companyId: string
+  role: DashboardSetupRole
 }
 
 export function SetupGuideController() {
   const searchParams = useSearchParams()
   const pathname = usePathname()
   const router = useRouter()
-  const guide = useMemo(
-    () => getDashboardSetupGuide(searchParams.get(SETUP_GUIDE_QUERY_PARAM)),
-    [searchParams]
-  )
+  const requestedGuideId = searchParams.get(SETUP_GUIDE_QUERY_PARAM)
   const { data: currentUser } = useApiQuery<CurrentUserResponse>(
-    guide ? API_CACHE_KEYS.authMe : null
+    requestedGuideId ? API_CACHE_KEYS.authMe : null
+  )
+  const guide = useMemo(
+    () => getDashboardSetupGuide(requestedGuideId, currentUser?.role),
+    [currentUser?.role, requestedGuideId]
   )
 
   if (!guide || !currentUser?.companyId) return null

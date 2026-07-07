@@ -19,6 +19,8 @@ export type DashboardSetupGuide = {
   steps: DashboardSetupGuideStep[]
 }
 
+type SetupGuideMap = Partial<Record<DashboardSetupStepId, DashboardSetupGuide>>
+
 const ADMIN_GUIDED_STEP_IDS = [
   "dashboard",
   "properties",
@@ -31,21 +33,38 @@ const ADMIN_GUIDED_STEP_IDS = [
   "company",
 ] as const satisfies readonly DashboardSetupStepId[]
 
-const ADMIN_GUIDED_STEP_ID_SET = new Set<DashboardSetupStepId>(
-  ADMIN_GUIDED_STEP_IDS
-)
+const MEMBER_GUIDED_STEP_IDS = [
+  "dashboard",
+  "installations",
+  "actions",
+  "reports",
+  "documentsEvents",
+  "personalOverview",
+] as const satisfies readonly DashboardSetupStepId[]
 
-type AdminGuidedStepId = (typeof ADMIN_GUIDED_STEP_IDS)[number]
+const CONTRACTOR_GUIDED_STEP_IDS = [
+  "contractorDashboard",
+  "assignedInstallations",
+  "registerServiceEvent",
+  "certificateStatus",
+  "actions",
+  "servicePartnerSetup",
+] as const satisfies readonly DashboardSetupStepId[]
 
-export function isAdminSetupRole(role: DashboardSetupRole) {
-  return role === "OWNER" || role === "ADMIN"
-}
+const ALL_GUIDED_STEP_IDS = new Set<string>([
+  ...ADMIN_GUIDED_STEP_IDS,
+  ...MEMBER_GUIDED_STEP_IDS,
+  ...CONTRACTOR_GUIDED_STEP_IDS,
+])
 
-export function shouldUseSetupGuide(
-  role: DashboardSetupRole,
-  stepId: DashboardSetupStepId
-) {
-  return isAdminSetupRole(role) && ADMIN_GUIDED_STEP_ID_SET.has(stepId)
+const GUIDED_STEP_IDS_BY_ROLE: Record<
+  DashboardSetupRole,
+  readonly DashboardSetupStepId[]
+> = {
+  OWNER: ADMIN_GUIDED_STEP_IDS,
+  ADMIN: ADMIN_GUIDED_STEP_IDS,
+  MEMBER: MEMBER_GUIDED_STEP_IDS,
+  CONTRACTOR: CONTRACTOR_GUIDED_STEP_IDS,
 }
 
 export function getSetupGuideHref(
@@ -57,26 +76,34 @@ export function getSetupGuideHref(
   return `${pathname}?${params.toString()}`
 }
 
+export function shouldUseSetupGuide(
+  role: DashboardSetupRole,
+  stepId: DashboardSetupStepId
+) {
+  return GUIDED_STEP_IDS_BY_ROLE[role].includes(stepId)
+}
+
 export function getDashboardSetupGuide(
-  guideId: string | null
+  guideId: string | null,
+  role: DashboardSetupRole | null | undefined = "OWNER"
 ): DashboardSetupGuide | null {
-  if (!isAdminGuidedStepId(guideId)) {
-    return null
-  }
+  if (!isDashboardSetupStepId(guideId)) return null
 
-  return DASHBOARD_SETUP_GUIDES[guideId] ?? null
+  const guides = getSetupGuidesForRole(role ?? "OWNER")
+  return guides[guideId] ?? null
 }
 
-function isAdminGuidedStepId(value: string | null): value is AdminGuidedStepId {
-  return Boolean(
-    value && ADMIN_GUIDED_STEP_ID_SET.has(value as DashboardSetupStepId)
-  )
+function getSetupGuidesForRole(role: DashboardSetupRole): SetupGuideMap {
+  if (role === "CONTRACTOR") return CONTRACTOR_SETUP_GUIDES
+  if (role === "MEMBER") return MEMBER_SETUP_GUIDES
+  return ADMIN_SETUP_GUIDES
 }
 
-export const DASHBOARD_SETUP_GUIDES: Record<
-  AdminGuidedStepId,
-  DashboardSetupGuide
-> = {
+function isDashboardSetupStepId(value: string | null): value is DashboardSetupStepId {
+  return Boolean(value && ALL_GUIDED_STEP_IDS.has(value))
+}
+
+const ADMIN_SETUP_GUIDES: SetupGuideMap = {
   dashboard: {
     id: "dashboard",
     title: "Dashboarden",
@@ -268,17 +295,17 @@ export const DASHBOARD_SETUP_GUIDES: Record<
         title: "Bjud in rätt personer",
         description:
           "Lägg till kollegor som behöver arbeta med fastigheter, aggregat, åtgärder eller rapporter.",
-        selector: "main",
+        selector: '[data-tour="invite-users-section"]',
       },
       {
         title: "Använd roller med omsorg",
         description:
-          "OWNER och ADMIN bör bara ges till personer som ska kunna hantera organisationsinställningar och användare.",
+          "Ägare och ansvariga bör bara vara personer som ska kunna hantera organisationsinställningar och användare.",
       },
       {
         title: "Medlemmar kan granska",
         description:
-          "MEMBER passar för användare som ska följa upp register och rapportstatus utan att administrera organisationen.",
+          "Medlem passar för användare som ska följa upp register och rapportstatus utan att administrera organisationen.",
       },
     ],
   },
@@ -303,6 +330,300 @@ export const DASHBOARD_SETUP_GUIDES: Record<
         title: "Slutför inför pilot",
         description:
           "När organisationen är komplett blir det enklare att bjuda in användare och arbeta löpande i Polar.",
+      },
+    ],
+  },
+}
+
+const MEMBER_SETUP_GUIDES: SetupGuideMap = {
+  dashboard: {
+    id: "dashboard",
+    title: "Dashboarden",
+    description:
+      "Här får du en snabb överblick över register, åtgärder och rapportstatus.",
+    steps: [
+      {
+        title: "Din översikt",
+        description:
+          "Dashboarden hjälper dig se läget utan att behöva gå igenom varje aggregat manuellt.",
+        selector: "main",
+      },
+      {
+        title: "Vad behöver granskas?",
+        description:
+          "Åtgärder och registerstatus visar var det finns saker som kan behöva följas upp.",
+      },
+      {
+        title: "Rapportstatus",
+        description:
+          "Rapportdelen visar om underlaget verkar redo eller om något behöver kompletteras.",
+      },
+    ],
+  },
+  installations: {
+    id: "installations",
+    title: "Aggregatregistret",
+    description:
+      "Här hittar du aggregat, placering, status och historik för organisationens register.",
+    steps: [
+      {
+        title: "Hitta rätt aggregat",
+        description:
+          "Använd listan och filtren för att hitta aggregat efter fastighet, status, köldmedium eller servicepartner.",
+        selector: "main",
+      },
+      {
+        title: "Granska viktiga uppgifter",
+        description:
+          "Köldmedium, fyllnadsmängd, CO₂e och nästa kontroll är centrala för uppföljning.",
+      },
+      {
+        title: "Öppna detaljvyn",
+        description:
+          "I detaljvyn finns händelser, dokument och mer historik för varje aggregat.",
+      },
+    ],
+  },
+  actions: {
+    id: "actions",
+    title: "Åtgärder",
+    description:
+      "Åtgärder visar vad som behöver uppmärksammas i registret.",
+    steps: [
+      {
+        title: "Följ upp det viktigaste",
+        description:
+          "Här samlas uppgifter som Polar bedömer behöver granskas, till exempel kontroller eller saknade data.",
+        selector: "main",
+      },
+      {
+        title: "Prioritera med filter",
+        description:
+          "Filtrera efter kategori och allvarlighetsgrad för att fokusera på rätt uppgifter.",
+      },
+      {
+        title: "När listan är tom",
+        description:
+          "En tom åtgärdslista betyder att det inte finns något tydligt att följa upp just nu.",
+      },
+    ],
+  },
+  reports: {
+    id: "reports",
+    title: "Årsrapportstatus",
+    description:
+      "Här ser du hur rapportunderlaget ser ut och vilka fastigheter som behöver granskas.",
+    steps: [
+      {
+        title: "Förstå rapportläget",
+        description:
+          "Rapportsidan visar om underlaget kan förhandsgranskas och om något behöver kompletteras.",
+        selector: "main",
+      },
+      {
+        title: "Status per fastighet",
+        description:
+          "Granska fastigheterna var för sig för att förstå var eventuella brister finns.",
+      },
+      {
+        title: "Förhandsgranskning",
+        description:
+          "När underlaget är tillräckligt komplett kan du öppna en förhandsgranskning av årsrapporten.",
+      },
+    ],
+  },
+  documentsEvents: {
+    id: "documentsEvents",
+    title: "Dokument och händelser",
+    description:
+      "Historik och dokument finns samlade på aggregatens detaljsidor.",
+    steps: [
+      {
+        title: "Öppna ett aggregat",
+        description:
+          "Välj ett aggregat i listan för att se händelser, kontroller, dokument och aktivitet.",
+        selector: "main",
+      },
+      {
+        title: "Händelser visar historik",
+        description:
+          "Kontroller, läckage, service och reparationer skapar spårbarhet över tid.",
+      },
+      {
+        title: "Dokument kompletterar registret",
+        description:
+          "Certifikat, intyg och andra filer kan ge stöd vid uppföljning och rapportering.",
+      },
+    ],
+  },
+  personalOverview: {
+    id: "personalOverview",
+    title: "Personlig översikt",
+    description:
+      "Här kontrollerar du dina egna uppgifter och hur du vill få uppföljning.",
+    steps: [
+      {
+        title: "Dina uppgifter",
+        description:
+          "Kontrollera namn, kontaktuppgifter och personliga inställningar.",
+        selector: "main",
+      },
+      {
+        title: "Notiser",
+        description:
+          "Välj vilka typer av uppföljningar du vill få via e-post när organisationen använder påminnelser.",
+      },
+      {
+        title: "Klart för ditt arbete",
+        description:
+          "När dina uppgifter stämmer blir det enklare att följa upp register och rapporter.",
+      },
+    ],
+  },
+}
+
+const CONTRACTOR_SETUP_GUIDES: SetupGuideMap = {
+  contractorDashboard: {
+    id: "contractorDashboard",
+    title: "Servicepartnerdashboarden",
+    description:
+      "Här ser du tilldelade kunder, uppdrag, kontroller och uppföljning.",
+    steps: [
+      {
+        title: "Vad behöver göras?",
+        description:
+          "Dashboarden visar försenade kontroller, kommande arbete och uppgifter som behöver följas upp.",
+        selector: "main",
+      },
+      {
+        title: "Tilldelade aggregat",
+        description:
+          "Aggregat du har fått tillgång till från kunder blir utgångspunkten för servicearbetet.",
+      },
+      {
+        title: "Arbeta från uppdrag",
+        description:
+          "Använd uppdragslistan för att prioritera kontroller, läckage och servicehändelser.",
+      },
+    ],
+  },
+  assignedInstallations: {
+    id: "assignedInstallations",
+    title: "Tilldelade aggregat",
+    description:
+      "Här hittar du aggregat som kunder har delegerat till din serviceorganisation.",
+    steps: [
+      {
+        title: "Hitta rätt aggregat",
+        description:
+          "Listan visar de aggregat du har behörighet till. Använd filter för kund, fastighet eller status.",
+        selector: "main",
+      },
+      {
+        title: "Öppna detaljvyn",
+        description:
+          "Detaljvyn visar tekniska uppgifter, historik, dokument och åtgärder.",
+      },
+      {
+        title: "Arbeta spårbart",
+        description:
+          "När du registrerar händelser sparas de direkt i kundens register.",
+      },
+    ],
+  },
+  registerServiceEvent: {
+    id: "registerServiceEvent",
+    title: "Registrera kontroll eller service",
+    description:
+      "Händelser registreras från aggregatets detaljsida och bygger historiken.",
+    steps: [
+      {
+        title: "Välj aggregat först",
+        description:
+          "Öppna aggregatet du har arbetat med och välj rätt händelsetyp därifrån.",
+        selector: "main",
+      },
+      {
+        title: "Kontroll, läckage och service",
+        description:
+          "Du kan registrera kontroller, läckage, påfyllning, service och reparationer beroende på arbetet.",
+      },
+      {
+        title: "Kunden ser historiken",
+        description:
+          "Händelsen hamnar direkt i kundens register och kan användas i uppföljning och rapportering.",
+      },
+    ],
+  },
+  certificateStatus: {
+    id: "certificateStatus",
+    title: "Certifikatstatus",
+    description:
+      "Certifikatstatus visar om personliga och organisatoriska F-gascertifikat behöver kompletteras.",
+    steps: [
+      {
+        title: "Ditt personcertifikat",
+        description:
+          "Kontrollera certifikatnummer, giltighet och eventuellt dokument i dina inställningar.",
+        selector: "main",
+      },
+      {
+        title: "Giltighet är viktig",
+        description:
+          "Utgångna eller saknade certifikat kan skapa uppföljningsbehov för både servicepartner och kund.",
+      },
+      {
+        title: "Komplettera vid behov",
+        description:
+          "Lägg till eller uppdatera certifikatuppgifter så att Polar kan visa rätt status.",
+      },
+    ],
+  },
+  actions: {
+    id: "actions",
+    title: "Öppna uppdrag",
+    description:
+      "Åtgärder visar servicearbete och uppföljning som behöver prioriteras.",
+    steps: [
+      {
+        title: "Se vad som kräver uppmärksamhet",
+        description:
+          "Här visas till exempel försenade kontroller, läckage att följa upp och certifikatrelaterade uppgifter.",
+        selector: "main",
+      },
+      {
+        title: "Fokusera med filter",
+        description:
+          "Filtrera listan för att hitta rätt kund, aggregat eller typ av uppdrag.",
+      },
+      {
+        title: "Öppna aggregatet",
+        description:
+          "Från åtgärden kan du gå vidare till aggregatet och registrera arbete där det hör hemma.",
+      },
+    ],
+  },
+  servicePartnerSetup: {
+    id: "servicePartnerSetup",
+    title: "Servicepartnerinställningar",
+    description:
+      "Här hanteras serviceorganisationens uppgifter, tekniker och certifikat.",
+    steps: [
+      {
+        title: "Organisationens uppgifter",
+        description:
+          "Servicepartnerprofilen visar kontaktuppgifter och företagscertifikat för kunderna.",
+        selector: "main",
+      },
+      {
+        title: "Tekniker",
+        description:
+          "Serviceansvariga kan granska tekniker, tilldelningar och certifikatstatus.",
+      },
+      {
+        title: "Redo för kundarbete",
+        description:
+          "När uppgifter och certifikat är kompletta blir samarbetet tydligare för kunden.",
       },
     ],
   },

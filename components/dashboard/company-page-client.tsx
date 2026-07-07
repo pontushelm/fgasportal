@@ -1336,7 +1336,7 @@ export default function CompanySettingsPage() {
           )}
 
           {canAdminister && (
-            <Card className="mt-8 p-5">
+            <Card className="mt-8 p-5" data-tour="invite-users-section">
               <h2 className="text-xl font-semibold text-slate-950">
                 Bjud in användare till organisationen
               </h2>
