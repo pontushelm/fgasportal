@@ -56,6 +56,7 @@ type InstallationEventImportPageClientProps = {
 type ImportWorkspaceState = {
   hasProgress: boolean
   isBusy: boolean
+  isCompleted?: boolean
   message?: string
 }
 
@@ -229,6 +230,7 @@ export default function InstallationEventImportPageClient({
     onImportStateChange?.({
       hasProgress: hasImportProgress,
       isBusy: isImportBusy,
+      isCompleted: Boolean(importSummary),
       message:
         isParsing || isPreviewing
           ? "Filen läses in. Vänta tills förhandsgranskningen är klar."
@@ -242,6 +244,7 @@ export default function InstallationEventImportPageClient({
     isImporting,
     isParsing,
     isPreviewing,
+    importSummary,
     onImportStateChange,
   ])
 

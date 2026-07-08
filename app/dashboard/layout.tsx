@@ -1,4 +1,5 @@
 import { Sidebar } from "@/components/layout/sidebar"
+import { DashboardSetupAssistantLauncher } from "@/components/dashboard/dashboard-setup-assistant-launcher"
 import { SetupGuideController } from "@/components/onboarding/setup-guide-controller"
 import { ThemeProvider } from "@/components/theme/theme-provider"
 import { Suspense, type ReactNode } from "react"
@@ -14,6 +15,7 @@ export default function DashboardLayout({
         <Sidebar />
         <div className="min-w-0 flex-1">{children}</div>
         <Suspense fallback={null}>
+          <DashboardSetupAssistantLauncher />
           <SetupGuideController />
         </Suspense>
       </div>

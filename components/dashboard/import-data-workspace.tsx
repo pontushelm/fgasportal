@@ -19,6 +19,7 @@ type ImportDataWorkspaceProps = {
 type ImportWorkspaceState = {
   hasProgress: boolean
   isBusy: boolean
+  isCompleted?: boolean
   message?: string
 }
 
@@ -87,13 +88,13 @@ export function ImportDataWorkspace({
       return
     }
 
-    if (importState.hasProgress) {
+    if (shouldConfirmImportWorkspaceAction(importState)) {
       setPendingAction({ type: "close" })
       return
     }
 
     onClose()
-  }, [importState.hasProgress, importState.isBusy, importState.message, onClose])
+  }, [importState, onClose])
 
   const requestImportType = useCallback(
     (nextImportType: ImportType) => {
@@ -106,7 +107,7 @@ export function ImportDataWorkspace({
         return
       }
 
-      if (importState.hasProgress) {
+      if (shouldConfirmImportWorkspaceAction(importState)) {
         setPendingAction({ type: "switch", nextImportType })
         return
       }
@@ -116,9 +117,7 @@ export function ImportDataWorkspace({
     },
     [
       activeImportType,
-      importState.hasProgress,
-      importState.isBusy,
-      importState.message,
+      importState,
       resetImportState,
     ]
   )
@@ -179,8 +178,7 @@ export function ImportDataWorkspace({
                 Importera data
               </h2>
               <p className="mt-1 max-w-3xl text-sm text-slate-600">
-                Välj vilken typ av registerdata du vill importera. Flödena använder
-                samma validering och importlogik som tidigare.
+                Välj vilken typ av registerdata du vill importera.
               </p>
             </div>
             <button
@@ -199,33 +197,6 @@ export function ImportDataWorkspace({
             </p>
           )}
 
-          <nav className="mt-4 flex gap-2 overflow-x-auto pb-1" aria-label="Importtyper">
-            {importOptions.map((option) => {
-              const isActive = activeImportType === option.type
-
-              return (
-                <button
-                  aria-current={isActive ? "page" : undefined}
-                  className={`shrink-0 rounded-lg border px-3 py-2 text-left text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${
-                    isActive
-                      ? "border-blue-200 bg-blue-50 text-blue-800"
-                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                  }`}
-                  disabled={option.disabled}
-                  key={option.type}
-                  type="button"
-                  onClick={() => requestImportType(option.type)}
-                >
-                  <span>{option.title}</span>
-                  {option.status && (
-                    <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">
-                      {option.status}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-          </nav>
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
@@ -329,4 +300,8 @@ export function ImportDataWorkspace({
       )}
     </div>
   )
+}
+
+export function shouldConfirmImportWorkspaceAction(state: ImportWorkspaceState) {
+  return state.hasProgress && !state.isCompleted
 }

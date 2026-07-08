@@ -3,7 +3,6 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useId, useState } from "react"
-import { DashboardSetupAssistant } from "@/components/dashboard/dashboard-setup-assistant"
 import {
   ImportDataWorkspace,
   type ImportType,
@@ -307,18 +306,6 @@ export default function DashboardPage() {
       {dashboardData && (
         <div className="mx-auto max-w-7xl">
           {isCacheWarmupVisible && <CacheWarmupStatusCard />}
-          <DashboardSetupAssistant
-            defaultCollapsed={
-              !(
-                dashboardData.setup.propertyCount === 0 &&
-                dashboardData.setup.installationCount === 0
-              )
-            }
-            setup={dashboardData.setup}
-            onOpenImportData={(importType) =>
-              setImportWorkspaceType(importType ?? "installations")
-            }
-          />
           {dashboardData.setup.propertyCount === 0 &&
             dashboardData.setup.installationCount === 0 && (
               <DashboardEmptyTenantCallout

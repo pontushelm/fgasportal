@@ -41,6 +41,7 @@ type ImportInstallationsPageProps = {
 type ImportWorkspaceState = {
   hasProgress: boolean
   isBusy: boolean
+  isCompleted?: boolean
   message?: string
 }
 
@@ -224,13 +225,21 @@ export default function ImportInstallationsPage({
     onImportStateChange?.({
       hasProgress: hasImportProgress,
       isBusy: isImportBusy,
+      isCompleted: Boolean(summary),
       message: isParsing
         ? "Filen läses in. Vänta tills förhandsgranskningen är klar."
         : isImporting
           ? "Importen pågår. Vänta tills den är klar."
           : undefined,
     })
-  }, [hasImportProgress, isImportBusy, isImporting, isParsing, onImportStateChange])
+  }, [
+    hasImportProgress,
+    isImportBusy,
+    isImporting,
+    isParsing,
+    onImportStateChange,
+    summary,
+  ])
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]

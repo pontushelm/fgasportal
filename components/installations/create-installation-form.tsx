@@ -7,6 +7,7 @@ import {
   calculateInspectionObligation,
   type ComplianceStatus,
 } from "@/lib/fgas-calculations"
+import { getManualInstallationCo2eWarning } from "@/lib/installations/manual-installation-warnings"
 import type { InspectionReminderStatus } from "@/lib/inspection-reminders"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 import { RefrigerantCombobox } from "@/components/installations/refrigerant-combobox"
@@ -210,6 +211,10 @@ export default function CreateInstallationForm({
     formData.lastInspection,
     inspectionPreview.intervalMonths
   )
+  const municipalityNotificationWarning = getManualInstallationCo2eWarning(
+    formData.refrigerantType,
+    formData.refrigerantAmount
+  )
   const contactOptions = formData.assignedServicePartnerCompanyId
     ? contractors.filter(
         (contractor) =>
@@ -384,6 +389,12 @@ export default function CreateInstallationForm({
       {inspectionPreview.gwpWarning && (
         <p className="text-sm font-semibold text-amber-700">
           {inspectionPreview.gwpWarning}
+        </p>
+      )}
+
+      {municipalityNotificationWarning && (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium leading-6 text-amber-900">
+          {municipalityNotificationWarning.message}
         </p>
       )}
 
