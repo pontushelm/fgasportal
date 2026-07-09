@@ -18,6 +18,11 @@ const importRequestSchema = z.object({
     z.object({
       row: z.number(),
       name: z.string().optional().default(""),
+      installationRegisterType: z.enum(["STATIONARY", "MOBILE"]).optional(),
+      mobileUnitId: z.string().nullable().optional(),
+      mobileUnitName: z.string().nullable().optional(),
+      mobileRegistrationOrVehicleNumber: z.string().nullable().optional(),
+      mobileBaseLocation: z.string().nullable().optional(),
       equipmentId: z.string().nullable().optional(),
       location: z.string(),
       propertyName: z.string().nullable().optional(),
@@ -147,6 +152,12 @@ export async function POST(request: NextRequest) {
         data: {
           name: parsed.name,
           location: parsed.location,
+          installationRegisterType: parsed.installationRegisterType,
+          mobileUnitId: parsed.mobileUnitId,
+          mobileUnitName: parsed.mobileUnitName,
+          mobileRegistrationOrVehicleNumber:
+            parsed.mobileRegistrationOrVehicleNumber,
+          mobileBaseLocation: parsed.mobileBaseLocation,
           equipmentId: parsed.equipmentId,
           propertyId: propertyMatch?.id ?? null,
           propertyName: parsed.propertyName,

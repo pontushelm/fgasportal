@@ -34,6 +34,11 @@ type Installation = {
   propertyName?: string | null
   propertyId?: string | null
   property?: PropertyOption | null
+  installationRegisterType?: "STATIONARY" | "MOBILE"
+  mobileUnitId?: string | null
+  mobileUnitName?: string | null
+  mobileRegistrationOrVehicleNumber?: string | null
+  mobileBaseLocation?: string | null
   equipmentId?: string | null
   serialNumber?: string | null
   refrigerantType: string
@@ -194,6 +199,7 @@ export default function InstallationsPageClient() {
   const refrigerantValue = searchParams.get("refrigerantType") || ""
   const servicePartnerCompanyFilterValue = searchParams.get("servicePartnerCompanyId") || ""
   const propertyFilterValue = searchParams.get("propertyId") || ""
+  const registerTypeFilterValue = searchParams.get("registerType") || ""
   const municipalityFilterValue = searchParams.get("municipality") || ""
   const statusValue = searchParams.get("status") || ""
   const riskFilterValue = searchParams.get("risk") || ""
@@ -454,6 +460,7 @@ export default function InstallationsPageClient() {
           inspectionIntervalFilterValue,
           municipalityFilterValue,
           propertyFilterValue,
+          registerTypeFilterValue,
           refrigerantValue,
           riskFilterValue,
           searchValue,
@@ -467,6 +474,7 @@ export default function InstallationsPageClient() {
       inspectionIntervalFilterValue,
       municipalityFilterValue,
       propertyFilterValue,
+      registerTypeFilterValue,
       refrigerantValue,
       riskFilterValue,
       searchValue,
@@ -1223,12 +1231,22 @@ export default function InstallationsPageClient() {
             />
           )}
 
-          <SearchableFilterSelect
-            label="Fastighet"
-            options={propertyOptions}
-            value={propertyFilterValue}
-            onChange={(value) => updateQueryParam("propertyId", value)}
-          />
+            <SearchableFilterSelect
+              label="Fastighet"
+              options={propertyOptions}
+              value={propertyFilterValue}
+              onChange={(value) => updateQueryParam("propertyId", value)}
+            />
+
+          <FilterSelect
+            label="Registertyp"
+            value={registerTypeFilterValue}
+            onChange={(value) => updateQueryParam("registerType", value)}
+          >
+            <option value="">Alla</option>
+            <option value="STATIONARY">Stationära</option>
+            <option value="MOBILE">Mobila</option>
+          </FilterSelect>
 
           <FilterSelect
             label="Kommun"
@@ -1620,9 +1638,17 @@ export default function InstallationsPageClient() {
                     >
                       {installation.name}
                     </button>
+                    <div className="mt-1">
+                      <RegisterTypeBadge type={installation.installationRegisterType} />
+                    </div>
                     {(installation.equipmentId || installation.serialNumber) && (
                       <div className="mt-1 text-xs text-slate-500">
                         {[installation.equipmentId, installation.serialNumber].filter(Boolean).join(" · ")}
+                      </div>
+                    )}
+                    {installation.installationRegisterType === "MOBILE" && (
+                      <div className="mt-1 text-xs text-slate-500">
+                        {formatMobileMeta(installation)}
                       </div>
                     )}
                   </TableCell>
@@ -1980,9 +2006,33 @@ function InstallationQuickView({
             <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
               <QuickViewItem label="Köldmedium" value={installation.refrigerantType} />
               <QuickViewItem
+                label="Registertyp"
+                value={formatRegisterType(installation.installationRegisterType)}
+              />
+              <QuickViewItem
                 label="Fastighet"
                 value={installation.property?.name || "-"}
               />
+              {installation.installationRegisterType === "MOBILE" && (
+                <>
+                  <QuickViewItem
+                    label="Enhets-ID / inventarienummer"
+                    value={installation.mobileUnitId || "-"}
+                  />
+                  <QuickViewItem
+                    label="Namn / beteckning"
+                    value={installation.mobileUnitName || "-"}
+                  />
+                  <QuickViewItem
+                    label="Registrerings-/fordonsnummer"
+                    value={installation.mobileRegistrationOrVehicleNumber || "-"}
+                  />
+                  <QuickViewItem
+                    label="Primär depå / hemmahamn / bas"
+                    value={installation.mobileBaseLocation || "-"}
+                  />
+                </>
+              )}
               <QuickViewItem
                 label="Kommun"
                 value={installation.property?.municipality || "-"}
@@ -2459,6 +2509,12 @@ function InstallationMobileCard({
           <p className="mt-1 text-sm text-slate-600">
             {[installation.equipmentId, installation.location].filter(Boolean).join(" · ") || "-"}
           </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <RegisterTypeBadge type={installation.installationRegisterType} />
+            {installation.installationRegisterType === "MOBILE" && (
+              <span className="text-xs text-slate-500">{formatMobileMeta(installation)}</span>
+            )}
+          </div>
         </div>
         {canManage && (
           <label className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-md border border-slate-200 bg-slate-50 hover:bg-white">
@@ -2822,14 +2878,49 @@ function StatusBadge({
   )
 }
 
+function RegisterTypeBadge({ type }: { type?: "STATIONARY" | "MOBILE" }) {
+  const isMobile = type === "MOBILE"
+
+  return (
+    <span
+      className={`inline-flex w-fit rounded-full border px-2.5 py-1 text-xs font-semibold ${
+        isMobile
+          ? "border-blue-200 bg-blue-50 text-blue-800"
+          : "border-slate-200 bg-slate-50 text-slate-700"
+      }`}
+    >
+      {formatRegisterType(type)}
+    </span>
+  )
+}
+
+function formatRegisterType(type?: "STATIONARY" | "MOBILE") {
+  return type === "MOBILE" ? "Mobilt aggregat" : "Stationärt aggregat"
+}
+
 function formatInspectionIntervalShort(intervalMonths?: number | null) {
   return intervalMonths ? `${intervalMonths} mån` : "Ej krav"
 }
 
 function formatPlacementMeta(installation: Installation) {
+  if (installation.installationRegisterType === "MOBILE") {
+    return formatMobileMeta(installation)
+  }
+
   return [installation.property?.name, installation.property?.municipality]
     .filter(Boolean)
     .join(" · ") || "-"
+}
+
+function formatMobileMeta(installation: Installation) {
+  return [
+    installation.mobileUnitId,
+    installation.mobileUnitName,
+    installation.mobileRegistrationOrVehicleNumber,
+    installation.mobileBaseLocation,
+  ]
+    .filter(Boolean)
+    .join(" · ") || "Mobil enhet"
 }
 
 function RiskBadge({ level }: { level: InstallationRiskLevel }) {
@@ -2989,6 +3080,7 @@ function filterInstallationsByQuery(
     inspectionIntervalFilterValue: string
     municipalityFilterValue: string
     propertyFilterValue: string
+    registerTypeFilterValue: string
     refrigerantValue: string
     riskFilterValue: string
     searchValue: string
@@ -3006,6 +3098,10 @@ function filterInstallationsByQuery(
         installation.location,
         installation.equipmentId,
         installation.serialNumber,
+        installation.mobileUnitId,
+        installation.mobileUnitName,
+        installation.mobileRegistrationOrVehicleNumber,
+        installation.mobileBaseLocation,
         installation.propertyName,
         installation.property?.name,
         installation.property?.municipality,
@@ -3027,6 +3123,14 @@ function filterInstallationsByQuery(
     if (
       filters.propertyFilterValue &&
       installation.propertyId !== filters.propertyFilterValue
+    ) {
+      return false
+    }
+
+    if (
+      filters.registerTypeFilterValue &&
+      (installation.installationRegisterType ?? "STATIONARY") !==
+        filters.registerTypeFilterValue
     ) {
       return false
     }

@@ -48,6 +48,8 @@ export type FgasReportData = {
     leakageEvents: number
     refilledAmountKg: number
     serviceEvents: number
+    stationaryInstallations?: number
+    mobileInstallations?: number
   }
   warnings: Array<{
     id: string
@@ -86,6 +88,18 @@ type RefrigerantSummary = FgasReportData["refrigerants"][number]
 
 export type AnnualFgasReportPropertyOverview = {
   year: number
+  mobileGroup: {
+    id: "__mobile__"
+    name: string
+    municipality: string | null
+    installedCo2eTon: number | null
+    annualReportRequirement: "REQUIRED" | "NOT_REQUIRED" | "UNCERTAIN"
+    signedStatus: "SIGNED" | "NOT_SIGNED"
+    signedAt: Date | null
+    blockingIssueCount: number
+    reviewWarningCount: number
+    installationCount: number
+  } | null
   properties: Array<{
     id: string
     name: string
@@ -111,6 +125,11 @@ const annualOverviewInstallationSelect = {
   equipmentId: true,
   location: true,
   propertyName: true,
+  installationRegisterType: true,
+  mobileUnitId: true,
+  mobileUnitName: true,
+  mobileRegistrationOrVehicleNumber: true,
+  mobileBaseLocation: true,
   equipmentType: true,
   refrigerantType: true,
   refrigerantAmount: true,
@@ -283,12 +302,14 @@ export async function getFgasAnnualReport({
   assignedContractorId,
   municipality,
   propertyId,
+  registerType,
   year,
 }: {
   companyId: string
   assignedContractorId?: string
   municipality?: string
   propertyId?: string
+  registerType?: "STATIONARY" | "MOBILE"
   year: number
 }): Promise<FgasReportData> {
   const startDate = new Date(Date.UTC(year, 0, 1))
@@ -303,6 +324,7 @@ export async function getFgasAnnualReport({
       ],
       ...(assignedContractorId ? { assignedContractorId } : {}),
       ...(propertyId ? { propertyId } : {}),
+      ...(registerType ? { installationRegisterType: registerType } : {}),
       ...(municipality ? { property: { municipality } } : {}),
     },
     include: {
@@ -345,6 +367,8 @@ export async function getFgasAnnualReport({
   let leakageEvents = 0
   let refilledAmountKg = 0
   let serviceEvents = 0
+  let stationaryInstallations = 0
+  let mobileInstallations = 0
   const warnings: FgasReportData["warnings"] = []
 
   const events = installations.flatMap((installation) => {
@@ -368,6 +392,11 @@ export async function getFgasAnnualReport({
     }
 
     summary.installationCount += 1
+    if (installation.installationRegisterType === "MOBILE") {
+      mobileInstallations += 1
+    } else {
+      stationaryInstallations += 1
+    }
     summary.totalAmountKg += installation.refrigerantAmount
     if (compliance.co2eTon !== null) {
       summary.totalCo2eTon = (summary.totalCo2eTon ?? 0) + compliance.co2eTon
@@ -484,6 +513,8 @@ export async function getFgasAnnualReport({
       leakageEvents,
       refilledAmountKg,
       serviceEvents,
+      stationaryInstallations,
+      mobileInstallations,
     },
     warnings: reportWarnings,
     qualitySummary,
@@ -501,12 +532,14 @@ export async function getAnnualFgasReportPreview({
   companyId,
   municipality,
   propertyId,
+  registerType,
   year,
 }: {
   companyId: string
   assignedContractorId?: string
   municipality?: string
   propertyId?: string
+  registerType?: "STATIONARY" | "MOBILE"
   year: number
 }): Promise<FgasReportData> {
   const report = await buildAnnualFgasReportData({
@@ -514,6 +547,7 @@ export async function getAnnualFgasReportPreview({
     companyId,
     municipality,
     propertyId,
+    registerType,
     year,
   })
 
@@ -536,7 +570,6 @@ export async function getAnnualFgasReportPropertyOverview({
   const installations = await prisma.installation.findMany({
     where: {
       companyId,
-      propertyId: { not: null },
       AND: [
         {
           OR: [
@@ -687,6 +720,7 @@ export function buildAnnualFgasReportPropertyOverviewFromLoadedData({
   >()
 
   for (const installation of installations) {
+    if (installation.installationRegisterType === "MOBILE") continue
     if (!installation.property) continue
 
     const existing = installationsByProperty.get(installation.property.id)
@@ -743,7 +777,51 @@ export function buildAnnualFgasReportPropertyOverviewFromLoadedData({
 
   return {
     year,
+    mobileGroup: buildAnnualOverviewMobileGroup({
+      endDate,
+      installations: installations.filter(
+        (installation) => installation.installationRegisterType === "MOBILE"
+      ),
+      startDate,
+    }),
     properties: propertyStatuses,
+  }
+}
+
+function buildAnnualOverviewMobileGroup({
+  endDate,
+  installations,
+  startDate,
+}: {
+  endDate: Date
+  installations: AnnualOverviewInstallation[]
+  startDate: Date
+}): AnnualFgasReportPropertyOverview["mobileGroup"] {
+  if (installations.length === 0) return null
+
+  const summary = buildAnnualOverviewPropertySummary({
+    endDate,
+    installations,
+    startDate,
+  })
+  const installedCo2eTon = summary.installedCo2eTon
+
+  return {
+    id: "__mobile__",
+    name: "Mobila aggregat",
+    municipality: null,
+    installedCo2eTon,
+    annualReportRequirement:
+      installedCo2eTon === null
+        ? "UNCERTAIN"
+        : installedCo2eTon >= ANNUAL_REPORT_CO2E_REQUIREMENT_THRESHOLD_TON
+          ? "REQUIRED"
+          : "NOT_REQUIRED",
+    signedStatus: "NOT_SIGNED",
+    signedAt: null,
+    blockingIssueCount: summary.qualitySummary.blockingIssueCount,
+    reviewWarningCount: summary.qualitySummary.warningCount,
+    installationCount: installations.length,
   }
 }
 

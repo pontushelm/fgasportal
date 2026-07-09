@@ -71,6 +71,51 @@ describe("installation import parsing", () => {
     ).toBe(true)
   })
 
+  it("maps mobile register type aliases and imports mobile metadata", () => {
+    expect(getSuggestedImportField("Mobilt aggregat")).toBe(
+      "installationRegisterType"
+    )
+    expect(getSuggestedImportField("Enhets-ID / inventarienummer")).toBe(
+      "mobileUnitId"
+    )
+
+    const row = normalizeImportRow(
+      {
+        installationRegisterType: "rörlig",
+        equipmentId: "MOB-001",
+        mobileUnitId: "TRAILER-12",
+        mobileUnitName: "Trailer 12",
+        mobileRegistrationOrVehicleNumber: "ABC123",
+        mobileBaseLocation: "Depå Malmö",
+        refrigerantType: "R410A",
+        refrigerantAmount: "12",
+      },
+      2
+    )
+
+    expect(row.installationRegisterType).toBe("MOBILE")
+    expect(row.mobileUnitId).toBe("TRAILER-12")
+    expect(row.mobileUnitName).toBe("Trailer 12")
+    expect(row.mobileRegistrationOrVehicleNumber).toBe("ABC123")
+    expect(row.mobileBaseLocation).toBe("Depå Malmö")
+    expect(row.errors).toEqual([])
+    expect(row.warnings).not.toContain("Saknar fastighet - kan kopplas senare")
+  })
+
+  it("defaults blank register type to stationary", () => {
+    const row = normalizeImportRow(
+      {
+        installationRegisterType: "",
+        equipmentId: "AGG-001",
+        refrigerantType: "R410A",
+        refrigerantAmount: "5",
+      },
+      2
+    )
+
+    expect(row.installationRegisterType).toBe("STATIONARY")
+  })
+
   it("does not require control interval for imported hermetic Annex I equipment below threshold", () => {
     const row = normalizeImportRow(
       {

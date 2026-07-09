@@ -89,6 +89,11 @@ export async function GET(request: NextRequest) {
         name: true,
         equipmentId: true,
         location: true,
+        installationRegisterType: true,
+        mobileUnitId: true,
+        mobileUnitName: true,
+        mobileRegistrationOrVehicleNumber: true,
+        mobileBaseLocation: true,
         refrigerantType: true,
         refrigerantAmount: true,
         hasLeakDetectionSystem: true,
@@ -308,6 +313,12 @@ export async function GET(request: NextRequest) {
         name: installation.name,
         equipmentId: installation.equipmentId,
         location: installation.location,
+        installationRegisterType: installation.installationRegisterType,
+        mobileUnitId: installation.mobileUnitId,
+        mobileUnitName: installation.mobileUnitName,
+        mobileRegistrationOrVehicleNumber:
+          installation.mobileRegistrationOrVehicleNumber,
+        mobileBaseLocation: installation.mobileBaseLocation,
         refrigerantType: installation.refrigerantType,
         refrigerantAmount: installation.refrigerantAmount,
         gwp: compliance.gwp,
@@ -392,8 +403,15 @@ export async function GET(request: NextRequest) {
     const requiringInspection = installationRows.filter(
       (installation) => installation.inspectionInterval !== null
     ).length
+    const stationaryInstallationCount = installationRows.filter(
+      (installation) => installation.installationRegisterType !== "MOBILE"
+    ).length
+    const mobileInstallationCount = installationRows.filter(
+      (installation) => installation.installationRegisterType === "MOBILE"
+    ).length
     const installationsMissingPropertyCount = installationRows.filter(
-      (installation) => !installation.propertyId
+      (installation) =>
+        installation.installationRegisterType !== "MOBILE" && !installation.propertyId
     ).length
     const propertyMetadata = new Map(
       installations
@@ -456,6 +474,8 @@ export async function GET(request: NextRequest) {
       {
         metrics: {
           totalInstallations: installationRows.length,
+          stationaryInstallations: stationaryInstallationCount,
+          mobileInstallations: mobileInstallationCount,
           ok: statusCounts.OK,
           overdue: statusCounts.OVERDUE,
           dueSoon: statusCounts.DUE_SOON,

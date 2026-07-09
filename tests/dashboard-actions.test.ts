@@ -91,6 +91,63 @@ describe("dashboard action generation", () => {
     expect(actions).toEqual([])
   })
 
+  it("creates refrigerant follow-up actions for mobile aggregat without property context", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-05-08T12:00:00"),
+      installations: [
+        {
+          id: "mobile-r404a",
+          name: "Mobil kylenhet",
+          equipmentId: "MOB-1",
+          installationRegisterType: "MOBILE",
+          mobileUnitId: "TRAILER-12",
+          mobileRegistrationOrVehicleNumber: "ABC123",
+          propertyId: null,
+          propertyName: null,
+          nextInspection: null,
+          inspectionInterval: 12,
+          complianceStatus: "OK",
+          refrigerantType: "R404A",
+          refrigerantAmount: 10,
+          assignedContractorId: "contractor-1",
+          servicePartnerCompanyId: "service-company-1",
+          risk: { level: "LOW", score: 1 },
+        },
+      ],
+      leakageEvents: [],
+    })
+
+    const refrigerantAction = actions.find(
+      (action) => action.type === "REFRIGERANT_REVIEW"
+    )
+
+    expect(refrigerantAction).toBeDefined()
+    expect(refrigerantAction?.propertyName).toBe("TRAILER-12 / ABC123")
+  })
+
+  it("uses mobile context for recent leakage actions without property", () => {
+    const actions = generateDashboardActions({
+      today: new Date("2026-05-08T12:00:00"),
+      installations: [],
+      leakageEvents: [
+        {
+          id: "mobile-leak",
+          installationId: "mobile-installation",
+          installationName: "Mobil kylenhet",
+          installationRegisterType: "MOBILE",
+          mobileUnitName: "Trailer 12",
+          mobileBaseLocation: "Depå Malmö",
+          date: new Date("2026-05-05"),
+        },
+      ],
+    })
+
+    expect(actions[0]).toMatchObject({
+      type: "RECENT_LEAKAGE",
+      propertyName: "Trailer 12 / Depå Malmö",
+    })
+  })
+
   it("does not create overdue or missing-control actions for hermetic equipment below threshold", () => {
     const compliance = calculateInstallationCompliance(
       "R410A",

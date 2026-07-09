@@ -2,6 +2,8 @@ import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 
 export type InstallationQualityFilter =
   | "missing-property"
+  | "mobile-missing-identifier"
+  | "mobile-missing-context"
   | "missing-refrigerant"
   | "missing-charge"
   | "missing-gwp"
@@ -31,6 +33,8 @@ export const DATA_QUALITY_FILTER_LABELS: Record<DataQualityFilter, string> = {
   "missing-designation": "Saknar fastighetsbeteckning",
   "missing-gwp": "Saknar känt GWP/CO₂e",
   "missing-municipality": "Saknar kommun",
+  "mobile-missing-identifier": "Mobilt aggregat saknar identifiering",
+  "mobile-missing-context": "Mobilt aggregat saknar placering eller bas",
   "missing-property": "Saknar fastighet",
   "missing-refrigerant": "Saknar köldmedium",
   "missing-technician-certificate": "Tekniker saknar personcertifikat",
@@ -39,6 +43,8 @@ export const DATA_QUALITY_FILTER_LABELS: Record<DataQualityFilter, string> = {
 
 const INSTALLATION_QUALITY_FILTERS = new Set<InstallationQualityFilter>([
   "missing-property",
+  "mobile-missing-identifier",
+  "mobile-missing-context",
   "missing-refrigerant",
   "missing-charge",
   "missing-gwp",
@@ -95,6 +101,11 @@ export function getTechnicianQualityFilter(
 export function matchesInstallationQualityFilter(
   installation: {
     co2eTon?: number | null
+    installationRegisterType?: "STATIONARY" | "MOBILE" | null
+    mobileUnitId?: string | null
+    mobileRegistrationOrVehicleNumber?: string | null
+    mobileBaseLocation?: string | null
+    location?: string | null
     propertyId?: string | null
     refrigerantAmount?: number | null
     refrigerantType?: string | null
@@ -106,7 +117,22 @@ export function matchesInstallationQualityFilter(
 
   switch (filter) {
     case "missing-property":
-      return !installation.propertyId
+      return (
+        (installation.installationRegisterType ?? "STATIONARY") !== "MOBILE" &&
+        !installation.propertyId
+      )
+    case "mobile-missing-identifier":
+      return (
+        installation.installationRegisterType === "MOBILE" &&
+        !installation.mobileUnitId?.trim() &&
+        !installation.mobileRegistrationOrVehicleNumber?.trim()
+      )
+    case "mobile-missing-context":
+      return (
+        installation.installationRegisterType === "MOBILE" &&
+        !installation.location?.trim() &&
+        !installation.mobileBaseLocation?.trim()
+      )
     case "missing-refrigerant":
       return !installation.refrigerantType?.trim()
     case "missing-charge":

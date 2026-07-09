@@ -332,6 +332,8 @@ function EquipmentList({
     <DataTable
       columns={[
         "Aggregat-ID",
+        "Registertyp",
+        "Mobil identifiering",
         "Typ",
         "Köldmedium",
         "Fyllnadsmängd (kg)",
@@ -345,6 +347,8 @@ function EquipmentList({
         const key = row.equipmentId || row.name
         return [
           row.equipmentId || row.name,
+          formatRegisterType(row.installationRegisterType),
+          formatMobileEquipmentMetadata(row),
           row.equipmentType || "-",
           row.refrigerantType,
           formatNumber(row.refrigerantAmountKg),
@@ -393,6 +397,23 @@ function Field({ label, value }: { label: string; value: ReactNode }) {
 
 function displayEquipment(name: string, equipmentId: string | null) {
   return equipmentId ? `${equipmentId} - ${name}` : name
+}
+
+function formatRegisterType(type?: "STATIONARY" | "MOBILE") {
+  return type === "MOBILE" ? "Mobilt aggregat" : "Stationärt aggregat"
+}
+
+function formatMobileEquipmentMetadata(row: AnnualFgasEquipmentRow) {
+  if (row.installationRegisterType !== "MOBILE") return "-"
+
+  return (
+    [
+      row.mobileUnitId,
+      row.mobileUnitName,
+      row.mobileRegistrationOrVehicleNumber,
+      row.mobileBaseLocation,
+    ].filter(Boolean).join(" / ") || "-"
+  )
 }
 
 function formatDate(value: Date | string | null | undefined) {

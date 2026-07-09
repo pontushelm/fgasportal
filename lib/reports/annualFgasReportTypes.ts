@@ -4,6 +4,7 @@ export type AnnualFgasReportFilter = {
   contactUserId?: string
   municipality?: string
   propertyId?: string
+  registerType?: "STATIONARY" | "MOBILE"
   assignedContractorId?: string
   signingMetadata?: AnnualFgasSigningMetadata | null
   reportNotes?: string | null
@@ -108,6 +109,11 @@ export type AnnualFgasEquipmentRow = {
   name: string
   location: string | null
   propertyName: string | null
+  installationRegisterType?: "STATIONARY" | "MOBILE"
+  mobileUnitId?: string | null
+  mobileUnitName?: string | null
+  mobileRegistrationOrVehicleNumber?: string | null
+  mobileBaseLocation?: string | null
   equipmentType: string | null
   refrigerantType: string
   refrigerantAmountKg: number

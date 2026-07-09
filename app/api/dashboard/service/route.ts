@@ -48,6 +48,12 @@ export async function GET(request: NextRequest) {
         id: installation.id,
         name: installation.name,
         location: installation.location,
+        installationRegisterType: installation.installationRegisterType,
+        mobileUnitId: installation.mobileUnitId,
+        mobileUnitName: installation.mobileUnitName,
+        mobileRegistrationOrVehicleNumber:
+          installation.mobileRegistrationOrVehicleNumber,
+        mobileBaseLocation: installation.mobileBaseLocation,
         refrigerantType: installation.refrigerantType,
         refrigerantAmount: installation.refrigerantAmount,
         isHermeticallySealed: installation.isHermeticallySealed,

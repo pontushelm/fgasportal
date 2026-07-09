@@ -30,6 +30,11 @@ export async function loadDataQualityReport(user: AuthenticatedUser) {
           ],
         },
         select: {
+          installationRegisterType: true,
+          location: true,
+          mobileUnitId: true,
+          mobileBaseLocation: true,
+          mobileRegistrationOrVehicleNumber: true,
           propertyId: true,
           refrigerantAmount: true,
           refrigerantType: true,

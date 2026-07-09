@@ -16,6 +16,11 @@ enum InstallationEventType {
   REFRIGERANT_CHANGE
 }
 
+enum InstallationRegisterType {
+  STATIONARY
+  MOBILE
+}
+
 enum DocumentType {
   INSPECTION_REPORT
   SERVICE_REPORT
@@ -487,6 +492,11 @@ model Installation {
   propertyName                  String?
   equipmentType                 String?
   operatorName                  String?
+  installationRegisterType      InstallationRegisterType @default(STATIONARY)
+  mobileUnitId                  String?
+  mobileUnitName                String?
+  mobileRegistrationOrVehicleNumber String?
+  mobileBaseLocation            String?
   refrigerantType               String
   refrigerantAmount             Float
   hasLeakDetectionSystem        Boolean   @default(false)

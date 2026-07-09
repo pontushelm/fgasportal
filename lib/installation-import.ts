@@ -9,6 +9,11 @@ import { normalizeRefrigerantCode } from "@/lib/refrigerants"
 export type ImportInstallationInput = {
   row: number
   name: string
+  installationRegisterType: "STATIONARY" | "MOBILE"
+  mobileUnitId: string | null
+  mobileUnitName: string | null
+  mobileRegistrationOrVehicleNumber: string | null
+  mobileBaseLocation: string | null
   equipmentId: string | null
   location: string
   propertyName: string | null
@@ -92,6 +97,69 @@ const EVENT_HISTORY_COLUMN_ALIASES = [
 ]
 
 export const IMPORT_FIELD_DEFINITIONS: ImportFieldDefinition[] = [
+  {
+    key: "installationRegisterType",
+    label: "Registertyp",
+    aliases: [
+      "registertyp",
+      "typ av aggregat",
+      "stationärt/mobilt",
+      "stationart/mobilt",
+      "mobilt aggregat",
+      "mobil anläggning",
+      "mobil anlaggning",
+      "register type",
+    ],
+  },
+  {
+    key: "mobileUnitId",
+    label: "Enhets-ID / inventarienummer",
+    aliases: [
+      "enhets-id",
+      "enhets id",
+      "enhets-id inventarienummer",
+      "enhets id inventarienummer",
+      "mobil inventarienummer",
+      "mobilt inventarienummer",
+      "mobile unit id",
+      "unit id",
+      "asset number",
+    ],
+  },
+  {
+    key: "mobileUnitName",
+    label: "Namn / beteckning",
+    aliases: [
+      "namn / beteckning",
+      "beteckning",
+      "mobil enhet",
+      "mobile unit name",
+      "unit name",
+    ],
+  },
+  {
+    key: "mobileRegistrationOrVehicleNumber",
+    label: "Registreringsnummer / fordonsnummer",
+    aliases: [
+      "registreringsnummer",
+      "fordonsnummer",
+      "registreringsnummer fordonsnummer",
+      "registration number",
+      "vehicle number",
+    ],
+  },
+  {
+    key: "mobileBaseLocation",
+    label: "Primär depå / hemmahamn / bas",
+    aliases: [
+      "primär depå",
+      "primar depa",
+      "hemmahamn",
+      "bas",
+      "base location",
+      "home port",
+    ],
+  },
   {
     key: "equipmentId",
     label: "Aggregat-ID / märkning",
@@ -319,6 +387,16 @@ export function normalizeImportRow(
   const equipmentId = getOptionalString(rawRow, "equipmentId")
   const name = rawName || equipmentId || ""
   const location = getString(rawRow, "location")
+  const installationRegisterType = parseInstallationRegisterType(
+    getValue(rawRow, "installationRegisterType")
+  )
+  const mobileUnitId = getOptionalString(rawRow, "mobileUnitId")
+  const mobileUnitName = getOptionalString(rawRow, "mobileUnitName")
+  const mobileRegistrationOrVehicleNumber = getOptionalString(
+    rawRow,
+    "mobileRegistrationOrVehicleNumber"
+  )
+  const mobileBaseLocation = getOptionalString(rawRow, "mobileBaseLocation")
   const propertyName = getOptionalString(rawRow, "propertyName")
   const municipality = getOptionalString(rawRow, "municipality")
   const rawRefrigerantType = getString(rawRow, "refrigerantType")
@@ -356,7 +434,9 @@ export function normalizeImportRow(
     errors.push("Ogiltig fyllnadsmängd")
   }
 
-  if (!propertyName) warnings.push("Saknar fastighet - kan kopplas senare")
+  if (!propertyName && installationRegisterType !== "MOBILE") {
+    warnings.push("Saknar fastighet - kan kopplas senare")
+  }
 
   const rawLastInspection = getValue(rawRow, "lastInspection")
   if (hasValue(rawLastInspection) && !lastInspection) {
@@ -412,6 +492,11 @@ export function normalizeImportRow(
   return {
     row: rowNumber,
     name,
+    installationRegisterType,
+    mobileUnitId,
+    mobileUnitName,
+    mobileRegistrationOrVehicleNumber,
+    mobileBaseLocation,
     equipmentId,
     location,
     propertyName,
@@ -619,6 +704,40 @@ function parseBoolean(value: unknown) {
 
   const normalizedValue = String(value).trim().toLowerCase()
   return ["1", "ja", "j", "yes", "y", "true", "x"].includes(normalizedValue)
+}
+
+function parseInstallationRegisterType(value: unknown): "STATIONARY" | "MOBILE" {
+  if (!hasValue(value)) return "STATIONARY"
+
+  const normalizedValue = normalizeHeader(String(value))
+  const mobileValues = new Set([
+    "mobil",
+    "mobilt",
+    "mobile",
+    "rorlig",
+    "flyttbar",
+    "ja",
+    "yes",
+    "true",
+    "1",
+  ])
+  const stationaryValues = new Set([
+    "stationar",
+    "stationart",
+    "stationary",
+    "fixed",
+    "fastighet",
+    "fastighetsbundet",
+    "nej",
+    "no",
+    "false",
+    "0",
+  ])
+
+  if (mobileValues.has(normalizedValue)) return "MOBILE"
+  if (stationaryValues.has(normalizedValue)) return "STATIONARY"
+
+  return "STATIONARY"
 }
 
 function parseDateValue(value: unknown) {

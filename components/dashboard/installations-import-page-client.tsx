@@ -55,8 +55,13 @@ type PreviewImportRow = ParsedImportRow & {
 }
 
 const TEMPLATE_COLUMNS = [
+  "Registertyp",
   "Aggregat-ID / märkning",
   "Aggregatnamn / benämning",
+  "Enhets-ID / inventarienummer",
+  "Namn / beteckning",
+  "Registreringsnummer / fordonsnummer",
+  "Primär depå / hemmahamn / bas",
   "Placering",
   "Fastighet",
   "Köldmedium",
@@ -72,8 +77,13 @@ const TEMPLATE_COLUMNS = [
 
 const TEMPLATE_ROWS = [
   {
+    Registertyp: "Stationärt",
     "Aggregat-ID / märkning": "AGG-001",
     "Aggregatnamn / benämning": "Kylaggregat 1",
+    "Enhets-ID / inventarienummer": "",
+    "Namn / beteckning": "",
+    "Registreringsnummer / fordonsnummer": "",
+    "Primär depå / hemmahamn / bas": "",
     Placering: "Tak plan 3",
     Fastighet: "Stadshuset",
     Köldmedium: "R410A",
@@ -87,10 +97,15 @@ const TEMPLATE_ROWS = [
     Kommentar: "Exempelrad - byt ut eller ta bort",
   },
   {
+    Registertyp: "Mobilt",
     "Aggregat-ID / märkning": "AGG-002",
-    "Aggregatnamn / benämning": "Frysrum",
-    Placering: "Källare",
-    Fastighet: "Servicehuset",
+    "Aggregatnamn / benämning": "Mobil kylenhet",
+    "Enhets-ID / inventarienummer": "TRAILER-12",
+    "Namn / beteckning": "Trailer 12",
+    "Registreringsnummer / fordonsnummer": "ABC123",
+    "Primär depå / hemmahamn / bas": "Depå Malmö",
+    Placering: "Transport",
+    Fastighet: "",
     Köldmedium: "R404A",
     "Fyllnadsmängd kg": 8,
     Läckagevarningssystem: "Ja",
@@ -108,15 +123,23 @@ const TEMPLATE_REQUIRED_COLUMNS = [
   "Fyllnadsmängd kg",
 ]
 const TEMPLATE_RECOMMENDED_COLUMNS = [
+  "Registertyp",
   "Fastighet",
+  "Enhets-ID / inventarienummer",
+  "Registreringsnummer / fordonsnummer",
   "Placering",
   "Senaste kontroll",
   "Hermetiskt slutet aggregat",
   "Nästa kontroll",
 ]
 const TEMPLATE_COLUMN_WIDTHS: Record<string, number> = {
+  Registertyp: 16,
   "Aggregat-ID / märkning": 24,
   "Aggregatnamn / benämning": 28,
+  "Enhets-ID / inventarienummer": 28,
+  "Namn / beteckning": 24,
+  "Registreringsnummer / fordonsnummer": 34,
+  "Primär depå / hemmahamn / bas": 34,
   Placering: 22,
   Fastighet: 24,
   Köldmedium: 16,
@@ -756,8 +779,10 @@ export default function ImportInstallationsPage({
               <thead className="sticky top-0 bg-slate-50">
                 <tr>
                   <th className={tableHeaderClassName}>Rad</th>
+                  <th className={tableHeaderClassName}>Registertyp</th>
                   <th className={tableHeaderClassName}>Aggregat-ID / märkning</th>
                   <th className={tableHeaderClassName}>Aggregatnamn / benämning</th>
+                  <th className={tableHeaderClassName}>Mobil identifiering</th>
                   <th className={tableHeaderClassName}>Plats</th>
                   <th className={tableHeaderClassName}>Fastighet</th>
                   <th className={tableHeaderClassName}>Fastighetskoppling</th>
@@ -773,8 +798,20 @@ export default function ImportInstallationsPage({
                 {previewRows.map((row) => (
                   <tr key={row.row}>
                     <td className={tableCellClassName}>{row.row}</td>
+                    <td className={tableCellClassName}>
+                      {row.installationRegisterType === "MOBILE"
+                        ? "Mobilt"
+                        : "Stationärt"}
+                    </td>
                     <td className={tableCellClassName}>{row.equipmentId || "-"}</td>
                     <td className={tableCellClassName}>{row.name || "-"}</td>
+                    <td className={tableCellClassName}>
+                      {[
+                        row.mobileUnitId,
+                        row.mobileUnitName,
+                        row.mobileRegistrationOrVehicleNumber,
+                      ].filter(Boolean).join(" / ") || "-"}
+                    </td>
                     <td className={tableCellClassName}>{row.location || "-"}</td>
                     <td className={tableCellClassName}>{row.propertyName || "-"}</td>
                     <td className={tableCellClassName}>

@@ -136,6 +136,11 @@ type InstallationDetail = {
   propertyName?: string | null
   equipmentType?: string | null
   operatorName?: string | null
+  installationRegisterType?: "STATIONARY" | "MOBILE"
+  mobileUnitId?: string | null
+  mobileUnitName?: string | null
+  mobileRegistrationOrVehicleNumber?: string | null
+  mobileBaseLocation?: string | null
   refrigerantType: string
   refrigerantAmount: number
   hasLeakDetectionSystem: boolean
@@ -208,6 +213,11 @@ type InstallationEditFormData = {
   name: string
   location: string
   propertyId: string
+  installationRegisterType: "STATIONARY" | "MOBILE"
+  mobileUnitId: string
+  mobileUnitName: string
+  mobileRegistrationOrVehicleNumber: string
+  mobileBaseLocation: string
   equipmentId: string
   serialNumber: string
   propertyName: string
@@ -279,6 +289,11 @@ const initialEditFormData: InstallationEditFormData = {
   name: "",
   location: "",
   propertyId: "",
+  installationRegisterType: "STATIONARY",
+  mobileUnitId: "",
+  mobileUnitName: "",
+  mobileRegistrationOrVehicleNumber: "",
+  mobileBaseLocation: "",
   equipmentId: "",
   serialNumber: "",
   propertyName: "",
@@ -1323,6 +1338,8 @@ export default function InstallationDetailPage() {
   const scrapCertificationWarning = getCertificationWarning(
     selectedScrapContractor?.certificationStatus ?? null
   )
+  const isMobileInstallation = installation.installationRegisterType === "MOBILE"
+  const isEditingMobileInstallation = editForm.installationRegisterType === "MOBILE"
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6 text-slate-900 sm:py-10">
@@ -1363,7 +1380,11 @@ export default function InstallationDetailPage() {
         )}
         {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <SummaryItem
+            label="Registertyp"
+            value={formatRegisterType(installation.installationRegisterType)}
+          />
           <SummaryItem label="Köldmedium" value={installation.refrigerantType} />
           <SummaryItem label="Fyllnadsmängd" value={`${formatNumber(installation.refrigerantAmount)} kg`} />
           <SummaryItem
@@ -1452,8 +1473,32 @@ export default function InstallationDetailPage() {
         <div className="rounded-lg border border-slate-200 bg-white p-5">
           <h2 className="text-lg font-semibold text-slate-950">Aggregatdetaljer</h2>
           <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <DetailItem
+              label="Registertyp"
+              value={formatRegisterType(installation.installationRegisterType)}
+            />
             <DetailItem label="Kopplad fastighet" value={formatOptionalText(installation.property?.name)} />
             <DetailItem label="Kommun" value={formatOptionalText(installation.property?.municipality)} />
+            {isMobileInstallation && (
+              <>
+                <DetailItem
+                  label="Enhets-ID / inventarienummer"
+                  value={formatOptionalText(installation.mobileUnitId)}
+                />
+                <DetailItem
+                  label="Namn / beteckning"
+                  value={formatOptionalText(installation.mobileUnitName)}
+                />
+                <DetailItem
+                  label="Registreringsnummer / fordonsnummer"
+                  value={formatOptionalText(installation.mobileRegistrationOrVehicleNumber)}
+                />
+                <DetailItem
+                  label="PrimÃ¤r depÃ¥ / hemmahamn / bas"
+                  value={formatOptionalText(installation.mobileBaseLocation)}
+                />
+              </>
+            )}
             <DetailItem label="Utrustnings-ID" value={formatOptionalText(installation.equipmentId)} />
             <DetailItem label="Serienummer" value={formatOptionalText(installation.serialNumber)} />
             <DetailItem label="Utrustningstyp" value={formatOptionalText(installation.equipmentType)} />
@@ -1734,8 +1779,43 @@ export default function InstallationDetailPage() {
                 Plats
                 <input className={formControlClassName} name="location" value={editForm.location} onChange={handleEditChange} placeholder="Plats eller placering" />
               </label>
+              <fieldset className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:col-span-2">
+                <legend className="px-1 text-sm font-semibold text-slate-800">
+                  Registertyp
+                </legend>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label className="flex items-start gap-2 rounded-md border border-slate-200 bg-white p-3 text-sm font-medium text-slate-800">
+                    <input
+                      className="mt-1 h-4 w-4 text-blue-600"
+                      checked={editForm.installationRegisterType === "STATIONARY"}
+                      name="installationRegisterType"
+                      onChange={handleEditChange}
+                      type="radio"
+                      value="STATIONARY"
+                    />
+                    StationÃ¤rt aggregat
+                  </label>
+                  <label className="flex items-start gap-2 rounded-md border border-slate-200 bg-white p-3 text-sm font-medium text-slate-800">
+                    <input
+                      className="mt-1 h-4 w-4 text-blue-600"
+                      checked={editForm.installationRegisterType === "MOBILE"}
+                      name="installationRegisterType"
+                      onChange={handleEditChange}
+                      type="radio"
+                      value="MOBILE"
+                    />
+                    Mobilt aggregat
+                  </label>
+                </div>
+                {isEditingMobileInstallation && (
+                  <p className="text-xs text-slate-600">
+                    Mobila aggregat kan fÃ¶ljas upp separat frÃ¥n fastighetsbundna
+                    aggregat men anvÃ¤nder samma register- och kontrollkrav.
+                  </p>
+                )}
+              </fieldset>
               <label className={fieldClassName}>
-                Fastighet
+                {isEditingMobileInstallation ? "Fastighet (valfritt)" : "Fastighet"}
                 <select className={formControlClassName} name="propertyId" value={editForm.propertyId} onChange={handleEditChange}>
                   <option value="">Ingen vald fastighet</option>
                   {properties.map((property) => (
@@ -1745,6 +1825,26 @@ export default function InstallationDetailPage() {
                   ))}
                 </select>
               </label>
+              {isEditingMobileInstallation && (
+                <>
+                  <label className={fieldClassName}>
+                    Enhets-ID / inventarienummer
+                    <input className={formControlClassName} name="mobileUnitId" value={editForm.mobileUnitId} onChange={handleEditChange} />
+                  </label>
+                  <label className={fieldClassName}>
+                    Namn / beteckning
+                    <input className={formControlClassName} name="mobileUnitName" value={editForm.mobileUnitName} onChange={handleEditChange} />
+                  </label>
+                  <label className={fieldClassName}>
+                    Registreringsnummer / fordonsnummer
+                    <input className={formControlClassName} name="mobileRegistrationOrVehicleNumber" value={editForm.mobileRegistrationOrVehicleNumber} onChange={handleEditChange} />
+                  </label>
+                  <label className={fieldClassName}>
+                    PrimÃ¤r depÃ¥ / hemmahamn / bas
+                    <input className={formControlClassName} name="mobileBaseLocation" value={editForm.mobileBaseLocation} onChange={handleEditChange} />
+                  </label>
+                </>
+              )}
               <label className={fieldClassName}>
                 Utrustnings-ID
                 <input className={formControlClassName} name="equipmentId" value={editForm.equipmentId} onChange={handleEditChange} />
@@ -3056,6 +3156,10 @@ function formatNumber(value: number) {
   }).format(value)
 }
 
+function formatRegisterType(type?: "STATIONARY" | "MOBILE") {
+  return type === "MOBILE" ? "Mobilt aggregat" : "StationÃ¤rt aggregat"
+}
+
 function getTodayInputValue() {
   return new Date().toISOString().slice(0, 10)
 }
@@ -3071,6 +3175,13 @@ function toInstallationEditFormData(
     name: installation.name,
     location: installation.location,
     propertyId: installation.propertyId || "",
+    installationRegisterType:
+      installation.installationRegisterType === "MOBILE" ? "MOBILE" : "STATIONARY",
+    mobileUnitId: installation.mobileUnitId || "",
+    mobileUnitName: installation.mobileUnitName || "",
+    mobileRegistrationOrVehicleNumber:
+      installation.mobileRegistrationOrVehicleNumber || "",
+    mobileBaseLocation: installation.mobileBaseLocation || "",
     equipmentId: installation.equipmentId || "",
     serialNumber: installation.serialNumber || "",
     propertyName: installation.propertyName || "",

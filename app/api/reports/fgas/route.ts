@@ -16,6 +16,9 @@ export async function GET(request: NextRequest) {
     const year = parseReportYear(request.nextUrl.searchParams.get("year"))
     const municipality = request.nextUrl.searchParams.get("municipality")?.trim()
     const propertyId = request.nextUrl.searchParams.get("propertyId")?.trim()
+    const registerType = parseReportRegisterType(
+      request.nextUrl.searchParams.get("registerType")
+    )
     const reportType = request.nextUrl.searchParams.get("reportType")?.trim()
     const includeAnnualOverview =
       request.nextUrl.searchParams.get("includeAnnualOverview") !== "0"
@@ -30,6 +33,7 @@ export async function GET(request: NextRequest) {
       assignedContractorId: isContractor(auth.user) ? auth.user.userId : undefined,
       municipality: municipality || undefined,
       propertyId: propertyId || undefined,
+      registerType,
       year,
     }
     if (reportType === "annual" && overviewOnly && includeAnnualOverview) {
@@ -87,6 +91,12 @@ export async function GET(request: NextRequest) {
   }
 }
 
+function parseReportRegisterType(
+  value: string | null
+): "STATIONARY" | "MOBILE" | undefined {
+  return value === "MOBILE" || value === "STATIONARY" ? value : undefined
+}
+
 function getDevelopmentTimingStart() {
   return process.env.NODE_ENV === "development" ? performance.now() : null
 }
@@ -124,5 +134,10 @@ function buildOverviewOnlyReportData(year: number): FgasReportData {
     },
     refrigerants: [],
     events: [],
+    annualReportOverview: {
+      year,
+      mobileGroup: null,
+      properties: [],
+    },
   }
 }

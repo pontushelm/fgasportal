@@ -104,6 +104,7 @@ export function buildAnnualFgasReportWarnings({
     id: string
     name: string
     equipmentId: string | null
+    installationRegisterType?: "STATIONARY" | "MOBILE" | null
     assignedContractorId: string | null
     annualReportCertification?: AnnualFgasResolvedInstallationCertification | null
     assignedServicePartnerCompanyId?: string | null
@@ -148,7 +149,10 @@ export function buildAnnualFgasReportWarnings({
   reportInstallations.forEach((installation) => {
     const equipmentRow = equipment.find((row) => row.id === installation.id)
 
-    if (installation.property === null) {
+    if (
+      installation.property === null &&
+      installation.installationRegisterType !== "MOBILE"
+    ) {
       warnings.push({
         id: `missing-property-${installation.id}`,
         severity: "blocking",

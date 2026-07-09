@@ -7,6 +7,8 @@ export type DataQualityIssueId =
   | "PROPERTY_MISSING_DESIGNATION"
   | "PROPERTY_MISSING_MUNICIPALITY"
   | "INSTALLATION_MISSING_PROPERTY"
+  | "INSTALLATION_MOBILE_MISSING_IDENTIFIER"
+  | "INSTALLATION_MOBILE_MISSING_CONTEXT"
   | "INSTALLATION_MISSING_REFRIGERANT"
   | "INSTALLATION_MISSING_CHARGE"
   | "INSTALLATION_MISSING_GWP"
@@ -39,6 +41,10 @@ export const DATA_QUALITY_ISSUE_ROUTES: Record<DataQualityIssueId, string> = {
   INSTALLATION_UNKNOWN_LEGAL_CLASSIFICATION:
     "/dashboard/installations?quality=unknown-legal-classification",
   INSTALLATION_MISSING_PROPERTY: "/dashboard/installations?quality=missing-property",
+  INSTALLATION_MOBILE_MISSING_IDENTIFIER:
+    "/dashboard/installations?quality=mobile-missing-identifier",
+  INSTALLATION_MOBILE_MISSING_CONTEXT:
+    "/dashboard/installations?quality=mobile-missing-context",
   INSTALLATION_MISSING_REFRIGERANT:
     "/dashboard/installations?quality=missing-refrigerant",
   PROPERTY_MISSING_DESIGNATION:
@@ -75,6 +81,11 @@ export type DataQualityPropertyInput = {
 }
 
 export type DataQualityInstallationInput = {
+  installationRegisterType?: "STATIONARY" | "MOBILE" | null
+  mobileUnitId?: string | null
+  mobileRegistrationOrVehicleNumber?: string | null
+  mobileBaseLocation?: string | null
+  location?: string | null
   propertyId?: string | null
   refrigerantAmount?: number | null
   refrigerantType?: string | null
@@ -138,13 +149,49 @@ export function buildDataQualityReport({
       ctaLabel: "Visa fastigheter",
     }),
     buildIssue({
-      count: installations.filter((installation) => !installation.propertyId).length,
+      count: installations.filter(
+        (installation) =>
+          (installation.installationRegisterType ?? "STATIONARY") !== "MOBILE" &&
+          !installation.propertyId
+      ).length,
       description: "Aggregat behöver kopplas till fastighet för rapportering och översikt.",
       group: "installations",
       id: "INSTALLATION_MISSING_PROPERTY",
       route: DATA_QUALITY_ISSUE_ROUTES.INSTALLATION_MISSING_PROPERTY,
       severity: "HIGH",
       title: "Aggregat saknar fastighet",
+      ctaLabel: "Visa aggregat",
+    }),
+    buildIssue({
+      count: installations.filter(
+        (installation) =>
+          installation.installationRegisterType === "MOBILE" &&
+          !installation.mobileUnitId?.trim() &&
+          !installation.mobileRegistrationOrVehicleNumber?.trim()
+      ).length,
+      description:
+        "Mobilt aggregat saknar identifiering. Lägg till enhets-ID, inventarienummer eller registrerings-/fordonsnummer för enklare uppföljning.",
+      group: "installations",
+      id: "INSTALLATION_MOBILE_MISSING_IDENTIFIER",
+      route: DATA_QUALITY_ISSUE_ROUTES.INSTALLATION_MOBILE_MISSING_IDENTIFIER,
+      severity: "LOW",
+      title: "Mobila aggregat saknar identifiering",
+      ctaLabel: "Visa aggregat",
+    }),
+    buildIssue({
+      count: installations.filter(
+        (installation) =>
+          installation.installationRegisterType === "MOBILE" &&
+          !installation.location?.trim() &&
+          !installation.mobileBaseLocation?.trim()
+      ).length,
+      description:
+        "Mobilt aggregat saknar placering eller primär depå/bas. Lägg till en uppgift som gör aggregatet enklare att hitta och följa upp.",
+      group: "installations",
+      id: "INSTALLATION_MOBILE_MISSING_CONTEXT",
+      route: DATA_QUALITY_ISSUE_ROUTES.INSTALLATION_MOBILE_MISSING_CONTEXT,
+      severity: "LOW",
+      title: "Mobila aggregat saknar placering eller bas",
       ctaLabel: "Visa aggregat",
     }),
     buildIssue({

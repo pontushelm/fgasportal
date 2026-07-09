@@ -79,6 +79,9 @@ export async function GET(request: NextRequest) {
     const propertyId =
       historyRecord?.propertyId ??
       request.nextUrl.searchParams.get("propertyId")?.trim()
+    const registerType = parseReportRegisterType(
+      request.nextUrl.searchParams.get("registerType")
+    )
     const reportNotes = parseReportNotes(request.nextUrl.searchParams.get("reportNotes"))
     const signingUser = historyRecord
       ? null
@@ -108,7 +111,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Ogiltigt årtal" }, { status: 400 })
     }
 
-    if (!historyRecord && !propertyId) {
+    if (!historyRecord && !propertyId && registerType !== "MOBILE") {
       return NextResponse.json(
         { error: "VÃ¤lj en fastighet innan Ã¥rsrapporten exporteras" },
         { status: 400 }
@@ -148,6 +151,7 @@ export async function GET(request: NextRequest) {
       contactUserId: historyRecord?.userId ?? auth.user.userId,
       municipality: municipality || undefined,
       propertyId: propertyId || undefined,
+      registerType,
       reportNotes,
       signingMetadata: signingMetadataForReport,
       year,
@@ -165,6 +169,7 @@ export async function GET(request: NextRequest) {
         ? buildAnnualFgasArtifactScope({
             municipality: municipality || null,
             propertyId: propertyId || null,
+            registerType,
             report,
             year,
           })
@@ -442,11 +447,13 @@ function parseReportNotes(value: string | null) {
 function buildAnnualFgasArtifactScope({
   municipality,
   propertyId,
+  registerType,
   report,
   year,
 }: {
   municipality: string | null
   propertyId: string | null
+  registerType?: "STATIONARY" | "MOBILE"
   report: {
     facility: {
       municipality: string | null
@@ -456,6 +463,18 @@ function buildAnnualFgasArtifactScope({
   }
   year: number
 }): ReportSnapshotScope {
+  if (registerType === "MOBILE") {
+    return {
+      type: "CUSTOM",
+      id: "mobile-installations",
+      label: "Mobila aggregat",
+      reportYear: year,
+      municipality: null,
+      propertyName: "Mobila aggregat",
+      propertyDesignation: null,
+    }
+  }
+
   if (propertyId) {
     return {
       type: "PROPERTY",
@@ -547,7 +566,12 @@ function sanitizeSearchParams(searchParams: URLSearchParams) {
     historyId: searchParams.get("historyId"),
     municipality: searchParams.get("municipality"),
     propertyId: searchParams.get("propertyId"),
+    registerType: searchParams.get("registerType"),
     signed: searchParams.get("signed"),
     year: searchParams.get("year"),
   }
+}
+
+function parseReportRegisterType(value: string | null) {
+  return value === "MOBILE" || value === "STATIONARY" ? value : undefined
 }

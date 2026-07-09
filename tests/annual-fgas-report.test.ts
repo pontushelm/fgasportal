@@ -768,6 +768,56 @@ describe("annual F-gas report warnings", () => {
     )
   })
 
+  it("does not require a property for mobile aggregat in annual report warnings", () => {
+    const warnings = buildAnnualFgasReportWarnings({
+      certificateRegister: [],
+      co2eSummary: { unknownCo2eEquipmentCount: 0 },
+      equipment: [
+        {
+          id: "mobile-installation-a",
+          equipmentId: "MOB-1",
+          name: "Mobil kylenhet",
+          location: null,
+          propertyName: null,
+          equipmentType: null,
+          installationRegisterType: "MOBILE",
+          mobileUnitId: "TRAILER-12",
+          mobileUnitName: null,
+          mobileRegistrationOrVehicleNumber: "ABC123",
+          mobileBaseLocation: "Depå Malmö",
+          refrigerantType: "R410A",
+          refrigerantAmountKg: 10,
+          co2eKg: 20880,
+          controlRequired: false,
+          inspectionIntervalMonths: null,
+          leakDetectionSystem: false,
+          installedAt: null,
+          lastInspectionAt: null,
+          nextInspectionAt: null,
+          status: "active",
+        },
+      ],
+      refrigerantHandlingLog: [],
+      reportInstallations: [
+        {
+          id: "mobile-installation-a",
+          name: "Mobil kylenhet",
+          equipmentId: "MOB-1",
+          installationRegisterType: "MOBILE",
+          assignedContractorId: null,
+          assignedContractor: null,
+          property: null,
+          events: [],
+        },
+      ],
+      scrappedEquipment: [],
+    })
+
+    expect(warnings.map((warning) => warning.id)).not.toContain(
+      "missing-property-mobile-installation-a"
+    )
+  })
+
   it("does not warn for missing technician certificate when service partner company has certificate", () => {
     const warnings = buildAnnualFgasReportWarnings({
       certificateRegister: [],

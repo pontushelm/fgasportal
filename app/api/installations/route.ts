@@ -103,6 +103,14 @@ export async function POST(request: NextRequest) {
         serialNumber: emptyToNull(validatedData.serialNumber),
         propertyName: emptyToNull(validatedData.propertyName),
         propertyId: propertyId ?? null,
+        installationRegisterType:
+          validatedData.installationRegisterType ?? "STATIONARY",
+        mobileUnitId: emptyToNull(validatedData.mobileUnitId),
+        mobileUnitName: emptyToNull(validatedData.mobileUnitName),
+        mobileRegistrationOrVehicleNumber: emptyToNull(
+          validatedData.mobileRegistrationOrVehicleNumber
+        ),
+        mobileBaseLocation: emptyToNull(validatedData.mobileBaseLocation),
         installationDate: validatedData.installationDate ?? null,
         equipmentType: emptyToNull(validatedData.equipmentType),
         operatorName: emptyToNull(validatedData.operatorName),
@@ -448,6 +456,11 @@ export async function GET(request: NextRequest) {
         equipmentId: true,
         serialNumber: true,
         propertyName: true,
+        installationRegisterType: true,
+        mobileUnitId: true,
+        mobileUnitName: true,
+        mobileRegistrationOrVehicleNumber: true,
+        mobileBaseLocation: true,
         refrigerantType: true,
         refrigerantAmount: true,
         hasLeakDetectionSystem: true,

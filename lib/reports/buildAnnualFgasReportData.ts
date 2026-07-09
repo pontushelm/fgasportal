@@ -26,6 +26,7 @@ export async function buildAnnualFgasReportData({
   contactUserId,
   municipality,
   propertyId,
+  registerType,
   reportNotes,
   signingMetadata,
   year,
@@ -95,6 +96,7 @@ export async function buildAnnualFgasReportData({
       ],
       ...(assignedContractorId ? { assignedContractorId } : {}),
       ...(propertyId ? { propertyId } : {}),
+      ...(registerType ? { installationRegisterType: registerType } : {}),
       ...(trimmedMunicipality
         ? { property: { municipality: trimmedMunicipality } }
         : {}),
@@ -305,6 +307,12 @@ export async function buildAnnualFgasReportData({
       name: installation.name,
       location: installation.location,
       propertyName: installation.property?.name ?? installation.propertyName,
+      installationRegisterType: installation.installationRegisterType,
+      mobileUnitId: installation.mobileUnitId,
+      mobileUnitName: installation.mobileUnitName,
+      mobileRegistrationOrVehicleNumber:
+        installation.mobileRegistrationOrVehicleNumber,
+      mobileBaseLocation: installation.mobileBaseLocation,
       equipmentType: installation.equipmentType,
       refrigerantType,
       refrigerantAmountKg: installation.refrigerantAmount,
@@ -452,7 +460,10 @@ export async function buildAnnualFgasReportData({
       phone: reportContact?.phone ?? null,
     },
     facility: {
-      name: formatFacilityName(properties, trimmedMunicipality),
+      name:
+        registerType === "MOBILE" && properties.length === 0
+          ? "Mobila aggregat"
+          : formatFacilityName(properties, trimmedMunicipality),
       address: formatFacilityAddress(properties),
       municipality: formatFacilityMunicipality(
         uniqueMunicipalities,

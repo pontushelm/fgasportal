@@ -15,6 +15,11 @@ import { RefrigerantCombobox } from "@/components/installations/refrigerant-comb
 type InstallationFormData = {
   name: string
   location: string
+  installationRegisterType: "STATIONARY" | "MOBILE"
+  mobileUnitId: string
+  mobileUnitName: string
+  mobileRegistrationOrVehicleNumber: string
+  mobileBaseLocation: string
   propertyId: string
   equipmentId: string
   serialNumber: string
@@ -48,6 +53,11 @@ type CreatedInstallation = {
   equipmentId?: string | null
   serialNumber?: string | null
   propertyName?: string | null
+  installationRegisterType: "STATIONARY" | "MOBILE"
+  mobileUnitId?: string | null
+  mobileUnitName?: string | null
+  mobileRegistrationOrVehicleNumber?: string | null
+  mobileBaseLocation?: string | null
   equipmentType?: string | null
   operatorName?: string | null
   refrigerantType: string
@@ -74,6 +84,11 @@ type CreatedInstallation = {
 const initialFormData: InstallationFormData = {
   name: "",
   location: "",
+  installationRegisterType: "STATIONARY",
+  mobileUnitId: "",
+  mobileUnitName: "",
+  mobileRegistrationOrVehicleNumber: "",
+  mobileBaseLocation: "",
   propertyId: "",
   equipmentId: "",
   serialNumber: "",
@@ -226,6 +241,7 @@ export default function CreateInstallationForm({
       )
     : contractors
   const propertyOptions = properties.map(toPropertySearchOption)
+  const isMobileInstallation = formData.installationRegisterType === "MOBILE"
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -279,15 +295,68 @@ export default function CreateInstallationForm({
         <input className={inputClassName} name="location" placeholder="Plats eller placering" value={formData.location} onChange={handleChange} />
       </label>
 
+      <fieldset className="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3">
+        <legend className="text-sm font-semibold text-slate-800">Registertyp</legend>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <input
+              className="h-4 w-4 border-slate-300 text-blue-600"
+              name="installationRegisterType"
+              type="radio"
+              value="STATIONARY"
+              checked={formData.installationRegisterType === "STATIONARY"}
+              onChange={handleChange}
+            />
+            Stationärt aggregat
+          </label>
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <input
+              className="h-4 w-4 border-slate-300 text-blue-600"
+              name="installationRegisterType"
+              type="radio"
+              value="MOBILE"
+              checked={isMobileInstallation}
+              onChange={handleChange}
+            />
+            Mobilt aggregat
+          </label>
+        </div>
+        {isMobileInstallation && (
+          <p className="text-xs leading-5 text-slate-600">
+            Mobila aggregat kan följas upp separat från fastighetsbundna aggregat men använder samma register- och kontrollkrav.
+          </p>
+        )}
+      </fieldset>
+
       <SearchableSelect
-        label="Fastighet"
+        label={isMobileInstallation ? "Fastighet (valfritt)" : "Fastighet"}
         name="propertyId"
         onChange={handlePropertyChange}
         options={propertyOptions}
         placeholder="Sök fastighet"
-        required
+        required={!isMobileInstallation}
         value={formData.propertyId}
       />
+      {isMobileInstallation && (
+        <div className="grid gap-2 rounded-md border border-blue-100 bg-blue-50/60 p-3 sm:grid-cols-2">
+          <label className={labelClassName}>
+            Enhets-ID / inventarienummer
+            <input className={inputClassName} name="mobileUnitId" placeholder="Ex. trailer-12 eller kylcontainer-3" value={formData.mobileUnitId} onChange={handleChange} />
+          </label>
+          <label className={labelClassName}>
+            Namn / beteckning
+            <input className={inputClassName} name="mobileUnitName" placeholder="Ex. Bil 42 eller Tågset 7" value={formData.mobileUnitName} onChange={handleChange} />
+          </label>
+          <label className={labelClassName}>
+            Registreringsnummer / fordonsnummer
+            <input className={inputClassName} name="mobileRegistrationOrVehicleNumber" placeholder="Ex. ABC123" value={formData.mobileRegistrationOrVehicleNumber} onChange={handleChange} />
+          </label>
+          <label className={labelClassName}>
+            Primär depå / hemmahamn / bas
+            <input className={inputClassName} name="mobileBaseLocation" placeholder="Ex. Depå Malmö" value={formData.mobileBaseLocation} onChange={handleChange} />
+          </label>
+        </div>
+      )}
       <input className={inputClassName} name="equipmentId" placeholder="Utrustnings-ID" value={formData.equipmentId} onChange={handleChange} />
       <input className={inputClassName} name="serialNumber" placeholder="Serienummer" value={formData.serialNumber} onChange={handleChange} />
       <input className={inputClassName} name="equipmentType" placeholder="Utrustningstyp" value={formData.equipmentType} onChange={handleChange} />

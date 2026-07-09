@@ -68,6 +68,11 @@ export type ActionInstallationInput = {
   id: string
   name: string
   equipmentId?: string | null
+  installationRegisterType?: "STATIONARY" | "MOBILE" | null
+  mobileUnitId?: string | null
+  mobileUnitName?: string | null
+  mobileRegistrationOrVehicleNumber?: string | null
+  mobileBaseLocation?: string | null
   propertyId?: string | null
   propertyName?: string | null
   nextInspection: Date | null
@@ -89,6 +94,11 @@ export type ActionLeakageEventInput = {
   installationId: string
   installationName: string
   equipmentId?: string | null
+  installationRegisterType?: "STATIONARY" | "MOBILE" | null
+  mobileUnitId?: string | null
+  mobileUnitName?: string | null
+  mobileRegistrationOrVehicleNumber?: string | null
+  mobileBaseLocation?: string | null
   propertyId?: string | null
   propertyName?: string | null
   assignedServiceContactId?: string | null
@@ -256,7 +266,7 @@ export function generateDashboardActions({
       refrigerantAmountKg: installation.refrigerantAmount,
     })
     if (
-      installation.propertyId &&
+      (installation.propertyId || installation.installationRegisterType === "MOBILE") &&
       isRefrigerantRegulatoryFollowUpStatus(refrigerantStatus.status)
     ) {
       actions.push(
@@ -292,7 +302,7 @@ export function generateDashboardActions({
       installationName: event.installationName,
       equipmentId: event.equipmentId ?? null,
       propertyId: event.propertyId ?? null,
-      propertyName: event.propertyName ?? null,
+      propertyName: event.propertyName ?? getMobileEventContext(event),
       assignedServiceContactId: event.assignedServiceContactId ?? null,
       assignedServiceContactName: event.assignedServiceContactName ?? null,
       assignedServiceContactEmail: event.assignedServiceContactEmail ?? null,
@@ -500,7 +510,8 @@ function createAction({
     installationName: installation.name,
     equipmentId: installation.equipmentId ?? null,
     propertyId: installation.propertyId ?? null,
-    propertyName: installation.propertyName ?? null,
+    propertyName:
+      installation.propertyName ?? getMobileInstallationContext(installation),
     assignedServiceContactId: installation.assignedServiceContactId ?? null,
     assignedServiceContactName: installation.assignedServiceContactName ?? null,
     assignedServiceContactEmail: installation.assignedServiceContactEmail ?? null,
@@ -513,6 +524,32 @@ function createAction({
     source: createdFrom,
     sortPriority: getSortPriority(type, severity),
   }
+}
+
+function getMobileInstallationContext(installation: ActionInstallationInput) {
+  if (installation.installationRegisterType !== "MOBILE") return null
+
+  return (
+    [
+      installation.mobileUnitId,
+      installation.mobileUnitName,
+      installation.mobileRegistrationOrVehicleNumber,
+      installation.mobileBaseLocation,
+    ].filter(Boolean).join(" / ") || "Mobilt aggregat"
+  )
+}
+
+function getMobileEventContext(event: ActionLeakageEventInput) {
+  if (event.installationRegisterType !== "MOBILE") return null
+
+  return (
+    [
+      event.mobileUnitId,
+      event.mobileUnitName,
+      event.mobileRegistrationOrVehicleNumber,
+      event.mobileBaseLocation,
+    ].filter(Boolean).join(" / ") || "Mobilt aggregat"
+  )
 }
 
 function getActionId(type: DashboardActionType, installationId: string) {

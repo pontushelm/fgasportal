@@ -126,6 +126,11 @@ const nullableInstallationDateSchema = z.union([z.string(), z.null(), z.undefine
   })
 
 const installationRegisterFieldsSchema = {
+  installationRegisterType: z.enum(["STATIONARY", "MOBILE"]).optional(),
+  mobileUnitId: optionalRegisterField,
+  mobileUnitName: optionalRegisterField,
+  mobileRegistrationOrVehicleNumber: optionalRegisterField,
+  mobileBaseLocation: optionalRegisterField,
   equipmentId: optionalRegisterField,
   serialNumber: optionalRegisterField,
   propertyName: optionalRegisterField,

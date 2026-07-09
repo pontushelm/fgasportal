@@ -98,6 +98,37 @@ describe("data quality report", () => {
     ).toBe("/dashboard/installations?quality=unknown-legal-classification")
   })
 
+  it("does not flag mobile aggregat for missing property but flags weak mobile metadata", () => {
+    const report = buildDataQualityReport({
+      installations: [
+        {
+          installationRegisterType: "MOBILE",
+          propertyId: null,
+          location: "",
+          mobileBaseLocation: "",
+          mobileRegistrationOrVehicleNumber: "",
+          mobileUnitId: "",
+          refrigerantAmount: 5,
+          refrigerantType: "R410A",
+        },
+        {
+          installationRegisterType: "STATIONARY",
+          propertyId: null,
+          refrigerantAmount: 5,
+          refrigerantType: "R410A",
+        },
+      ],
+      properties: [],
+    })
+
+    expect(issueCount(report, "INSTALLATION_MISSING_PROPERTY")).toBe(1)
+    expect(issueCount(report, "INSTALLATION_MOBILE_MISSING_IDENTIFIER")).toBe(1)
+    expect(issueCount(report, "INSTALLATION_MOBILE_MISSING_CONTEXT")).toBe(1)
+    expect(
+      DATA_QUALITY_ISSUE_ROUTES.INSTALLATION_MOBILE_MISSING_CONTEXT
+    ).toBe("/dashboard/installations?quality=mobile-missing-context")
+  })
+
   it("detects missing and expired certification issues", () => {
     const report = buildDataQualityReport({
       installations: [],
@@ -159,6 +190,9 @@ describe("data quality report", () => {
 
   it("matches installation quality filters", () => {
     expect(getInstallationQualityFilter("missing-property")).toBe("missing-property")
+    expect(getInstallationQualityFilter("mobile-missing-context")).toBe(
+      "mobile-missing-context"
+    )
     expect(getInstallationQualityFilter("unknown")).toBeNull()
     expect(
       matchesInstallationQualityFilter(
@@ -196,6 +230,25 @@ describe("data quality report", () => {
         "unknown-legal-classification"
       )
     ).toBe(true)
+    expect(
+      matchesInstallationQualityFilter(
+        {
+          installationRegisterType: "MOBILE",
+          location: "",
+          mobileBaseLocation: "",
+        },
+        "mobile-missing-context"
+      )
+    ).toBe(true)
+    expect(
+      matchesInstallationQualityFilter(
+        {
+          installationRegisterType: "MOBILE",
+          mobileRegistrationOrVehicleNumber: "ABC123",
+        },
+        "mobile-missing-identifier"
+      )
+    ).toBe(false)
   })
 
   it("matches property quality filters", () => {

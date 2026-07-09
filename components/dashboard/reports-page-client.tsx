@@ -54,6 +54,8 @@ type ReportData = {
     leakageEvents: number
     refilledAmountKg: number
     serviceEvents: number
+    stationaryInstallations?: number
+    mobileInstallations?: number
   }
   warnings?: Array<{
     id: string
@@ -91,6 +93,18 @@ type ReportData = {
   }>
   annualReportOverview?: {
     year: number
+    mobileGroup: {
+      id: "__mobile__"
+      name: string
+      municipality: string | null
+      installedCo2eTon: number | null
+      annualReportRequirement: "REQUIRED" | "NOT_REQUIRED" | "UNCERTAIN"
+      signedStatus: "SIGNED" | "NOT_SIGNED"
+      signedAt: string | null
+      blockingIssueCount: number
+      reviewWarningCount: number
+      installationCount: number
+    } | null
     properties: Array<{
       id: string
       name: string
@@ -105,7 +119,9 @@ type ReportData = {
   }
 }
 type AnnualReportOverview = NonNullable<ReportData["annualReportOverview"]>
-type AnnualOverviewProperty = AnnualReportOverview["properties"][number]
+type AnnualOverviewProperty =
+  | AnnualReportOverview["properties"][number]
+  | NonNullable<AnnualReportOverview["mobileGroup"]>
 type SortDirection = "asc" | "desc"
 type AnnualOverviewSortKey =
   | "property"
@@ -179,6 +195,8 @@ const METRIC_HELP = {
   serviceEvents: "Registrerade servicehändelser under valt år.",
 } as const
 
+const MOBILE_REPORT_SCOPE_ID = "__mobile__"
+
 const filterLabelClassName = "grid gap-1 text-sm font-semibold text-slate-700"
 const filterSelectClassName =
   "h-9 w-full min-w-0 truncate rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900"
@@ -236,7 +254,11 @@ export default function ReportsPage() {
     if (selectedMunicipality && !isAnnualReport) {
       params.set("municipality", selectedMunicipality)
     }
-    if (selectedPropertyId) params.set("propertyId", selectedPropertyId)
+    if (selectedPropertyId === MOBILE_REPORT_SCOPE_ID) {
+      params.set("registerType", "MOBILE")
+    } else if (selectedPropertyId) {
+      params.set("propertyId", selectedPropertyId)
+    }
 
     return params.toString()
   }, [isAnnualReport, selectedMunicipality, selectedPropertyId, selectedReportType, selectedYear])
@@ -271,7 +293,11 @@ export default function ReportsPage() {
       year: String(selectedYear),
     })
 
-    if (selectedPropertyId) params.set("propertyId", selectedPropertyId)
+    if (selectedPropertyId === MOBILE_REPORT_SCOPE_ID) {
+      params.set("registerType", "MOBILE")
+    } else if (selectedPropertyId) {
+      params.set("propertyId", selectedPropertyId)
+    }
     return `/api/reports/annual-fgas?${params.toString()}`
   }, [isAnnualReport, reportQuery, selectedPropertyId, selectedReportType, selectedYear])
   const selectedReport = useMemo(
@@ -499,6 +525,9 @@ export default function ReportsPage() {
                   ) : (
                     <option value="">Alla fastigheter</option>
                   )}
+                  {isAnnualReport && reportData?.annualReportOverview?.mobileGroup && (
+                    <option value={MOBILE_REPORT_SCOPE_ID}>Mobila aggregat</option>
+                  )}
                   {properties
                     .filter((property) =>
                       selectedMunicipality
@@ -543,7 +572,7 @@ export default function ReportsPage() {
                   )}
                   {isAnnualReport && !selectedPropertyId && (
                     <span className="self-center text-xs font-medium text-slate-600">
-                      Välj en fastighet för att exportera årsrapport.
+                      Välj fastighet eller mobila aggregat för att exportera årsrapport.
                     </span>
                   )}
                 </>
@@ -1180,9 +1209,16 @@ function AnnualReportPropertyOverview({
     direction: SortDirection | ""
   }>({ key: "", direction: "" })
   const [showAllRows, setShowAllRows] = useState(false)
+  const overviewRows = useMemo(
+    () =>
+      overview.mobileGroup
+        ? [overview.mobileGroup, ...overview.properties]
+        : overview.properties,
+    [overview.mobileGroup, overview.properties]
+  )
   const sortedProperties = useMemo(
-    () => sortAnnualOverviewProperties(overview.properties, sort.key, sort.direction),
-    [overview.properties, sort.direction, sort.key]
+    () => sortAnnualOverviewProperties(overviewRows, sort.key, sort.direction),
+    [overviewRows, sort.direction, sort.key]
   )
   const visibleProperties = showAllRows
     ? sortedProperties
@@ -1200,7 +1236,7 @@ function AnnualReportPropertyOverview({
     })
   }
 
-  if (overview.properties.length === 0) {
+  if (overviewRows.length === 0) {
     return (
       <section
         className="mt-6 rounded-lg border border-slate-200 bg-white p-4"
@@ -1242,11 +1278,12 @@ function AnnualReportPropertyOverview({
             Årsrapportering {overview.year}
           </h2>
           <p className="text-sm text-slate-600">
-            Välj fastighet för export och signering av årsrapport.
+            Välj fastighet eller mobila aggregat för export och signering av årsrapport.
           </p>
         </div>
         <span className="text-xs font-semibold text-slate-500">
           {overview.properties.length} fastigheter
+          {overview.mobileGroup ? `, ${overview.mobileGroup.installationCount} mobila aggregat` : ""}
         </span>
       </div>
 
@@ -1322,6 +1359,11 @@ function AnnualReportPropertyOverview({
                     <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
                       Vald
                     </span>
+                  )}
+                  {property.id === MOBILE_REPORT_SCOPE_ID && "installationCount" in property && (
+                    <div className="text-xs font-medium text-slate-500">
+                      {property.installationCount} aggregat
+                    </div>
                   )}
                 </TableCell>
                 <TableCell>{property.municipality || "-"}</TableCell>

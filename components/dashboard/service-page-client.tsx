@@ -33,6 +33,11 @@ type ServiceInstallation = {
   id: string
   name: string
   location: string
+  installationRegisterType?: "STATIONARY" | "MOBILE"
+  mobileUnitId?: string | null
+  mobileUnitName?: string | null
+  mobileRegistrationOrVehicleNumber?: string | null
+  mobileBaseLocation?: string | null
   refrigerantType: string
   refrigerantAmount: number
   nextInspection: string | null
@@ -938,6 +943,11 @@ export default function ServiceDashboardPage() {
                       <p className="text-sm text-slate-600">
                         {installation.location || "Ingen plats angiven"} · {formatOptionalDate(installation.nextInspection)}
                       </p>
+                      {installation.installationRegisterType === "MOBILE" && (
+                        <p className="text-xs font-medium text-blue-700">
+                          Mobilt aggregat · {formatMobileInstallationContext(installation)}
+                        </p>
+                      )}
                     </div>
                     <Link
                       className="text-sm font-semibold text-blue-700 hover:text-blue-900"
@@ -1196,7 +1206,14 @@ export default function ServiceDashboardPage() {
                           {installation.name}
                         </Link>
                       </TableCell>
-                      <TableCell>{installation.location}</TableCell>
+                      <TableCell>
+                        <div>{installation.location || "-"}</div>
+                        {installation.installationRegisterType === "MOBILE" && (
+                          <div className="text-xs font-medium text-blue-700">
+                            Mobilt · {formatMobileInstallationContext(installation)}
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell>{installation.refrigerantType}</TableCell>
                       <TableCell>{formatNumber(installation.refrigerantAmount)} kg</TableCell>
                       <TableCell>{formatOptionalDate(installation.nextInspection)}</TableCell>
@@ -1787,6 +1804,17 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("sv-SE", {
     maximumFractionDigits: 2,
   }).format(value)
+}
+
+function formatMobileInstallationContext(installation: ServiceInstallation) {
+  return (
+    [
+      installation.mobileUnitId,
+      installation.mobileUnitName,
+      installation.mobileRegistrationOrVehicleNumber,
+      installation.mobileBaseLocation,
+    ].filter(Boolean).join(" / ") || "identifiering saknas"
+  )
 }
 
 function formatTechnicianName(technician: ServiceTechnician) {

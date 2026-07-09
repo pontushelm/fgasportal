@@ -392,6 +392,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         serialNumber: emptyToNull(validatedData.serialNumber),
         propertyName: emptyToNull(validatedData.propertyName),
         ...propertyUpdate,
+        installationRegisterType:
+          validatedData.installationRegisterType ?? installation.installationRegisterType,
+        mobileUnitId: emptyToNull(validatedData.mobileUnitId),
+        mobileUnitName: emptyToNull(validatedData.mobileUnitName),
+        mobileRegistrationOrVehicleNumber: emptyToNull(
+          validatedData.mobileRegistrationOrVehicleNumber
+        ),
+        mobileBaseLocation: emptyToNull(validatedData.mobileBaseLocation),
         equipmentType: emptyToNull(validatedData.equipmentType),
         operatorName: emptyToNull(validatedData.operatorName),
         ...assignedContractorUpdate,
