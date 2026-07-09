@@ -23,6 +23,7 @@ type InstallationFormData = {
   refrigerantType: string
   refrigerantAmount: string
   hasLeakDetectionSystem: boolean
+  isHermeticallySealed: boolean
   installationDate: string
   isInstallationDateUnknown: boolean
   lastInspection: string
@@ -52,6 +53,7 @@ type CreatedInstallation = {
   refrigerantType: string
   refrigerantAmount: number
   hasLeakDetectionSystem: boolean
+  isHermeticallySealed: boolean
   installationDate: string
   lastInspection?: string | null
   inspectionIntervalMonths?: number | null
@@ -80,6 +82,7 @@ const initialFormData: InstallationFormData = {
   refrigerantType: "",
   refrigerantAmount: "",
   hasLeakDetectionSystem: false,
+  isHermeticallySealed: false,
   installationDate: "",
   isInstallationDateUnknown: false,
   lastInspection: "",
@@ -205,7 +208,8 @@ export default function CreateInstallationForm({
   const inspectionPreview = calculateInspectionPreview(
     formData.refrigerantType,
     formData.refrigerantAmount,
-    formData.hasLeakDetectionSystem
+    formData.hasLeakDetectionSystem,
+    formData.isHermeticallySealed
   )
   const previewNextInspection = calculateNextInspectionPreview(
     formData.lastInspection,
@@ -343,6 +347,22 @@ export default function CreateInstallationForm({
         </span>
       </label>
 
+      <label className="flex items-start gap-2 text-sm font-medium text-slate-700">
+        <input
+          className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600"
+          name="isHermeticallySealed"
+          type="checkbox"
+          checked={formData.isHermeticallySealed}
+          onChange={handleChange}
+        />
+        <span>
+          Hermetiskt slutet aggregat
+          <span className="block text-xs font-normal text-slate-500">
+            Gäller endast om aggregatet är märkt som hermetiskt slutet.
+          </span>
+        </span>
+      </label>
+
       <label className={labelClassName}>
         Driftsättningsdatum
         <input
@@ -459,13 +479,16 @@ function calculateNextInspectionPreview(
 function calculateInspectionPreview(
   refrigerantType: string,
   refrigerantAmount: string,
-  hasLeakDetectionSystem: boolean
+  hasLeakDetectionSystem: boolean,
+  isHermeticallySealed: boolean
 ) {
   const amount = parseFloat(refrigerantAmount)
 
   if (!refrigerantType || !Number.isFinite(amount)) {
     return {
-      ...calculateInspectionObligation(null, hasLeakDetectionSystem),
+      ...calculateInspectionObligation(null, hasLeakDetectionSystem, {
+        isHermeticallySealed,
+      }),
       co2eTon: null,
       gwpWarning: null,
     }
@@ -474,7 +497,11 @@ function calculateInspectionPreview(
   const { co2eTon, warning } = calculateCO2e(refrigerantType, amount)
 
   return {
-    ...calculateInspectionObligation(co2eTon, hasLeakDetectionSystem),
+    ...calculateInspectionObligation(co2eTon, hasLeakDetectionSystem, {
+      refrigerantType,
+      refrigerantAmountKg: amount,
+      isHermeticallySealed,
+    }),
     co2eTon,
     gwpWarning: warning,
   }

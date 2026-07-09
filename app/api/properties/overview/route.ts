@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
           refrigerantType: true,
           refrigerantAmount: true,
           hasLeakDetectionSystem: true,
+          isHermeticallySealed: true,
           lastInspection: true,
           nextInspection: true,
           property: {
@@ -126,6 +127,7 @@ export async function GET(request: NextRequest) {
             refrigerantType: true,
             refrigerantAmount: true,
             hasLeakDetectionSystem: true,
+            isHermeticallySealed: true,
             lastInspection: true,
             nextInspection: true,
             events: {
@@ -197,6 +199,7 @@ function aggregateInstallationsByProperty(
     refrigerantType: string
     refrigerantAmount: number
     hasLeakDetectionSystem: boolean
+    isHermeticallySealed: boolean
     lastInspection: Date | null
     nextInspection: Date | null
     events: Array<{ id: string; date: Date; refrigerantAddedKg: number | null }>
@@ -251,6 +254,7 @@ function applyInstallationToSummary(
     refrigerantType: string
     refrigerantAmount: number
     hasLeakDetectionSystem: boolean
+    isHermeticallySealed: boolean
     lastInspection: Date | null
     nextInspection: Date | null
     events: Array<{ id: string; date: Date; refrigerantAddedKg: number | null }>
@@ -261,7 +265,8 @@ function applyInstallationToSummary(
     installation.refrigerantAmount,
     installation.hasLeakDetectionSystem,
     installation.lastInspection,
-    installation.nextInspection
+    installation.nextInspection,
+    installation.isHermeticallySealed
   )
   const risk = calculateInstallationRisk({
     refrigerantType: installation.refrigerantType,

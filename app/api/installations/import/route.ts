@@ -28,6 +28,7 @@ const importRequestSchema = z.object({
       nextInspection: z.string().nullable().optional(),
       inspectionIntervalMonths: z.number().nullable(),
       hasLeakDetectionSystem: z.boolean().optional(),
+      isHermeticallySealed: z.boolean().optional(),
       servicePartner: z.string().nullable().optional(),
       status: z.string().nullable().optional(),
       installationDate: z.string().nullable().optional(),
@@ -129,7 +130,9 @@ export async function POST(request: NextRequest) {
         parsed.refrigerantType,
         parsed.refrigerantAmount,
         parsed.hasLeakDetectionSystem,
-        lastInspection
+        lastInspection,
+        null,
+        parsed.isHermeticallySealed
       )
       const inspectionIntervalMonths =
         parsed.inspectionIntervalMonths ?? compliance.inspectionIntervalMonths
@@ -153,6 +156,7 @@ export async function POST(request: NextRequest) {
           refrigerantType: parsed.refrigerantType,
           refrigerantAmount: parsed.refrigerantAmount,
           hasLeakDetectionSystem: parsed.hasLeakDetectionSystem,
+          isHermeticallySealed: parsed.isHermeticallySealed,
           installationDate,
           lastInspection,
           inspectionIntervalMonths,

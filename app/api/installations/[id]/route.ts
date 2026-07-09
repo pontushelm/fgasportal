@@ -359,7 +359,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       refrigerantType,
       validatedData.refrigerantAmount,
       validatedData.hasLeakDetectionSystem ?? false,
-      lastInspection
+      lastInspection,
+      null,
+      validatedData.isHermeticallySealed ?? false
     )
     const nextInspection = calculateNextInspectionDate(
       lastInspection,
@@ -397,6 +399,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         refrigerantType,
         refrigerantAmount: validatedData.refrigerantAmount,
         hasLeakDetectionSystem: validatedData.hasLeakDetectionSystem ?? false,
+        isHermeticallySealed: validatedData.isHermeticallySealed ?? false,
         installationDate:
           validatedData.installationDate === undefined
             ? installation.installationDate
@@ -450,7 +453,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       updatedInstallation.refrigerantAmount,
       updatedInstallation.hasLeakDetectionSystem,
       updatedInstallation.lastInspection,
-      updatedInstallation.nextInspection
+      updatedInstallation.nextInspection,
+      updatedInstallation.isHermeticallySealed
     )
 
     return NextResponse.json(

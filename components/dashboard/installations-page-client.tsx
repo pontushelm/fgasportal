@@ -38,6 +38,7 @@ type Installation = {
   serialNumber?: string | null
   refrigerantType: string
   refrigerantAmount: number
+  isHermeticallySealed: boolean
   co2eTon: number | null
   inspectionInterval?: number | null
   riskLevel: InstallationRiskLevel
@@ -1648,6 +1649,11 @@ export default function InstallationsPageClient() {
                   <TableCell>
                     <div className="grid gap-1">
                       <span>{installation.refrigerantType}</span>
+                      {installation.isHermeticallySealed && (
+                        <span className="text-xs font-medium text-slate-500">
+                          Hermetiskt slutet
+                        </span>
+                      )}
                       <RefrigerantRegulatoryBadge
                         amountKg={installation.refrigerantAmount}
                         refrigerantType={installation.refrigerantType}
@@ -1988,6 +1994,10 @@ function InstallationQuickView({
               <QuickViewItem
                 label="CO₂e"
                 value={formatCo2eTon(installation.co2eTon)}
+              />
+              <QuickViewItem
+                label="Hermetiskt slutet"
+                value={installation.isHermeticallySealed ? "Ja" : "Nej"}
               />
               <QuickViewItem
                 label="Riskpoäng"
@@ -2491,6 +2501,10 @@ function InstallationMobileCard({
           value={formatOptionalDate(installation.nextInspection)}
         />
         <QuickViewItem label="CO₂e" value={formatCo2eTon(installation.co2eTon)} />
+        <QuickViewItem
+          label="Hermetiskt slutet"
+          value={installation.isHermeticallySealed ? "Ja" : "Nej"}
+        />
       </dl>
 
       {canAssignTechnician && (

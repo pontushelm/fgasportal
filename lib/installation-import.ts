@@ -18,6 +18,7 @@ export type ImportInstallationInput = {
   nextInspection: string | null
   inspectionIntervalMonths: number | null
   hasLeakDetectionSystem: boolean
+  isHermeticallySealed: boolean
   servicePartner: string | null
   status: string | null
   installationDate: string | null
@@ -236,6 +237,17 @@ export const IMPORT_FIELD_DEFINITIONS: ImportFieldDefinition[] = [
     aliases: ["gaslarm", "läckagevarningssystem", "larm", "leak detection", "alarm"],
   },
   {
+    key: "isHermeticallySealed",
+    label: "Hermetiskt slutet aggregat",
+    aliases: [
+      "hermetiskt slutet",
+      "hermetiskt sluten",
+      "hermetiskt slutet aggregat",
+      "hermetically sealed",
+      "sealed",
+    ],
+  },
+  {
     key: "servicePartner",
     label: "Servicepartner",
     aliases: ["servicepartner", "service partner", "entreprenör", "contractor"],
@@ -318,6 +330,7 @@ export function normalizeImportRow(
   const notes = getOptionalString(rawRow, "notes")
   const refrigerantAmount = parseNumber(getValue(rawRow, "refrigerantAmount"))
   const hasLeakDetectionSystem = parseBoolean(getValue(rawRow, "hasLeakDetectionSystem"))
+  const isHermeticallySealed = parseBoolean(getValue(rawRow, "isHermeticallySealed"))
   const lastInspection = parseDateValue(getValue(rawRow, "lastInspection"))
   const providedNextInspection = parseDateValue(getValue(rawRow, "nextInspection"))
   const installationDate = parseDateValue(getValue(rawRow, "installationDate"))
@@ -371,7 +384,12 @@ export function normalizeImportRow(
     refrigerantType && refrigerantAmount !== null && !Number.isNaN(refrigerantAmount)
       ? calculateInspectionObligation(
           calculateCO2e(refrigerantType, refrigerantAmount).co2eTon,
-          hasLeakDetectionSystem
+          hasLeakDetectionSystem,
+          {
+            refrigerantType,
+            refrigerantAmountKg: refrigerantAmount,
+            isHermeticallySealed,
+          }
         ).intervalMonths
       : null
   const inspectionIntervalMonths =
@@ -397,6 +415,7 @@ export function normalizeImportRow(
     nextInspection,
     inspectionIntervalMonths,
     hasLeakDetectionSystem,
+    isHermeticallySealed,
     servicePartner,
     status,
     installationDate,

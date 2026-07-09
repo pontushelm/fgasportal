@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
           refrigerantType: true,
           refrigerantAmount: true,
           hasLeakDetectionSystem: true,
+          isHermeticallySealed: true,
           lastInspection: true,
           nextInspection: true,
           property: {
@@ -288,6 +289,7 @@ async function createImportedEvent({
     refrigerantType: string
     refrigerantAmount: number
     hasLeakDetectionSystem: boolean
+    isHermeticallySealed: boolean
     lastInspection: Date | null
     nextInspection: Date | null
   }
@@ -374,7 +376,8 @@ async function createImportedEvent({
       addedRefrigerantKg ?? installation.refrigerantAmount,
       installation.hasLeakDetectionSystem,
       installation.lastInspection,
-      installation.nextInspection
+      installation.nextInspection,
+      installation.isHermeticallySealed
     )
     const nextInspection = calculateNextInspectionDate(
       installation.lastInspection,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   calculateCO2e,
+  calculateInstallationCompliance,
   calculateInspectionObligation,
 } from "@/lib/fgas-calculations"
 
@@ -45,5 +46,57 @@ describe("F-gas calculations", () => {
   it("extends inspection intervals when leak detection is present", () => {
     expect(calculateInspectionObligation(50, true).intervalMonths).toBe(12)
     expect(calculateInspectionObligation(500, true).intervalMonths).toBe(6)
+  })
+
+  it("uses the ordinary Annex I threshold from 5 tonnes CO2e", () => {
+    const compliance = calculateInstallationCompliance("R410A", 2.4, false)
+
+    expect(compliance.co2eTon).toBeCloseTo(5.0112)
+    expect(compliance.inspectionIntervalMonths).toBe(12)
+    expect(compliance.status).toBe("NOT_INSPECTED")
+  })
+
+  it("exempts hermetically sealed Annex I equipment below 10 tonnes CO2e", () => {
+    const compliance = calculateInstallationCompliance(
+      "R410A",
+      4.7,
+      false,
+      null,
+      null,
+      true
+    )
+
+    expect(compliance.co2eTon).toBeCloseTo(9.8136)
+    expect(compliance.inspectionIntervalMonths).toBeNull()
+    expect(compliance.status).toBe("NOT_REQUIRED")
+    expect(compliance.isHermeticInspectionExempt).toBe(true)
+  })
+
+  it("requires leak checks for hermetically sealed Annex I equipment from 10 tonnes CO2e", () => {
+    const compliance = calculateInstallationCompliance(
+      "R410A",
+      4.8,
+      false,
+      null,
+      null,
+      true
+    )
+
+    expect(compliance.co2eTon).toBeCloseTo(10.0224)
+    expect(compliance.inspectionIntervalMonths).toBe(12)
+  })
+
+  it("uses Annex II Section 1 kg thresholds for HFO refrigerants", () => {
+    expect(
+      calculateInstallationCompliance("R1234yf", 1, false).inspectionIntervalMonths
+    ).toBe(12)
+    expect(
+      calculateInstallationCompliance("R1234yf", 1.9, false, null, null, true)
+        .inspectionIntervalMonths
+    ).toBeNull()
+    expect(
+      calculateInstallationCompliance("R1234yf", 2, false, null, null, true)
+        .inspectionIntervalMonths
+    ).toBe(12)
   })
 })

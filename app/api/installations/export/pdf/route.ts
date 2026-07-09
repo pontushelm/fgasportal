@@ -71,7 +71,8 @@ export async function GET(request: NextRequest) {
         installation.refrigerantAmount,
         installation.hasLeakDetectionSystem,
         installation.lastInspection,
-        installation.nextInspection
+        installation.nextInspection,
+        installation.isHermeticallySealed
       )
 
       return {

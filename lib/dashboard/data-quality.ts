@@ -74,6 +74,7 @@ export type DataQualityInstallationInput = {
   propertyId?: string | null
   refrigerantAmount?: number | null
   refrigerantType?: string | null
+  isHermeticallySealed?: boolean
 }
 
 export type DataQualityCertificationInput = {
@@ -177,7 +178,11 @@ export function buildDataQualityReport({
         return (
           calculateInstallationCompliance(
             installation.refrigerantType,
-            installation.refrigerantAmount
+            installation.refrigerantAmount,
+            false,
+            null,
+            null,
+            installation.isHermeticallySealed
           ).co2eKg === null
         )
       }).length,

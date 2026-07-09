@@ -221,7 +221,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
           installation.refrigerantAmount,
           installation.hasLeakDetectionSystem,
           installation.lastInspection,
-          installation.nextInspection
+          installation.nextInspection,
+          installation.isHermeticallySealed
         )
 
         if (compliance.status === "OVERDUE") overdueInspections += 1
@@ -314,7 +315,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
             installation.refrigerantAmount,
             installation.hasLeakDetectionSystem,
             installation.lastInspection,
-            installation.nextInspection
+            installation.nextInspection,
+            installation.isHermeticallySealed
           )
           const risk = calculateInstallationRisk({
             refrigerantType: installation.refrigerantType,
@@ -351,7 +353,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
           installation.refrigerantAmount,
           installation.hasLeakDetectionSystem,
           installation.lastInspection,
-          installation.nextInspection
+          installation.nextInspection,
+          installation.isHermeticallySealed
         )
         const risk = calculateInstallationRisk({
           refrigerantType: installation.refrigerantType,

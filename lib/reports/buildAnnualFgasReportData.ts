@@ -259,7 +259,8 @@ export async function buildAnnualFgasReportData({
         installation.refrigerantAmount,
         installation.hasLeakDetectionSystem,
         installation.lastInspection,
-        installation.nextInspection
+        installation.nextInspection,
+        installation.isHermeticallySealed
       )
       const isControlRequired = Boolean(compliance.inspectionIntervalMonths)
       const hasUnknownCo2e = compliance.co2eKg === null
@@ -288,7 +289,8 @@ export async function buildAnnualFgasReportData({
       installation.refrigerantAmount,
       installation.hasLeakDetectionSystem,
       installation.lastInspection,
-      installation.nextInspection
+      installation.nextInspection,
+      installation.isHermeticallySealed
     )
 
     const status: AnnualFgasEquipmentRow["status"] = installation.scrappedAt

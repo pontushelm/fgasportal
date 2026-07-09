@@ -6,6 +6,12 @@ import {
 
 export type ComplianceStatus = InspectionStatus
 
+type InspectionObligationOptions = {
+  refrigerantType?: string | null
+  refrigerantAmountKg?: number | null
+  isHermeticallySealed?: boolean
+}
+
 export function calculateCO2e(
   refrigerantType: string,
   refrigerantAmount: number
@@ -26,30 +32,88 @@ export function calculateCO2e(
   }
 }
 
-export function calculateInspectionInterval(co2eTon: number | null) {
-  return calculateInspectionObligation(co2eTon, false).intervalMonths
+export function calculateInspectionInterval(
+  co2eTon: number | null,
+  options: InspectionObligationOptions = {}
+) {
+  return calculateInspectionObligation(co2eTon, false, options).intervalMonths
 }
 
 export function calculateInspectionObligation(
   co2eTonnes: number | null | undefined,
-  hasLeakDetectionSystem: boolean
+  hasLeakDetectionSystem: boolean,
+  options: InspectionObligationOptions = {}
 ) {
+  const isHermeticallySealed = options.isHermeticallySealed ?? false
+  const annexIiSection1 = isAnnexIiSection1Refrigerant(options.refrigerantType)
+  const refrigerantAmountKg = options.refrigerantAmountKg
+
+  if (annexIiSection1) {
+    if (
+      refrigerantAmountKg == null ||
+      !Number.isFinite(refrigerantAmountKg)
+    ) {
+      return {
+        isInspectionRequired: false,
+        intervalMonths: null,
+        label: "Kan inte beräknas",
+        explanation: "Ange köldmedium och mängd för att beräkna kontrollplikt.",
+        isHermeticInspectionExempt: false,
+      }
+    }
+
+    const thresholdKg = isHermeticallySealed ? 2 : 1
+
+    if (refrigerantAmountKg < thresholdKg) {
+      return {
+        isInspectionRequired: false,
+        intervalMonths: null,
+        label: "Ej kontrollpliktigt",
+        explanation: isHermeticallySealed
+          ? "Undantaget från periodisk läckagekontroll enligt hermetiskt slutet-undantaget."
+          : "Aggregat under 1 kg av Annex II avsnitt 1-gas omfattas inte av periodisk läckagekontroll.",
+        isHermeticInspectionExempt: isHermeticallySealed,
+      }
+    }
+
+    const baseIntervalMonths =
+      refrigerantAmountKg >= 100 ? 3 : refrigerantAmountKg >= 10 ? 6 : 12
+    const intervalMonths = hasLeakDetectionSystem
+      ? baseIntervalMonths * 2
+      : baseIntervalMonths
+
+    return {
+      isInspectionRequired: true,
+      intervalMonths,
+      label: `Kontroll var ${intervalMonths}:e månad`,
+      explanation: isHermeticallySealed
+        ? "Aggregatet är hermetiskt slutet men omfattas ändå av periodisk läckagekontroll eftersom fyllnadsmängden överstiger gränsvärdet."
+        : "Aggregatet är kontrollpliktigt eftersom det innehåller minst 1 kg av Annex II avsnitt 1-gas.",
+      isHermeticInspectionExempt: false,
+    }
+  }
+
   if (co2eTonnes == null || !Number.isFinite(co2eTonnes)) {
     return {
       isInspectionRequired: false,
       intervalMonths: null,
       label: "Kan inte beräknas",
       explanation: "Ange köldmedium och mängd för att beräkna kontrollplikt.",
+      isHermeticInspectionExempt: false,
     }
   }
 
-  if (co2eTonnes < 5) {
+  const thresholdCo2eTonnes = isHermeticallySealed ? 10 : 5
+
+  if (co2eTonnes < thresholdCo2eTonnes) {
     return {
       isInspectionRequired: false,
       intervalMonths: null,
       label: "Ej kontrollpliktigt",
-      explanation:
-        "Aggregat under 5 ton CO₂e omfattas inte av periodisk läckagekontroll.",
+      explanation: isHermeticallySealed
+        ? "Undantaget från periodisk läckagekontroll enligt hermetiskt slutet-undantaget."
+        : "Aggregat under 5 ton CO₂e omfattas inte av periodisk läckagekontroll.",
+      isHermeticInspectionExempt: isHermeticallySealed,
     }
   }
 
@@ -63,9 +127,12 @@ export function calculateInspectionObligation(
     isInspectionRequired: true,
     intervalMonths,
     label: `Kontroll var ${intervalMonths}:e månad`,
-    explanation: hasLeakDetectionSystem
-      ? "Aggregatet är kontrollpliktigt och läckagevarningssystem förlänger det lagstadgade kontrollintervallet."
-      : "Aggregatet är kontrollpliktigt eftersom det innehåller minst 5 ton CO₂e.",
+    explanation: isHermeticallySealed
+      ? "Aggregatet är hermetiskt slutet men omfattas ändå av periodisk läckagekontroll eftersom fyllnadsmängden överstiger gränsvärdet."
+      : hasLeakDetectionSystem
+        ? "Aggregatet är kontrollpliktigt och läckagevarningssystem förlänger det lagstadgade kontrollintervallet."
+        : "Aggregatet är kontrollpliktigt eftersom det innehåller minst 5 ton CO₂e.",
+    isHermeticInspectionExempt: false,
   }
 }
 
@@ -74,16 +141,26 @@ export function calculateInstallationCompliance(
   refrigerantAmount: number,
   hasLeakDetectionSystem = false,
   lastInspection?: Date | string | null,
-  nextInspection?: Date | string | null
+  nextInspection?: Date | string | null,
+  isHermeticallySealed = false
 ) {
   const co2e = calculateCO2e(
     refrigerantType,
     refrigerantAmount
   )
-  const baseInspectionIntervalMonths = calculateInspectionInterval(co2e.co2eTon)
+  const inspectionOptions = {
+    refrigerantType,
+    refrigerantAmountKg: refrigerantAmount,
+    isHermeticallySealed,
+  }
+  const baseInspectionIntervalMonths = calculateInspectionInterval(
+    co2e.co2eTon,
+    inspectionOptions
+  )
   const inspectionObligation = calculateInspectionObligation(
     co2e.co2eTon,
-    hasLeakDetectionSystem
+    hasLeakDetectionSystem,
+    inspectionOptions
   )
   const inspectionIntervalMonths = inspectionObligation.intervalMonths
   const dueStatus = classifyInspectionStatus({
@@ -102,6 +179,8 @@ export function calculateInstallationCompliance(
     baseInspectionIntervalMonths,
     inspectionIntervalMonths,
     inspectionObligation,
+    isHermeticInspectionExempt:
+      inspectionObligation.isHermeticInspectionExempt,
     hasAdjustedInspectionInterval:
       Boolean(baseInspectionIntervalMonths) && hasLeakDetectionSystem,
     status: dueStatus.status,
@@ -121,4 +200,11 @@ export function calculateComplianceStatus(
     nextInspection,
     today,
   })
+}
+
+export function isAnnexIiSection1Refrigerant(
+  refrigerantType: string | null | undefined
+) {
+  const refrigerant = getRefrigerant(refrigerantType)
+  return refrigerant?.category === "HFO" || refrigerant?.category === "HFO blend"
 }

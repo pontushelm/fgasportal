@@ -40,7 +40,8 @@ export async function GET(request: NextRequest) {
         installation.refrigerantAmount,
         installation.hasLeakDetectionSystem,
         installation.lastInspection,
-        installation.nextInspection
+        installation.nextInspection,
+        installation.isHermeticallySealed
       )
 
       return {
@@ -49,6 +50,7 @@ export async function GET(request: NextRequest) {
         location: installation.location,
         refrigerantType: installation.refrigerantType,
         refrigerantAmount: installation.refrigerantAmount,
+        isHermeticallySealed: installation.isHermeticallySealed,
         nextInspection: installation.nextInspection,
         complianceStatus: compliance.status,
         daysUntilDue: compliance.daysUntilDue,

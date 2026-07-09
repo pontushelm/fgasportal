@@ -23,6 +23,70 @@ describe("installation import parsing", () => {
     )
   })
 
+  it("maps common hermetically sealed columns", () => {
+    expect(getSuggestedImportField("Hermetiskt slutet")).toBe("isHermeticallySealed")
+    expect(getSuggestedImportField("Hermetiskt sluten")).toBe("isHermeticallySealed")
+    expect(getSuggestedImportField("Hermetiskt slutet aggregat")).toBe(
+      "isHermeticallySealed"
+    )
+    expect(getSuggestedImportField("Hermetically sealed")).toBe(
+      "isHermeticallySealed"
+    )
+    expect(getSuggestedImportField("Sealed")).toBe("isHermeticallySealed")
+  })
+
+  it("parses hermetically sealed values and defaults blank to false", () => {
+    expect(
+      normalizeImportRow(
+        {
+          equipmentId: "AGG-001",
+          refrigerantType: "R410A",
+          refrigerantAmount: "4,7",
+          isHermeticallySealed: "ja",
+        },
+        2
+      ).isHermeticallySealed
+    ).toBe(true)
+    expect(
+      normalizeImportRow(
+        {
+          equipmentId: "AGG-002",
+          refrigerantType: "R410A",
+          refrigerantAmount: "4,7",
+          isHermeticallySealed: "",
+        },
+        3
+      ).isHermeticallySealed
+    ).toBe(false)
+    expect(
+      normalizeImportRow(
+        {
+          equipmentId: "AGG-003",
+          refrigerantType: "R410A",
+          refrigerantAmount: "4,7",
+          isHermeticallySealed: "x",
+        },
+        4
+      ).isHermeticallySealed
+    ).toBe(true)
+  })
+
+  it("does not require control interval for imported hermetic Annex I equipment below threshold", () => {
+    const row = normalizeImportRow(
+      {
+        equipmentId: "AGG-001",
+        refrigerantType: "R410A",
+        refrigerantAmount: "4,7",
+        isHermeticallySealed: "yes",
+      },
+      2
+    )
+
+    expect(row.errors).toEqual([])
+    expect(row.inspectionIntervalMonths).toBeNull()
+    expect(row.nextInspection).toBeNull()
+  })
+
   it("imports Aggregat-ID only rows and uses it as display name", () => {
     const row = normalizeImportRow(
       {

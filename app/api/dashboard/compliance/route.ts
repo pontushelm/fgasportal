@@ -92,6 +92,7 @@ export async function GET(request: NextRequest) {
         refrigerantType: true,
         refrigerantAmount: true,
         hasLeakDetectionSystem: true,
+        isHermeticallySealed: true,
         lastInspection: true,
         nextInspection: true,
         assignedContractorId: true,
@@ -269,7 +270,8 @@ export async function GET(request: NextRequest) {
         installation.refrigerantAmount,
         installation.hasLeakDetectionSystem,
         installation.lastInspection,
-        installation.nextInspection
+        installation.nextInspection,
+        installation.isHermeticallySealed
       )
 
       statusCounts[compliance.status] += 1

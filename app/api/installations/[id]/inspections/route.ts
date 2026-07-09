@@ -41,7 +41,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const compliance = calculateInstallationCompliance(
       installation.refrigerantType,
       installation.refrigerantAmount,
-      installation.hasLeakDetectionSystem
+      installation.hasLeakDetectionSystem,
+      null,
+      null,
+      installation.isHermeticallySealed
     )
     const nextInspection = calculateNextInspectionDate(
       validatedData.inspectionDate,

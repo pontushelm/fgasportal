@@ -78,7 +78,9 @@ export async function POST(request: NextRequest) {
       refrigerantType,
       validatedData.refrigerantAmount,
       validatedData.hasLeakDetectionSystem ?? false,
-      validatedData.lastInspection
+      validatedData.lastInspection,
+      null,
+      validatedData.isHermeticallySealed ?? false
     )
     const nextInspection = calculateNextInspectionDate(
       validatedData.lastInspection,
@@ -89,7 +91,8 @@ export async function POST(request: NextRequest) {
       validatedData.refrigerantAmount,
       validatedData.hasLeakDetectionSystem ?? false,
       validatedData.lastInspection,
-      nextInspection
+      nextInspection,
+      validatedData.isHermeticallySealed ?? false
     )
 
     const installation = await prisma.installation.create({
@@ -106,6 +109,7 @@ export async function POST(request: NextRequest) {
         assignedContractorId: assignedContractorId ?? null,
         assignedServicePartnerCompanyId: inferredServicePartnerCompanyId,
         hasLeakDetectionSystem: validatedData.hasLeakDetectionSystem ?? false,
+        isHermeticallySealed: validatedData.isHermeticallySealed ?? false,
         inspectionIntervalMonths: compliance.inspectionIntervalMonths,
         nextInspection,
         notes: emptyToNull(validatedData.notes),
@@ -447,6 +451,7 @@ export async function GET(request: NextRequest) {
         refrigerantType: true,
         refrigerantAmount: true,
         hasLeakDetectionSystem: true,
+        isHermeticallySealed: true,
         lastInspection: true,
         nextInspection: true,
         isActive: true,
@@ -548,7 +553,8 @@ export async function GET(request: NextRequest) {
         installation.refrigerantAmount,
         installation.hasLeakDetectionSystem,
         installation.lastInspection,
-        installation.nextInspection
+        installation.nextInspection,
+        installation.isHermeticallySealed
       )
       const risk = calculateInstallationRisk({
         refrigerantType: installation.refrigerantType,

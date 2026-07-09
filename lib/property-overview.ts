@@ -110,6 +110,7 @@ type PropertyReportInstallationInput = {
   refrigerantType: string
   refrigerantAmount: number
   hasLeakDetectionSystem: boolean
+  isHermeticallySealed?: boolean
   lastInspection: Date | null
   nextInspection: Date | null
   events: Array<{
@@ -148,7 +149,8 @@ export function buildPropertyReportOverview({
       installation.refrigerantAmount,
       installation.hasLeakDetectionSystem,
       installation.lastInspection,
-      installation.nextInspection
+      installation.nextInspection,
+      installation.isHermeticallySealed ?? false
     )
     const isControlRequired = Boolean(compliance.inspectionIntervalMonths)
     const hasUnknownCo2e = compliance.co2eTon === null

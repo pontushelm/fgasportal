@@ -95,6 +95,7 @@ export function matchesInstallationQualityFilter(
     propertyId?: string | null
     refrigerantAmount?: number | null
     refrigerantType?: string | null
+    isHermeticallySealed?: boolean
   },
   filter: InstallationQualityFilter | null
 ) {
@@ -122,7 +123,11 @@ export function matchesInstallationQualityFilter(
         installation.co2eTon == null ||
         calculateInstallationCompliance(
           installation.refrigerantType,
-          installation.refrigerantAmount
+          installation.refrigerantAmount,
+          false,
+          null,
+          null,
+          installation.isHermeticallySealed
         ).co2eKg === null
       )
   }

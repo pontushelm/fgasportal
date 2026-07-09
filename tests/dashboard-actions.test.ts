@@ -16,6 +16,7 @@ import {
   isDateInRange,
   summarizeCo2eCompleteness,
 } from "@/lib/dashboard/compliance-metrics"
+import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 
 describe("dashboard action generation", () => {
   it("sorts urgent inspection and leakage actions before medium priority actions", () => {
@@ -88,6 +89,36 @@ describe("dashboard action generation", () => {
     })
 
     expect(actions).toEqual([])
+  })
+
+  it("does not create overdue or missing-control actions for hermetic equipment below threshold", () => {
+    const compliance = calculateInstallationCompliance(
+      "R410A",
+      4.7,
+      false,
+      null,
+      null,
+      true
+    )
+    const actions = generateDashboardActions({
+      today: new Date("2026-05-08T12:00:00"),
+      installations: [
+        {
+          id: "hermetic-exempt",
+          name: "Hermetiskt aggregat",
+          nextInspection: null,
+          inspectionInterval: compliance.inspectionIntervalMonths,
+          complianceStatus: compliance.status,
+          assignedContractorId: null,
+          risk: { level: "LOW", score: 1 },
+        },
+      ],
+      leakageEvents: [],
+    })
+
+    expect(compliance.status).toBe("NOT_REQUIRED")
+    expect(actions.map((action) => action.type)).not.toContain("OVERDUE_INSPECTION")
+    expect(actions.map((action) => action.type)).not.toContain("NOT_INSPECTED")
   })
 
   it("filters generated actions by operational category without changing order", () => {

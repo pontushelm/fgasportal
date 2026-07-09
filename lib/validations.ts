@@ -133,6 +133,7 @@ const installationRegisterFieldsSchema = {
   equipmentType: optionalRegisterField,
   operatorName: optionalRegisterField,
   hasLeakDetectionSystem: z.boolean().optional(),
+  isHermeticallySealed: z.boolean().optional(),
   assignedContractorId: optionalContractorField,
   assignedServicePartnerCompanyId: optionalContractorField,
 }

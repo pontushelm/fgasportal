@@ -31,6 +31,7 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
         refrigerantType: true,
         refrigerantAmount: true,
         hasLeakDetectionSystem: true,
+        isHermeticallySealed: true,
         lastInspection: true,
         assignedContractorId: true,
         events: {
@@ -420,7 +421,8 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
       installation.refrigerantAmount,
       installation.hasLeakDetectionSystem,
       installation.lastInspection,
-      installation.nextInspection
+      installation.nextInspection,
+      installation.isHermeticallySealed
     )
     const risk = calculateInstallationRisk({
       refrigerantType: installation.refrigerantType,

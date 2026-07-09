@@ -106,6 +106,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         refrigerantType: true,
         refrigerantAmount: true,
         hasLeakDetectionSystem: true,
+        isHermeticallySealed: true,
         lastInspection: true,
         nextInspection: true,
       },
@@ -303,7 +304,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         addedRefrigerantKg ?? installation.refrigerantAmount,
         installation.hasLeakDetectionSystem,
         installation.lastInspection,
-        installation.nextInspection
+        installation.nextInspection,
+        installation.isHermeticallySealed
       )
       const nextInspection = calculateNextInspectionDate(
         installation.lastInspection,

@@ -14,6 +14,7 @@ const CSV_HEADERS = [
   "Refrigerant",
   "Refrigerant amount kg",
   "Leak detection system",
+  "Hermetically sealed",
   "GWP",
   "CO2e ton",
   "Inspection interval months",
@@ -55,7 +56,8 @@ export async function GET(request: NextRequest) {
         installation.refrigerantAmount,
         installation.hasLeakDetectionSystem,
         installation.lastInspection,
-        installation.nextInspection
+        installation.nextInspection,
+        installation.isHermeticallySealed
       )
 
       return [
@@ -69,6 +71,7 @@ export async function GET(request: NextRequest) {
         installation.refrigerantType,
         installation.refrigerantAmount,
         installation.hasLeakDetectionSystem ? "Yes" : "No",
+        installation.isHermeticallySealed ? "Yes" : "No",
         compliance.gwp ?? "Okänt GWP-värde",
         compliance.co2eTon === null ? "Okänt GWP-värde" : compliance.co2eTon.toFixed(2),
         compliance.inspectionIntervalMonths ?? "",

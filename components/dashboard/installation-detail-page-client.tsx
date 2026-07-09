@@ -139,6 +139,7 @@ type InstallationDetail = {
   refrigerantType: string
   refrigerantAmount: number
   hasLeakDetectionSystem: boolean
+  isHermeticallySealed: boolean
   installationDate: string | null
   lastInspection?: string | null
   nextInspection?: string | null
@@ -215,6 +216,7 @@ type InstallationEditFormData = {
   refrigerantType: string
   refrigerantAmount: string
   hasLeakDetectionSystem: boolean
+  isHermeticallySealed: boolean
   installationDate: string
   isInstallationDateUnknown: boolean
   assignedServicePartnerCompanyId: string
@@ -285,6 +287,7 @@ const initialEditFormData: InstallationEditFormData = {
   refrigerantType: "",
   refrigerantAmount: "",
   hasLeakDetectionSystem: false,
+  isHermeticallySealed: false,
   installationDate: "",
   isInstallationDateUnknown: false,
   assignedServicePartnerCompanyId: "",
@@ -1246,7 +1249,8 @@ export default function InstallationDetailPage() {
     installation.refrigerantAmount,
     installation.hasLeakDetectionSystem,
     installation.lastInspection,
-    installation.nextInspection
+    installation.nextInspection,
+    installation.isHermeticallySealed
   )
   const leakageEvents = events.filter((event) => event.type === "LEAK")
   const totalLeakageKg = leakageEvents.reduce(
@@ -1281,7 +1285,8 @@ export default function InstallationDetailPage() {
   const editInspectionPreview = calculateInspectionPreview(
     editForm.refrigerantType,
     editForm.refrigerantAmount,
-    editForm.hasLeakDetectionSystem
+    editForm.hasLeakDetectionSystem,
+    editForm.isHermeticallySealed
   )
   const documentsByEventId = documents.reduce<Record<string, number>>((counts, document) => {
     if (!document.event?.id) return counts
@@ -1468,6 +1473,10 @@ export default function InstallationDetailPage() {
               value={installation.hasLeakDetectionSystem ? "Ja" : "Nej"}
             />
             <DetailItem
+              label="Hermetiskt slutet"
+              value={installation.isHermeticallySealed ? "Ja" : "Nej"}
+            />
+            <DetailItem
               label="GWP"
               value={compliance.gwp === null ? "Okänt GWP-värde" : String(compliance.gwp)}
             />
@@ -1477,6 +1486,11 @@ export default function InstallationDetailPage() {
               value={formatKnownDate(installation.installationDate)}
             />
           </dl>
+          {compliance.isHermeticInspectionExempt && (
+            <p className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900">
+              Undantaget från periodisk läckagekontroll enligt hermetiskt slutet-undantaget.
+            </p>
+          )}
           {installation.notes && (
             <div className="mt-5 rounded-md bg-slate-50 p-4">
               <h3 className="font-semibold text-slate-950">Anteckningar</h3>
@@ -1829,6 +1843,21 @@ export default function InstallationDetailPage() {
                 Läckagevarningssystem finns
                 <span className="block text-xs font-normal text-slate-500">
                   Kan påverka lagstadgat kontrollintervall.
+                </span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2 text-sm font-medium text-slate-700">
+              <input
+                className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600"
+                name="isHermeticallySealed"
+                type="checkbox"
+                checked={editForm.isHermeticallySealed}
+                onChange={handleEditChange}
+              />
+              <span>
+                Hermetiskt slutet aggregat
+                <span className="block text-xs font-normal text-slate-500">
+                  Gäller endast om aggregatet är märkt som hermetiskt slutet.
                 </span>
               </span>
             </label>
@@ -2967,13 +2996,16 @@ function isInstallationEventType(type: EventFormType): type is InstallationEvent
 function calculateInspectionPreview(
   refrigerantType: string,
   refrigerantAmount: string,
-  hasLeakDetectionSystem: boolean
+  hasLeakDetectionSystem: boolean,
+  isHermeticallySealed: boolean
 ) {
   const amount = parseFloat(refrigerantAmount)
 
   if (!refrigerantType || !Number.isFinite(amount)) {
     return {
-      ...calculateInspectionObligation(null, hasLeakDetectionSystem),
+      ...calculateInspectionObligation(null, hasLeakDetectionSystem, {
+        isHermeticallySealed,
+      }),
       co2eTon: null,
       gwpWarning: null,
     }
@@ -2982,7 +3014,11 @@ function calculateInspectionPreview(
   const { co2eTon, warning } = calculateCO2e(refrigerantType, amount)
 
   return {
-    ...calculateInspectionObligation(co2eTon, hasLeakDetectionSystem),
+    ...calculateInspectionObligation(co2eTon, hasLeakDetectionSystem, {
+      refrigerantType,
+      refrigerantAmountKg: amount,
+      isHermeticallySealed,
+    }),
     co2eTon,
     gwpWarning: warning,
   }
@@ -3043,6 +3079,7 @@ function toInstallationEditFormData(
     refrigerantType: installation.refrigerantType,
     refrigerantAmount: String(installation.refrigerantAmount),
     hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
+    isHermeticallySealed: installation.isHermeticallySealed,
     installationDate: toDateInputValue(installation.installationDate),
     isInstallationDateUnknown: !installation.installationDate,
     assignedServicePartnerCompanyId:

@@ -62,6 +62,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
             refrigerantType: true,
             refrigerantAmount: true,
             hasLeakDetectionSystem: true,
+            isHermeticallySealed: true,
             lastInspection: true,
             nextInspection: true,
             assignedContractorId: true,
@@ -147,7 +148,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
         installation.refrigerantAmount,
         installation.hasLeakDetectionSystem,
         installation.lastInspection,
-        installation.nextInspection
+        installation.nextInspection,
+        installation.isHermeticallySealed
       )
       const risk = calculateInstallationRisk({
         refrigerantType: installation.refrigerantType,
