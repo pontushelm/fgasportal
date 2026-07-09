@@ -185,6 +185,24 @@ describe("installation import parsing", () => {
     )
   })
 
+  it("warns when a known refrigerant lacks legal classification", () => {
+    const row = normalizeImportRow(
+      {
+        equipmentId: "AGG-001",
+        refrigerantType: "R22",
+        refrigerantAmount: "10",
+      },
+      2
+    )
+
+    expect(row.errors).toEqual([])
+    expect(row.refrigerantType).toBe("R22")
+    expect(row.inspectionIntervalMonths).toBeNull()
+    expect(row.warnings).toContain(
+      "Köldmediets regelklassificering saknas och behöver kontrolleras innan kontrollkrav kan bedömas."
+    )
+  })
+
   it("parses rows through explicit column mapping", () => {
     const mapping: ColumnMapping = {
       "Aggregat-ID": "equipmentId",

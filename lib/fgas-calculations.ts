@@ -1,4 +1,12 @@
-import { getRefrigerant, normalizeRefrigerantCode } from "./refrigerants"
+import {
+  calculateFgasLeakCheckObligation,
+  type FgasLeakCheckObligationResult,
+} from "./fgas-rules"
+import {
+  getRefrigerant,
+  normalizeRefrigerantCode,
+  type RefrigerantLegalClassification,
+} from "./refrigerants"
 import {
   classifyInspectionStatus,
   type InspectionStatus,
@@ -10,6 +18,14 @@ type InspectionObligationOptions = {
   refrigerantType?: string | null
   refrigerantAmountKg?: number | null
   isHermeticallySealed?: boolean
+  legalClassification?: RefrigerantLegalClassification
+}
+
+export type InspectionObligationResult = FgasLeakCheckObligationResult & {
+  isInspectionRequired: boolean
+  label: string
+  explanation: string
+  isHermeticInspectionExempt: boolean
 }
 
 export function calculateCO2e(
@@ -43,97 +59,16 @@ export function calculateInspectionObligation(
   co2eTonnes: number | null | undefined,
   hasLeakDetectionSystem: boolean,
   options: InspectionObligationOptions = {}
-) {
-  const isHermeticallySealed = options.isHermeticallySealed ?? false
-  const annexIiSection1 = isAnnexIiSection1Refrigerant(options.refrigerantType)
-  const refrigerantAmountKg = options.refrigerantAmountKg
+): InspectionObligationResult {
+  const obligation = calculateFgasLeakCheckObligation({
+    legalClassification: resolveLegalClassification(options),
+    co2eTonnes,
+    refrigerantAmountKg: options.refrigerantAmountKg,
+    isHermeticallySealed: options.isHermeticallySealed ?? false,
+    hasLeakDetectionSystem,
+  })
 
-  if (annexIiSection1) {
-    if (
-      refrigerantAmountKg == null ||
-      !Number.isFinite(refrigerantAmountKg)
-    ) {
-      return {
-        isInspectionRequired: false,
-        intervalMonths: null,
-        label: "Kan inte beräknas",
-        explanation: "Ange köldmedium och mängd för att beräkna kontrollplikt.",
-        isHermeticInspectionExempt: false,
-      }
-    }
-
-    const thresholdKg = isHermeticallySealed ? 2 : 1
-
-    if (refrigerantAmountKg < thresholdKg) {
-      return {
-        isInspectionRequired: false,
-        intervalMonths: null,
-        label: "Ej kontrollpliktigt",
-        explanation: isHermeticallySealed
-          ? "Undantaget från periodisk läckagekontroll enligt hermetiskt slutet-undantaget."
-          : "Aggregat under 1 kg av Annex II avsnitt 1-gas omfattas inte av periodisk läckagekontroll.",
-        isHermeticInspectionExempt: isHermeticallySealed,
-      }
-    }
-
-    const baseIntervalMonths =
-      refrigerantAmountKg >= 100 ? 3 : refrigerantAmountKg >= 10 ? 6 : 12
-    const intervalMonths = hasLeakDetectionSystem
-      ? baseIntervalMonths * 2
-      : baseIntervalMonths
-
-    return {
-      isInspectionRequired: true,
-      intervalMonths,
-      label: `Kontroll var ${intervalMonths}:e månad`,
-      explanation: isHermeticallySealed
-        ? "Aggregatet är hermetiskt slutet men omfattas ändå av periodisk läckagekontroll eftersom fyllnadsmängden överstiger gränsvärdet."
-        : "Aggregatet är kontrollpliktigt eftersom det innehåller minst 1 kg av Annex II avsnitt 1-gas.",
-      isHermeticInspectionExempt: false,
-    }
-  }
-
-  if (co2eTonnes == null || !Number.isFinite(co2eTonnes)) {
-    return {
-      isInspectionRequired: false,
-      intervalMonths: null,
-      label: "Kan inte beräknas",
-      explanation: "Ange köldmedium och mängd för att beräkna kontrollplikt.",
-      isHermeticInspectionExempt: false,
-    }
-  }
-
-  const thresholdCo2eTonnes = isHermeticallySealed ? 10 : 5
-
-  if (co2eTonnes < thresholdCo2eTonnes) {
-    return {
-      isInspectionRequired: false,
-      intervalMonths: null,
-      label: "Ej kontrollpliktigt",
-      explanation: isHermeticallySealed
-        ? "Undantaget från periodisk läckagekontroll enligt hermetiskt slutet-undantaget."
-        : "Aggregat under 5 ton CO₂e omfattas inte av periodisk läckagekontroll.",
-      isHermeticInspectionExempt: isHermeticallySealed,
-    }
-  }
-
-  const baseIntervalMonths =
-    co2eTonnes >= 500 ? 3 : co2eTonnes >= 50 ? 6 : 12
-  const intervalMonths = hasLeakDetectionSystem
-    ? baseIntervalMonths * 2
-    : baseIntervalMonths
-
-  return {
-    isInspectionRequired: true,
-    intervalMonths,
-    label: `Kontroll var ${intervalMonths}:e månad`,
-    explanation: isHermeticallySealed
-      ? "Aggregatet är hermetiskt slutet men omfattas ändå av periodisk läckagekontroll eftersom fyllnadsmängden överstiger gränsvärdet."
-      : hasLeakDetectionSystem
-        ? "Aggregatet är kontrollpliktigt och läckagevarningssystem förlänger det lagstadgade kontrollintervallet."
-        : "Aggregatet är kontrollpliktigt eftersom det innehåller minst 5 ton CO₂e.",
-    isHermeticInspectionExempt: false,
-  }
+  return toInspectionObligationResult(obligation)
 }
 
 export function calculateInstallationCompliance(
@@ -144,10 +79,7 @@ export function calculateInstallationCompliance(
   nextInspection?: Date | string | null,
   isHermeticallySealed = false
 ) {
-  const co2e = calculateCO2e(
-    refrigerantType,
-    refrigerantAmount
-  )
+  const co2e = calculateCO2e(refrigerantType, refrigerantAmount)
   const inspectionOptions = {
     refrigerantType,
     refrigerantAmountKg: refrigerantAmount,
@@ -166,7 +98,7 @@ export function calculateInstallationCompliance(
   const dueStatus = classifyInspectionStatus({
     inspectionRequired: Boolean(inspectionIntervalMonths),
     lastInspection,
-    nextInspection
+    nextInspection,
   })
 
   return {
@@ -176,13 +108,23 @@ export function calculateInstallationCompliance(
     refrigerantCode: co2e.refrigerantCode,
     isKnownRefrigerant: co2e.isKnownRefrigerant,
     gwpWarning: co2e.warning,
+    legalClassification: inspectionObligation.legalClassification,
+    thresholdBasis: inspectionObligation.thresholdBasis,
+    leakCheckReasonCode: inspectionObligation.reasonCode,
+    legalClassificationWarning:
+      inspectionObligation.reasonCode === "UNKNOWN_CLASSIFICATION"
+        ? inspectionObligation.message
+        : null,
     baseInspectionIntervalMonths,
     inspectionIntervalMonths,
     inspectionObligation,
+    leakCheckObligation: inspectionObligation,
     isHermeticInspectionExempt:
       inspectionObligation.isHermeticInspectionExempt,
     hasAdjustedInspectionInterval:
-      Boolean(baseInspectionIntervalMonths) && hasLeakDetectionSystem,
+      Boolean(baseInspectionIntervalMonths) &&
+      hasLeakDetectionSystem &&
+      baseInspectionIntervalMonths !== inspectionIntervalMonths,
     status: dueStatus.status,
     daysUntilDue: dueStatus.daysUntilDue,
   }
@@ -206,5 +148,55 @@ export function isAnnexIiSection1Refrigerant(
   refrigerantType: string | null | undefined
 ) {
   const refrigerant = getRefrigerant(refrigerantType)
-  return refrigerant?.category === "HFO" || refrigerant?.category === "HFO blend"
+  return refrigerant?.legalClassification === "ANNEX_II_SECTION_1"
+}
+
+function resolveLegalClassification(
+  options: InspectionObligationOptions
+): RefrigerantLegalClassification {
+  if (options.legalClassification) return options.legalClassification
+
+  if (options.refrigerantType == null || options.refrigerantType.trim() === "") {
+    // Keep the historical CO2e-only helper behavior for callers that have not
+    // yet passed a refrigerant. Installation-level calculations always pass one.
+    return "ANNEX_I"
+  }
+
+  return getRefrigerant(options.refrigerantType)?.legalClassification ?? "UNKNOWN"
+}
+
+function toInspectionObligationResult(
+  obligation: FgasLeakCheckObligationResult
+): InspectionObligationResult {
+  return {
+    ...obligation,
+    isInspectionRequired: obligation.isLeakCheckRequired,
+    label: buildInspectionLabel(obligation),
+    explanation: obligation.message,
+    isHermeticInspectionExempt:
+      obligation.reasonCode === "ANNEX_I_HERMETIC_BELOW_THRESHOLD" ||
+      obligation.reasonCode === "ANNEX_II_HERMETIC_BELOW_THRESHOLD",
+  }
+}
+
+function buildInspectionLabel(obligation: FgasLeakCheckObligationResult) {
+  if (obligation.intervalMonths) {
+    return `Kontroll var ${obligation.intervalMonths}:e månad`
+  }
+
+  if (obligation.reasonCode === "UNKNOWN_CLASSIFICATION") {
+    return "Behöver kontrolleras"
+  }
+
+  if (
+    obligation.reasonCode === "ANNEX_I_BELOW_THRESHOLD" ||
+    obligation.reasonCode === "ANNEX_I_HERMETIC_BELOW_THRESHOLD" ||
+    obligation.reasonCode === "ANNEX_II_BELOW_THRESHOLD" ||
+    obligation.reasonCode === "ANNEX_II_HERMETIC_BELOW_THRESHOLD" ||
+    obligation.reasonCode === "OUT_OF_SCOPE"
+  ) {
+    return "Ej kontrollpliktigt"
+  }
+
+  return "Kan inte beräknas"
 }

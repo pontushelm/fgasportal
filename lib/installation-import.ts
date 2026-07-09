@@ -2,6 +2,7 @@ import {
   calculateCO2e,
   calculateInspectionObligation,
 } from "@/lib/fgas-calculations"
+import { UNKNOWN_LEGAL_CLASSIFICATION_MESSAGE } from "@/lib/fgas-rules"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 import { normalizeRefrigerantCode } from "@/lib/refrigerants"
 
@@ -380,7 +381,7 @@ export function normalizeImportRow(
     errors.push("Ogiltigt kontrollintervall")
   }
 
-  const calculatedInspectionIntervalMonths =
+  const calculatedInspectionObligation =
     refrigerantType && refrigerantAmount !== null && !Number.isNaN(refrigerantAmount)
       ? calculateInspectionObligation(
           calculateCO2e(refrigerantType, refrigerantAmount).co2eTon,
@@ -390,8 +391,14 @@ export function normalizeImportRow(
             refrigerantAmountKg: refrigerantAmount,
             isHermeticallySealed,
           }
-        ).intervalMonths
+        )
       : null
+  const calculatedInspectionIntervalMonths =
+    calculatedInspectionObligation?.intervalMonths ?? null
+
+  if (calculatedInspectionObligation?.reasonCode === "UNKNOWN_CLASSIFICATION") {
+    warnings.push(UNKNOWN_LEGAL_CLASSIFICATION_MESSAGE)
+  }
   const inspectionIntervalMonths =
     providedInspectionIntervalMonths ?? calculatedInspectionIntervalMonths
 

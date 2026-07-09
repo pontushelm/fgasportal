@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   getRefrigerant,
   getRefrigerantGwp,
+  getRefrigerantLegalClassification,
   normalizeRefrigerantCode,
 } from "@/lib/refrigerants"
 
@@ -32,5 +33,24 @@ describe("refrigerant catalog", () => {
     expect(normalizeRefrigerantCode("R999X")).toBeNull()
     expect(getRefrigerant("R999X")).toBeNull()
     expect(getRefrigerantGwp("R999X")).toBeNull()
+    expect(getRefrigerantLegalClassification("R999X")).toBe("UNKNOWN")
+  })
+
+  it("keeps UI category separate from legal classification", () => {
+    expect(getRefrigerant("R404A")?.category).toBe("HFC blend")
+    expect(getRefrigerantLegalClassification("R404A")).toBe("ANNEX_I")
+
+    expect(getRefrigerant("R1234yf")?.category).toBe("HFO")
+    expect(getRefrigerantLegalClassification("R1234yf")).toBe(
+      "ANNEX_II_SECTION_1"
+    )
+
+    expect(getRefrigerant("R744")?.category).toBe("Natural")
+    expect(getRefrigerantLegalClassification("R744")).toBe("OUT_OF_SCOPE")
+  })
+
+  it("surfaces legacy refrigerants with unknown legal classification", () => {
+    expect(getRefrigerant("R22")?.category).toBe("HCFC")
+    expect(getRefrigerantLegalClassification("R22")).toBe("UNKNOWN")
   })
 })

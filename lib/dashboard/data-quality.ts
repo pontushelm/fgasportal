@@ -1,4 +1,5 @@
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
+import { UNKNOWN_LEGAL_CLASSIFICATION_MESSAGE } from "@/lib/fgas-rules"
 
 export type DataQualitySeverity = "HIGH" | "MEDIUM" | "LOW"
 
@@ -9,6 +10,7 @@ export type DataQualityIssueId =
   | "INSTALLATION_MISSING_REFRIGERANT"
   | "INSTALLATION_MISSING_CHARGE"
   | "INSTALLATION_MISSING_GWP"
+  | "INSTALLATION_UNKNOWN_LEGAL_CLASSIFICATION"
   | "SERVICEPARTNER_CERTIFICATE_MISSING"
   | "SERVICEPARTNER_CERTIFICATE_EXPIRED"
   | "TECHNICIAN_CERTIFICATE_MISSING"
@@ -34,6 +36,8 @@ export type DataQualityIssue = {
 export const DATA_QUALITY_ISSUE_ROUTES: Record<DataQualityIssueId, string> = {
   INSTALLATION_MISSING_CHARGE: "/dashboard/installations?quality=missing-charge",
   INSTALLATION_MISSING_GWP: "/dashboard/installations?quality=missing-gwp",
+  INSTALLATION_UNKNOWN_LEGAL_CLASSIFICATION:
+    "/dashboard/installations?quality=unknown-legal-classification",
   INSTALLATION_MISSING_PROPERTY: "/dashboard/installations?quality=missing-property",
   INSTALLATION_MISSING_REFRIGERANT:
     "/dashboard/installations?quality=missing-refrigerant",
@@ -141,6 +145,33 @@ export function buildDataQualityReport({
       route: DATA_QUALITY_ISSUE_ROUTES.INSTALLATION_MISSING_PROPERTY,
       severity: "HIGH",
       title: "Aggregat saknar fastighet",
+      ctaLabel: "Visa aggregat",
+    }),
+    buildIssue({
+      count: installations.filter((installation) => {
+        if (!installation.refrigerantType?.trim()) return false
+        if (installation.refrigerantAmount == null || installation.refrigerantAmount <= 0) {
+          return false
+        }
+        const compliance = calculateInstallationCompliance(
+          installation.refrigerantType,
+          installation.refrigerantAmount,
+          false,
+          null,
+          null,
+          installation.isHermeticallySealed
+        )
+        return (
+          compliance.isKnownRefrigerant &&
+          compliance.leakCheckReasonCode === "UNKNOWN_CLASSIFICATION"
+        )
+      }).length,
+      description: UNKNOWN_LEGAL_CLASSIFICATION_MESSAGE,
+      group: "installations",
+      id: "INSTALLATION_UNKNOWN_LEGAL_CLASSIFICATION",
+      route: DATA_QUALITY_ISSUE_ROUTES.INSTALLATION_UNKNOWN_LEGAL_CLASSIFICATION,
+      severity: "HIGH",
+      title: "Aggregat behöver regelklassificering",
       ctaLabel: "Visa aggregat",
     }),
     buildIssue({

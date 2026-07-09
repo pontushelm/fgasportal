@@ -79,6 +79,25 @@ describe("data quality report", () => {
     expect(issueCount(report, "INSTALLATION_MISSING_GWP")).toBe(1)
   })
 
+  it("detects known refrigerants with unknown legal classification separately from missing GWP", () => {
+    const report = buildDataQualityReport({
+      installations: [
+        {
+          propertyId: "property-1",
+          refrigerantAmount: 10,
+          refrigerantType: "R22",
+        },
+      ],
+      properties: [],
+    })
+
+    expect(issueCount(report, "INSTALLATION_MISSING_GWP")).toBe(0)
+    expect(issueCount(report, "INSTALLATION_UNKNOWN_LEGAL_CLASSIFICATION")).toBe(1)
+    expect(
+      DATA_QUALITY_ISSUE_ROUTES.INSTALLATION_UNKNOWN_LEGAL_CLASSIFICATION
+    ).toBe("/dashboard/installations?quality=unknown-legal-classification")
+  })
+
   it("detects missing and expired certification issues", () => {
     const report = buildDataQualityReport({
       installations: [],
@@ -163,6 +182,20 @@ describe("data quality report", () => {
         "missing-gwp"
       )
     ).toBe(false)
+    expect(getInstallationQualityFilter("unknown-legal-classification")).toBe(
+      "unknown-legal-classification"
+    )
+    expect(
+      matchesInstallationQualityFilter(
+        {
+          co2eTon: 18.1,
+          propertyId: "property-1",
+          refrigerantAmount: 10,
+          refrigerantType: "R22",
+        },
+        "unknown-legal-classification"
+      )
+    ).toBe(true)
   })
 
   it("matches property quality filters", () => {

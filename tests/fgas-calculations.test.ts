@@ -52,6 +52,9 @@ describe("F-gas calculations", () => {
     const compliance = calculateInstallationCompliance("R410A", 2.4, false)
 
     expect(compliance.co2eTon).toBeCloseTo(5.0112)
+    expect(compliance.legalClassification).toBe("ANNEX_I")
+    expect(compliance.thresholdBasis).toBe("CO2E_TONNES")
+    expect(compliance.leakCheckReasonCode).toBe("ANNEX_I_REQUIRES_CHECK")
     expect(compliance.inspectionIntervalMonths).toBe(12)
     expect(compliance.status).toBe("NOT_INSPECTED")
   })
@@ -70,6 +73,9 @@ describe("F-gas calculations", () => {
     expect(compliance.inspectionIntervalMonths).toBeNull()
     expect(compliance.status).toBe("NOT_REQUIRED")
     expect(compliance.isHermeticInspectionExempt).toBe(true)
+    expect(compliance.leakCheckReasonCode).toBe(
+      "ANNEX_I_HERMETIC_BELOW_THRESHOLD"
+    )
   })
 
   it("requires leak checks for hermetically sealed Annex I equipment from 10 tonnes CO2e", () => {
@@ -86,7 +92,7 @@ describe("F-gas calculations", () => {
     expect(compliance.inspectionIntervalMonths).toBe(12)
   })
 
-  it("uses Annex II Section 1 kg thresholds for HFO refrigerants", () => {
+  it("uses Annex II Section 1 kg thresholds from legal classification", () => {
     expect(
       calculateInstallationCompliance("R1234yf", 1, false).inspectionIntervalMonths
     ).toBe(12)
@@ -98,5 +104,30 @@ describe("F-gas calculations", () => {
       calculateInstallationCompliance("R1234yf", 2, false, null, null, true)
         .inspectionIntervalMonths
     ).toBe(12)
+    expect(
+      calculateInstallationCompliance("R1234yf", 2, false, null, null, true)
+        .thresholdBasis
+    ).toBe("KG")
+  })
+
+  it("does not treat unknown legal classification as exempt", () => {
+    const compliance = calculateInstallationCompliance("R22", 10, false)
+
+    expect(compliance.isKnownRefrigerant).toBe(true)
+    expect(compliance.legalClassification).toBe("UNKNOWN")
+    expect(compliance.inspectionIntervalMonths).toBeNull()
+    expect(compliance.leakCheckReasonCode).toBe("UNKNOWN_CLASSIFICATION")
+    expect(compliance.inspectionObligation.label).toBe("Behöver kontrolleras")
+    expect(compliance.legalClassificationWarning).toBe(
+      "Köldmediets regelklassificering saknas och behöver kontrolleras innan kontrollkrav kan bedömas."
+    )
+  })
+
+  it("uses out-of-scope catalog classification for natural refrigerants", () => {
+    const compliance = calculateInstallationCompliance("R744", 1000, false)
+
+    expect(compliance.legalClassification).toBe("OUT_OF_SCOPE")
+    expect(compliance.inspectionIntervalMonths).toBeNull()
+    expect(compliance.leakCheckReasonCode).toBe("OUT_OF_SCOPE")
   })
 })

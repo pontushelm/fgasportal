@@ -5,6 +5,7 @@ export type InstallationQualityFilter =
   | "missing-refrigerant"
   | "missing-charge"
   | "missing-gwp"
+  | "unknown-legal-classification"
 
 export type PropertyQualityFilter = "missing-designation" | "missing-municipality"
 
@@ -33,6 +34,7 @@ export const DATA_QUALITY_FILTER_LABELS: Record<DataQualityFilter, string> = {
   "missing-property": "Saknar fastighet",
   "missing-refrigerant": "Saknar köldmedium",
   "missing-technician-certificate": "Tekniker saknar personcertifikat",
+  "unknown-legal-classification": "Behöver regelklassificering",
 }
 
 const INSTALLATION_QUALITY_FILTERS = new Set<InstallationQualityFilter>([
@@ -40,6 +42,7 @@ const INSTALLATION_QUALITY_FILTERS = new Set<InstallationQualityFilter>([
   "missing-refrigerant",
   "missing-charge",
   "missing-gwp",
+  "unknown-legal-classification",
 ])
 
 const PROPERTY_QUALITY_FILTERS = new Set<PropertyQualityFilter>([
@@ -129,6 +132,26 @@ export function matchesInstallationQualityFilter(
           null,
           installation.isHermeticallySealed
         ).co2eKg === null
+      )
+    case "unknown-legal-classification":
+      if (!installation.refrigerantType?.trim()) return false
+      if (
+        installation.refrigerantAmount == null ||
+        installation.refrigerantAmount <= 0
+      ) {
+        return false
+      }
+      const compliance = calculateInstallationCompliance(
+        installation.refrigerantType,
+        installation.refrigerantAmount,
+        false,
+        null,
+        null,
+        installation.isHermeticallySealed
+      )
+      return (
+        compliance.isKnownRefrigerant &&
+        compliance.leakCheckReasonCode === "UNKNOWN_CLASSIFICATION"
       )
   }
 }
