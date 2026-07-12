@@ -497,6 +497,7 @@ model Installation {
   mobileUnitName                String?
   mobileRegistrationOrVehicleNumber String?
   mobileBaseLocation            String?
+  isInstalledOnVessel           Boolean   @default(false)
   refrigerantType               String
   refrigerantAmount             Float
   hasLeakDetectionSystem        Boolean   @default(false)

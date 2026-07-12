@@ -1,3 +1,8 @@
+import {
+  evaluateReportingRequirement,
+  SWEDISH_ANNUAL_REPORT_CO2E_THRESHOLD_TON,
+} from "@/lib/regulatory/reporting-engine"
+
 export type DashboardSignedReportRecord = {
   propertyId: string | null
   readinessStatus: string
@@ -35,7 +40,8 @@ export type DashboardAnnualReportStatusSummary = {
   properties: DashboardAnnualReportPropertyStatus[]
 }
 
-export const ANNUAL_REPORT_CO2E_REQUIREMENT_THRESHOLD_TON = 14
+export const ANNUAL_REPORT_CO2E_REQUIREMENT_THRESHOLD_TON =
+  SWEDISH_ANNUAL_REPORT_CO2E_THRESHOLD_TON
 
 export function buildDashboardAnnualReportStatus({
   properties,
@@ -113,11 +119,10 @@ function getAnnualReportRequirementStatus(
   property: DashboardReportProperty
 ): DashboardAnnualReportPropertyStatus["requirementStatus"] {
   if (!property.co2eIsComplete) return "UNCERTAIN"
-  if (property.installedCo2eTon >= ANNUAL_REPORT_CO2E_REQUIREMENT_THRESHOLD_TON) {
-    return "REQUIRED"
-  }
-
-  return "NOT_REQUIRED"
+  return evaluateReportingRequirement({
+    co2eTon: property.installedCo2eTon,
+    installationRegisterType: "STATIONARY",
+  }).annualReportRequirement
 }
 
 function getSignedReportStatus(

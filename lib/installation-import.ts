@@ -14,6 +14,7 @@ export type ImportInstallationInput = {
   mobileUnitName: string | null
   mobileRegistrationOrVehicleNumber: string | null
   mobileBaseLocation: string | null
+  isInstalledOnVessel: boolean
   equipmentId: string | null
   location: string
   propertyName: string | null
@@ -158,6 +159,17 @@ export const IMPORT_FIELD_DEFINITIONS: ImportFieldDefinition[] = [
       "bas",
       "base location",
       "home port",
+    ],
+  },
+  {
+    key: "isInstalledOnVessel",
+    label: "Utrustning pÃ¥ fartyg",
+    aliases: [
+      "utrustning pa fartyg",
+      "utrustning pÃ¥ fartyg",
+      "fartyg",
+      "vessel",
+      "installed on vessel",
     ],
   },
   {
@@ -397,6 +409,9 @@ export function normalizeImportRow(
     "mobileRegistrationOrVehicleNumber"
   )
   const mobileBaseLocation = getOptionalString(rawRow, "mobileBaseLocation")
+  const isInstalledOnVessel =
+    installationRegisterType === "MOBILE" &&
+    parseBoolean(getValue(rawRow, "isInstalledOnVessel"))
   const propertyName = getOptionalString(rawRow, "propertyName")
   const municipality = getOptionalString(rawRow, "municipality")
   const rawRefrigerantType = getString(rawRow, "refrigerantType")
@@ -497,6 +512,7 @@ export function normalizeImportRow(
     mobileUnitName,
     mobileRegistrationOrVehicleNumber,
     mobileBaseLocation,
+    isInstalledOnVessel,
     equipmentId,
     location,
     propertyName,

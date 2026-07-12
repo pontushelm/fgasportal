@@ -2,6 +2,10 @@ import { evaluateInstallationCompliance } from "@/lib/regulatory/compliance-engi
 import { prisma } from "@/lib/db"
 import type { Prisma } from "@prisma/client"
 import { evaluateReportingRequirement } from "@/lib/regulatory/reporting-engine"
+import {
+  buildReportingGroups,
+  type ReportingGroupEvaluation,
+} from "@/lib/regulatory/reporting-engine"
 import { buildAnnualFgasReportData } from "@/lib/reports/buildAnnualFgasReportData"
 import {
   ANNUAL_FGAS_EVENT_LABELS,
@@ -111,6 +115,21 @@ export type AnnualFgasReportPropertyOverview = {
     blockingIssueCount: number
     reviewWarningCount: number
   }>
+  reportingGroups: Array<{
+    id: string
+    name: string
+    reportingScope: ReportingGroupEvaluation["reportingScope"]
+    reportRecipient: ReportingGroupEvaluation["reportRecipient"]
+    reportReason: ReportingGroupEvaluation["reportReason"]
+    installedCo2eTon: number | null
+    annualReportRequirement: "REQUIRED" | "NOT_REQUIRED" | "UNCERTAIN"
+    signedStatus: "SIGNED" | "NOT_SIGNED"
+    signedAt: Date | null
+    blockingIssueCount: number
+    reviewWarningCount: number
+    installationCount: number
+    installationIds: string[]
+  }>
 }
 
 const ANNUAL_EVENT_TYPE_BY_LABEL = Object.fromEntries(
@@ -130,6 +149,7 @@ const annualOverviewInstallationSelect = {
   mobileUnitName: true,
   mobileRegistrationOrVehicleNumber: true,
   mobileBaseLocation: true,
+  isInstalledOnVessel: true,
   equipmentType: true,
   refrigerantType: true,
   refrigerantAmount: true,
@@ -775,7 +795,8 @@ export function buildAnnualFgasReportPropertyOverviewFromLoadedData({
 
   return {
     year,
-    mobileGroup: buildAnnualOverviewMobileGroup({
+    mobileGroup: null,
+    reportingGroups: buildAnnualOverviewReportingGroups({
       endDate,
       installations: installations.filter(
         (installation) => installation.installationRegisterType === "MOBILE"
@@ -786,7 +807,7 @@ export function buildAnnualFgasReportPropertyOverviewFromLoadedData({
   }
 }
 
-function buildAnnualOverviewMobileGroup({
+function buildAnnualOverviewReportingGroups({
   endDate,
   installations,
   startDate,
@@ -794,32 +815,71 @@ function buildAnnualOverviewMobileGroup({
   endDate: Date
   installations: AnnualOverviewInstallation[]
   startDate: Date
-}): AnnualFgasReportPropertyOverview["mobileGroup"] {
-  if (installations.length === 0) return null
+}): AnnualFgasReportPropertyOverview["reportingGroups"] {
+  if (installations.length === 0) return []
 
-  const summary = buildAnnualOverviewPropertySummary({
-    endDate,
-    installations,
-    startDate,
+  const reportingGroups = buildReportingGroups(
+    installations
+      .map((installation) => {
+        const compliance = evaluateInstallationCompliance({
+          refrigerantType: installation.refrigerantType,
+          refrigerantAmount: installation.refrigerantAmount,
+          hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
+          lastInspection: installation.lastInspection,
+          nextInspection: installation.nextInspection,
+          isHermeticallySealed: installation.isHermeticallySealed,
+        })
+        const isControlRequired = Boolean(compliance.inspectionIntervalMonths)
+        const hasUnknownCo2e = compliance.co2eKg === null
+
+        if (!isControlRequired && !hasUnknownCo2e) return null
+
+        return {
+          id: installation.id,
+          name: installation.name,
+          equipmentId: installation.equipmentId,
+          installationRegisterType: installation.installationRegisterType,
+          isInstalledOnVessel: installation.isInstalledOnVessel,
+          mobileBaseLocation: installation.mobileBaseLocation,
+          mobileRegistrationOrVehicleNumber:
+            installation.mobileRegistrationOrVehicleNumber,
+          mobileUnitId: installation.mobileUnitId,
+          mobileUnitName: installation.mobileUnitName,
+          co2eTon: compliance.co2eTon,
+        }
+      })
+      .filter(
+        (installation): installation is NonNullable<typeof installation> =>
+          installation !== null
+      )
+  )
+
+  return reportingGroups.map((group) => {
+    const groupInstallations = installations.filter((installation) =>
+      group.installationIds.includes(installation.id)
+    )
+    const summary = buildAnnualOverviewPropertySummary({
+      endDate,
+      installations: groupInstallations,
+      startDate,
+    })
+
+    return {
+      id: group.reportGroupId,
+      name: group.reportGroupLabel,
+      annualReportRequirement: group.annualReportRequirement,
+      blockingIssueCount: summary.qualitySummary.blockingIssueCount,
+      installationCount: group.installationIds.length,
+      installationIds: group.installationIds,
+      installedCo2eTon: group.evaluatedAmount,
+      reportReason: group.reportReason,
+      reportRecipient: group.reportRecipient,
+      reportingScope: group.reportingScope,
+      reviewWarningCount: summary.qualitySummary.warningCount,
+      signedAt: null,
+      signedStatus: "NOT_SIGNED",
+    }
   })
-  const installedCo2eTon = summary.installedCo2eTon
-
-  return {
-    id: "__mobile__",
-    name: "Mobila aggregat",
-    municipality: null,
-    installedCo2eTon,
-    annualReportRequirement:
-      evaluateReportingRequirement({
-        co2eTon: installedCo2eTon,
-        installationRegisterType: "MOBILE",
-      }).annualReportRequirement,
-    signedStatus: "NOT_SIGNED",
-    signedAt: null,
-    blockingIssueCount: summary.qualitySummary.blockingIssueCount,
-    reviewWarningCount: summary.qualitySummary.warningCount,
-    installationCount: installations.length,
-  }
 }
 
 function buildAnnualOverviewPropertySummary({

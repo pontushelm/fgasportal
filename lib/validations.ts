@@ -131,6 +131,7 @@ const installationRegisterFieldsSchema = {
   mobileUnitName: optionalRegisterField,
   mobileRegistrationOrVehicleNumber: optionalRegisterField,
   mobileBaseLocation: optionalRegisterField,
+  isInstalledOnVessel: z.boolean().optional(),
   equipmentId: optionalRegisterField,
   serialNumber: optionalRegisterField,
   propertyName: optionalRegisterField,

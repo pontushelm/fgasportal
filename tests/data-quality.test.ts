@@ -129,6 +129,29 @@ describe("data quality report", () => {
     ).toBe("/dashboard/installations?quality=mobile-missing-context")
   })
 
+  it("flags vessel equipment with missing vessel identity", () => {
+    const report = buildDataQualityReport({
+      installations: [
+        {
+          installationRegisterType: "MOBILE",
+          isInstalledOnVessel: true,
+          mobileRegistrationOrVehicleNumber: "",
+          mobileUnitId: "",
+          mobileUnitName: "",
+          propertyId: null,
+          refrigerantAmount: 8,
+          refrigerantType: "R410A",
+        },
+      ],
+      properties: [],
+    })
+
+    expect(issueCount(report, "INSTALLATION_VESSEL_MISSING_IDENTIFIER")).toBe(1)
+    expect(DATA_QUALITY_ISSUE_ROUTES.INSTALLATION_VESSEL_MISSING_IDENTIFIER).toBe(
+      "/dashboard/installations?quality=vessel-missing-identifier"
+    )
+  })
+
   it("detects missing and expired certification issues", () => {
     const report = buildDataQualityReport({
       installations: [],

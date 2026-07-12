@@ -94,6 +94,7 @@ export async function GET(request: NextRequest) {
         mobileUnitName: true,
         mobileRegistrationOrVehicleNumber: true,
         mobileBaseLocation: true,
+        isInstalledOnVessel: true,
         refrigerantType: true,
         refrigerantAmount: true,
         hasLeakDetectionSystem: true,

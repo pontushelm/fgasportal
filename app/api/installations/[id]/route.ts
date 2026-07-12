@@ -400,6 +400,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           validatedData.mobileRegistrationOrVehicleNumber
         ),
         mobileBaseLocation: emptyToNull(validatedData.mobileBaseLocation),
+        isInstalledOnVessel:
+          (validatedData.installationRegisterType ??
+            installation.installationRegisterType) === "MOBILE" &&
+          Boolean(validatedData.isInstalledOnVessel),
         equipmentType: emptyToNull(validatedData.equipmentType),
         operatorName: emptyToNull(validatedData.operatorName),
         ...assignedContractorUpdate,

@@ -114,6 +114,7 @@ export type AnnualFgasEquipmentRow = {
   mobileUnitName?: string | null
   mobileRegistrationOrVehicleNumber?: string | null
   mobileBaseLocation?: string | null
+  isInstalledOnVessel?: boolean
   equipmentType: string | null
   refrigerantType: string
   refrigerantAmountKg: number

@@ -111,6 +111,9 @@ export async function POST(request: NextRequest) {
           validatedData.mobileRegistrationOrVehicleNumber
         ),
         mobileBaseLocation: emptyToNull(validatedData.mobileBaseLocation),
+        isInstalledOnVessel:
+          validatedData.installationRegisterType === "MOBILE" &&
+          Boolean(validatedData.isInstalledOnVessel),
         installationDate: validatedData.installationDate ?? null,
         equipmentType: emptyToNull(validatedData.equipmentType),
         operatorName: emptyToNull(validatedData.operatorName),
@@ -461,6 +464,7 @@ export async function GET(request: NextRequest) {
         mobileUnitName: true,
         mobileRegistrationOrVehicleNumber: true,
         mobileBaseLocation: true,
+        isInstalledOnVessel: true,
         refrigerantType: true,
         refrigerantAmount: true,
         hasLeakDetectionSystem: true,

@@ -141,6 +141,7 @@ type InstallationDetail = {
   mobileUnitName?: string | null
   mobileRegistrationOrVehicleNumber?: string | null
   mobileBaseLocation?: string | null
+  isInstalledOnVessel?: boolean
   refrigerantType: string
   refrigerantAmount: number
   hasLeakDetectionSystem: boolean
@@ -218,6 +219,7 @@ type InstallationEditFormData = {
   mobileUnitName: string
   mobileRegistrationOrVehicleNumber: string
   mobileBaseLocation: string
+  isInstalledOnVessel: boolean
   equipmentId: string
   serialNumber: string
   propertyName: string
@@ -294,6 +296,7 @@ const initialEditFormData: InstallationEditFormData = {
   mobileUnitName: "",
   mobileRegistrationOrVehicleNumber: "",
   mobileBaseLocation: "",
+  isInstalledOnVessel: false,
   equipmentId: "",
   serialNumber: "",
   propertyName: "",
@@ -1497,6 +1500,10 @@ export default function InstallationDetailPage() {
                   label="PrimÃ¤r depÃ¥ / hemmahamn / bas"
                   value={formatOptionalText(installation.mobileBaseLocation)}
                 />
+                <DetailItem
+                  label="Utrustning pÃ¥ fartyg"
+                  value={installation.isInstalledOnVessel ? "Ja" : "Nej"}
+                />
               </>
             )}
             <DetailItem label="Utrustnings-ID" value={formatOptionalText(installation.equipmentId)} />
@@ -1842,6 +1849,23 @@ export default function InstallationDetailPage() {
                   <label className={fieldClassName}>
                     PrimÃ¤r depÃ¥ / hemmahamn / bas
                     <input className={formControlClassName} name="mobileBaseLocation" value={editForm.mobileBaseLocation} onChange={handleEditChange} />
+                  </label>
+                  <label className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-700">
+                    <input
+                      checked={editForm.isInstalledOnVessel}
+                      className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      name="isInstalledOnVessel"
+                      onChange={handleEditChange}
+                      type="checkbox"
+                    />
+                    <span>
+                      <span className="block font-medium text-gray-900">
+                        Utrustning pÃ¥ fartyg
+                      </span>
+                      <span className="block text-xs text-gray-500">
+                        Rapportering fÃ¶r utrustning pÃ¥ fartyg gÃ¶rs till Transportstyrelsen.
+                      </span>
+                    </span>
                   </label>
                 </>
               )}
@@ -3182,6 +3206,7 @@ function toInstallationEditFormData(
     mobileRegistrationOrVehicleNumber:
       installation.mobileRegistrationOrVehicleNumber || "",
     mobileBaseLocation: installation.mobileBaseLocation || "",
+    isInstalledOnVessel: Boolean(installation.isInstalledOnVessel),
     equipmentId: installation.equipmentId || "",
     serialNumber: installation.serialNumber || "",
     propertyName: installation.propertyName || "",

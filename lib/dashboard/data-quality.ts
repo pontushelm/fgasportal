@@ -9,6 +9,7 @@ export type DataQualityIssueId =
   | "INSTALLATION_MISSING_PROPERTY"
   | "INSTALLATION_MOBILE_MISSING_IDENTIFIER"
   | "INSTALLATION_MOBILE_MISSING_CONTEXT"
+  | "INSTALLATION_VESSEL_MISSING_IDENTIFIER"
   | "INSTALLATION_MISSING_REFRIGERANT"
   | "INSTALLATION_MISSING_CHARGE"
   | "INSTALLATION_MISSING_GWP"
@@ -45,6 +46,8 @@ export const DATA_QUALITY_ISSUE_ROUTES: Record<DataQualityIssueId, string> = {
     "/dashboard/installations?quality=mobile-missing-identifier",
   INSTALLATION_MOBILE_MISSING_CONTEXT:
     "/dashboard/installations?quality=mobile-missing-context",
+  INSTALLATION_VESSEL_MISSING_IDENTIFIER:
+    "/dashboard/installations?quality=vessel-missing-identifier",
   INSTALLATION_MISSING_REFRIGERANT:
     "/dashboard/installations?quality=missing-refrigerant",
   PROPERTY_MISSING_DESIGNATION:
@@ -83,8 +86,10 @@ export type DataQualityPropertyInput = {
 export type DataQualityInstallationInput = {
   installationRegisterType?: "STATIONARY" | "MOBILE" | null
   mobileUnitId?: string | null
+  mobileUnitName?: string | null
   mobileRegistrationOrVehicleNumber?: string | null
   mobileBaseLocation?: string | null
+  isInstalledOnVessel?: boolean
   location?: string | null
   propertyId?: string | null
   refrigerantAmount?: number | null
@@ -192,6 +197,24 @@ export function buildDataQualityReport({
       route: DATA_QUALITY_ISSUE_ROUTES.INSTALLATION_MOBILE_MISSING_CONTEXT,
       severity: "LOW",
       title: "Mobila aggregat saknar placering eller bas",
+      ctaLabel: "Visa aggregat",
+    }),
+    buildIssue({
+      count: installations.filter(
+        (installation) =>
+          installation.installationRegisterType === "MOBILE" &&
+          installation.isInstalledOnVessel === true &&
+          !installation.mobileUnitId?.trim() &&
+          !installation.mobileRegistrationOrVehicleNumber?.trim() &&
+          !installation.mobileUnitName?.trim()
+      ).length,
+      description:
+        "Utrustning pÃ¥ fartyg saknar fartygsidentifiering. LÃ¤gg till enhets-ID, registrerings-/fartygsnummer eller tydlig beteckning innan rapporten fÃ¤rdigstÃ¤lls.",
+      group: "installations",
+      id: "INSTALLATION_VESSEL_MISSING_IDENTIFIER",
+      route: DATA_QUALITY_ISSUE_ROUTES.INSTALLATION_VESSEL_MISSING_IDENTIFIER,
+      severity: "HIGH",
+      title: "Fartygsutrustning saknar identifiering",
       ctaLabel: "Visa aggregat",
     }),
     buildIssue({

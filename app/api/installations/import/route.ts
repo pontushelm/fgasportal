@@ -23,6 +23,7 @@ const importRequestSchema = z.object({
       mobileUnitName: z.string().nullable().optional(),
       mobileRegistrationOrVehicleNumber: z.string().nullable().optional(),
       mobileBaseLocation: z.string().nullable().optional(),
+      isInstalledOnVessel: z.boolean().optional(),
       equipmentId: z.string().nullable().optional(),
       location: z.string(),
       propertyName: z.string().nullable().optional(),
@@ -158,6 +159,9 @@ export async function POST(request: NextRequest) {
           mobileRegistrationOrVehicleNumber:
             parsed.mobileRegistrationOrVehicleNumber,
           mobileBaseLocation: parsed.mobileBaseLocation,
+          isInstalledOnVessel:
+            parsed.installationRegisterType === "MOBILE" &&
+            Boolean(parsed.isInstalledOnVessel),
           equipmentId: parsed.equipmentId,
           propertyId: propertyMatch?.id ?? null,
           propertyName: parsed.propertyName,

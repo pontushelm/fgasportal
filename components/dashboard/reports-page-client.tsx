@@ -116,12 +116,28 @@ type ReportData = {
       blockingIssueCount: number
       reviewWarningCount: number
     }>
+    reportingGroups: Array<{
+      id: string
+      name: string
+      reportingScope: "PROPERTY" | "INDIVIDUAL" | "VESSEL"
+      reportRecipient: "MUNICIPALITY" | "TRANSPORT_AGENCY" | "UNKNOWN"
+      reportReason: string
+      installedCo2eTon: number | null
+      annualReportRequirement: "REQUIRED" | "NOT_REQUIRED" | "UNCERTAIN"
+      signedStatus: "SIGNED" | "NOT_SIGNED"
+      signedAt: string | null
+      blockingIssueCount: number
+      reviewWarningCount: number
+      installationCount: number
+      installationIds: string[]
+    }>
   }
 }
 type AnnualReportOverview = NonNullable<ReportData["annualReportOverview"]>
 type AnnualOverviewProperty =
   | AnnualReportOverview["properties"][number]
   | NonNullable<AnnualReportOverview["mobileGroup"]>
+  | AnnualReportOverview["reportingGroups"][number]
 type SortDirection = "asc" | "desc"
 type AnnualOverviewSortKey =
   | "property"
@@ -1210,11 +1226,12 @@ function AnnualReportPropertyOverview({
   }>({ key: "", direction: "" })
   const [showAllRows, setShowAllRows] = useState(false)
   const overviewRows = useMemo(
-    () =>
-      overview.mobileGroup
-        ? [overview.mobileGroup, ...overview.properties]
-        : overview.properties,
-    [overview.mobileGroup, overview.properties]
+    () => [
+      ...overview.properties,
+      ...(overview.mobileGroup ? [overview.mobileGroup] : []),
+      ...overview.reportingGroups,
+    ],
+    [overview.mobileGroup, overview.properties, overview.reportingGroups]
   )
   const sortedProperties = useMemo(
     () => sortAnnualOverviewProperties(overviewRows, sort.key, sort.direction),
@@ -1284,6 +1301,9 @@ function AnnualReportPropertyOverview({
         <span className="text-xs font-semibold text-slate-500">
           {overview.properties.length} fastigheter
           {overview.mobileGroup ? `, ${overview.mobileGroup.installationCount} mobila aggregat` : ""}
+          {overview.reportingGroups.length > 0
+            ? `, ${overview.reportingGroups.length} mobila/fartygsgrupper`
+            : ""}
         </span>
       </div>
 
@@ -1348,17 +1368,29 @@ function AnnualReportPropertyOverview({
                 key={property.id}
               >
                 <TableCell>
-                  <button
-                    className="text-left font-semibold text-blue-700 underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                    onClick={() => onSelectProperty(property.id)}
-                    type="button"
-                  >
-                    {property.name}
-                  </button>
+                  {"reportingScope" in property ? (
+                    <div className="font-semibold text-slate-900">
+                      {property.name}
+                    </div>
+                  ) : (
+                    <button
+                      className="text-left font-semibold text-blue-700 underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                      onClick={() => onSelectProperty(property.id)}
+                      type="button"
+                    >
+                      {property.name}
+                    </button>
+                  )}
                   {property.id === selectedPropertyId && (
                     <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
                       Vald
                     </span>
+                  )}
+                  {"reportingScope" in property && (
+                    <div className="mt-1 text-xs font-medium text-slate-500">
+                      {formatReportingScopeLabel(property.reportingScope)} ·{" "}
+                      {formatReportRecipientLabel(property.reportRecipient)}
+                    </div>
                   )}
                   {property.id === MOBILE_REPORT_SCOPE_ID && "installationCount" in property && (
                     <div className="text-xs font-medium text-slate-500">
@@ -1366,7 +1398,9 @@ function AnnualReportPropertyOverview({
                     </div>
                   )}
                 </TableCell>
-                <TableCell>{property.municipality || "-"}</TableCell>
+                <TableCell>
+                  {"municipality" in property ? property.municipality || "-" : "-"}
+                </TableCell>
                 <TableCell>{formatWholeCo2eTon(property.installedCo2eTon)}</TableCell>
                 <TableCell>
                   <AnnualRequirementBadge status={property.annualReportRequirement} />
@@ -1423,6 +1457,30 @@ function AnnualRequirementBadge({
   }
 
   return <Badge variant="neutral">Krävs inte</Badge>
+}
+
+function formatReportingScopeLabel(scope: "PROPERTY" | "INDIVIDUAL" | "VESSEL") {
+  switch (scope) {
+    case "INDIVIDUAL":
+      return "Mobilt aggregat"
+    case "VESSEL":
+      return "Fartyg"
+    case "PROPERTY":
+      return "StationÃ¤r anlÃ¤ggning"
+  }
+}
+
+function formatReportRecipientLabel(
+  recipient: "MUNICIPALITY" | "TRANSPORT_AGENCY" | "UNKNOWN"
+) {
+  switch (recipient) {
+    case "TRANSPORT_AGENCY":
+      return "Transportstyrelsen"
+    case "MUNICIPALITY":
+      return "Kommunal tillsynsmyndighet"
+    case "UNKNOWN":
+      return "Tillsynsmyndighet behÃ¶ver granskas"
+  }
 }
 
 function SortableReportTableHeader({
@@ -1492,7 +1550,7 @@ function getAnnualOverviewSortValue(
     case "property":
       return property.name
     case "municipality":
-      return property.municipality || ""
+      return "municipality" in property ? property.municipality || "" : ""
     case "co2e":
       return property.installedCo2eTon
     case "requirement":

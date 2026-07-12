@@ -138,6 +138,7 @@ function buildOverviewOnlyReportData(year: number): FgasReportData {
       year,
       mobileGroup: null,
       properties: [],
+      reportingGroups: [],
     },
   }
 }

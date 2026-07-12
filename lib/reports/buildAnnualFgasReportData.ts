@@ -313,6 +313,7 @@ export async function buildAnnualFgasReportData({
       mobileRegistrationOrVehicleNumber:
         installation.mobileRegistrationOrVehicleNumber,
       mobileBaseLocation: installation.mobileBaseLocation,
+      isInstalledOnVessel: installation.isInstalledOnVessel,
       equipmentType: installation.equipmentType,
       refrigerantType,
       refrigerantAmountKg: installation.refrigerantAmount,

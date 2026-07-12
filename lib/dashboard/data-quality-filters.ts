@@ -4,6 +4,7 @@ export type InstallationQualityFilter =
   | "missing-property"
   | "mobile-missing-identifier"
   | "mobile-missing-context"
+  | "vessel-missing-identifier"
   | "missing-refrigerant"
   | "missing-charge"
   | "missing-gwp"
@@ -35,6 +36,7 @@ export const DATA_QUALITY_FILTER_LABELS: Record<DataQualityFilter, string> = {
   "missing-municipality": "Saknar kommun",
   "mobile-missing-identifier": "Mobilt aggregat saknar identifiering",
   "mobile-missing-context": "Mobilt aggregat saknar placering eller bas",
+  "vessel-missing-identifier": "Fartygsutrustning saknar identifiering",
   "missing-property": "Saknar fastighet",
   "missing-refrigerant": "Saknar köldmedium",
   "missing-technician-certificate": "Tekniker saknar personcertifikat",
@@ -45,6 +47,7 @@ const INSTALLATION_QUALITY_FILTERS = new Set<InstallationQualityFilter>([
   "missing-property",
   "mobile-missing-identifier",
   "mobile-missing-context",
+  "vessel-missing-identifier",
   "missing-refrigerant",
   "missing-charge",
   "missing-gwp",
@@ -103,8 +106,10 @@ export function matchesInstallationQualityFilter(
     co2eTon?: number | null
     installationRegisterType?: "STATIONARY" | "MOBILE" | null
     mobileUnitId?: string | null
+    mobileUnitName?: string | null
     mobileRegistrationOrVehicleNumber?: string | null
     mobileBaseLocation?: string | null
+    isInstalledOnVessel?: boolean
     location?: string | null
     propertyId?: string | null
     refrigerantAmount?: number | null
@@ -132,6 +137,14 @@ export function matchesInstallationQualityFilter(
         installation.installationRegisterType === "MOBILE" &&
         !installation.location?.trim() &&
         !installation.mobileBaseLocation?.trim()
+      )
+    case "vessel-missing-identifier":
+      return (
+        installation.installationRegisterType === "MOBILE" &&
+        installation.isInstalledOnVessel === true &&
+        !installation.mobileUnitId?.trim() &&
+        !installation.mobileRegistrationOrVehicleNumber?.trim() &&
+        !installation.mobileUnitName?.trim()
       )
     case "missing-refrigerant":
       return !installation.refrigerantType?.trim()

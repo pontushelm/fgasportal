@@ -20,6 +20,7 @@ type InstallationFormData = {
   mobileUnitName: string
   mobileRegistrationOrVehicleNumber: string
   mobileBaseLocation: string
+  isInstalledOnVessel: boolean
   propertyId: string
   equipmentId: string
   serialNumber: string
@@ -58,6 +59,7 @@ type CreatedInstallation = {
   mobileUnitName?: string | null
   mobileRegistrationOrVehicleNumber?: string | null
   mobileBaseLocation?: string | null
+  isInstalledOnVessel?: boolean
   equipmentType?: string | null
   operatorName?: string | null
   refrigerantType: string
@@ -89,6 +91,7 @@ const initialFormData: InstallationFormData = {
   mobileUnitName: "",
   mobileRegistrationOrVehicleNumber: "",
   mobileBaseLocation: "",
+  isInstalledOnVessel: false,
   propertyId: "",
   equipmentId: "",
   serialNumber: "",
@@ -356,6 +359,23 @@ export default function CreateInstallationForm({
             <input className={inputClassName} name="mobileBaseLocation" placeholder="Ex. Depå Malmö" value={formData.mobileBaseLocation} onChange={handleChange} />
           </label>
         </div>
+      )}
+      {isMobileInstallation && (
+        <label className="flex items-start gap-3 rounded-md border border-blue-100 bg-blue-50/60 p-3 text-sm font-medium text-slate-700">
+          <input
+            checked={formData.isInstalledOnVessel}
+            className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600"
+            name="isInstalledOnVessel"
+            onChange={handleChange}
+            type="checkbox"
+          />
+          <span>
+            <span className="block text-slate-900">Utrustning pÃ¥ fartyg</span>
+            <span className="block text-xs font-normal text-slate-500">
+              Rapportering fÃ¶r utrustning pÃ¥ fartyg gÃ¶rs till Transportstyrelsen.
+            </span>
+          </span>
+        </label>
       )}
       <input className={inputClassName} name="equipmentId" placeholder="Utrustnings-ID" value={formData.equipmentId} onChange={handleChange} />
       <input className={inputClassName} name="serialNumber" placeholder="Serienummer" value={formData.serialNumber} onChange={handleChange} />

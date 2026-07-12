@@ -31,6 +31,7 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
         mobileUnitName: true,
         mobileRegistrationOrVehicleNumber: true,
         mobileBaseLocation: true,
+        isInstalledOnVessel: true,
         propertyName: true,
         nextInspection: true,
         refrigerantType: true,

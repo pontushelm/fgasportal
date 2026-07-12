@@ -39,6 +39,7 @@ type Installation = {
   mobileUnitName?: string | null
   mobileRegistrationOrVehicleNumber?: string | null
   mobileBaseLocation?: string | null
+  isInstalledOnVessel?: boolean
   equipmentId?: string | null
   serialNumber?: string | null
   refrigerantType: string
@@ -1649,6 +1650,7 @@ export default function InstallationsPageClient() {
                     {installation.installationRegisterType === "MOBILE" && (
                       <div className="mt-1 text-xs text-slate-500">
                         {formatMobileMeta(installation)}
+                        {installation.isInstalledOnVessel ? " Â· Fartyg" : ""}
                       </div>
                     )}
                   </TableCell>
@@ -2030,6 +2032,10 @@ function InstallationQuickView({
                   <QuickViewItem
                     label="Primär depå / hemmahamn / bas"
                     value={installation.mobileBaseLocation || "-"}
+                  />
+                  <QuickViewItem
+                    label="Utrustning pÃ¥ fartyg"
+                    value={installation.isInstalledOnVessel ? "Ja" : "Nej"}
                   />
                 </>
               )}
