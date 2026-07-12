@@ -26,6 +26,18 @@ import {
   type AnnualReportReadinessSummary,
 } from "@/lib/reports/annualReportReadiness"
 import {
+  filterReportGroupCards,
+  formatReportGroupReadinessSummary,
+  formatReportGroupRecipientLabel,
+  formatReportGroupScopeLabel,
+  formatReportGroupStatusLabel,
+  getReportGroupPresentationStatus,
+  sortReportGroupCards,
+  type ReportGroupFilter,
+  type ReportGroupPresentationStatus,
+  type ReportGroupScope,
+} from "@/lib/reports/reportGroupPresentation"
+import {
   getReportTypeMetadata,
   isReportExportAvailable,
   REPORT_TYPE_OPTIONS,
@@ -116,6 +128,8 @@ type ReportData = {
       signedAt: string | null
       blockingIssueCount: number
       reviewWarningCount: number
+      installationCount: number
+      installationIds: string[]
     }>
     reportingGroups: Array<{
       id: string
@@ -131,22 +145,41 @@ type ReportData = {
       reviewWarningCount: number
       installationCount: number
       installationIds: string[]
+      propertyMunicipality: string | null
+      propertyDesignation: string | null
+      mobileUnitId: string | null
+      mobileUnitName: string | null
+      mobileRegistrationOrVehicleNumber: string | null
+      mobileBaseLocation: string | null
+      vesselIdentifier: string | null
+      vesselName: string | null
     }>
   }
 }
 type AnnualReportOverview = NonNullable<ReportData["annualReportOverview"]>
-type AnnualOverviewProperty =
-  | AnnualReportOverview["properties"][number]
-  | NonNullable<AnnualReportOverview["mobileGroup"]>
-  | AnnualReportOverview["reportingGroups"][number]
-type SortDirection = "asc" | "desc"
-type AnnualOverviewSortKey =
-  | "property"
-  | "municipality"
-  | "co2e"
-  | "requirement"
-  | "signing"
-  | "status"
+type AnnualReportGroupCardData = {
+  id: string
+  name: string
+  reportingScope: ReportGroupScope
+  reportRecipient: "MUNICIPALITY" | "TRANSPORT_AGENCY" | "UNKNOWN"
+  reportReason: string
+  installedCo2eTon: number | null
+  annualReportRequirement: "REQUIRED" | "NOT_REQUIRED" | "UNCERTAIN"
+  signedStatus: "SIGNED" | "NOT_SIGNED"
+  signedAt: string | null
+  blockingIssueCount: number
+  reviewWarningCount: number
+  installationCount: number
+  installationIds: string[]
+  propertyMunicipality?: string | null
+  propertyDesignation?: string | null
+  mobileUnitId?: string | null
+  mobileUnitName?: string | null
+  mobileRegistrationOrVehicleNumber?: string | null
+  mobileBaseLocation?: string | null
+  vesselIdentifier?: string | null
+  vesselName?: string | null
+}
 
 type PropertyOption = {
   id: string
@@ -549,7 +582,7 @@ export default function ReportsPage() {
                   {isAnnualReport &&
                     reportData?.annualReportOverview?.reportingGroups.map((group) => (
                       <option key={group.id} value={group.id}>
-                        {formatReportingScopeLabel(group.reportingScope)}: {group.name}
+                        {formatReportGroupScopeLabel(group.reportingScope)}: {group.name}
                       </option>
                     ))}
                   {properties
@@ -1228,38 +1261,19 @@ function AnnualReportPropertyOverview({
   overview: NonNullable<ReportData["annualReportOverview"]>
   selectedPropertyId: string
 }) {
-  const [sort, setSort] = useState<{
-    key: AnnualOverviewSortKey | ""
-    direction: SortDirection | ""
-  }>({ key: "", direction: "" })
-  const [showAllRows, setShowAllRows] = useState(false)
+  const [scopeFilter, setScopeFilter] = useState<ReportGroupFilter>("ALL")
   const overviewRows = useMemo(
-    () => [
-      ...overview.properties,
-      ...(overview.mobileGroup ? [overview.mobileGroup] : []),
-      ...overview.reportingGroups,
-    ],
-    [overview.mobileGroup, overview.properties, overview.reportingGroups]
+    () => buildAnnualReportGroupCards(overview),
+    [overview]
   )
-  const sortedProperties = useMemo(
-    () => sortAnnualOverviewProperties(overviewRows, sort.key, sort.direction),
-    [overviewRows, sort.direction, sort.key]
+  const filteredGroups = useMemo(
+    () => filterReportGroupCards(sortReportGroupCards(overviewRows), scopeFilter),
+    [overviewRows, scopeFilter]
   )
-  const visibleProperties = showAllRows
-    ? sortedProperties
-    : sortedProperties.slice(0, 5)
-
-  function updateSort(sortKey: AnnualOverviewSortKey) {
-    setSort((current) => {
-      if (current.key !== sortKey || !current.direction) {
-        return { key: sortKey, direction: "asc" }
-      }
-      if (current.direction === "asc") {
-        return { key: sortKey, direction: "desc" }
-      }
-      return { key: "", direction: "" }
-    })
-  }
+  const reportableGroupCount = overviewRows.filter(
+    (group) => group.annualReportRequirement === "REQUIRED"
+  ).length
+  const filterOptions = getReportGroupFilterOptions()
 
   if (overviewRows.length === 0) {
     return (
@@ -1272,7 +1286,7 @@ function AnnualReportPropertyOverview({
         </h2>
         <UiEmptyState
           className="mt-5"
-          title="Inget rapportunderlag för valt år"
+          title="Inga rapportgrupper finns ännu."
           description="Importera eller koppla aggregat till fastigheter innan årsrapporten kan förhandsgranskas."
           action={
             <div className="flex flex-wrap gap-2">
@@ -1297,216 +1311,75 @@ function AnnualReportPropertyOverview({
       className="mt-6 rounded-lg border border-slate-200 bg-white p-4"
       id="annual-report-overview"
     >
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="text-sm font-semibold text-slate-950">
             Årsrapportering {overview.year}
           </h2>
           <p className="text-sm text-slate-600">
-            Välj fastighet eller mobila aggregat för export och signering av årsrapport.
+            Varje kort motsvarar ett rapporteringsobjekt: en stationär
+            anläggning, ett mobilt aggregat eller en fartygsgrupp.
           </p>
         </div>
         <span className="text-xs font-semibold text-slate-500">
-          {overview.properties.length} fastigheter
-          {overview.mobileGroup ? `, ${overview.mobileGroup.installationCount} mobila aggregat` : ""}
-          {overview.reportingGroups.length > 0
-            ? `, ${overview.reportingGroups.length} mobila/fartygsgrupper`
-            : ""}
+          {overviewRows.length} rapportgrupper
+          {reportableGroupCount > 0 ? `, ${reportableGroupCount} rapportpliktiga` : ""}
         </span>
       </div>
 
-      <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
-        <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50">
-            <tr>
-              <SortableReportTableHeader
-                activeSortKey={sort.key}
-                direction={sort.direction}
-                onSort={updateSort}
-                sortKey="property"
-              >
-                Fastighet
-              </SortableReportTableHeader>
-              <SortableReportTableHeader
-                activeSortKey={sort.key}
-                direction={sort.direction}
-                onSort={updateSort}
-                sortKey="municipality"
-              >
-                Kommun
-              </SortableReportTableHeader>
-              <SortableReportTableHeader
-                activeSortKey={sort.key}
-                direction={sort.direction}
-                onSort={updateSort}
-                sortKey="co2e"
-              >
-                Installerad CO₂e
-              </SortableReportTableHeader>
-              <SortableReportTableHeader
-                activeSortKey={sort.key}
-                direction={sort.direction}
-                onSort={updateSort}
-                sortKey="requirement"
-              >
-                Årsrapport
-              </SortableReportTableHeader>
-              <SortableReportTableHeader
-                activeSortKey={sort.key}
-                direction={sort.direction}
-                onSort={updateSort}
-                sortKey="signing"
-              >
-                Signering
-              </SortableReportTableHeader>
-              <SortableReportTableHeader
-                activeSortKey={sort.key}
-                direction={sort.direction}
-                onSort={updateSort}
-                sortKey="status"
-              >
-                Status
-              </SortableReportTableHeader>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200">
-            {visibleProperties.map((property) => (
-              <tr
-                className={
-                  property.id === selectedPropertyId ||
-                  ("reportGroupId" in property &&
-                    property.reportGroupId === selectedPropertyId)
-                    ? "bg-blue-50/60"
-                    : undefined
-                }
-                key={property.id}
-              >
-                <TableCell>
-                  {"reportingScope" in property ? (
-                    <button
-                      className="text-left font-semibold text-blue-700 underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                      onClick={() => onSelectProperty(property.id)}
-                      type="button"
-                    >
-                      {property.name}
-                    </button>
-                  ) : (
-                    <button
-                      className="text-left font-semibold text-blue-700 underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                      onClick={() =>
-                        onSelectProperty(
-                          "reportGroupId" in property ? property.reportGroupId : property.id
-                        )
-                      }
-                      type="button"
-                    >
-                      {property.name}
-                    </button>
-                  )}
-                  {(property.id === selectedPropertyId ||
-                    ("reportGroupId" in property &&
-                      property.reportGroupId === selectedPropertyId)) && (
-                    <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
-                      Vald
-                    </span>
-                  )}
-                  {"reportingScope" in property && (
-                    <div className="mt-1 text-xs font-medium text-slate-500">
-                      {formatReportingScopeLabel(property.reportingScope)} ·{" "}
-                      {formatReportRecipientLabel(property.reportRecipient)}
-                    </div>
-                  )}
-                  {property.id === MOBILE_REPORT_SCOPE_ID && "installationCount" in property && (
-                    <div className="text-xs font-medium text-slate-500">
-                      {property.installationCount} aggregat
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {"municipality" in property ? property.municipality || "-" : "-"}
-                </TableCell>
-                <TableCell>{formatWholeCo2eTon(property.installedCo2eTon)}</TableCell>
-                <TableCell>
-                  <AnnualRequirementBadge status={property.annualReportRequirement} />
-                </TableCell>
-                <TableCell>
-                  <div className="font-medium text-slate-800">
-                    {property.signedStatus === "SIGNED" ? "Signerad" : "Ej signerad"}
-                  </div>
-                  {property.signedAt && (
-                    <div className="text-xs text-slate-500">
-                      {formatDate(property.signedAt)}
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <span className="text-xs font-semibold text-slate-700">
-                    {property.blockingIssueCount} kräver komplettering,{" "}
-                    {property.reviewWarningCount} bör granskas
-                  </span>
-                </TableCell>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="mt-4 flex flex-wrap gap-2" aria-label="Filtrera rapportgrupper">
+        {filterOptions.map((option) => {
+          const count = countReportGroupsByFilter(overviewRows, option.filter)
+          const isActive = option.filter === scopeFilter
+
+          return (
+            <button
+              className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition ${
+                isActive
+                  ? "border-blue-600 bg-blue-50 text-blue-700"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+              }`}
+              key={option.filter}
+              onClick={() => setScopeFilter(option.filter)}
+              type="button"
+            >
+              {option.label} ({count})
+            </button>
+          )
+        })}
       </div>
-      {sortedProperties.length > 5 && (
-        <div className="mt-3 flex flex-col gap-2 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-          <span>
-            Visar {visibleProperties.length} av {sortedProperties.length} fastigheter.
-          </span>
-          <button
-            className="self-start rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-            type="button"
-            onClick={() => setShowAllRows((current) => !current)}
-          >
-            {showAllRows ? "Visa färre" : "Visa fler"}
-          </button>
+
+      {reportableGroupCount === 0 && (
+        <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+          Det finns inga rapportpliktiga grupper för valt rapportår.
+        </div>
+      )}
+
+      {filteredGroups.length === 0 ? (
+        <UiEmptyState
+          className="mt-5"
+          title={
+            filterOptions.find((option) => option.filter === scopeFilter)
+              ?.emptyTitle ?? "Inga rapportgrupper finns ännu."
+          }
+          description="Byt filter eller kontrollera registerstatus om du saknar ett rapporteringsobjekt."
+        />
+      ) : (
+        <div className="mt-4 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+          {filteredGroups.map((group) => (
+            <ReportGroupCard
+              group={group}
+              isSelected={group.id === selectedPropertyId}
+              key={group.id}
+              onSelect={onSelectProperty}
+              year={overview.year}
+            />
+          ))}
         </div>
       )}
     </section>
   )
 }
-
-function AnnualRequirementBadge({
-  status,
-}: {
-  status: NonNullable<ReportData["annualReportOverview"]>["properties"][number]["annualReportRequirement"]
-}) {
-  if (status === "REQUIRED") {
-    return <Badge variant="warning">Krävs</Badge>
-  }
-  if (status === "UNCERTAIN") {
-    return <Badge variant="warning">Osäkert</Badge>
-  }
-
-  return <Badge variant="neutral">Krävs inte</Badge>
-}
-
-function formatReportingScopeLabel(scope: "PROPERTY" | "INDIVIDUAL" | "VESSEL") {
-  switch (scope) {
-    case "INDIVIDUAL":
-      return "Mobilt aggregat"
-    case "VESSEL":
-      return "Fartyg"
-    case "PROPERTY":
-      return "StationÃ¤r anlÃ¤ggning"
-  }
-}
-
-function formatReportRecipientLabel(
-  recipient: "MUNICIPALITY" | "TRANSPORT_AGENCY" | "UNKNOWN"
-) {
-  switch (recipient) {
-    case "TRANSPORT_AGENCY":
-      return "Transportstyrelsen"
-    case "MUNICIPALITY":
-      return "Kommunal tillsynsmyndighet"
-    case "UNKNOWN":
-      return "Tillsynsmyndighet behÃ¶ver granskas"
-  }
-}
-
 function isReportGroupId(value: string) {
   return (
     value.startsWith("property:") ||
@@ -1515,94 +1388,237 @@ function isReportGroupId(value: string) {
   )
 }
 
-function SortableReportTableHeader({
-  activeSortKey,
-  children,
-  direction,
-  onSort,
-  sortKey,
+function ReportGroupCard({
+  group,
+  isSelected,
+  onSelect,
+  year,
 }: {
-  activeSortKey: AnnualOverviewSortKey | ""
-  children: React.ReactNode
-  direction: SortDirection | ""
-  onSort: (sortKey: AnnualOverviewSortKey) => void
-  sortKey: AnnualOverviewSortKey
+  group: AnnualReportGroupCardData
+  isSelected: boolean
+  onSelect: (propertyId: string) => void
+  year: number
 }) {
-  const isActive = activeSortKey === sortKey
+  const status = getReportGroupPresentationStatus(group)
+  const metadata = getReportGroupMetadata(group)
+  const pdfHref = `/api/reports/annual-fgas?${new URLSearchParams({
+    reportGroupId: group.id,
+    year: String(year),
+  }).toString()}`
+  const isReportActionAvailable =
+    group.annualReportRequirement === "REQUIRED" && status !== "NEEDS_COMPLETION"
 
   return (
-    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-      <button
-        className="inline-flex items-center gap-1 rounded-sm text-left hover:text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-100"
-        type="button"
-        onClick={() => onSort(sortKey)}
-      >
-        <span>{children}</span>
-        {isActive && direction && (
-          <span aria-hidden="true" className="text-neutral-900">
-            {direction === "asc" ? "↑" : "↓"}
-          </span>
+    <article
+      className={`flex min-h-full flex-col rounded-lg border bg-white p-4 shadow-sm transition ${
+        isSelected
+          ? "border-blue-300 ring-2 ring-blue-100"
+          : "border-slate-200 hover:border-slate-300"
+      }`}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-base font-semibold text-slate-950">{group.name}</h3>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Badge variant="info">
+              {formatReportGroupScopeLabel(group.reportingScope)}
+            </Badge>
+            <Badge variant="neutral">
+              {formatReportGroupRecipientLabel(group.reportRecipient)}
+            </Badge>
+          </div>
+        </div>
+        <ReportGroupStatusBadge status={status} />
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 rounded-lg bg-slate-50 p-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Utv?rderad m?ngd
+          </p>
+          <p className="mt-1 text-lg font-bold text-slate-950">
+            {formatReportGroupCo2e(group.installedCo2eTon)}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Aggregat
+          </p>
+          <p className="mt-1 text-lg font-bold text-slate-950">
+            {group.installationCount}
+          </p>
+        </div>
+      </div>
+
+      <p className="mt-3 text-sm text-slate-700">
+        {formatReportGroupReadinessSummary(group)}
+      </p>
+
+      {metadata.length > 0 && (
+        <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+          {metadata.map((item) => (
+            <div key={item.label}>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {item.label}
+              </dt>
+              <dd className="mt-0.5 text-slate-800">{item.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
+      <div className="mt-auto flex flex-col gap-2 pt-4 sm:flex-row sm:flex-wrap">
+        {group.annualReportRequirement === "REQUIRED" ? (
+          <>
+            <button
+              className={buttonClassName({ size: "sm" })}
+              onClick={() => onSelect(group.id)}
+              type="button"
+            >
+              {group.signedStatus === "SIGNED"
+                ? "Visa signerad rapport"
+                : "F?rhandsgranska"}
+            </button>
+            {status === "NEEDS_COMPLETION" ? (
+              <Link
+                className={buttonClassName({ size: "sm", variant: "secondary" })}
+                href="/dashboard/data-quality"
+              >
+                Komplettera underlag
+              </Link>
+            ) : (
+              isReportActionAvailable && (
+                <Link
+                  className={buttonClassName({ size: "sm", variant: "secondary" })}
+                  href={pdfHref}
+                >
+                  Skapa PDF
+                </Link>
+              )
+            )}
+          </>
+        ) : (
+          <button
+            className={buttonClassName({ size: "sm", variant: "secondary" })}
+            onClick={() => onSelect(group.id)}
+            type="button"
+          >
+            Visa detaljer
+          </button>
         )}
-      </button>
-    </th>
+      </div>
+    </article>
   )
 }
 
-function sortAnnualOverviewProperties(
-  properties: AnnualOverviewProperty[],
-  sortKey: AnnualOverviewSortKey | "",
-  direction: SortDirection | ""
-) {
-  if (!sortKey || !direction) return properties
+function ReportGroupStatusBadge({
+  status,
+}: {
+  status: ReportGroupPresentationStatus
+}) {
+  const variant =
+    status === "SIGNED" || status === "READY"
+      ? "success"
+      : status === "NEEDS_COMPLETION" || status === "NEEDS_REVIEW"
+        ? "warning"
+        : "neutral"
 
-  const multiplier = direction === "asc" ? 1 : -1
-
-  return [...properties].sort((first, second) => {
-    const firstValue = getAnnualOverviewSortValue(first, sortKey)
-    const secondValue = getAnnualOverviewSortValue(second, sortKey)
-
-    if (typeof firstValue === "number" && typeof secondValue === "number") {
-      return (firstValue - secondValue) * multiplier
-    }
-
-    return (
-      String(firstValue).localeCompare(String(secondValue), "sv", {
-        numeric: true,
-        sensitivity: "base",
-      }) * multiplier
-    )
-  })
+  return <Badge variant={variant}>{formatReportGroupStatusLabel(status)}</Badge>
 }
 
-function getAnnualOverviewSortValue(
-  property: AnnualOverviewProperty,
-  sortKey: AnnualOverviewSortKey
+function buildAnnualReportGroupCards(
+  overview: AnnualReportOverview
+): AnnualReportGroupCardData[] {
+  return [
+    ...overview.properties.map((property) => ({
+      annualReportRequirement: property.annualReportRequirement,
+      blockingIssueCount: property.blockingIssueCount,
+      id: property.reportGroupId,
+      installationCount: property.installationCount,
+      installationIds: property.installationIds,
+      installedCo2eTon: property.installedCo2eTon,
+      name: property.name,
+      propertyMunicipality: property.municipality,
+      reportReason: "PROPERTY",
+      reportRecipient: "MUNICIPALITY" as const,
+      reportingScope: "PROPERTY" as const,
+      reviewWarningCount: property.reviewWarningCount,
+      signedAt: property.signedAt,
+      signedStatus: property.signedStatus,
+    })),
+    ...overview.reportingGroups,
+  ]
+}
+
+function getReportGroupFilterOptions(): Array<{
+  emptyTitle: string
+  filter: ReportGroupFilter
+  label: string
+}> {
+  return [
+    { emptyTitle: "Inga rapportgrupper finns ?nnu.", filter: "ALL", label: "Alla" },
+    {
+      emptyTitle: "Inga station?ra anl?ggningar finns att visa.",
+      filter: "PROPERTY",
+      label: "Station?ra",
+    },
+    {
+      emptyTitle: "Inga mobila aggregat finns att visa.",
+      filter: "INDIVIDUAL",
+      label: "Mobila",
+    },
+    { emptyTitle: "Inga fartyg finns att visa.", filter: "VESSEL", label: "Fartyg" },
+  ]
+}
+
+function countReportGroupsByFilter(
+  groups: AnnualReportGroupCardData[],
+  filter: ReportGroupFilter
 ) {
-  switch (sortKey) {
-    case "property":
-      return property.name
-    case "municipality":
-      return "municipality" in property ? property.municipality || "" : ""
-    case "co2e":
-      return property.installedCo2eTon
-    case "requirement":
-      return annualRequirementSortRank[property.annualReportRequirement]
-    case "signing":
-      return property.signedStatus === "SIGNED" ? 1 : 0
-    case "status":
-      return property.blockingIssueCount * 1000 + property.reviewWarningCount
+  return filterReportGroupCards(groups, filter).length
+}
+
+function getReportGroupMetadata(group: AnnualReportGroupCardData) {
+  const items: Array<{ label: string; value: string }> = []
+
+  if (group.reportingScope === "PROPERTY") {
+    addMetadata(items, "Kommun", group.propertyMunicipality)
+    addMetadata(items, "Fastighetsbeteckning", group.propertyDesignation)
   }
+
+  if (group.reportingScope === "INDIVIDUAL") {
+    addMetadata(items, "Enhets-ID", group.mobileUnitId)
+    addMetadata(
+      items,
+      "Registrerings-/fordonsnummer",
+      group.mobileRegistrationOrVehicleNumber
+    )
+    addMetadata(items, "Namn / beteckning", group.mobileUnitName)
+    addMetadata(items, "Bas", group.mobileBaseLocation)
+  }
+
+  if (group.reportingScope === "VESSEL") {
+    addMetadata(items, "Fartygsidentifiering", group.vesselIdentifier)
+    addMetadata(items, "Namn / beteckning", group.vesselName)
+    addMetadata(items, "Mottagare", "Transportstyrelsen")
+  }
+
+  return items
 }
 
-const annualRequirementSortRank: Record<
-  AnnualOverviewProperty["annualReportRequirement"],
-  number
-> = {
-  NOT_REQUIRED: 0,
-  UNCERTAIN: 1,
-  REQUIRED: 2,
+function addMetadata(
+  items: Array<{ label: string; value: string }>,
+  label: string,
+  value?: string | null
+) {
+  if (!value) return
+  items.push({ label, value })
 }
 
+function formatReportGroupCo2e(value: number | null) {
+  if (value === null) return "Kan inte ber?knas"
+  return `${formatWholeCo2eTon(value)} CO2e`
+}
 function ReportQualityPanel({ reportData }: { reportData: ReportData }) {
   const [showAllWarnings, setShowAllWarnings] = useState(false)
   const summary =

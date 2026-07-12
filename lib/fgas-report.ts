@@ -115,6 +115,8 @@ export type AnnualFgasReportPropertyOverview = {
     signedAt: Date | null
     blockingIssueCount: number
     reviewWarningCount: number
+    installationCount: number
+    installationIds: string[]
   }>
   reportingGroups: Array<{
     id: string
@@ -130,6 +132,14 @@ export type AnnualFgasReportPropertyOverview = {
     reviewWarningCount: number
     installationCount: number
     installationIds: string[]
+    propertyMunicipality: string | null
+    propertyDesignation: string | null
+    mobileUnitId: string | null
+    mobileUnitName: string | null
+    mobileRegistrationOrVehicleNumber: string | null
+    mobileBaseLocation: string | null
+    vesselIdentifier: string | null
+    vesselName: string | null
   }>
 }
 
@@ -795,6 +805,8 @@ export function buildAnnualFgasReportPropertyOverviewFromLoadedData({
       signedAt,
       blockingIssueCount: propertySummary.qualitySummary.blockingIssueCount,
       reviewWarningCount: propertySummary.qualitySummary.warningCount,
+      installationCount: installations.length,
+      installationIds: installations.map((installation) => installation.id),
     } satisfies AnnualFgasReportPropertyOverview["properties"][number]
   })
 
@@ -863,6 +875,7 @@ function buildAnnualOverviewReportingGroups({
     const groupInstallations = installations.filter((installation) =>
       group.installationIds.includes(installation.id)
     )
+    const firstInstallation = groupInstallations[0] ?? null
     const summary = buildAnnualOverviewPropertySummary({
       endDate,
       installations: groupInstallations,
@@ -883,6 +896,39 @@ function buildAnnualOverviewReportingGroups({
       reviewWarningCount: summary.qualitySummary.warningCount,
       signedAt: null,
       signedStatus: "NOT_SIGNED",
+      propertyMunicipality:
+        group.reportingScope === "PROPERTY"
+          ? firstInstallation?.property?.municipality ?? null
+          : null,
+      propertyDesignation:
+        group.reportingScope === "PROPERTY"
+          ? firstInstallation?.property?.propertyDesignation ?? null
+          : null,
+      mobileUnitId:
+        group.reportingScope === "INDIVIDUAL"
+          ? firstInstallation?.mobileUnitId ?? null
+          : null,
+      mobileUnitName:
+        group.reportingScope === "INDIVIDUAL"
+          ? firstInstallation?.mobileUnitName ?? null
+          : null,
+      mobileRegistrationOrVehicleNumber:
+        group.reportingScope === "INDIVIDUAL"
+          ? firstInstallation?.mobileRegistrationOrVehicleNumber ?? null
+          : null,
+      mobileBaseLocation:
+        group.reportingScope === "INDIVIDUAL"
+          ? firstInstallation?.mobileBaseLocation ?? null
+          : null,
+      vesselIdentifier:
+        group.reportingScope === "VESSEL" ? group.reportGroupLabel : null,
+      vesselName:
+        group.reportingScope === "VESSEL"
+          ? firstInstallation?.mobileUnitName ??
+            firstInstallation?.equipmentId ??
+            firstInstallation?.name ??
+            null
+          : null,
     }
   })
 }
