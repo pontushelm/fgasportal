@@ -79,6 +79,7 @@ export async function GET(request: NextRequest) {
     const propertyId =
       historyRecord?.propertyId ??
       request.nextUrl.searchParams.get("propertyId")?.trim()
+    const reportGroupId = request.nextUrl.searchParams.get("reportGroupId")?.trim()
     const registerType = parseReportRegisterType(
       request.nextUrl.searchParams.get("registerType")
     )
@@ -111,7 +112,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Ogiltigt årtal" }, { status: 400 })
     }
 
-    if (!historyRecord && !propertyId && registerType !== "MOBILE") {
+    if (!historyRecord && !propertyId && !reportGroupId && registerType !== "MOBILE") {
       return NextResponse.json(
         { error: "VÃ¤lj en fastighet innan Ã¥rsrapporten exporteras" },
         { status: 400 }
@@ -140,6 +141,7 @@ export async function GET(request: NextRequest) {
       isContractor: isContractor(auth.user),
       municipality: municipality || null,
       propertyId: propertyId || null,
+      reportGroupId: reportGroupId || null,
       signed: Boolean(signingMetadataForReport),
       regeneratedFromHistory: Boolean(historyRecord),
       year,
@@ -151,6 +153,7 @@ export async function GET(request: NextRequest) {
       contactUserId: historyRecord?.userId ?? auth.user.userId,
       municipality: municipality || undefined,
       propertyId: propertyId || undefined,
+      reportGroupId: reportGroupId || undefined,
       registerType,
       reportNotes,
       signingMetadata: signingMetadataForReport,
@@ -169,7 +172,7 @@ export async function GET(request: NextRequest) {
         ? buildAnnualFgasArtifactScope({
             municipality: municipality || null,
             propertyId: propertyId || null,
-            registerType,
+            reportGroupId: reportGroupId || null,
             report,
             year,
           })
@@ -327,6 +330,7 @@ export async function GET(request: NextRequest) {
         year,
         municipality: municipality || null,
         propertyId: propertyId || null,
+        reportGroupId: reportGroupId || null,
         signed: Boolean(signingMetadataForReport),
         signedReportId: signedHistoryRecord?.id ?? null,
         signedReportArtifactId: artifactId,
@@ -350,6 +354,7 @@ export async function GET(request: NextRequest) {
           year,
           municipality: municipality || null,
           propertyId: propertyId || null,
+          reportGroupId: reportGroupId || null,
           signedReportId: signedHistoryRecord.id,
           signedReportArtifactId: artifactId,
           signerName: signing.metadata?.signerName ?? null,
@@ -447,14 +452,20 @@ function parseReportNotes(value: string | null) {
 function buildAnnualFgasArtifactScope({
   municipality,
   propertyId,
-  registerType,
+  reportGroupId,
   report,
   year,
 }: {
   municipality: string | null
   propertyId: string | null
-  registerType?: "STATIONARY" | "MOBILE"
+  reportGroupId: string | null
   report: {
+    reportGroup?: {
+      id: string
+      label: string
+      reportingScope: "PROPERTY" | "INDIVIDUAL" | "VESSEL"
+      recipient: "MUNICIPALITY" | "TRANSPORT_AGENCY" | "UNKNOWN"
+    } | null
     facility: {
       municipality: string | null
       name: string
@@ -463,15 +474,21 @@ function buildAnnualFgasArtifactScope({
   }
   year: number
 }): ReportSnapshotScope {
-  if (registerType === "MOBILE") {
+  if (report.reportGroup) {
+    const isPropertyGroup = report.reportGroup.reportingScope === "PROPERTY"
     return {
-      type: "CUSTOM",
-      id: "mobile-installations",
-      label: "Mobila aggregat",
+      type: isPropertyGroup ? "PROPERTY" : "CUSTOM",
+      id: reportGroupId ?? report.reportGroup.id,
+      label:
+        report.reportGroup.reportingScope === "INDIVIDUAL"
+          ? `Mobilt aggregat: ${report.reportGroup.label}`
+          : report.reportGroup.reportingScope === "VESSEL"
+            ? `Fartyg: ${report.reportGroup.label}`
+            : report.reportGroup.label,
       reportYear: year,
-      municipality: null,
-      propertyName: "Mobila aggregat",
-      propertyDesignation: null,
+      municipality: report.facility.municipality,
+      propertyName: report.facility.name,
+      propertyDesignation: report.facility.propertyDesignation,
     }
   }
 

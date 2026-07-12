@@ -1,13 +1,44 @@
+import type { ReportRecipient, ReportingScope } from "@/lib/regulatory/types"
+
 export type AnnualFgasReportFilter = {
   companyId: string
   year: number
   contactUserId?: string
   municipality?: string
   propertyId?: string
+  reportGroupId?: string
   registerType?: "STATIONARY" | "MOBILE"
   assignedContractorId?: string
   signingMetadata?: AnnualFgasSigningMetadata | null
   reportNotes?: string | null
+}
+
+export type AnnualFgasReportGroup = {
+  id: string
+  reportingScope: ReportingScope
+  label: string
+  recipient: ReportRecipient
+  reportable: boolean | null
+  reportReason: string
+  reportingYear: number
+  installationIds: string[]
+  evaluatedCo2eTon: number | null
+  property: {
+    id: string
+    name: string | null
+    municipality: string | null
+    propertyDesignation: string | null
+  } | null
+  mobileMetadata: {
+    installationId: string
+    mobileUnitId: string | null
+    mobileUnitName: string | null
+    mobileRegistrationOrVehicleNumber: string | null
+    mobileBaseLocation: string | null
+  } | null
+  vesselMetadata: {
+    vesselIdentifier: string
+  } | null
 }
 
 export type AnnualFgasReportData = {
@@ -31,6 +62,7 @@ export type AnnualFgasReportData = {
     email: string | null
     phone: string | null
   }
+  reportGroup?: AnnualFgasReportGroup | null
   facility: {
     name: string
     address: string | null

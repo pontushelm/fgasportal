@@ -11,6 +11,10 @@ import {
   resolveAnnualFgasInstallationCertification,
   type AnnualFgasResolvedInstallationCertification,
 } from "@/lib/reports/annualFgasCertification"
+import {
+  buildAnnualFgasReportGroups,
+  findAnnualFgasReportGroup,
+} from "@/lib/reports/annualFgasReportGroups"
 import { selectPrimaryAnnualReportServicePartnerCompany } from "@/lib/reports/annualFgasServicePartner"
 import {
   buildAnnualFgasReportQualitySummary,
@@ -26,6 +30,7 @@ export async function buildAnnualFgasReportData({
   contactUserId,
   municipality,
   propertyId,
+  reportGroupId,
   registerType,
   reportNotes,
   signingMetadata,
@@ -77,7 +82,7 @@ export async function buildAnnualFgasReportData({
       })
     : null
 
-  const installations = await prisma.installation.findMany({
+  let installations = await prisma.installation.findMany({
     where: {
       companyId,
       AND: [
@@ -215,6 +220,22 @@ export async function buildAnnualFgasReportData({
       { name: "asc" },
     ],
   })
+  const reportGroups = buildAnnualFgasReportGroups(installations, year)
+  const selectedReportGroup =
+    findAnnualFgasReportGroup(reportGroups, reportGroupId) ??
+    findAnnualFgasReportGroup(
+      reportGroups,
+      propertyId ? `property:${propertyId}` : null
+    )
+
+  if (reportGroupId && !selectedReportGroup) {
+    installations = []
+  } else if (selectedReportGroup) {
+    const selectedInstallationIds = new Set(selectedReportGroup.installationIds)
+    installations = installations.filter((installation) =>
+      selectedInstallationIds.has(installation.id)
+    )
+  }
 
   const scrapServicePartnerIds = Array.from(
     new Set(
@@ -460,17 +481,23 @@ export async function buildAnnualFgasReportData({
       email: reportContact?.email ?? null,
       phone: reportContact?.phone ?? null,
     },
+    reportGroup: selectedReportGroup,
     facility: {
-      name:
-        registerType === "MOBILE" && properties.length === 0
+      name: selectedReportGroup?.label ??
+        (registerType === "MOBILE" && properties.length === 0
           ? "Mobila aggregat"
-          : formatFacilityName(properties, trimmedMunicipality),
-      address: formatFacilityAddress(properties),
-      municipality: formatFacilityMunicipality(
-        uniqueMunicipalities,
-        trimmedMunicipality
-      ),
-      propertyDesignation: formatFacilityPropertyDesignation(properties),
+          : formatFacilityName(properties, trimmedMunicipality)),
+      address:
+        selectedReportGroup?.mobileMetadata?.mobileBaseLocation ??
+        formatFacilityAddress(properties),
+      municipality:
+        selectedReportGroup?.property?.municipality ??
+        formatFacilityMunicipality(uniqueMunicipalities, trimmedMunicipality),
+      propertyDesignation:
+        selectedReportGroup?.property?.propertyDesignation ??
+        (selectedReportGroup
+          ? null
+          : formatFacilityPropertyDesignation(properties)),
       propertyCount: properties.length,
     },
     responsibleContractor: {

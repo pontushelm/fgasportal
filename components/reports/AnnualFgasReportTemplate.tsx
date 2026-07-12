@@ -47,6 +47,28 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
             </div>
           </ReportSection>
 
+          {report.reportGroup && (
+            <ReportSection title="Rapportgrupp">
+              <div className="field-grid field-grid-2">
+                <Field label="Omfattning" value={formatReportingScope(report.reportGroup.reportingScope)} />
+                <Field label="Rapportmottagare" value={formatReportRecipient(report.reportGroup.recipient)} />
+                <Field label="Rapportgrupp" value={report.reportGroup.label} />
+                <Field label="UtvÃ¤rderad COâ‚‚e" value={formatReportGroupCo2e(report.reportGroup.evaluatedCo2eTon)} />
+                {report.reportGroup.mobileMetadata && (
+                  <>
+                    <Field label="Enhets-ID" value={report.reportGroup.mobileMetadata.mobileUnitId} />
+                    <Field label="Registrerings-/fordonsnummer" value={report.reportGroup.mobileMetadata.mobileRegistrationOrVehicleNumber} />
+                    <Field label="Namn / beteckning" value={report.reportGroup.mobileMetadata.mobileUnitName} />
+                    <Field label="Bas / hemmahamn" value={report.reportGroup.mobileMetadata.mobileBaseLocation} />
+                  </>
+                )}
+                {report.reportGroup.vesselMetadata && (
+                  <Field label="Fartygsidentifiering" value={report.reportGroup.vesselMetadata.vesselIdentifier} />
+                )}
+              </div>
+            </ReportSection>
+          )}
+
           <div className="summary-grid">
             <SummaryBox
               title="Sammanfattning"
@@ -401,6 +423,35 @@ function displayEquipment(name: string, equipmentId: string | null) {
 
 function formatRegisterType(type?: "STATIONARY" | "MOBILE") {
   return type === "MOBILE" ? "Mobilt aggregat" : "Stationärt aggregat"
+}
+
+function formatReportingScope(scope: "PROPERTY" | "INDIVIDUAL" | "VESSEL") {
+  switch (scope) {
+    case "INDIVIDUAL":
+      return "Mobilt aggregat"
+    case "VESSEL":
+      return "Fartyg"
+    case "PROPERTY":
+      return "Fastighet"
+  }
+}
+
+function formatReportRecipient(
+  recipient: "MUNICIPALITY" | "TRANSPORT_AGENCY" | "UNKNOWN"
+) {
+  switch (recipient) {
+    case "TRANSPORT_AGENCY":
+      return "Transportstyrelsen"
+    case "MUNICIPALITY":
+      return "Kommun"
+    case "UNKNOWN":
+      return "Tillsynsmyndighet behÃ¶ver granskas"
+  }
+}
+
+function formatReportGroupCo2e(value: number | null) {
+  if (value === null) return "Kan inte berÃ¤knas"
+  return `${formatNumber(value)} ton`
 }
 
 function formatMobileEquipmentMetadata(row: AnnualFgasEquipmentRow) {

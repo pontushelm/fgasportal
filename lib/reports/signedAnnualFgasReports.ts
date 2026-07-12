@@ -77,7 +77,7 @@ export function buildSignedAnnualReportCreateData({
     reportYear,
     municipality,
     propertyId,
-    propertyName: propertyId ? report.facility.name : null,
+    propertyName: report.reportGroup?.label ?? (propertyId ? report.facility.name : null),
     signerName: signing.signerName,
     signerRole: signing.signerRole,
     signingDate: signing.signingDate,
@@ -97,6 +97,9 @@ export function mapSignedAnnualReportHistoryItem(record: {
     pdfStorageKey: string | null
     pdfSha256: string | null
     supersededAt: Date | null
+    scopeId?: string | null
+    scopeLabel?: string | null
+    scopeType?: string | null
   } | null
   legacyMetadataOnly: boolean
   reportYear: number
@@ -167,10 +170,36 @@ export function buildSigningMetadataFromHistory(record: {
 }
 
 export function formatSignedReportScope(record: {
+  artifact?: {
+    scopeId?: string | null
+    scopeLabel?: string | null
+    scopeType?: string | null
+  } | null
   municipality: string | null
   propertyName: string | null
 }) {
+  if (record.artifact?.scopeLabel) {
+    if (record.artifact.scopeType === "CUSTOM") {
+      return record.artifact.scopeLabel
+    }
+    return `${formatArtifactScopeType(record.artifact.scopeType)}: ${record.artifact.scopeLabel}`
+  }
   if (record.propertyName) return `Fastighet: ${record.propertyName}`
   if (record.municipality) return `Kommun: ${record.municipality}`
   return "Alla fastigheter"
+}
+
+function formatArtifactScopeType(scopeType?: string | null) {
+  switch (scopeType) {
+    case "PROPERTY":
+      return "Fastighet"
+    case "MUNICIPALITY":
+      return "Kommun"
+    case "COMPANY":
+      return "Organisation"
+    case "CUSTOM":
+      return "Rapportgrupp"
+    default:
+      return "Rapportgrupp"
+  }
 }

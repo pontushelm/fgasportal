@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     const year = parseReportYear(request.nextUrl.searchParams.get("year"))
     const municipality = request.nextUrl.searchParams.get("municipality")?.trim()
     const propertyId = request.nextUrl.searchParams.get("propertyId")?.trim()
+    const reportGroupId = request.nextUrl.searchParams.get("reportGroupId")?.trim()
     const registerType = parseReportRegisterType(
       request.nextUrl.searchParams.get("registerType")
     )
@@ -33,6 +34,7 @@ export async function GET(request: NextRequest) {
       assignedContractorId: isContractor(auth.user) ? auth.user.userId : undefined,
       municipality: municipality || undefined,
       propertyId: propertyId || undefined,
+      reportGroupId: reportGroupId || undefined,
       registerType,
       year,
     }

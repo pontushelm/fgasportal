@@ -311,6 +311,90 @@ describe("annual F-gas property overview", () => {
     })
     expect(scrappedProperty?.reviewWarningCount).toBeGreaterThan(0)
   })
+
+  it("builds report groups for ordinary mobile and vessel scopes", () => {
+    const overview = buildAnnualFgasReportPropertyOverviewFromLoadedData({
+      startDate: overviewStartDate,
+      endDate: overviewEndDate,
+      year: 2026,
+      signedReportRecords: [],
+      installations: [
+        buildOverviewInstallation({
+          id: "mobile-reportable",
+          name: "Truck 18",
+          equipmentId: "TRUCK-18",
+          installationRegisterType: "MOBILE",
+          property: null,
+          propertyName: null,
+          refrigerantType: "R134a",
+          refrigerantAmount: 13,
+          mobileUnitName: "Truck 18",
+        }),
+        buildOverviewInstallation({
+          id: "mobile-below",
+          name: "Truck 8",
+          equipmentId: "TRUCK-8",
+          installationRegisterType: "MOBILE",
+          property: null,
+          propertyName: null,
+          refrigerantType: "R134a",
+          refrigerantAmount: 6,
+          mobileUnitName: "Truck 8",
+        }),
+        buildOverviewInstallation({
+          id: "vessel-a",
+          name: "Aurora A",
+          installationRegisterType: "MOBILE",
+          isInstalledOnVessel: true,
+          property: null,
+          propertyName: null,
+          refrigerantType: "R134a",
+          refrigerantAmount: 6,
+          mobileUnitName: "Aurora",
+        }),
+        buildOverviewInstallation({
+          id: "vessel-b",
+          name: "Aurora B",
+          installationRegisterType: "MOBILE",
+          isInstalledOnVessel: true,
+          property: null,
+          propertyName: null,
+          refrigerantType: "R134a",
+          refrigerantAmount: 6,
+          mobileUnitName: "Aurora",
+        }),
+      ],
+    })
+
+    expect(overview.mobileGroup).toBeNull()
+    expect(overview.reportingGroups.map((group) => group.id)).toEqual([
+      "installation:mobile-reportable",
+      "installation:mobile-below",
+      "vessel:aurora",
+    ])
+    expect(
+      overview.reportingGroups.find(
+        (group) => group.id === "installation:mobile-reportable"
+      )
+    ).toMatchObject({
+      annualReportRequirement: "REQUIRED",
+      reportRecipient: "MUNICIPALITY",
+      reportingScope: "INDIVIDUAL",
+    })
+    expect(
+      overview.reportingGroups.find(
+        (group) => group.id === "installation:mobile-below"
+      )?.annualReportRequirement
+    ).toBe("NOT_REQUIRED")
+    expect(
+      overview.reportingGroups.find((group) => group.id === "vessel:aurora")
+    ).toMatchObject({
+      annualReportRequirement: "REQUIRED",
+      reportRecipient: "TRANSPORT_AGENCY",
+      reportingScope: "VESSEL",
+      installationCount: 2,
+    })
+  })
 })
 
 describe("annual F-gas report signing metadata", () => {
@@ -593,6 +677,42 @@ describe("signed annual F-gas report history", () => {
       legacyMetadataOnly: false,
       pdfSha256: "pdf-hash",
       scopeSummary: "Fastighet: Skolan 1",
+    })
+  })
+
+  it("uses artifact report group labels for signed history scope summaries", () => {
+    expect(
+      mapSignedAnnualReportHistoryItem({
+        id: "history-c",
+        artifactId: "artifact-c",
+        artifact: {
+          status: "STORED",
+          pdfStorageKey: "companies/company-a/reports/annual-fgas/2026/artifact-c.pdf",
+          pdfSha256: "pdf-hash",
+          scopeId: "installation:mobile-a",
+          scopeLabel: "Mobilt aggregat: Truck 18",
+          scopeType: "CUSTOM",
+          supersededAt: null,
+        },
+        legacyMetadataOnly: false,
+        reportYear: 2026,
+        municipality: null,
+        propertyId: null,
+        propertyName: null,
+        signerName: "Anna Andersson",
+        signerRole: "MiljÃ¶samordnare",
+        signingDate: new Date("2026-03-31"),
+        comment: null,
+        readinessStatus: "READY",
+        blockingIssueCount: 0,
+        reviewWarningCount: 0,
+        createdAt: new Date("2026-04-01"),
+        user: { name: "Anna Andersson", email: "anna@example.com" },
+      })
+    ).toMatchObject({
+      artifactId: "artifact-c",
+      hasStoredPdf: true,
+      scopeSummary: "Mobilt aggregat: Truck 18",
     })
   })
 })
@@ -1117,6 +1237,25 @@ describe("annual F-gas PDF template", () => {
             propertyDesignation: "Skolan 1:1",
             propertyCount: 1,
           },
+          reportGroup: {
+            evaluatedCo2eTon: 20.88,
+            id: "property:property-a",
+            installationIds: ["installation-a"],
+            label: "Skolan 1",
+            mobileMetadata: null,
+            property: {
+              id: "property-a",
+              municipality: "Malmö",
+              name: "Skolan 1",
+              propertyDesignation: "Skolan 1:1",
+            },
+            recipient: "MUNICIPALITY",
+            reportReason: "Fastighetsbaserad årsrapport",
+            reportable: true,
+            reportingScope: "PROPERTY",
+            reportingYear: 2026,
+            vesselMetadata: null,
+          },
           responsibleContractor: {
             name: null,
             company: "Servicepartner AB",
@@ -1187,6 +1326,8 @@ describe("annual F-gas PDF template", () => {
     expect(html).not.toContain(
       "Rapporten kan skapas, men följande uppgifter bör kontrolleras"
     )
+    expect(html).toContain("Rapportgrupp")
+    expect(html).toContain("Fastighet")
     expect(html).toContain("Aggregatförteckning")
   })
 })

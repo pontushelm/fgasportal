@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     const year = parseReportYear(request.nextUrl.searchParams.get("year"))
     const municipality = request.nextUrl.searchParams.get("municipality")?.trim()
     const propertyId = request.nextUrl.searchParams.get("propertyId")?.trim()
+    const reportGroupId = request.nextUrl.searchParams.get("reportGroupId")?.trim()
 
     const records = await prisma.signedAnnualFgasReport.findMany({
       where: {
@@ -23,8 +24,9 @@ export async function GET(request: NextRequest) {
           userId: auth.user.userId,
         }),
         ...(year ? { reportYear: year } : {}),
+        ...(reportGroupId ? { artifact: { is: { scopeId: reportGroupId } } } : {}),
         ...(propertyId ? { propertyId } : {}),
-        ...(!propertyId && municipality ? { municipality } : {}),
+        ...(!reportGroupId && !propertyId && municipality ? { municipality } : {}),
       },
       include: {
         artifact: {
@@ -32,6 +34,9 @@ export async function GET(request: NextRequest) {
             status: true,
             pdfStorageKey: true,
             pdfSha256: true,
+            scopeId: true,
+            scopeLabel: true,
+            scopeType: true,
             supersededAt: true,
           },
         },

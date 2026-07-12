@@ -106,6 +106,7 @@ export type AnnualFgasReportPropertyOverview = {
   } | null
   properties: Array<{
     id: string
+    reportGroupId: string
     name: string
     municipality: string | null
     installedCo2eTon: number | null
@@ -552,6 +553,7 @@ export async function getAnnualFgasReportPreview({
   companyId,
   municipality,
   propertyId,
+  reportGroupId,
   registerType,
   year,
 }: {
@@ -559,6 +561,7 @@ export async function getAnnualFgasReportPreview({
   assignedContractorId?: string
   municipality?: string
   propertyId?: string
+  reportGroupId?: string
   registerType?: "STATIONARY" | "MOBILE"
   year: number
 }): Promise<FgasReportData> {
@@ -567,6 +570,7 @@ export async function getAnnualFgasReportPreview({
     companyId,
     municipality,
     propertyId,
+    reportGroupId,
     registerType,
     year,
   })
@@ -782,6 +786,7 @@ export function buildAnnualFgasReportPropertyOverviewFromLoadedData({
 
     return {
       id: property.id,
+      reportGroupId: `property:${property.id}`,
       name: property.name,
       municipality: property.municipality,
       installedCo2eTon,

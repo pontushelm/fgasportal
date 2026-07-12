@@ -107,6 +107,7 @@ type ReportData = {
     } | null
     properties: Array<{
       id: string
+      reportGroupId: string
       name: string
       municipality: string | null
       installedCo2eTon: number | null
@@ -233,7 +234,7 @@ export default function ReportsPage() {
     useState<ReportType>("annual")
   const [selectedMunicipality, setSelectedMunicipality] = useState("")
   const [selectedPropertyId, setSelectedPropertyId] = useState(
-    searchParams.get("propertyId") ?? ""
+    searchParams.get("reportGroupId") ?? searchParams.get("propertyId") ?? ""
   )
   const [cachedAnnualReportOverview, setCachedAnnualReportOverview] =
     useState<AnnualReportOverview | null>(null)
@@ -270,7 +271,9 @@ export default function ReportsPage() {
     if (selectedMunicipality && !isAnnualReport) {
       params.set("municipality", selectedMunicipality)
     }
-    if (selectedPropertyId === MOBILE_REPORT_SCOPE_ID) {
+    if (isAnnualReport && isReportGroupId(selectedPropertyId)) {
+      params.set("reportGroupId", selectedPropertyId)
+    } else if (selectedPropertyId === MOBILE_REPORT_SCOPE_ID) {
       params.set("registerType", "MOBILE")
     } else if (selectedPropertyId) {
       params.set("propertyId", selectedPropertyId)
@@ -309,7 +312,9 @@ export default function ReportsPage() {
       year: String(selectedYear),
     })
 
-    if (selectedPropertyId === MOBILE_REPORT_SCOPE_ID) {
+    if (isReportGroupId(selectedPropertyId)) {
+      params.set("reportGroupId", selectedPropertyId)
+    } else if (selectedPropertyId === MOBILE_REPORT_SCOPE_ID) {
       params.set("registerType", "MOBILE")
     } else if (selectedPropertyId) {
       params.set("propertyId", selectedPropertyId)
@@ -541,9 +546,12 @@ export default function ReportsPage() {
                   ) : (
                     <option value="">Alla fastigheter</option>
                   )}
-                  {isAnnualReport && reportData?.annualReportOverview?.mobileGroup && (
-                    <option value={MOBILE_REPORT_SCOPE_ID}>Mobila aggregat</option>
-                  )}
+                  {isAnnualReport &&
+                    reportData?.annualReportOverview?.reportingGroups.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {formatReportingScopeLabel(group.reportingScope)}: {group.name}
+                      </option>
+                    ))}
                   {properties
                     .filter((property) =>
                       selectedMunicipality
@@ -1364,15 +1372,17 @@ function AnnualReportPropertyOverview({
           <tbody className="divide-y divide-slate-200">
             {visibleProperties.map((property) => (
               <tr
-                className={property.id === selectedPropertyId ? "bg-blue-50/60" : undefined}
+                className={
+                  property.id === selectedPropertyId ||
+                  ("reportGroupId" in property &&
+                    property.reportGroupId === selectedPropertyId)
+                    ? "bg-blue-50/60"
+                    : undefined
+                }
                 key={property.id}
               >
                 <TableCell>
                   {"reportingScope" in property ? (
-                    <div className="font-semibold text-slate-900">
-                      {property.name}
-                    </div>
-                  ) : (
                     <button
                       className="text-left font-semibold text-blue-700 underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                       onClick={() => onSelectProperty(property.id)}
@@ -1380,8 +1390,22 @@ function AnnualReportPropertyOverview({
                     >
                       {property.name}
                     </button>
+                  ) : (
+                    <button
+                      className="text-left font-semibold text-blue-700 underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                      onClick={() =>
+                        onSelectProperty(
+                          "reportGroupId" in property ? property.reportGroupId : property.id
+                        )
+                      }
+                      type="button"
+                    >
+                      {property.name}
+                    </button>
                   )}
-                  {property.id === selectedPropertyId && (
+                  {(property.id === selectedPropertyId ||
+                    ("reportGroupId" in property &&
+                      property.reportGroupId === selectedPropertyId)) && (
                     <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
                       Vald
                     </span>
@@ -1481,6 +1505,14 @@ function formatReportRecipientLabel(
     case "UNKNOWN":
       return "Tillsynsmyndighet behÃ¶ver granskas"
   }
+}
+
+function isReportGroupId(value: string) {
+  return (
+    value.startsWith("property:") ||
+    value.startsWith("installation:") ||
+    value.startsWith("vessel:")
+  )
 }
 
 function SortableReportTableHeader({
