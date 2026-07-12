@@ -1,5 +1,5 @@
-import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { UNKNOWN_LEGAL_CLASSIFICATION_MESSAGE } from "@/lib/fgas-rules"
+import { evaluateInstallationCompliance } from "@/lib/regulatory/compliance-engine"
 
 export type DataQualitySeverity = "HIGH" | "MEDIUM" | "LOW"
 
@@ -200,14 +200,11 @@ export function buildDataQualityReport({
         if (installation.refrigerantAmount == null || installation.refrigerantAmount <= 0) {
           return false
         }
-        const compliance = calculateInstallationCompliance(
-          installation.refrigerantType,
-          installation.refrigerantAmount,
-          false,
-          null,
-          null,
-          installation.isHermeticallySealed
-        )
+        const compliance = evaluateInstallationCompliance({
+          refrigerantType: installation.refrigerantType,
+          refrigerantAmount: installation.refrigerantAmount,
+          isHermeticallySealed: installation.isHermeticallySealed,
+        })
         return (
           compliance.isKnownRefrigerant &&
           compliance.leakCheckReasonCode === "UNKNOWN_CLASSIFICATION"
@@ -254,14 +251,11 @@ export function buildDataQualityReport({
           return false
         }
         return (
-          calculateInstallationCompliance(
-            installation.refrigerantType,
-            installation.refrigerantAmount,
-            false,
-            null,
-            null,
-            installation.isHermeticallySealed
-          ).co2eKg === null
+          evaluateInstallationCompliance({
+            refrigerantType: installation.refrigerantType,
+            refrigerantAmount: installation.refrigerantAmount,
+            isHermeticallySealed: installation.isHermeticallySealed,
+          }).co2eKg === null
         )
       }).length,
       description: "Okänt GWP gör CO₂e och kontrollplikt osäkra.",

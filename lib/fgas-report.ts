@@ -1,7 +1,7 @@
-import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
+import { evaluateInstallationCompliance } from "@/lib/regulatory/compliance-engine"
 import { prisma } from "@/lib/db"
 import type { Prisma } from "@prisma/client"
-import { ANNUAL_REPORT_CO2E_REQUIREMENT_THRESHOLD_TON } from "@/lib/dashboard/annual-report-status"
+import { evaluateReportingRequirement } from "@/lib/regulatory/reporting-engine"
 import { buildAnnualFgasReportData } from "@/lib/reports/buildAnnualFgasReportData"
 import {
   ANNUAL_FGAS_EVENT_LABELS,
@@ -374,14 +374,14 @@ export async function getFgasAnnualReport({
   const events = installations.flatMap((installation) => {
     const refrigerantType =
       installation.refrigerantType?.trim() || UNKNOWN_REFRIGERANT
-    const compliance = calculateInstallationCompliance(
-      installation.refrigerantType,
-      installation.refrigerantAmount,
-      installation.hasLeakDetectionSystem,
-      installation.lastInspection,
-      installation.nextInspection,
-      installation.isHermeticallySealed
-    )
+    const compliance = evaluateInstallationCompliance({
+      refrigerantType: installation.refrigerantType,
+      refrigerantAmount: installation.refrigerantAmount,
+      hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
+      lastInspection: installation.lastInspection,
+      nextInspection: installation.nextInspection,
+      isHermeticallySealed: installation.isHermeticallySealed,
+    })
     const summary = refrigerantMap.get(refrigerantType) ?? {
       refrigerantType,
       installationCount: 0,
@@ -754,12 +754,10 @@ export function buildAnnualFgasReportPropertyOverviewFromLoadedData({
       startDate,
     })
     const installedCo2eTon = propertySummary.installedCo2eTon
-    const annualReportRequirement =
-      installedCo2eTon === null
-        ? "UNCERTAIN"
-        : installedCo2eTon >= ANNUAL_REPORT_CO2E_REQUIREMENT_THRESHOLD_TON
-          ? "REQUIRED"
-          : "NOT_REQUIRED"
+    const annualReportRequirement = evaluateReportingRequirement({
+      co2eTon: installedCo2eTon,
+      installationRegisterType: "STATIONARY",
+    }).annualReportRequirement
     const signedAt = signedReportsByProperty.get(property.id) ?? null
 
     return {
@@ -812,11 +810,10 @@ function buildAnnualOverviewMobileGroup({
     municipality: null,
     installedCo2eTon,
     annualReportRequirement:
-      installedCo2eTon === null
-        ? "UNCERTAIN"
-        : installedCo2eTon >= ANNUAL_REPORT_CO2E_REQUIREMENT_THRESHOLD_TON
-          ? "REQUIRED"
-          : "NOT_REQUIRED",
+      evaluateReportingRequirement({
+        co2eTon: installedCo2eTon,
+        installationRegisterType: "MOBILE",
+      }).annualReportRequirement,
     signedStatus: "NOT_SIGNED",
     signedAt: null,
     blockingIssueCount: summary.qualitySummary.blockingIssueCount,
@@ -836,14 +833,14 @@ function buildAnnualOverviewPropertySummary({
 }) {
   const reportInstallations = installations
     .filter((installation) => {
-      const compliance = calculateInstallationCompliance(
-        installation.refrigerantType,
-        installation.refrigerantAmount,
-        installation.hasLeakDetectionSystem,
-        installation.lastInspection,
-        installation.nextInspection,
-        installation.isHermeticallySealed
-      )
+      const compliance = evaluateInstallationCompliance({
+        refrigerantType: installation.refrigerantType,
+        refrigerantAmount: installation.refrigerantAmount,
+        hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
+        lastInspection: installation.lastInspection,
+        nextInspection: installation.nextInspection,
+        isHermeticallySealed: installation.isHermeticallySealed,
+      })
       const isControlRequired = Boolean(compliance.inspectionIntervalMonths)
       const hasUnknownCo2e = compliance.co2eKg === null
       const wasScrappedDuringYear =
@@ -901,14 +898,14 @@ function buildAnnualOverviewEquipmentRow(
 ): AnnualFgasEquipmentRow {
   const refrigerantType =
     installation.refrigerantType?.trim() || UNKNOWN_REFRIGERANT
-  const compliance = calculateInstallationCompliance(
+  const compliance = evaluateInstallationCompliance({
     refrigerantType,
-    installation.refrigerantAmount,
-    installation.hasLeakDetectionSystem,
-    installation.lastInspection,
-    installation.nextInspection,
-    installation.isHermeticallySealed
-  )
+    refrigerantAmount: installation.refrigerantAmount,
+    hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
+    lastInspection: installation.lastInspection,
+    nextInspection: installation.nextInspection,
+    isHermeticallySealed: installation.isHermeticallySealed,
+  })
 
   return {
     id: installation.id,

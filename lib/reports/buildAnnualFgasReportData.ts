@@ -1,4 +1,4 @@
-import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
+import { evaluateInstallationCompliance } from "@/lib/regulatory/compliance-engine"
 import { prisma } from "@/lib/db"
 import type {
   AnnualFgasCertificateEntry,
@@ -256,14 +256,14 @@ export async function buildAnnualFgasReportData({
 
   const reportInstallations = installations
     .filter((installation) => {
-      const compliance = calculateInstallationCompliance(
-        installation.refrigerantType,
-        installation.refrigerantAmount,
-        installation.hasLeakDetectionSystem,
-        installation.lastInspection,
-        installation.nextInspection,
-        installation.isHermeticallySealed
-      )
+      const compliance = evaluateInstallationCompliance({
+        refrigerantType: installation.refrigerantType,
+        refrigerantAmount: installation.refrigerantAmount,
+        hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
+        lastInspection: installation.lastInspection,
+        nextInspection: installation.nextInspection,
+        isHermeticallySealed: installation.isHermeticallySealed,
+      })
       const isControlRequired = Boolean(compliance.inspectionIntervalMonths)
       const hasUnknownCo2e = compliance.co2eKg === null
       const wasScrappedDuringYear =
@@ -286,14 +286,14 @@ export async function buildAnnualFgasReportData({
   const equipment: AnnualFgasEquipmentRow[] = reportInstallations.map((installation) => {
     const refrigerantType =
       installation.refrigerantType?.trim() || UNKNOWN_REFRIGERANT
-    const compliance = calculateInstallationCompliance(
+    const compliance = evaluateInstallationCompliance({
       refrigerantType,
-      installation.refrigerantAmount,
-      installation.hasLeakDetectionSystem,
-      installation.lastInspection,
-      installation.nextInspection,
-      installation.isHermeticallySealed
-    )
+      refrigerantAmount: installation.refrigerantAmount,
+      hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
+      lastInspection: installation.lastInspection,
+      nextInspection: installation.nextInspection,
+      isHermeticallySealed: installation.isHermeticallySealed,
+    })
 
     const status: AnnualFgasEquipmentRow["status"] = installation.scrappedAt
       ? "scrapped"

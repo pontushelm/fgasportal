@@ -1,4 +1,4 @@
-import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
+import { evaluateInstallationCompliance } from "@/lib/regulatory/compliance-engine"
 
 export type InstallationQualityFilter =
   | "missing-property"
@@ -150,14 +150,11 @@ export function matchesInstallationQualityFilter(
       }
       return (
         installation.co2eTon == null ||
-        calculateInstallationCompliance(
-          installation.refrigerantType,
-          installation.refrigerantAmount,
-          false,
-          null,
-          null,
-          installation.isHermeticallySealed
-        ).co2eKg === null
+        evaluateInstallationCompliance({
+          refrigerantType: installation.refrigerantType,
+          refrigerantAmount: installation.refrigerantAmount,
+          isHermeticallySealed: installation.isHermeticallySealed,
+        }).co2eKg === null
       )
     case "unknown-legal-classification":
       if (!installation.refrigerantType?.trim()) return false
@@ -167,14 +164,11 @@ export function matchesInstallationQualityFilter(
       ) {
         return false
       }
-      const compliance = calculateInstallationCompliance(
-        installation.refrigerantType,
-        installation.refrigerantAmount,
-        false,
-        null,
-        null,
-        installation.isHermeticallySealed
-      )
+      const compliance = evaluateInstallationCompliance({
+        refrigerantType: installation.refrigerantType,
+        refrigerantAmount: installation.refrigerantAmount,
+        isHermeticallySealed: installation.isHermeticallySealed,
+      })
       return (
         compliance.isKnownRefrigerant &&
         compliance.leakCheckReasonCode === "UNKNOWN_CLASSIFICATION"

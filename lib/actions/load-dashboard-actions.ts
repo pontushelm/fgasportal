@@ -2,7 +2,7 @@ import { generateDashboardActions } from "@/lib/actions/generate-actions"
 import { getInstallationAccessWhereClause } from "@/lib/access/installation-access"
 import { isContractor, type AuthenticatedUser } from "@/lib/auth"
 import { prisma } from "@/lib/db"
-import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
+import { evaluateInstallationCompliance } from "@/lib/regulatory/compliance-engine"
 import { calculateInstallationRisk } from "@/lib/risk-classification"
 import { buildServicePartnerCompanyCertification } from "@/lib/service-partner-company-certifications"
 import { ensureServiceOrganizationForLegacyCompany } from "@/lib/service-organizations"
@@ -421,14 +421,14 @@ export async function loadDashboardActions(user: AuthenticatedUser) {
 
   const generationStartTime = getDevelopmentTimingStart()
   const actionInstallations = installations.map((installation) => {
-    const compliance = calculateInstallationCompliance(
-      installation.refrigerantType,
-      installation.refrigerantAmount,
-      installation.hasLeakDetectionSystem,
-      installation.lastInspection,
-      installation.nextInspection,
-      installation.isHermeticallySealed
-    )
+    const compliance = evaluateInstallationCompliance({
+      refrigerantType: installation.refrigerantType,
+      refrigerantAmount: installation.refrigerantAmount,
+      hasLeakDetectionSystem: installation.hasLeakDetectionSystem,
+      lastInspection: installation.lastInspection,
+      nextInspection: installation.nextInspection,
+      isHermeticallySealed: installation.isHermeticallySealed,
+    })
     const risk = calculateInstallationRisk({
       refrigerantType: installation.refrigerantType,
       refrigerantAmount: installation.refrigerantAmount,

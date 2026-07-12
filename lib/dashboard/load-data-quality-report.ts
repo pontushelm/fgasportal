@@ -1,7 +1,7 @@
 import { getInstallationAccessWhereClause } from "@/lib/access/installation-access"
 import { isContractor, type AuthenticatedUser } from "@/lib/auth"
-import { buildDataQualityReport } from "@/lib/dashboard/data-quality"
 import { prisma } from "@/lib/db"
+import { evaluateDataQuality } from "@/lib/regulatory/data-quality-engine"
 import { buildServicePartnerCompanyCertification } from "@/lib/service-partner-company-certifications"
 import { buildTechnicianCertification } from "@/lib/technician-certifications"
 
@@ -119,7 +119,7 @@ export async function loadDataQualityReport(user: AuthenticatedUser) {
           }),
     ])
 
-  return buildDataQualityReport({
+  return evaluateDataQuality({
     installations,
     properties,
     servicePartnerCertifications: servicePartnerCompanies.map((company) =>
