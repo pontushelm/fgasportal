@@ -3,11 +3,17 @@ import { ZodError, z } from "zod"
 import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import {
+  completeImportSession,
+  createImportSession,
+  failImportSession,
+} from "@/lib/import-sessions"
+import {
   normalizePropertyDesignation,
   normalizePropertyImportRow,
 } from "@/lib/property-import"
 
 const propertyImportRequestSchema = z.object({
+  sourceFileName: z.string().nullable().optional(),
   rows: z.array(
     z.object({
       row: z.number(),
@@ -29,13 +35,29 @@ type ImportError = {
 }
 
 export async function POST(request: NextRequest) {
+  let importSessionId: string | null = null
+  const importCounts = {
+    created: 0,
+    invalid: 0,
+    processed: 0,
+    skippedDuplicates: 0,
+  }
+  let companyId: string | null = null
   try {
     const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
     if (!isAdmin(auth.user)) return forbiddenResponse()
 
+    companyId = auth.user.companyId
     const body = await request.json()
-    const { rows } = propertyImportRequestSchema.parse(body)
+    const { rows, sourceFileName } = propertyImportRequestSchema.parse(body)
+    const importSession = await createImportSession({
+      companyId: auth.user.companyId,
+      createdByUserId: auth.user.userId,
+      importType: "PROPERTIES",
+      sourceFileName,
+    })
+    importSessionId = importSession.id
     const existingProperties = await prisma.property.findMany({
       where: {
         companyId: auth.user.companyId,
@@ -55,6 +77,7 @@ export async function POST(request: NextRequest) {
     let invalid = 0
 
     for (const row of rows) {
+      importCounts.processed += 1
       const parsed = normalizePropertyImportRow(row, row.row)
       const normalizedDesignation = normalizePropertyDesignation(
         parsed.propertyDesignation
@@ -62,6 +85,7 @@ export async function POST(request: NextRequest) {
 
       if (parsed.errors.length > 0 || !normalizedDesignation) {
         invalid += 1
+        importCounts.invalid = invalid
         errors.push({
           row: parsed.row,
           message: parsed.errors.join(", ") || "Ogiltig rad",
@@ -71,6 +95,7 @@ export async function POST(request: NextRequest) {
 
       if (knownDesignations.has(normalizedDesignation)) {
         skippedDuplicates += 1
+        importCounts.skippedDuplicates = skippedDuplicates
         errors.push({
           row: parsed.row,
           message: "Finns redan",
@@ -89,12 +114,26 @@ export async function POST(request: NextRequest) {
           postalCode: parsed.postalCode,
           internalReference: parsed.internalReference,
           description: parsed.description,
+          importSessionId,
         },
       })
 
       knownDesignations.add(normalizedDesignation)
       created += 1
+      importCounts.created = created
+      importCounts.invalid = invalid
+      importCounts.skippedDuplicates = skippedDuplicates
     }
+
+    await completeImportSession({
+      companyId: auth.user.companyId,
+      importSessionId,
+      rowsFailed: invalid,
+      rowsImported: created,
+      rowsProcessed: rows.length,
+      rowsSkipped: skippedDuplicates,
+      userId: auth.user.userId,
+    })
 
     return NextResponse.json(
       {
@@ -102,11 +141,24 @@ export async function POST(request: NextRequest) {
         skippedDuplicates,
         invalid,
         errors,
+        importSessionId,
       },
       { status: 200 }
     )
   } catch (error) {
     console.error("Import properties error:", error)
+
+    if (importSessionId && companyId) {
+      await failImportSession({
+        companyId,
+        errorSummary: "Fastighetsimporten misslyckades.",
+        importSessionId,
+        rowsFailed: Math.max(importCounts.invalid, 1),
+        rowsImported: importCounts.created,
+        rowsProcessed: importCounts.processed,
+        rowsSkipped: importCounts.skippedDuplicates,
+      })
+    }
 
     if (error instanceof ZodError) {
       return NextResponse.json(

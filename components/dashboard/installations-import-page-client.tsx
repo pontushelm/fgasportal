@@ -4,7 +4,9 @@ import Link from "next/link"
 import { useEffect, useMemo, useRef, useState } from "react"
 import * as XLSX from "xlsx"
 import { ImportCompletionSummary } from "@/components/dashboard/import-completion-summary"
+import { ImportSessionHistory } from "@/components/dashboard/import-session-history"
 import { Toast, type ToastMessage } from "@/components/ui"
+import { invalidateImportSessionCaches } from "@/lib/client/api-cache"
 import {
   EVENT_HISTORY_IMPORT_MESSAGE,
   IMPORT_FIELD_DEFINITIONS,
@@ -28,11 +30,13 @@ import {
 type ImportSummary = {
   created: number
   skipped: number
+  importSessionId?: string
   errors: Array<{ row: number; message: string }>
 }
 
 type ImportInstallationsPageProps = {
   embedded?: boolean
+  initialImportSessionId?: string | null
   onClose?: () => void
   onImported?: () => void
   onImportStateChange?: (state: ImportWorkspaceState) => void
@@ -182,6 +186,7 @@ const INSTALLATION_ADVANCED_FIELD_KEYS: ImportFieldKey[] =
 
 export default function ImportInstallationsPage({
   embedded = false,
+  initialImportSessionId,
   onImportStateChange,
   onImported,
 }: ImportInstallationsPageProps = {}) {
@@ -467,6 +472,7 @@ export default function ImportInstallationsPage({
       },
       credentials: "include",
       body: JSON.stringify({
+        sourceFileName: selectedFile?.name ?? null,
         rows: validRows,
       }),
     })
@@ -484,6 +490,7 @@ export default function ImportInstallationsPage({
     }
 
     setSummary(result)
+    await invalidateImportSessionCaches(result.importSessionId)
     setToast({
       type: result.skipped > 0 || result.errors?.length > 0 ? "warning" : "success",
       title: result.skipped > 0 || result.errors?.length > 0 ? "Import klar" : "Klart",
@@ -870,12 +877,16 @@ export default function ImportInstallationsPage({
           }}
           errors={summary.errors}
           importedCount={summary.created}
+          importSessionId={summary.importSessionId}
           kind="installations"
           skippedCount={summary.skipped}
           subtitle="Aggregatimporten är klar. Kontrollera resultatet och komplettera uppgifter vid behov."
           unmappedColumnCount={ignoredColumns.length}
           validationIssueCount={summary.errors.length}
         />
+      )}
+      {!embedded && (
+        <ImportSessionHistory initialSessionId={initialImportSessionId} />
       )}
       {isImporting && <ImportInProgressOverlay />}
       {toast && <Toast onClose={() => setToast(null)} toast={toast} />}

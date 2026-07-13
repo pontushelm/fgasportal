@@ -3,6 +3,13 @@ import InstallationEventImportPageClient from "@/components/dashboard/installati
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-export default function InstallationEventImportPage() {
-  return <InstallationEventImportPageClient />
+export default async function InstallationEventImportPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sessionId?: string }>
+}) {
+  const { sessionId } = await searchParams
+  return (
+    <InstallationEventImportPageClient initialImportSessionId={sessionId ?? null} />
+  )
 }

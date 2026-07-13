@@ -105,6 +105,7 @@ const DUPLICATE_FILE_ROW_MESSAGE =
 
 export const eventImportRequestSchema = z.object({
   mode: z.enum(["preview", "import"]),
+  sourceFileName: z.string().nullable().optional(),
   rows: z.array(z.record(z.string(), z.unknown())).max(MAX_EVENT_IMPORT_ROWS),
 })
 

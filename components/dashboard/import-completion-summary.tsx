@@ -15,6 +15,7 @@ type ImportCompletionSummaryProps = {
   context?: ImportCompletionContext
   errors?: Array<{ row: number; message: string }>
   importedCount: number
+  importSessionId?: string | null
   kind: ImportCompletionKind
   skippedCount?: number
   subtitle?: string
@@ -29,6 +30,7 @@ export function ImportCompletionSummary({
   context,
   errors = [],
   importedCount,
+  importSessionId,
   kind,
   skippedCount = 0,
   subtitle = "Importen är klar. Kontrollera resultatet och välj nästa steg.",
@@ -43,6 +45,9 @@ export function ImportCompletionSummary({
     validationIssueCount,
   })
   const recommendations = buildImportCompletionRecommendations(kind, context)
+  const importSessionHref = importSessionId
+    ? `${getImportHistoryHref(kind)}?sessionId=${importSessionId}`
+    : null
 
   return (
     <Card className="mt-6 border-emerald-200 bg-white p-5 shadow-sm">
@@ -55,6 +60,14 @@ export function ImportCompletionSummary({
           <p className="mt-1 text-sm text-slate-600">{subtitle}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {importSessionHref && (
+            <Link
+              className={buttonClassName({ variant: "secondary" })}
+              href={importSessionHref}
+            >
+              Visa importhistorik
+            </Link>
+          )}
           {actions.map((action) =>
             action.href ? (
               <Link
@@ -129,6 +142,23 @@ export function ImportCompletionSummary({
       )}
 
       <div className="mt-5 grid gap-3 md:grid-cols-2">
+        {importSessionHref && (
+          <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+            <p className="font-semibold text-blue-950">
+              Importen kan ibland ångras
+            </p>
+            <p className="mt-1 text-sm text-blue-900">
+              Importen kan ångras så länge de importerade posterna inte har
+              börjat användas eller ändrats.
+            </p>
+            <Link
+              className="mt-3 inline-flex text-sm font-semibold text-blue-700 hover:text-blue-900"
+              href={importSessionHref}
+            >
+              Visa detaljer och ångra import
+            </Link>
+          </div>
+        )}
         {recommendations.map((recommendation) => (
           <div
             className="rounded-lg border border-slate-200 bg-slate-50 p-4"
@@ -151,6 +181,12 @@ export function ImportCompletionSummary({
       </div>
     </Card>
   )
+}
+
+function getImportHistoryHref(kind: ImportCompletionKind) {
+  if (kind === "properties") return "/dashboard/properties/import"
+  if (kind === "events") return "/dashboard/installations/import-events"
+  return "/dashboard/installations/import"
 }
 
 function ResultMetric({

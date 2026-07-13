@@ -17,6 +17,7 @@ describe("import completion summary", () => {
         ],
         errors: [{ row: 12, message: "Saknar köldmedium" }],
         importedCount: 8,
+        importSessionId: "session-1",
         kind: "installations",
         skippedCount: 2,
         unmappedColumnCount: 3,
@@ -44,6 +45,21 @@ describe("import completion summary", () => {
 
     expect(html).toContain("Inga varningar rapporterades")
     expect(html).toContain("Fortsätt med aggregatregistret")
+  })
+
+  it("renders import session history links when a session exists", () => {
+    const html = renderToStaticMarkup(
+      createElement(ImportCompletionSummary, {
+        actions: [],
+        importedCount: 3,
+        importSessionId: "session-1",
+        kind: "properties",
+      })
+    )
+
+    expect(html).toContain("Visa importhistorik")
+    expect(html).toContain("Visa detaljer och")
+    expect(html).toContain("/dashboard/properties/import?sessionId=session-1")
   })
 
   it("selects contextual installation recommendations", () => {

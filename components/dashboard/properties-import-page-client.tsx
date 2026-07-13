@@ -4,7 +4,9 @@ import Link from "next/link"
 import { useEffect, useMemo, useRef, useState } from "react"
 import * as XLSX from "xlsx"
 import { ImportCompletionSummary } from "@/components/dashboard/import-completion-summary"
+import { ImportSessionHistory } from "@/components/dashboard/import-session-history"
 import { Toast, type ToastMessage } from "@/components/ui"
+import { invalidateImportSessionCaches } from "@/lib/client/api-cache"
 import {
   PROPERTY_IMPORT_FIELD_DEFINITIONS,
   getDuplicatePropertyMappedFields,
@@ -24,6 +26,7 @@ type ImportSummary = {
   created: number
   skippedDuplicates: number
   invalid: number
+  importSessionId?: string
   errors: Array<{ row: number; message: string }>
 }
 
@@ -33,6 +36,7 @@ type WorksheetPreview = {
 
 type PropertiesImportPageClientProps = {
   embedded?: boolean
+  initialImportSessionId?: string | null
   onImportStateChange?: (state: ImportWorkspaceState) => void
   onImported?: () => void
 }
@@ -102,6 +106,7 @@ const PROPERTY_ADVANCED_FIELD_KEYS: PropertyImportFieldKey[] =
 
 export default function PropertiesImportPageClient({
   embedded = false,
+  initialImportSessionId,
   onImportStateChange,
   onImported,
 }: PropertiesImportPageClientProps = {}) {
@@ -394,6 +399,7 @@ export default function PropertiesImportPageClient({
       },
       credentials: "include",
       body: JSON.stringify({
+        sourceFileName: selectedFile?.name ?? null,
         rows: validRows,
       }),
     })
@@ -411,6 +417,7 @@ export default function PropertiesImportPageClient({
     }
 
     setSummary(result)
+    await invalidateImportSessionCaches(result.importSessionId)
     setToast({
       type: result.invalid > 0 || result.skippedDuplicates > 0 ? "warning" : "success",
       title: result.invalid > 0 || result.skippedDuplicates > 0 ? "Import klar" : "Klart",
@@ -698,12 +705,16 @@ export default function PropertiesImportPageClient({
           ]}
           errors={summary.errors}
           importedCount={summary.created}
+          importSessionId={summary.importSessionId}
           kind="properties"
           skippedCount={summary.skippedDuplicates}
           subtitle="Fastighetsimporten är klar. Nästa steg är att koppla aggregat till fastigheterna."
           unmappedColumnCount={ignoredColumns.length}
           validationIssueCount={summary.invalid}
         />
+      )}
+      {!embedded && (
+        <ImportSessionHistory initialSessionId={initialImportSessionId} />
       )}
       {toast && <Toast onClose={() => setToast(null)} toast={toast} />}
     </>

@@ -5,6 +5,11 @@ import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import {
+  completeImportSession,
+  createImportSession,
+  failImportSession,
+} from "@/lib/import-sessions"
+import {
   buildEventImportPreview,
   eventImportRequestSchema,
   type EventImportPreviewRow,
@@ -14,14 +19,23 @@ import { normalizeRefrigerantCode } from "@/lib/refrigerants"
 import { createInstallationEventSchema } from "@/lib/validations"
 
 export async function POST(request: NextRequest) {
+  let importSessionId: string | null = null
+  let companyIdForFailure: string | null = null
+  const importCounts = {
+    created: 0,
+    processed: 0,
+    skipped: 0,
+  }
+
   try {
     const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
     if (!isAdmin(auth.user)) return forbiddenResponse()
 
     const { companyId, userId } = auth.user
+    companyIdForFailure = companyId
     const body = await request.json()
-    const { mode, rows } = eventImportRequestSchema.parse(body)
+    const { mode, rows, sourceFileName } = eventImportRequestSchema.parse(body)
     const [properties, installations] = await Promise.all([
       prisma.property.findMany({
         where: { companyId },
@@ -124,6 +138,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const importSession = await createImportSession({
+      companyId,
+      createdByUserId: userId,
+      importType: "INSTALLATION_EVENTS",
+      sourceFileName,
+    })
+    importSessionId = importSession.id
+
     let created = 0
     let skipped = 0
     let createdWithExactDate = 0
@@ -135,6 +157,7 @@ export async function POST(request: NextRequest) {
     ]))
 
     for (const row of previewRows) {
+      importCounts.processed += 1
       if (
         row.status === "blocked" ||
         !row.installationId ||
@@ -142,6 +165,7 @@ export async function POST(request: NextRequest) {
         !row.eventDate
       ) {
         skipped += 1
+        importCounts.skipped = skipped
         errors.push({
           row: row.row,
           message: row.errors.join(", ") || "Raden kunde inte importeras",
@@ -152,6 +176,7 @@ export async function POST(request: NextRequest) {
       const installation = installationsById.get(row.installationId)
       if (!installation) {
         skipped += 1
+        importCounts.skipped = skipped
         errors.push({
           row: row.row,
           message: "Aggregatet hittades inte",
@@ -172,6 +197,7 @@ export async function POST(request: NextRequest) {
 
       if (!validation.success) {
         skipped += 1
+        importCounts.skipped = skipped
         errors.push({
           row: row.row,
           message: validation.error.issues.map((issue) => issue.message).join(", "),
@@ -182,16 +208,28 @@ export async function POST(request: NextRequest) {
       await createImportedEvent({
         companyId,
         userId,
+        importSessionId,
         installation,
         event: validation.data,
       })
       created += 1
+      importCounts.created = created
       if (row.datePrecision === "year") {
         createdWithYearOnlyDate += 1
       } else {
         createdWithExactDate += 1
       }
     }
+
+    await completeImportSession({
+      companyId,
+      importSessionId,
+      rowsFailed: 0,
+      rowsImported: created,
+      rowsProcessed: previewRows.length,
+      rowsSkipped: skipped,
+      userId,
+    })
 
     return NextResponse.json(
       {
@@ -200,11 +238,24 @@ export async function POST(request: NextRequest) {
         createdWithExactDate,
         createdWithYearOnlyDate,
         errors,
+        importSessionId,
       },
       { status: 200 }
     )
   } catch (error: unknown) {
     console.error("Import installation events error:", error)
+
+    if (importSessionId && companyIdForFailure) {
+      await failImportSession({
+        companyId: companyIdForFailure,
+        errorSummary: "Händelseimporten misslyckades.",
+        importSessionId,
+        rowsFailed: 1,
+        rowsImported: importCounts.created,
+        rowsProcessed: importCounts.processed,
+        rowsSkipped: importCounts.skipped,
+      })
+    }
 
     if (error instanceof ZodError) {
       return NextResponse.json(
@@ -278,11 +329,13 @@ function summarizePreview(rows: EventImportPreviewRow[]) {
 async function createImportedEvent({
   companyId,
   event,
+  importSessionId,
   installation,
   userId,
 }: {
   companyId: string
   event: ReturnType<typeof createInstallationEventSchema.parse>
+  importSessionId: string
   installation: {
     id: string
     inspectionIntervalMonths: number | null
@@ -312,6 +365,7 @@ async function createImportedEvent({
           refrigerantAddedKg: null,
           notes: emptyToNull(event.notes),
           createdById: userId,
+          importSessionId,
         },
       })
       const nextInspection = calculateNextInspectionDate(
@@ -398,6 +452,7 @@ async function createImportedEvent({
           recoveredAmountKg: recoveredRefrigerantKg,
           notes: changeNote,
           createdById: userId,
+          importSessionId,
         },
       })
 
@@ -440,6 +495,7 @@ async function createImportedEvent({
           : null,
       notes: emptyToNull(event.notes),
       createdById: userId,
+      importSessionId,
     },
   })
 

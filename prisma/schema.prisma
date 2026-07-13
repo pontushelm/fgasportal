@@ -177,6 +177,19 @@ enum NotificationDigestType {
   WEEKLY
 }
 
+enum ImportType {
+  PROPERTIES
+  INSTALLATIONS
+  INSTALLATION_EVENTS
+}
+
+enum ImportStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+  ROLLED_BACK
+}
+
 model Company {
   id                                   String   @id @default(cuid())
   name                                 String
@@ -204,30 +217,31 @@ model Company {
   isActive                             Boolean  @default(true)
   planType                             String   @default("free")
 
-  users                   User[]
-  memberships             CompanyMembership[]
-  properties              Property[]
-  installations           Installation[]
-  invitations             Invitation[]
-  installationDocuments   InstallationDocument[]
-  activityLogs            ActivityLog[]
-  savedFilters            SavedFilter[]
-  signedReportArtifacts   SignedReportArtifact[]
-  signedAnnualFgasReports SignedAnnualFgasReport[]
-  servicePartnerCompanies ServicePartnerCompany[]
+  users                       User[]
+  memberships                 CompanyMembership[]
+  properties                  Property[]
+  installations               Installation[]
+  invitations                 Invitation[]
+  installationDocuments       InstallationDocument[]
+  activityLogs                ActivityLog[]
+  savedFilters                SavedFilter[]
+  signedReportArtifacts       SignedReportArtifact[]
+  signedAnnualFgasReports     SignedAnnualFgasReport[]
+  servicePartnerCompanies     ServicePartnerCompany[]
   companyServiceOrganizations CompanyServiceOrganization[]
-  feedback                Feedback[]
-  documents               Document[]
-  documentLinks           DocumentLink[]
-  certificationRecords    CertificationRecord[]
-  notificationDigestLogs  NotificationDigestLog[]
+  feedback                    Feedback[]
+  documents                   Document[]
+  documentLinks               DocumentLink[]
+  certificationRecords        CertificationRecord[]
+  notificationDigestLogs      NotificationDigestLog[]
+  importSessions              ImportSession[]
 
   @@map("companies")
 }
 
 model User {
-  id                               String   @id @default(cuid())
-  email                            String   @unique
+  id                               String    @id @default(cuid())
+  email                            String    @unique
   name                             String
   phone                            String?
   certificationNumber              String?
@@ -235,42 +249,44 @@ model User {
   certificationValidUntil          DateTime?
   certificationCategory            String?
   password                         String
-  role                             UserRole @default(ADMIN)
-  themePreference                  String   @default("light")
-  notifyAssignmentEmails           Boolean  @default(true)
-  notifyInspectionReminderEmails   Boolean  @default(true)
-  notifyDocumentEmails             Boolean  @default(true)
-  notifyAnnualReportDeadlineEmails Boolean  @default(true)
-  notifyLeakEmails                 Boolean  @default(true)
-  isActive                         Boolean  @default(true)
-  createdAt                        DateTime @default(now())
-  updatedAt                        DateTime @updatedAt
+  role                             UserRole  @default(ADMIN)
+  themePreference                  String    @default("light")
+  notifyAssignmentEmails           Boolean   @default(true)
+  notifyInspectionReminderEmails   Boolean   @default(true)
+  notifyDocumentEmails             Boolean   @default(true)
+  notifyAnnualReportDeadlineEmails Boolean   @default(true)
+  notifyLeakEmails                 Boolean   @default(true)
+  isActive                         Boolean   @default(true)
+  createdAt                        DateTime  @default(now())
+  updatedAt                        DateTime  @updatedAt
 
   companyId   String
   company     Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
   memberships CompanyMembership[]
 
-  createdInstallations          Installation[]           @relation("CreatedBy")
-  updatedInstallations          Installation[]           @relation("UpdatedBy")
-  assignedInstallations         Installation[]           @relation("AssignedContractor")
-  sentInvitations               Invitation[]             @relation("InvitedBy")
-  installationEvents            InstallationEvent[]
-  uploadedInstallationDocuments InstallationDocument[]
-  activityLogs                  ActivityLog[]
-  savedFilters                  SavedFilter[]
-  signedReportArtifacts         SignedReportArtifact[]
-  signedAnnualFgasReports       SignedAnnualFgasReport[]
-  passwordResetTokens           PasswordResetToken[]
-  feedback                      Feedback[]
+  createdInstallations           Installation[]                  @relation("CreatedBy")
+  updatedInstallations           Installation[]                  @relation("UpdatedBy")
+  assignedInstallations          Installation[]                  @relation("AssignedContractor")
+  sentInvitations                Invitation[]                    @relation("InvitedBy")
+  installationEvents             InstallationEvent[]
+  uploadedInstallationDocuments  InstallationDocument[]
+  activityLogs                   ActivityLog[]
+  savedFilters                   SavedFilter[]
+  signedReportArtifacts          SignedReportArtifact[]
+  signedAnnualFgasReports        SignedAnnualFgasReport[]
+  passwordResetTokens            PasswordResetToken[]
+  feedback                       Feedback[]
   serviceOrganizationMemberships ServiceOrganizationMembership[]
-  uploadedDocuments             Document[]               @relation("UploadedDocuments")
-  deletedDocuments              Document[]               @relation("DeletedDocuments")
-  linkedDocuments               DocumentLink[]           @relation("LinkedDocuments")
-  certificationRecords          CertificationRecord[]    @relation("CertificationSubjectUser")
-  verifiedCertificationRecords  CertificationRecord[]    @relation("CertificationVerifiedBy")
-  createdCertificationRecords   CertificationRecord[]    @relation("CertificationCreatedBy")
-  updatedCertificationRecords   CertificationRecord[]    @relation("CertificationUpdatedBy")
-  notificationDigestLogs        NotificationDigestLog[]
+  uploadedDocuments              Document[]                      @relation("UploadedDocuments")
+  deletedDocuments               Document[]                      @relation("DeletedDocuments")
+  linkedDocuments                DocumentLink[]                  @relation("LinkedDocuments")
+  certificationRecords           CertificationRecord[]           @relation("CertificationSubjectUser")
+  verifiedCertificationRecords   CertificationRecord[]           @relation("CertificationVerifiedBy")
+  createdCertificationRecords    CertificationRecord[]           @relation("CertificationCreatedBy")
+  updatedCertificationRecords    CertificationRecord[]           @relation("CertificationUpdatedBy")
+  notificationDigestLogs         NotificationDigestLog[]
+  createdImportSessions          ImportSession[]                 @relation("ImportSessionCreatedBy")
+  rolledBackImportSessions       ImportSession[]                 @relation("ImportSessionRolledBackBy")
 
   @@map("users")
 }
@@ -338,25 +354,25 @@ model CompanyMembership {
 }
 
 model ServicePartnerCompany {
-  id                 String   @id @default(cuid())
-  companyId          String
+  id                    String   @id @default(cuid())
+  companyId             String
   /// Transitional bridge to the future global servicepartner identity.
   /// Keep customer-scoped ServicePartnerCompany behavior until installation assignment is migrated.
   serviceOrganizationId String?
-  name               String
-  organizationNumber String?
-  contactEmail       String?
-  phone              String?
-  certificateNumber  String?
-  notes              String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  name                  String
+  organizationNumber    String?
+  contactEmail          String?
+  phone                 String?
+  certificateNumber     String?
+  notes                 String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
-  company     Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  serviceOrganization ServiceOrganization? @relation(fields: [serviceOrganizationId], references: [id], onDelete: SetNull)
-  memberships CompanyMembership[]
-  invitations Invitation[]
-  assignedInstallations Installation[] @relation("AssignedServicePartnerCompany")
+  company               Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  serviceOrganization   ServiceOrganization? @relation(fields: [serviceOrganizationId], references: [id], onDelete: SetNull)
+  memberships           CompanyMembership[]
+  invitations           Invitation[]
+  assignedInstallations Installation[]       @relation("AssignedServicePartnerCompany")
 
   @@unique([companyId, name])
   @@index([companyId])
@@ -469,11 +485,11 @@ model Invitation {
   companyId String
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  servicePartnerCompanyId String?
-  servicePartnerCompany   ServicePartnerCompany? @relation(fields: [servicePartnerCompanyId], references: [id], onDelete: SetNull)
-  serviceOrganizationId String?
-  serviceOrganization   ServiceOrganization? @relation(fields: [serviceOrganizationId], references: [id], onDelete: SetNull)
-  isServicePartnerAdminInvite Boolean @default(false)
+  servicePartnerCompanyId     String?
+  servicePartnerCompany       ServicePartnerCompany? @relation(fields: [servicePartnerCompanyId], references: [id], onDelete: SetNull)
+  serviceOrganizationId       String?
+  serviceOrganization         ServiceOrganization?   @relation(fields: [serviceOrganizationId], references: [id], onDelete: SetNull)
+  isServicePartnerAdminInvite Boolean                @default(false)
 
   invitedByUserId String
   invitedByUser   User   @relation("InvitedBy", fields: [invitedByUserId], references: [id], onDelete: Restrict)
@@ -484,44 +500,47 @@ model Invitation {
 }
 
 model Installation {
-  id                            String    @id @default(cuid())
-  name                          String
-  location                      String
-  equipmentId                   String?
-  serialNumber                  String?
-  propertyName                  String?
-  equipmentType                 String?
-  operatorName                  String?
-  installationRegisterType      InstallationRegisterType @default(STATIONARY)
-  mobileUnitId                  String?
-  mobileUnitName                String?
+  id                                String                   @id @default(cuid())
+  name                              String
+  location                          String
+  equipmentId                       String?
+  serialNumber                      String?
+  propertyName                      String?
+  equipmentType                     String?
+  operatorName                      String?
+  installationRegisterType          InstallationRegisterType @default(STATIONARY)
+  mobileUnitId                      String?
+  mobileUnitName                    String?
   mobileRegistrationOrVehicleNumber String?
-  mobileBaseLocation            String?
-  isInstalledOnVessel           Boolean   @default(false)
-  refrigerantType               String
-  refrigerantAmount             Float
-  hasLeakDetectionSystem        Boolean   @default(false)
-  isHermeticallySealed          Boolean   @default(false)
-  installationDate              DateTime?
-  lastInspection                DateTime?
-  inspectionIntervalMonths      Int?
-  nextInspection                DateTime?
-  notes                         String?
-  isActive                      Boolean   @default(true)
-  archivedAt                    DateTime?
-  scrappedAt                    DateTime?
-  scrappedByCompanyMembershipId String?
-  scrapComment                  String?
-  scrapCertificateUrl           String?
-  scrapCertificateFileName      String?
-  scrapCertificateBlobPath      String?
-  scrapServicePartnerId         String?
-  recoveredRefrigerantKg        Float?
-  createdAt                     DateTime  @default(now())
-  updatedAt                     DateTime  @updatedAt
+  mobileBaseLocation                String?
+  isInstalledOnVessel               Boolean                  @default(false)
+  refrigerantType                   String
+  refrigerantAmount                 Float
+  hasLeakDetectionSystem            Boolean                  @default(false)
+  isHermeticallySealed              Boolean                  @default(false)
+  installationDate                  DateTime?
+  lastInspection                    DateTime?
+  inspectionIntervalMonths          Int?
+  nextInspection                    DateTime?
+  notes                             String?
+  isActive                          Boolean                  @default(true)
+  archivedAt                        DateTime?
+  scrappedAt                        DateTime?
+  scrappedByCompanyMembershipId     String?
+  scrapComment                      String?
+  scrapCertificateUrl               String?
+  scrapCertificateFileName          String?
+  scrapCertificateBlobPath          String?
+  scrapServicePartnerId             String?
+  recoveredRefrigerantKg            Float?
+  createdAt                         DateTime                 @default(now())
+  updatedAt                         DateTime                 @updatedAt
+  importSessionId                   String?
 
   companyId String
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  importSession ImportSession? @relation(fields: [importSessionId], references: [id], onDelete: SetNull)
 
   propertyId String?
   property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
@@ -544,6 +563,7 @@ model Installation {
   documents    InstallationDocument[]
   activityLogs ActivityLog[]
 
+  @@index([importSessionId])
   @@index([assignedServicePartnerCompanyId])
   @@map("installations")
 }
@@ -561,12 +581,15 @@ model Property {
   description         String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+  importSessionId     String?
 
   company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   installations Installation[]
+  importSession ImportSession? @relation(fields: [importSessionId], references: [id], onDelete: SetNull)
 
   @@index([companyId])
   @@index([municipality])
+  @@index([importSessionId])
   @@map("properties")
 }
 
@@ -625,11 +648,46 @@ model InstallationEvent {
   createdById             String?
   createdBy               User?                  @relation(fields: [createdById], references: [id])
   createdAt               DateTime               @default(now())
+  importSessionId         String?
+  importSession           ImportSession?         @relation(fields: [importSessionId], references: [id], onDelete: SetNull)
   documents               InstallationDocument[]
 
   @@index([installationId])
   @@index([supersededAt])
+  @@index([importSessionId])
   @@map("installation_events")
+}
+
+model ImportSession {
+  id                 String       @id @default(cuid())
+  companyId          String
+  createdByUserId    String
+  importType         ImportType
+  status             ImportStatus @default(PROCESSING)
+  sourceFileName     String?
+  rowsProcessed      Int          @default(0)
+  rowsImported       Int          @default(0)
+  rowsSkipped        Int          @default(0)
+  rowsFailed         Int          @default(0)
+  completedAt        DateTime?
+  rolledBackAt       DateTime?
+  rolledBackByUserId String?
+  errorSummary       String?
+  metadata           Json?
+  createdAt          DateTime     @default(now())
+
+  company            Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy          User                @relation("ImportSessionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  rolledBackBy       User?               @relation("ImportSessionRolledBackBy", fields: [rolledBackByUserId], references: [id], onDelete: SetNull)
+  properties         Property[]
+  installations      Installation[]
+  installationEvents InstallationEvent[]
+
+  @@index([companyId])
+  @@index([createdAt])
+  @@index([createdByUserId])
+  @@index([rolledBackByUserId])
+  @@map("import_sessions")
 }
 
 model InstallationDocument {
@@ -738,10 +796,10 @@ model ActivityLog {
   metadata       Json?
   createdAt      DateTime @default(now())
 
-  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  installation Installation? @relation(fields: [installationId], references: [id], onDelete: Cascade)
-  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  signedReportArtifactsSigned SignedReportArtifact[] @relation("SignedReportArtifactSignedActivityLog")
+  company                       Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  installation                  Installation?          @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  user                          User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  signedReportArtifactsSigned   SignedReportArtifact[] @relation("SignedReportArtifactSignedActivityLog")
   signedReportArtifactsExported SignedReportArtifact[] @relation("SignedReportArtifactExportActivityLog")
 
   @@index([companyId])
@@ -770,7 +828,7 @@ model SavedFilter {
 }
 
 model SignedReportArtifact {
-  id                     String                    @id @default(cuid())
+  id                     String                     @id @default(cuid())
   companyId              String
   signedByUserId         String?
   reportType             SignedReportType
@@ -781,7 +839,7 @@ model SignedReportArtifact {
   periodStart            DateTime?
   periodEnd              DateTime?
   status                 SignedReportArtifactStatus @default(STORED)
-  signingMethod          SignedReportSigningMethod @default(FGASPORTAL_ELECTRONIC)
+  signingMethod          SignedReportSigningMethod  @default(FGASPORTAL_ELECTRONIC)
   signerName             String
   signerEmail            String?
   signerRole             String?
@@ -789,7 +847,7 @@ model SignedReportArtifact {
   signedAt               DateTime
   pdfStorageKey          String?
   pdfFileName            String?
-  pdfContentType         String                    @default("application/pdf")
+  pdfContentType         String                     @default("application/pdf")
   pdfSizeBytes           Int?
   pdfSha256              String?
   snapshot               Json?
@@ -804,17 +862,17 @@ model SignedReportArtifact {
   supersededAt           DateTime?
   signedActivityLogId    String?
   exportActivityLogId    String?
-  createdAt              DateTime                  @default(now())
-  updatedAt              DateTime                  @updatedAt
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
 
-  company              Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  signedByUser         User?                  @relation(fields: [signedByUserId], references: [id], onDelete: SetNull)
-  supersedesArtifact   SignedReportArtifact?  @relation("SignedReportArtifactSupersedes", fields: [supersedesArtifactId], references: [id], onDelete: SetNull)
-  supersededArtifacts  SignedReportArtifact[] @relation("SignedReportArtifactSupersedes")
-  supersededByArtifact SignedReportArtifact?  @relation("SignedReportArtifactSupersededBy", fields: [supersededByArtifactId], references: [id], onDelete: SetNull)
-  supersedingArtifacts SignedReportArtifact[] @relation("SignedReportArtifactSupersededBy")
-  signedActivityLog    ActivityLog?           @relation("SignedReportArtifactSignedActivityLog", fields: [signedActivityLogId], references: [id], onDelete: SetNull)
-  exportActivityLog    ActivityLog?           @relation("SignedReportArtifactExportActivityLog", fields: [exportActivityLogId], references: [id], onDelete: SetNull)
+  company              Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  signedByUser         User?                   @relation(fields: [signedByUserId], references: [id], onDelete: SetNull)
+  supersedesArtifact   SignedReportArtifact?   @relation("SignedReportArtifactSupersedes", fields: [supersedesArtifactId], references: [id], onDelete: SetNull)
+  supersededArtifacts  SignedReportArtifact[]  @relation("SignedReportArtifactSupersedes")
+  supersededByArtifact SignedReportArtifact?   @relation("SignedReportArtifactSupersededBy", fields: [supersededByArtifactId], references: [id], onDelete: SetNull)
+  supersedingArtifacts SignedReportArtifact[]  @relation("SignedReportArtifactSupersededBy")
+  signedActivityLog    ActivityLog?            @relation("SignedReportArtifactSignedActivityLog", fields: [signedActivityLogId], references: [id], onDelete: SetNull)
+  exportActivityLog    ActivityLog?            @relation("SignedReportArtifactExportActivityLog", fields: [exportActivityLogId], references: [id], onDelete: SetNull)
   annualFgasReport     SignedAnnualFgasReport?
 
   @@index([companyId])

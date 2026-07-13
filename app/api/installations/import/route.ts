@@ -3,6 +3,11 @@ import { z, ZodError } from "zod"
 import { authenticateApiRequest, forbiddenResponse, isAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import {
+  completeImportSession,
+  createImportSession,
+  failImportSession,
+} from "@/lib/import-sessions"
+import {
   DUPLICATE_AGGREGAT_HISTORY_MESSAGE,
   getMaxImportRows,
   findImportPropertyMatch,
@@ -14,6 +19,7 @@ import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
 
 const importRequestSchema = z.object({
+  sourceFileName: z.string().nullable().optional(),
   rows: z.array(
     z.object({
       row: z.number(),
@@ -52,14 +58,30 @@ type ImportError = {
 }
 
 export async function POST(request: NextRequest) {
+  let importSessionId: string | null = null
+  let companyIdForFailure: string | null = null
+  const importCounts = {
+    created: 0,
+    processed: 0,
+    skipped: 0,
+  }
+
   try {
     const auth = await authenticateApiRequest(request)
     if (auth.response) return auth.response
     if (!isAdmin(auth.user)) return forbiddenResponse()
 
     const { companyId, userId } = auth.user
+    companyIdForFailure = companyId
     const body = await request.json()
-    const { rows } = importRequestSchema.parse(body)
+    const { rows, sourceFileName } = importRequestSchema.parse(body)
+    const importSession = await createImportSession({
+      companyId,
+      createdByUserId: userId,
+      importType: "INSTALLATIONS",
+      sourceFileName,
+    })
+    importSessionId = importSession.id
     const errors: ImportError[] = []
     let created = 0
     let skipped = 0
@@ -74,10 +96,12 @@ export async function POST(request: NextRequest) {
     })
 
     for (const row of rows) {
+      importCounts.processed += 1
       const parsed = normalizeImportRow(row as ImportInstallationInput, row.row)
 
       if (parsed.errors.length > 0 || parsed.refrigerantAmount === null) {
         skipped += 1
+        importCounts.skipped = skipped
         errors.push({
           row: parsed.row,
           message: parsed.errors.join(", ") || "Invalid row",
@@ -120,6 +144,7 @@ export async function POST(request: NextRequest) {
 
       if (duplicate) {
         skipped += 1
+        importCounts.skipped = skipped
         errors.push({
           row: parsed.row,
           message: parsed.equipmentId
@@ -180,22 +205,47 @@ export async function POST(request: NextRequest) {
           companyId,
           createdById: userId,
           updatedById: userId,
+          importSessionId,
         },
       })
 
       created += 1
+      importCounts.created = created
     }
+
+    await completeImportSession({
+      companyId,
+      importSessionId,
+      rowsFailed: 0,
+      rowsImported: created,
+      rowsProcessed: rows.length,
+      rowsSkipped: skipped,
+      userId,
+    })
 
     return NextResponse.json(
       {
         created,
         skipped,
         errors,
+        importSessionId,
       },
       { status: 200 }
     )
   } catch (error: unknown) {
     console.error("Import installations error:", error)
+
+    if (importSessionId && companyIdForFailure) {
+      await failImportSession({
+        companyId: companyIdForFailure,
+        errorSummary: "Aggregatimporten misslyckades.",
+        importSessionId,
+        rowsFailed: 1,
+        rowsImported: importCounts.created,
+        rowsProcessed: importCounts.processed,
+        rowsSkipped: importCounts.skipped,
+      })
+    }
 
     if (error instanceof ZodError) {
       return NextResponse.json(

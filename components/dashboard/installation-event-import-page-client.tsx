@@ -4,7 +4,9 @@ import Link from "next/link"
 import { useEffect, useMemo, useRef, useState } from "react"
 import * as XLSX from "xlsx"
 import { ImportCompletionSummary } from "@/components/dashboard/import-completion-summary"
+import { ImportSessionHistory } from "@/components/dashboard/import-session-history"
 import { Toast, type ToastMessage } from "@/components/ui"
+import { invalidateImportSessionCaches } from "@/lib/client/api-cache"
 import {
   EVENT_IMPORT_FIELD_DEFINITIONS,
   filterEventImportPreviewRows,
@@ -41,6 +43,7 @@ type PreviewResponse = {
 type ImportSummary = {
   created: number
   skipped: number
+  importSessionId?: string
   createdWithExactDate?: number
   createdWithYearOnlyDate?: number
   errors: Array<{ row: number; message: string }>
@@ -48,6 +51,7 @@ type ImportSummary = {
 
 type InstallationEventImportPageClientProps = {
   embedded?: boolean
+  initialImportSessionId?: string | null
   onClose?: () => void
   onImportStateChange?: (state: ImportWorkspaceState) => void
   onImported?: () => void
@@ -155,6 +159,7 @@ const EVENT_ADVANCED_FIELD_KEYS: EventImportFieldKey[] =
 
 export default function InstallationEventImportPageClient({
   embedded = false,
+  initialImportSessionId,
   onClose,
   onImportStateChange,
   onImported,
@@ -394,7 +399,11 @@ export default function InstallationEventImportPageClient({
         "Content-Type": "application/json",
       },
       credentials: "include",
-      body: JSON.stringify({ mode, rows }),
+      body: JSON.stringify({
+        mode,
+        rows,
+        sourceFileName: mode === "import" ? selectedFile?.name ?? null : null,
+      }),
     })
     const result = await response.json()
     endImportTimer(`event-import:${mode}-mapping-validation`)
@@ -430,6 +439,7 @@ export default function InstallationEventImportPageClient({
     }
 
     setImportSummary(result)
+    await invalidateImportSessionCaches(result.importSessionId)
     setToast({
       type: result.skipped > 0 || result.errors?.length > 0 ? "warning" : "success",
       title: result.skipped > 0 || result.errors?.length > 0 ? "Import klar" : "Klart",
@@ -885,6 +895,9 @@ export default function InstallationEventImportPageClient({
           </div>
         </div>
       )}
+      {!embedded && (
+        <ImportSessionHistory initialSessionId={initialImportSessionId} />
+      )}
       {toast && <Toast onClose={() => setToast(null)} toast={toast} />}
     </>
   )
@@ -936,6 +949,7 @@ function EventImportSuccessPanel({
       ]}
       errors={importSummary.errors}
       importedCount={importSummary.created}
+      importSessionId={importSummary.importSessionId}
       kind="events"
       skippedCount={importSummary.skipped}
       subtitle={`${importSummary.createdWithExactDate ?? 0} med exakt datum, ${importSummary.createdWithYearOnlyDate ?? 0} med endast händelseår.`}

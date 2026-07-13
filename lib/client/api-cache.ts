@@ -19,6 +19,9 @@ export const API_CACHE_KEYS = {
     `/api/installations/${installationId}/documents`,
   installationEvents: (installationId: string) =>
     `/api/installations/${installationId}/events`,
+  importSessions: "/api/import-sessions",
+  importSession: (importSessionId: string) =>
+    `/api/import-sessions/${importSessionId}`,
   notifications: "/api/dashboard/notifications",
   reportsFgas: (queryString: string) =>
     `/api/reports/fgas${queryString ? `?${queryString}` : ""}`,
@@ -142,6 +145,29 @@ export async function invalidateInstallationCaches(installationId?: string) {
     installationId
       ? mutateGlobal(API_CACHE_KEYS.installationActivity(installationId))
       : Promise.resolve(),
+  ])
+}
+
+export async function invalidateImportSessionCaches(importSessionId?: string | null) {
+  await Promise.all([
+    mutateGlobal(API_CACHE_KEYS.importSessions),
+    importSessionId
+      ? mutateGlobal(API_CACHE_KEYS.importSession(importSessionId))
+      : Promise.resolve(),
+    mutateGlobal(API_CACHE_KEYS.properties),
+    mutateGlobal(API_CACHE_KEYS.propertiesOverview),
+    mutateGlobal(API_CACHE_KEYS.installations),
+    mutateGlobal(API_CACHE_KEYS.installationsFilterSource),
+    mutateGlobal(API_CACHE_KEYS.dashboard),
+    mutateGlobal(API_CACHE_KEYS.actions),
+    mutateGlobal(API_CACHE_KEYS.dataQuality),
+    mutateGlobal((key) =>
+      typeof key === "string" && key.startsWith("/api/reports/fgas")
+    ),
+    mutateGlobal((key) =>
+      typeof key === "string" &&
+      key.startsWith("/api/reports/annual-fgas/history")
+    ),
   ])
 }
 

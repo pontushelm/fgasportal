@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import ImportInstallationsPage from "@/components/dashboard/installations-import-page-client"
 import InstallationEventImportPageClient from "@/components/dashboard/installation-event-import-page-client"
+import { ImportSessionHistory } from "@/components/dashboard/import-session-history"
 import PropertiesImportPageClient from "@/components/dashboard/properties-import-page-client"
 import { buttonClassName } from "@/components/ui"
 
@@ -228,39 +229,42 @@ export function ImportDataWorkspace({
               )}
             </div>
           ) : (
-            <div className="mx-auto grid max-w-4xl gap-4 lg:grid-cols-3">
-              {importOptions.map((option) => (
-                <button
-                  className={`rounded-2xl border bg-white p-5 text-left shadow-sm transition ${
-                    option.disabled
-                      ? "cursor-not-allowed border-slate-200 opacity-75"
-                      : "border-blue-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
-                  }`}
-                  disabled={option.disabled}
-                  key={option.type}
-                  type="button"
-                  onClick={() => requestImportType(option.type)}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <h3 className="text-base font-semibold text-slate-950">
-                      {option.title}
-                    </h3>
-                    {option.status && (
-                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
-                        {option.status}
+            <div className="mx-auto max-w-5xl">
+              <div className="grid gap-4 lg:grid-cols-3">
+                {importOptions.map((option) => (
+                  <button
+                    className={`rounded-2xl border bg-white p-5 text-left shadow-sm transition ${
+                      option.disabled
+                        ? "cursor-not-allowed border-slate-200 opacity-75"
+                        : "border-blue-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
+                    }`}
+                    disabled={option.disabled}
+                    key={option.type}
+                    type="button"
+                    onClick={() => requestImportType(option.type)}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="text-base font-semibold text-slate-950">
+                        {option.title}
+                      </h3>
+                      {option.status && (
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
+                          {option.status}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-3 text-sm leading-6 text-slate-600">
+                      {option.description}
+                    </p>
+                    {!option.disabled && (
+                      <span className="mt-5 inline-flex text-sm font-semibold text-blue-700">
+                        Starta import
                       </span>
                     )}
-                  </div>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">
-                    {option.description}
-                  </p>
-                  {!option.disabled && (
-                    <span className="mt-5 inline-flex text-sm font-semibold text-blue-700">
-                      Starta import
-                    </span>
-                  )}
-                </button>
-              ))}
+                  </button>
+                ))}
+              </div>
+              <ImportSessionHistory />
             </div>
           )}
         </div>
