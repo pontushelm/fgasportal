@@ -75,6 +75,14 @@ type PropertyFormData = {
   municipality: string
 }
 
+type BulkDialog = "delete" | "clear-fields" | "set-municipality" | null
+type ClearablePropertyField =
+  | "address"
+  | "postalCode"
+  | "city"
+  | "municipality"
+  | "propertyDesignation"
+
 type SortDirection = "asc" | "desc"
 type PropertySortKey =
   | "name"
@@ -120,6 +128,12 @@ export default function PropertiesPageClient() {
   const [isImportWorkspaceOpen, setIsImportWorkspaceOpen] = useState(false)
   const [createError, setCreateError] = useState("")
   const [toast, setToast] = useState<ToastMessage | null>(null)
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([])
+  const [bulkDialog, setBulkDialog] = useState<BulkDialog>(null)
+  const [bulkError, setBulkError] = useState("")
+  const [isBulkSubmitting, setIsBulkSubmitting] = useState(false)
+  const [clearFields, setClearFields] = useState<ClearablePropertyField[]>([])
+  const [bulkMunicipality, setBulkMunicipality] = useState("")
   const [propertyFilters, setPropertyFilters] = useState<PropertyListFilters>(
     EMPTY_PROPERTY_LIST_FILTERS
   )
@@ -148,6 +162,15 @@ export default function PropertiesPageClient() {
     [properties]
   )
   const hasPropertyFilters = hasActivePropertyListFilters(propertyFilters)
+  const visiblePropertyIds = useMemo(
+    () => visibleProperties.map((property) => property.id),
+    [visibleProperties]
+  )
+  const visibleSelectedCount = selectedPropertyIds.filter((propertyId) =>
+    visiblePropertyIds.includes(propertyId)
+  ).length
+  const allVisibleSelected =
+    visibleProperties.length > 0 && visibleSelectedCount === visibleProperties.length
 
   useEffect(() => {
     if (isUnauthorizedApiError(error)) {
@@ -156,8 +179,11 @@ export default function PropertiesPageClient() {
   }, [error, router])
 
   const canCreateProperties = isAdminRole(currentUser?.role)
+  const canBulkEditProperties = isAdminRole(currentUser?.role)
+  const canBulkDeleteProperties = currentUser?.role === "OWNER"
 
   function updateSort(sortKey: PropertySortKey) {
+    setSelectedPropertyIds([])
     setSort((current) => {
       if (current.key !== sortKey || !current.direction) {
         return { key: sortKey, direction: "asc" }
@@ -170,12 +196,14 @@ export default function PropertiesPageClient() {
   }
 
   function clearQualityFilter() {
+    setSelectedPropertyIds([])
     const params = new URLSearchParams(searchParams.toString())
     params.delete("quality")
     router.replace(`/dashboard/properties${params.toString() ? `?${params.toString()}` : ""}`)
   }
 
   function updatePropertyFilter(key: PropertyListFilterKey, value: string) {
+    setSelectedPropertyIds([])
     setPropertyFilters((current) => ({
       ...current,
       [key]: value,
@@ -183,6 +211,7 @@ export default function PropertiesPageClient() {
   }
 
   function clearPropertyFilters() {
+    setSelectedPropertyIds([])
     setPropertyFilters(EMPTY_PROPERTY_LIST_FILTERS)
   }
 
@@ -233,6 +262,142 @@ export default function PropertiesPageClient() {
       message: "Fastigheten har lagts till.",
     })
     setIsCreating(false)
+  }
+
+  function togglePropertySelection(propertyId: string) {
+    setSelectedPropertyIds((current) =>
+      current.includes(propertyId)
+        ? current.filter((selectedId) => selectedId !== propertyId)
+        : [...current, propertyId]
+    )
+  }
+
+  function toggleSelectVisibleProperties() {
+    setSelectedPropertyIds((current) => {
+      const visibleSet = new Set(visiblePropertyIds)
+      if (allVisibleSelected) {
+        return current.filter((propertyId) => !visibleSet.has(propertyId))
+      }
+
+      return Array.from(new Set([...current, ...visiblePropertyIds]))
+    })
+  }
+
+  function openBulkDialog(dialog: BulkDialog) {
+    setBulkError("")
+    setBulkDialog(dialog)
+    if (dialog === "clear-fields") setClearFields([])
+    if (dialog === "set-municipality") setBulkMunicipality("")
+  }
+
+  function closeBulkDialog() {
+    if (isBulkSubmitting) return
+    setBulkDialog(null)
+    setBulkError("")
+  }
+
+  function toggleClearField(field: ClearablePropertyField) {
+    setClearFields((current) =>
+      current.includes(field)
+        ? current.filter((selectedField) => selectedField !== field)
+        : [...current, field]
+    )
+  }
+
+  async function runBulkAction(payload: Record<string, unknown>) {
+    setBulkError("")
+    setIsBulkSubmitting(true)
+
+    const response = await fetch("/api/properties/bulk", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        propertyIds: selectedPropertyIds,
+        ...payload,
+      }),
+    })
+    const result = await response.json()
+
+    if (response.status === 401) {
+      router.push("/login")
+      return null
+    }
+
+    if (!response.ok) {
+      setBulkError(result.error || "Bulkåtgärden kunde inte genomföras.")
+      setIsBulkSubmitting(false)
+      return null
+    }
+
+    await mutateProperties()
+    await invalidatePropertyCaches()
+    setIsBulkSubmitting(false)
+    setBulkDialog(null)
+    return result
+  }
+
+  async function handleBulkDelete() {
+    const result: {
+      blocked?: Array<{ id: string; installationCount: number; name: string }>
+      blockedCount: number
+      deletedCount: number
+    } | null = await runBulkAction({ action: "DELETE" })
+
+    if (!result) return
+
+    setSelectedPropertyIds(result.blocked?.map((property) => property.id) ?? [])
+    setToast({
+      type: result.blockedCount > 0 ? "warning" : "success",
+      title: "Klart",
+      message: buildBulkDeleteMessage(result),
+    })
+  }
+
+  async function handleBulkClearFields() {
+    if (clearFields.length === 0) {
+      setBulkError("Välj minst ett fält att rensa.")
+      return
+    }
+
+    const result: { updatedCount: number } | null = await runBulkAction({
+      action: "CLEAR_FIELDS",
+      fields: clearFields,
+    })
+
+    if (!result) return
+
+    setSelectedPropertyIds([])
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: `${formatClearFieldLabels(clearFields)} rensades för ${result.updatedCount} fastigheter.`,
+    })
+  }
+
+  async function handleBulkSetMunicipality() {
+    const municipality = bulkMunicipality.trim()
+    if (!municipality) {
+      setBulkError("Ange en kommun.")
+      return
+    }
+
+    const result: { updatedCount: number; municipality: string } | null =
+      await runBulkAction({
+        action: "SET_MUNICIPALITY",
+        municipality,
+      })
+
+    if (!result) return
+
+    setSelectedPropertyIds([])
+    setToast({
+      type: "success",
+      title: "Klart",
+      message: `Kommun uppdaterades till ${result.municipality} för ${result.updatedCount} fastigheter.`,
+    })
   }
 
   return (
@@ -374,11 +539,30 @@ export default function PropertiesPageClient() {
           onChange={updatePropertyFilter}
           options={propertyFilterOptions}
         />
+        {canBulkEditProperties && selectedPropertyIds.length > 0 && (
+          <PropertyBulkActionBar
+            canDelete={canBulkDeleteProperties}
+            onClearSelection={() => setSelectedPropertyIds([])}
+            onOpenDialog={openBulkDialog}
+            selectedCount={selectedPropertyIds.length}
+          />
+        )}
         <Card className="mt-6 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50">
                 <tr>
+                  {canBulkEditProperties && (
+                    <th className="w-12 px-4 py-3 text-left">
+                      <input
+                        aria-label="Välj alla synliga fastigheter"
+                        checked={allVisibleSelected}
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        onChange={toggleSelectVisibleProperties}
+                        type="checkbox"
+                      />
+                    </th>
+                  )}
                   <TableHeader
                     activeSortKey={sort.key}
                     direction={sort.direction}
@@ -425,6 +609,17 @@ export default function PropertiesPageClient() {
               <tbody className="divide-y divide-slate-200 bg-white">
                 {visibleProperties.map((property) => (
                   <tr className="hover:bg-slate-50" key={property.id}>
+                    {canBulkEditProperties && (
+                      <TableCell>
+                        <input
+                          aria-label={`Välj ${property.name}`}
+                          checked={selectedPropertyIds.includes(property.id)}
+                          className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          onChange={() => togglePropertySelection(property.id)}
+                          type="checkbox"
+                        />
+                      </TableCell>
+                    )}
                     <TableCell>
                       <Link
                         className="font-semibold text-slate-950 underline-offset-4 hover:underline"
@@ -471,6 +666,86 @@ export default function PropertiesPageClient() {
           </div>
         )}
         </>
+      )}
+      {bulkDialog === "delete" && (
+        <BulkDialogFrame
+          error={bulkError}
+          onClose={closeBulkDialog}
+          title="Ta bort valda fastigheter?"
+        >
+          <p className="text-sm text-slate-600">
+            Fastigheter utan kopplade aggregat tas bort. Fastigheter med kopplade
+            aggregat lämnas kvar.
+          </p>
+          <p className="mt-3 text-sm font-semibold text-slate-900">
+            {selectedPropertyIds.length} fastigheter valda.
+          </p>
+          <BulkDialogActions
+            confirmLabel={isBulkSubmitting ? "Tar bort..." : "Ta bort fastigheter"}
+            confirmVariant="danger"
+            disabled={isBulkSubmitting}
+            onCancel={closeBulkDialog}
+            onConfirm={handleBulkDelete}
+          />
+        </BulkDialogFrame>
+      )}
+      {bulkDialog === "clear-fields" && (
+        <BulkDialogFrame
+          error={bulkError}
+          onClose={closeBulkDialog}
+          title="Rensa fält"
+        >
+          <p className="text-sm text-slate-600">
+            Välj vilka uppgifter som ska rensas för {selectedPropertyIds.length} valda fastigheter.
+          </p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {clearableFieldOptions.map((field) => (
+              <label
+                className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700"
+                key={field.value}
+              >
+                <input
+                  checked={clearFields.includes(field.value)}
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  onChange={() => toggleClearField(field.value)}
+                  type="checkbox"
+                />
+                {field.label}
+              </label>
+            ))}
+          </div>
+          <BulkDialogActions
+            confirmLabel={isBulkSubmitting ? "Rensar..." : "Rensa valda fält"}
+            disabled={isBulkSubmitting}
+            onCancel={closeBulkDialog}
+            onConfirm={handleBulkClearFields}
+          />
+        </BulkDialogFrame>
+      )}
+      {bulkDialog === "set-municipality" && (
+        <BulkDialogFrame
+          error={bulkError}
+          onClose={closeBulkDialog}
+          title="Sätt kommun"
+        >
+          <p className="text-sm text-slate-600">
+            Sätt kommun för {selectedPropertyIds.length} valda fastigheter.
+          </p>
+          <label className={`${fieldClassName} mt-4`}>
+            Kommun
+            <input
+              className={inputClassName}
+              onChange={(event) => setBulkMunicipality(event.target.value)}
+              value={bulkMunicipality}
+            />
+          </label>
+          <BulkDialogActions
+            confirmLabel={isBulkSubmitting ? "Uppdaterar..." : "Uppdatera kommun"}
+            disabled={isBulkSubmitting}
+            onCancel={closeBulkDialog}
+            onConfirm={handleBulkSetMunicipality}
+          />
+        </BulkDialogFrame>
       )}
       {toast && <Toast onClose={() => setToast(null)} toast={toast} />}
       {isImportWorkspaceOpen && (
@@ -545,6 +820,153 @@ function PropertyFilterBar({
       </div>
     </Card>
   )
+}
+
+const clearableFieldOptions = [
+  { label: "Adress", value: "address" },
+  { label: "Postnummer", value: "postalCode" },
+  { label: "Ort", value: "city" },
+  { label: "Kommun", value: "municipality" },
+  { label: "Fastighetsbeteckning", value: "propertyDesignation" },
+] satisfies Array<{ label: string; value: ClearablePropertyField }>
+
+function PropertyBulkActionBar({
+  canDelete,
+  onClearSelection,
+  onOpenDialog,
+  selectedCount,
+}: {
+  canDelete: boolean
+  onClearSelection: () => void
+  onOpenDialog: (dialog: BulkDialog) => void
+  selectedCount: number
+}) {
+  return (
+    <Card className="mt-4 border-blue-100 bg-blue-50/70 p-3 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-semibold text-blue-950">
+          {selectedCount} fastigheter valda
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {canDelete && (
+            <Button
+              type="button"
+              variant="danger"
+              onClick={() => onOpenDialog("delete")}
+            >
+              Ta bort
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => onOpenDialog("clear-fields")}
+          >
+            Rensa fält
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => onOpenDialog("set-municipality")}
+          >
+            Sätt kommun
+          </Button>
+          <Button type="button" variant="ghost" onClick={onClearSelection}>
+            Avmarkera alla
+          </Button>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+function BulkDialogFrame({
+  children,
+  error,
+  onClose,
+  title,
+}: {
+  children: React.ReactNode
+  error: string
+  onClose: () => void
+  title: string
+}) {
+  return (
+    <div
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4"
+      role="dialog"
+    >
+      <div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
+        <div className="flex items-start justify-between gap-4">
+          <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
+          <button
+            aria-label="Stäng"
+            className="rounded-md px-2 py-1 text-sm font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+            onClick={onClose}
+            type="button"
+          >
+            Stäng
+          </button>
+        </div>
+        <div className="mt-4">{children}</div>
+        {error && <p className="mt-3 text-sm font-semibold text-red-700">{error}</p>}
+      </div>
+    </div>
+  )
+}
+
+function BulkDialogActions({
+  confirmLabel,
+  confirmVariant = "primary",
+  disabled,
+  onCancel,
+  onConfirm,
+}: {
+  confirmLabel: string
+  confirmVariant?: "primary" | "danger"
+  disabled: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <div className="mt-5 flex flex-wrap justify-end gap-2">
+      <Button disabled={disabled} type="button" variant="secondary" onClick={onCancel}>
+        Avbryt
+      </Button>
+      <Button disabled={disabled} type="button" variant={confirmVariant} onClick={onConfirm}>
+        {confirmLabel}
+      </Button>
+    </div>
+  )
+}
+
+function buildBulkDeleteMessage(result: {
+  blocked?: Array<{ installationCount: number; name: string }>
+  blockedCount: number
+  deletedCount: number
+}) {
+  const base = `${result.deletedCount} fastigheter togs bort.`
+  if (result.blockedCount === 0) return base
+
+  const blockedNames = (result.blocked ?? [])
+    .slice(0, 3)
+    .map((property) => `${property.name} (${property.installationCount} aggregat)`)
+    .join(", ")
+
+  return `${base} ${result.blockedCount} lämnades kvar eftersom de har kopplade aggregat${
+    blockedNames ? `: ${blockedNames}` : ""
+  }.`
+}
+
+function formatClearFieldLabels(fields: ClearablePropertyField[]) {
+  const labels = fields.map(
+    (field) =>
+      clearableFieldOptions.find((option) => option.value === field)?.label ?? field
+  )
+
+  if (labels.length === 1) return labels[0]
+  return `${labels.slice(0, -1).join(", ")} och ${labels.at(-1)}`
 }
 
 function toSearchableSelectOption(value: string): SearchableSelectOption {
