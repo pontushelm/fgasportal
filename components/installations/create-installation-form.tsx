@@ -370,9 +370,9 @@ export default function CreateInstallationForm({
             type="checkbox"
           />
           <span>
-            <span className="block text-slate-900">Utrustning pÃ¥ fartyg</span>
+              <span className="block text-slate-900">Utrustning på fartyg</span>
             <span className="block text-xs font-normal text-slate-500">
-              Rapportering fÃ¶r utrustning pÃ¥ fartyg gÃ¶rs till Transportstyrelsen.
+              Rapportering för utrustning på fartyg görs till Transportstyrelsen.
             </span>
           </span>
         </label>

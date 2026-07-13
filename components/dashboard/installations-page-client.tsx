@@ -1650,7 +1650,7 @@ export default function InstallationsPageClient() {
                     {installation.installationRegisterType === "MOBILE" && (
                       <div className="mt-1 text-xs text-slate-500">
                         {formatMobileMeta(installation)}
-                        {installation.isInstalledOnVessel ? " Â· Fartyg" : ""}
+                  {installation.isInstalledOnVessel ? " · Fartyg" : ""}
                       </div>
                     )}
                   </TableCell>
@@ -2034,7 +2034,7 @@ function InstallationQuickView({
                     value={installation.mobileBaseLocation || "-"}
                   />
                   <QuickViewItem
-                    label="Utrustning pÃ¥ fartyg"
+              label="Utrustning på fartyg"
                     value={installation.isInstalledOnVessel ? "Ja" : "Nej"}
                   />
                 </>

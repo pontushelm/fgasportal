@@ -373,7 +373,7 @@ export default function ActionsPageClient() {
 
     const trimmedName = saveViewName.trim()
     if (!trimmedName) {
-      setSavedViewError("Ange ett namn fÃ¶r vyn")
+      setSavedViewError("Ange ett namn för vyn")
       return
     }
 

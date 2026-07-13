@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Polar Ã¤r fÃ¶r nÃ¤rvarande i pilotfas. Registrering sker via personlig inbjudan eller efter godkÃ¤nd pilotansÃ¶kan.",
+            "Polar är för närvarande i pilotfas. Registrering sker via personlig inbjudan eller efter godkänd pilotansökan.",
         },
         { status: 403 }
       )

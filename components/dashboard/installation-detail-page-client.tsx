@@ -1497,11 +1497,11 @@ export default function InstallationDetailPage() {
                   value={formatOptionalText(installation.mobileRegistrationOrVehicleNumber)}
                 />
                 <DetailItem
-                  label="PrimÃ¤r depÃ¥ / hemmahamn / bas"
+          label="Primär depå / hemmahamn / bas"
                   value={formatOptionalText(installation.mobileBaseLocation)}
                 />
                 <DetailItem
-                  label="Utrustning pÃ¥ fartyg"
+          label="Utrustning på fartyg"
                   value={installation.isInstalledOnVessel ? "Ja" : "Nej"}
                 />
               </>
@@ -1800,7 +1800,7 @@ export default function InstallationDetailPage() {
                       type="radio"
                       value="STATIONARY"
                     />
-                    StationÃ¤rt aggregat
+            Stationärt aggregat
                   </label>
                   <label className="flex items-start gap-2 rounded-md border border-slate-200 bg-white p-3 text-sm font-medium text-slate-800">
                     <input
@@ -1816,8 +1816,8 @@ export default function InstallationDetailPage() {
                 </div>
                 {isEditingMobileInstallation && (
                   <p className="text-xs text-slate-600">
-                    Mobila aggregat kan fÃ¶ljas upp separat frÃ¥n fastighetsbundna
-                    aggregat men anvÃ¤nder samma register- och kontrollkrav.
+              Mobila aggregat kan följas upp separat från fastighetsbundna
+              aggregat men använder samma register- och kontrollkrav.
                   </p>
                 )}
               </fieldset>
@@ -1847,7 +1847,7 @@ export default function InstallationDetailPage() {
                     <input className={formControlClassName} name="mobileRegistrationOrVehicleNumber" value={editForm.mobileRegistrationOrVehicleNumber} onChange={handleEditChange} />
                   </label>
                   <label className={fieldClassName}>
-                    PrimÃ¤r depÃ¥ / hemmahamn / bas
+            Primär depå / hemmahamn / bas
                     <input className={formControlClassName} name="mobileBaseLocation" value={editForm.mobileBaseLocation} onChange={handleEditChange} />
                   </label>
                   <label className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-700">
@@ -1860,10 +1860,10 @@ export default function InstallationDetailPage() {
                     />
                     <span>
                       <span className="block font-medium text-gray-900">
-                        Utrustning pÃ¥ fartyg
+            Utrustning på fartyg
                       </span>
                       <span className="block text-xs text-gray-500">
-                        Rapportering fÃ¶r utrustning pÃ¥ fartyg gÃ¶rs till Transportstyrelsen.
+              Rapportering för utrustning på fartyg görs till Transportstyrelsen.
                       </span>
                     </span>
                   </label>
@@ -3181,7 +3181,7 @@ function formatNumber(value: number) {
 }
 
 function formatRegisterType(type?: "STATIONARY" | "MOBILE") {
-  return type === "MOBILE" ? "Mobilt aggregat" : "StationÃ¤rt aggregat"
+  return type === "MOBILE" ? "Mobilt aggregat" : "Stationärt aggregat"
 }
 
 function getTodayInputValue() {

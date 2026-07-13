@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
 
     if (!historyRecord && !propertyId && !reportGroupId && registerType !== "MOBILE") {
       return NextResponse.json(
-        { error: "VÃ¤lj en fastighet innan Ã¥rsrapporten exporteras" },
+        { error: "Välj en fastighet innan årsrapporten exporteras" },
         { status: 400 }
       )
     }

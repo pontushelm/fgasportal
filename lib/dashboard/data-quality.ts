@@ -209,7 +209,7 @@ export function buildDataQualityReport({
           !installation.mobileUnitName?.trim()
       ).length,
       description:
-        "Utrustning pÃ¥ fartyg saknar fartygsidentifiering. LÃ¤gg till enhets-ID, registrerings-/fartygsnummer eller tydlig beteckning innan rapporten fÃ¤rdigstÃ¤lls.",
+        "Utrustning på fartyg saknar fartygsidentifiering. Lägg till enhets-ID, registrerings-/fartygsnummer eller tydlig beteckning innan rapporten färdigställs.",
       group: "installations",
       id: "INSTALLATION_VESSEL_MISSING_IDENTIFIER",
       route: DATA_QUALITY_ISSUE_ROUTES.INSTALLATION_VESSEL_MISSING_IDENTIFIER,

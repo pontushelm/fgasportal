@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: "Ett ovÃ¤ntat fel uppstod" },
+      { error: "Ett oväntat fel uppstod" },
       { status: 500 }
     )
   }

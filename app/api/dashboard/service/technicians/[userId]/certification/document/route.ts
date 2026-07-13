@@ -62,7 +62,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     console.error("Get technician certificate document error:", error)
 
     return NextResponse.json(
-      { error: "Ett ovÃ¤ntat fel uppstod" },
+      { error: "Ett oväntat fel uppstod" },
       { status: 500 }
     )
   }
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
       return NextResponse.json(
-        { error: "Blob storage Ã¤r inte konfigurerat" },
+        { error: "Blob storage är inte konfigurerat" },
         { status: 500 }
       )
     }
@@ -97,14 +97,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (file.size > MAX_FILE_SIZE_BYTES) {
       return NextResponse.json(
-        { error: "Filen fÃ¥r vara max 10 MB" },
+        { error: "Filen får vara max 10 MB" },
         { status: 400 }
       )
     }
 
     if (!ALLOWED_MIME_TYPES.has(file.type)) {
       return NextResponse.json(
-        { error: "Filtypen stÃ¶ds inte. Ladda upp PDF, JPG eller PNG." },
+        { error: "Filtypen stöds inte. Ladda upp PDF, JPG eller PNG." },
         { status: 400 }
       )
     }
@@ -222,7 +222,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     return NextResponse.json(
-      { error: "Ett ovÃ¤ntat fel uppstod" },
+      { error: "Ett oväntat fel uppstod" },
       { status: 500 }
     )
   }
@@ -294,7 +294,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     console.error("Delete technician certificate document error:", error)
 
     return NextResponse.json(
-      { error: "Ett ovÃ¤ntat fel uppstod" },
+      { error: "Ett oväntat fel uppstod" },
       { status: 500 }
     )
   }

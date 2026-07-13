@@ -53,7 +53,7 @@ export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData 
                 <Field label="Omfattning" value={formatReportingScope(report.reportGroup.reportingScope)} />
                 <Field label="Rapportmottagare" value={formatReportRecipient(report.reportGroup.recipient)} />
                 <Field label="Rapportgrupp" value={report.reportGroup.label} />
-                <Field label="UtvÃ¤rderad COâ‚‚e" value={formatReportGroupCo2e(report.reportGroup.evaluatedCo2eTon)} />
+                <Field label="Utvärderad CO₂e" value={formatReportGroupCo2e(report.reportGroup.evaluatedCo2eTon)} />
                 {report.reportGroup.mobileMetadata && (
                   <>
                     <Field label="Enhets-ID" value={report.reportGroup.mobileMetadata.mobileUnitId} />
@@ -445,12 +445,12 @@ function formatReportRecipient(
     case "MUNICIPALITY":
       return "Kommun"
     case "UNKNOWN":
-      return "Tillsynsmyndighet behÃ¶ver granskas"
+      return "Tillsynsmyndighet behöver granskas"
   }
 }
 
 function formatReportGroupCo2e(value: number | null) {
-  if (value === null) return "Kan inte berÃ¤knas"
+  if (value === null) return "Kan inte beräknas"
   return `${formatNumber(value)} ton`
 }
 

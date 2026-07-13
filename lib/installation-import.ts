@@ -163,10 +163,10 @@ export const IMPORT_FIELD_DEFINITIONS: ImportFieldDefinition[] = [
   },
   {
     key: "isInstalledOnVessel",
-    label: "Utrustning pÃ¥ fartyg",
+      label: "Utrustning på fartyg",
     aliases: [
       "utrustning pa fartyg",
-      "utrustning pÃ¥ fartyg",
+      "utrustning på fartyg",
       "fartyg",
       "vessel",
       "installed on vessel",
