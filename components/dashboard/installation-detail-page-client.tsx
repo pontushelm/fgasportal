@@ -3,6 +3,7 @@
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Badge, Toast, type ToastMessage } from "@/components/ui"
+import { ComplianceExplanationDetails } from "@/components/compliance/compliance-explanation"
 import { RefrigerantCombobox } from "@/components/installations/refrigerant-combobox"
 import type { CertificationStatusResult } from "@/lib/certification-status"
 import {
@@ -18,6 +19,10 @@ import {
   calculateInstallationCompliance,
   type ComplianceStatus,
 } from "@/lib/fgas-calculations"
+import {
+  createComplianceExplanation,
+  type CompliancePresentation,
+} from "@/lib/compliance/compliancePresentation"
 import type { UserRole } from "@/lib/auth"
 import {
   getInstallationEventAmountLabel,
@@ -146,6 +151,14 @@ type InstallationDetail = {
   refrigerantAmount: number
   hasLeakDetectionSystem: boolean
   isHermeticallySealed: boolean
+  gwp?: number | null
+  co2eKg?: number | null
+  co2eTon?: number | null
+  inspectionInterval?: number | null
+  baseInspectionInterval?: number | null
+  hasAdjustedInspectionInterval?: boolean
+  complianceStatus?: ComplianceStatus
+  complianceExplanation?: CompliancePresentation | null
   installationDate: string | null
   lastInspection?: string | null
   nextInspection?: string | null
@@ -1270,6 +1283,14 @@ export default function InstallationDetailPage() {
     installation.nextInspection,
     installation.isHermeticallySealed
   )
+  const complianceExplanation =
+    installation.complianceExplanation ??
+    createComplianceExplanation({
+      ...compliance,
+      refrigerantAmountKg: installation.refrigerantAmount,
+      isHermeticallySealed: installation.isHermeticallySealed,
+      lastInspection: installation.lastInspection,
+    })
   const leakageEvents = events.filter((event) => event.type === "LEAK")
   const totalLeakageKg = leakageEvents.reduce(
     (sum, event) => sum + (event.refrigerantAddedKg ?? 0),
@@ -1306,6 +1327,7 @@ export default function InstallationDetailPage() {
     editForm.hasLeakDetectionSystem,
     editForm.isHermeticallySealed
   )
+  const editComplianceExplanation = createComplianceExplanation(editInspectionPreview)
   const documentsByEventId = documents.reduce<Record<string, number>>((counts, document) => {
     if (!document.event?.id) return counts
     counts[document.event.id] = (counts[document.event.id] ?? 0) + 1
@@ -1361,7 +1383,10 @@ export default function InstallationDetailPage() {
               <>
                 <RiskBadge level={risk.level} reasons={risk.reasons} />
                 <RefrigerantRegulatoryBadge status={refrigerantRegulatoryStatus} />
-                <ComplianceBadge status={compliance.status} />
+                <ComplianceBadge
+                  explanation={complianceExplanation}
+                  status={compliance.status}
+                />
               </>
             )}
           </div>
@@ -1532,17 +1557,23 @@ export default function InstallationDetailPage() {
               label="GWP"
               value={compliance.gwp === null ? "Okänt GWP-värde" : String(compliance.gwp)}
             />
-            <DetailItem label="Kontrollintervall" value={formatInspectionInterval(compliance)} />
+            <DetailItem label="Kontrollintervall" value={complianceExplanation.intervalLabel} />
             <DetailItem
               label="Driftsättningsdatum"
               value={formatKnownDate(installation.installationDate)}
             />
           </dl>
-          {compliance.isHermeticInspectionExempt && (
-            <p className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900">
-              Undantaget från periodisk läckagekontroll enligt hermetiskt slutet-undantaget.
+          <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+            <p className="font-semibold text-slate-950">
+              {complianceExplanation.title}
             </p>
-          )}
+            <p className="mt-1">{complianceExplanation.reason}</p>
+            {complianceExplanation.thresholdLabel ? (
+              <p className="mt-1 text-xs font-medium text-slate-600">
+                Gräns: {complianceExplanation.thresholdLabel}
+              </p>
+            ) : null}
+          </div>
           {installation.notes && (
             <div className="mt-5 rounded-md bg-slate-50 p-4">
               <h3 className="font-semibold text-slate-950">Anteckningar</h3>
@@ -1987,10 +2018,20 @@ export default function InstallationDetailPage() {
             </label>
             <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
               <p className="font-semibold text-slate-900">Kontrollplikt</p>
-              <p className="mt-1 text-slate-700">{editInspectionPreview.label}</p>
-              <p className="mt-1 text-xs text-slate-500">
-                {editInspectionPreview.explanation}
+              <p className="mt-1 text-slate-700">
+                {editComplianceExplanation.statusLabel}
               </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {editComplianceExplanation.reason}
+              </p>
+              <p className="mt-2 text-xs font-medium text-slate-600">
+                {editComplianceExplanation.intervalLabel}
+              </p>
+              {editComplianceExplanation.thresholdLabel ? (
+                <p className="mt-1 text-xs font-medium text-slate-600">
+                  Gräns: {editComplianceExplanation.thresholdLabel}
+                </p>
+              ) : null}
               {editInspectionPreview.co2eTon != null && (
                 <p className="mt-2 text-xs font-medium text-slate-600">
                   Beräknad CO₂e: {formatNumber(editInspectionPreview.co2eTon)} ton
@@ -2866,11 +2907,20 @@ function getOptionValue(
   return options.find((option) => option.label.toLowerCase() === label.toLowerCase())?.value ?? null
 }
 
-function ComplianceBadge({ status }: { status: ComplianceStatus }) {
+function ComplianceBadge({
+  explanation,
+  status,
+}: {
+  explanation?: CompliancePresentation | null
+  status: ComplianceStatus
+}) {
   return (
-    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${COMPLIANCE_TONE[status]}`}>
-      {COMPLIANCE_LABELS[status]}
-    </span>
+    <div className="inline-flex flex-col items-start">
+      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${COMPLIANCE_TONE[status]}`}>
+        {explanation?.statusLabel ?? COMPLIANCE_LABELS[status]}
+      </span>
+      {explanation ? <ComplianceExplanationDetails explanation={explanation} /> : null}
+    </div>
   )
 }
 
@@ -3131,6 +3181,8 @@ function calculateInspectionPreview(
         isHermeticallySealed,
       }),
       co2eTon: null,
+      isHermeticallySealed,
+      refrigerantAmountKg: null,
       gwpWarning: null,
     }
   }
@@ -3144,6 +3196,8 @@ function calculateInspectionPreview(
       isHermeticallySealed,
     }),
     co2eTon,
+    isHermeticallySealed,
+    refrigerantAmountKg: amount,
     gwpWarning: warning,
   }
 }
@@ -3158,20 +3212,6 @@ function normalizeQuickEventType(value: string | null): EventFormType | null {
   }
 
   return null
-}
-
-function formatInspectionInterval(compliance: {
-  baseInspectionIntervalMonths: number | null
-  inspectionIntervalMonths: number | null
-  hasAdjustedInspectionInterval: boolean
-}) {
-  if (!compliance.inspectionIntervalMonths) return "Ingen kontrollplikt"
-
-  if (!compliance.hasAdjustedInspectionInterval) {
-    return `Var ${compliance.inspectionIntervalMonths}:e månad`
-  }
-
-  return `Var ${compliance.inspectionIntervalMonths}:e månad (basintervall ${compliance.baseInspectionIntervalMonths}:e månad, förlängt med läckagevarningssystem)`
 }
 
 function formatNumber(value: number) {

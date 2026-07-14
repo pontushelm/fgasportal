@@ -3,6 +3,7 @@ import { generateDashboardActions } from "@/lib/actions/generate-actions"
 import { getInstallationAccessWhereClause } from "@/lib/access/installation-access"
 import { authenticateApiRequest, isContractor } from "@/lib/auth"
 import { buildDashboardAnnualReportStatus } from "@/lib/dashboard/annual-report-status"
+import { createComplianceExplanation } from "@/lib/compliance/compliancePresentation"
 import { prisma } from "@/lib/db"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import {
@@ -191,6 +192,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
         ...installationData,
         co2eTon: compliance.co2eTon,
         complianceStatus: compliance.status,
+        complianceExplanation: createComplianceExplanation({
+          ...compliance,
+          refrigerantAmountKg: installation.refrigerantAmount,
+          isHermeticallySealed: installation.isHermeticallySealed,
+          lastInspection: installation.lastInspection,
+        }),
         inspectionIntervalMonths: compliance.inspectionIntervalMonths,
         daysUntilDue: compliance.daysUntilDue,
         riskLevel: risk.level,

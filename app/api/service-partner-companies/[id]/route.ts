@@ -4,6 +4,7 @@ import { z, ZodError } from "zod"
 import { generateDashboardActions } from "@/lib/actions/generate-actions"
 import { authenticateApiRequest, forbiddenResponse, isAdmin, isContractor } from "@/lib/auth"
 import { getCertificationStatus } from "@/lib/certification-status"
+import { createComplianceExplanation } from "@/lib/compliance/compliancePresentation"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
 import { calculateInstallationRisk } from "@/lib/risk-classification"
@@ -336,6 +337,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
             refrigerantAmount: installation.refrigerantAmount,
             nextInspection: installation.nextInspection,
             complianceStatus: compliance.status,
+            complianceExplanation: createComplianceExplanation({
+              ...compliance,
+              refrigerantAmountKg: installation.refrigerantAmount,
+              isHermeticallySealed: installation.isHermeticallySealed,
+              lastInspection: installation.lastInspection,
+            }),
             riskLevel: risk.level,
             assignedContractor: {
               id: contractor?.id ?? "",

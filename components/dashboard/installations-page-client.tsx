@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { ImportDataWorkspace } from "@/components/dashboard/import-data-workspace"
+import { ComplianceExplanationDetails } from "@/components/compliance/compliance-explanation"
 import CreateInstallationForm from "@/components/installations/create-installation-form"
 import { Button, Card, PageHeader, Toast } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
@@ -18,6 +19,7 @@ import {
   getInstallationQualityFilter,
   matchesInstallationQualityFilter,
 } from "@/lib/dashboard/data-quality-filters"
+import type { CompliancePresentation } from "@/lib/compliance/compliancePresentation"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 import {
   getRefrigerantRegulatoryStatus,
@@ -50,6 +52,7 @@ type Installation = {
   riskLevel: InstallationRiskLevel
   riskScore: number
   complianceStatus: ComplianceStatus
+  complianceExplanation?: CompliancePresentation | null
   nextInspection?: string | null
   updatedAt: string
   isActive: boolean
@@ -1712,6 +1715,7 @@ export default function InstallationsPageClient() {
                   <td className="px-2 py-2 align-top text-slate-800">
                     <StatusBadge
                       archivedAt={installation.archivedAt}
+                      explanation={installation.complianceExplanation}
                       scrappedAt={installation.scrappedAt}
                       status={installation.complianceStatus}
                     />
@@ -2064,6 +2068,7 @@ function InstallationQuickView({
               {!installation.scrappedAt && <RiskBadge level={installation.riskLevel} />}
               <StatusBadge
                 archivedAt={installation.archivedAt}
+                explanation={installation.complianceExplanation}
                 scrappedAt={installation.scrappedAt}
                 status={installation.complianceStatus}
               />
@@ -2538,6 +2543,7 @@ function InstallationMobileCard({
       <div className="mt-3 flex flex-wrap gap-2">
         <StatusBadge
           archivedAt={installation.archivedAt}
+          explanation={installation.complianceExplanation}
           scrappedAt={installation.scrappedAt}
           status={installation.complianceStatus}
         />
@@ -2854,10 +2860,12 @@ function TableCell({ children }: { children: React.ReactNode }) {
 
 function StatusBadge({
   archivedAt,
+  explanation,
   scrappedAt,
   status,
 }: {
   archivedAt?: string | null
+  explanation?: CompliancePresentation | null
   scrappedAt?: string | null
   status: ComplianceStatus
 }) {
@@ -2878,9 +2886,12 @@ function StatusBadge({
   }
 
   return (
-    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${STATUS_TONE[status]}`}>
-      {STATUS_LABELS[status]}
-    </span>
+    <div className="inline-flex flex-col items-start">
+      <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${STATUS_TONE[status]}`}>
+        {explanation?.statusLabel ?? STATUS_LABELS[status]}
+      </span>
+      {explanation ? <ComplianceExplanationDetails explanation={explanation} /> : null}
+    </div>
   )
 }
 

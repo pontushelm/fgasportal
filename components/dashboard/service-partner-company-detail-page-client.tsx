@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
+import { ComplianceExplanationDetails } from "@/components/compliance/compliance-explanation"
 import { Badge, buttonClassName, Card, EmptyState, PageHeader, SectionHeader } from "@/components/ui"
 import {
   API_CACHE_KEYS,
@@ -10,6 +11,7 @@ import {
   useApiQuery,
 } from "@/lib/client/api-cache"
 import type { CertificationStatusResult } from "@/lib/certification-status"
+import type { CompliancePresentation } from "@/lib/compliance/compliancePresentation"
 import type { ServicePartnerCompanyCertification } from "@/lib/service-partner-company-certifications"
 import type { ServicepartnerLifecycle } from "@/lib/servicepartner-lifecycle"
 import type { DashboardActionSeverity, DashboardActionType } from "@/lib/actions/generate-actions"
@@ -61,6 +63,7 @@ type ServicePartnerCompanyDetail = {
     refrigerantAmount: number
     nextInspection: string | null
     complianceStatus: ComplianceStatus
+    complianceExplanation?: CompliancePresentation | null
     riskLevel: "LOW" | "MEDIUM" | "HIGH"
     assignedContractor: {
       id: string
@@ -418,9 +421,10 @@ export default function ServicePartnerCompanyDetailPageClient({
                         <TableCell>{installation.refrigerantType}</TableCell>
                         <TableCell>{formatOptionalDate(installation.nextInspection)}</TableCell>
                         <TableCell>
-                          <Badge variant={complianceVariant(installation.complianceStatus)}>
-                            {COMPLIANCE_LABELS[installation.complianceStatus]}
-                          </Badge>
+                          <ComplianceStatusBadge
+                            explanation={installation.complianceExplanation}
+                            status={installation.complianceStatus}
+                          />
                         </TableCell>
                         <TableCell>
                           <Badge variant={riskVariant(installation.riskLevel)}>
@@ -658,6 +662,23 @@ function TableCell({ children }: { children: React.ReactNode }) {
     <td className="whitespace-nowrap px-4 py-3 align-top text-slate-800 dark:text-slate-200">
       {children}
     </td>
+  )
+}
+
+function ComplianceStatusBadge({
+  explanation,
+  status,
+}: {
+  explanation?: CompliancePresentation | null
+  status: ComplianceStatus
+}) {
+  return (
+    <div className="inline-flex flex-col items-start">
+      <Badge variant={complianceVariant(status)}>
+        {explanation?.statusLabel ?? COMPLIANCE_LABELS[status]}
+      </Badge>
+      {explanation ? <ComplianceExplanationDetails explanation={explanation} /> : null}
+    </div>
   )
 }
 

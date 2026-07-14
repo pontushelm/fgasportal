@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { authenticateApiRequest, forbiddenResponse, isContractor } from "@/lib/auth"
 import { getInstallationAccessWhereClause } from "@/lib/access/installation-access"
+import { createComplianceExplanation } from "@/lib/compliance/compliancePresentation"
 import { calculateInstallationCompliance } from "@/lib/fgas-calculations"
 import { prisma } from "@/lib/db"
 
@@ -59,6 +60,12 @@ export async function GET(request: NextRequest) {
         isHermeticallySealed: installation.isHermeticallySealed,
         nextInspection: installation.nextInspection,
         complianceStatus: compliance.status,
+        complianceExplanation: createComplianceExplanation({
+          ...compliance,
+          refrigerantAmountKg: installation.refrigerantAmount,
+          isHermeticallySealed: installation.isHermeticallySealed,
+          lastInspection: installation.lastInspection,
+        }),
         daysUntilDue: compliance.daysUntilDue,
         assignedContractorId: installation.assignedContractorId,
         assignedContractor: installation.assignedContractor,

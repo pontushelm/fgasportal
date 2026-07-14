@@ -15,6 +15,7 @@ import { logActivity } from "@/lib/activity-log"
 import { notifyContractorsAboutNewAssignments } from "@/lib/contractor-assignment-notifications"
 import { toServiceOrganizationBackedCompany } from "@/lib/service-organizations"
 import { normalizeRefrigerantCode } from "@/lib/refrigerants"
+import { createComplianceExplanation } from "@/lib/compliance/compliancePresentation"
 
 type RouteContext = {
   params: Promise<{
@@ -196,10 +197,31 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const scrapCertificateFileName =
       scrapCertificateDocument?.originalFileName ??
       installationData.scrapCertificateFileName
+    const compliance = calculateInstallationCompliance(
+      installationData.refrigerantType,
+      installationData.refrigerantAmount,
+      installationData.hasLeakDetectionSystem,
+      installationData.lastInspection,
+      installationData.nextInspection,
+      installationData.isHermeticallySealed
+    )
 
     return NextResponse.json(
       {
         ...publicInstallationData,
+        gwp: compliance.gwp,
+        co2eKg: compliance.co2eKg,
+        co2eTon: compliance.co2eTon,
+        inspectionInterval: compliance.inspectionIntervalMonths,
+        baseInspectionInterval: compliance.baseInspectionIntervalMonths,
+        hasAdjustedInspectionInterval: compliance.hasAdjustedInspectionInterval,
+        complianceStatus: compliance.status,
+        complianceExplanation: createComplianceExplanation({
+          ...compliance,
+          refrigerantAmountKg: installationData.refrigerantAmount,
+          isHermeticallySealed: installationData.isHermeticallySealed,
+          lastInspection: installationData.lastInspection,
+        }),
         scrapCertificateFileName,
         assignedContractor: assignedContractor
           ? {
@@ -479,6 +501,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         baseInspectionInterval: updatedCompliance.baseInspectionIntervalMonths,
         hasAdjustedInspectionInterval: updatedCompliance.hasAdjustedInspectionInterval,
         complianceStatus: updatedCompliance.status,
+        complianceExplanation: createComplianceExplanation({
+          ...updatedCompliance,
+          refrigerantAmountKg: updatedInstallation.refrigerantAmount,
+          isHermeticallySealed: updatedInstallation.isHermeticallySealed,
+          lastInspection: updatedInstallation.lastInspection,
+        }),
         daysUntilDue: updatedCompliance.daysUntilDue,
       },
       { status: 200 }

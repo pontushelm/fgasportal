@@ -15,6 +15,7 @@ export type FgasLeakCheckReasonCode =
 export type FgasLeakCheckObligationResult = {
   legalClassification: RefrigerantLegalClassification
   thresholdBasis: FgasThresholdBasis
+  thresholdValue: number | null
   isLeakCheckRequired: boolean
   intervalMonths: number | null
   reasonCode: FgasLeakCheckReasonCode
@@ -83,6 +84,7 @@ export function calculateFgasLeakCheckObligation({
     return {
       legalClassification,
       thresholdBasis: "NONE",
+      thresholdValue: null,
       isLeakCheckRequired: false,
       intervalMonths: null,
       reasonCode: "OUT_OF_SCOPE",
@@ -94,6 +96,7 @@ export function calculateFgasLeakCheckObligation({
     return {
       legalClassification,
       thresholdBasis: "UNKNOWN",
+      thresholdValue: null,
       isLeakCheckRequired: false,
       intervalMonths: null,
       reasonCode: "UNKNOWN_CLASSIFICATION",
@@ -109,6 +112,7 @@ export function calculateFgasLeakCheckObligation({
     return {
       legalClassification,
       thresholdBasis: rule.thresholdBasis,
+      thresholdValue: null,
       isLeakCheckRequired: false,
       intervalMonths: null,
       reasonCode:
@@ -127,6 +131,7 @@ export function calculateFgasLeakCheckObligation({
     return {
       legalClassification,
       thresholdBasis: rule.thresholdBasis,
+      thresholdValue: threshold,
       isLeakCheckRequired: false,
       intervalMonths: null,
       reasonCode: isHermeticallySealed
@@ -151,13 +156,14 @@ export function calculateFgasLeakCheckObligation({
   return {
     legalClassification,
     thresholdBasis: rule.thresholdBasis,
+    thresholdValue: threshold,
     isLeakCheckRequired: true,
     intervalMonths,
     reasonCode: rule.requiresCheckReasonCode,
     message: buildRequiredMessage({
       legalClassification,
       thresholdBasis: rule.thresholdBasis,
-      threshold: rule.ordinaryThreshold,
+      threshold,
       isHermeticallySealed,
       hasLeakDetectionSystem,
     }),

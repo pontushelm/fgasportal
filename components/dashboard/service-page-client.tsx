@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
+import { ComplianceExplanationDetails } from "@/components/compliance/compliance-explanation"
 import { Badge, Toast, type ToastMessage } from "@/components/ui"
 import {
   API_CACHE_KEYS,
@@ -13,6 +14,7 @@ import {
   useApiQuery,
 } from "@/lib/client/api-cache"
 import type { CertificationStatusResult } from "@/lib/certification-status"
+import type { CompliancePresentation } from "@/lib/compliance/compliancePresentation"
 import type {
   DashboardActionSeverity,
   DashboardActionType,
@@ -42,6 +44,7 @@ type ServiceInstallation = {
   refrigerantAmount: number
   nextInspection: string | null
   complianceStatus: ComplianceStatus
+  complianceExplanation?: CompliancePresentation | null
   daysUntilDue: number | null
   assignedContractorId: string | null
   assignedContractor: {
@@ -1218,7 +1221,10 @@ export default function ServiceDashboardPage() {
                       <TableCell>{formatNumber(installation.refrigerantAmount)} kg</TableCell>
                       <TableCell>{formatOptionalDate(installation.nextInspection)}</TableCell>
                       <TableCell>
-                        <StatusBadge status={installation.complianceStatus} />
+                        <StatusBadge
+                          explanation={installation.complianceExplanation}
+                          status={installation.complianceStatus}
+                        />
                       </TableCell>
                       {isServicePartnerAdmin && (
                         <TableCell>
@@ -1712,11 +1718,20 @@ function CertificationWarningBox({ message }: { message: string }) {
   )
 }
 
-function StatusBadge({ status }: { status: ComplianceStatus }) {
+function StatusBadge({
+  explanation,
+  status,
+}: {
+  explanation?: CompliancePresentation | null
+  status: ComplianceStatus
+}) {
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_TONE[status]}`}>
-      {STATUS_LABELS[status]}
-    </span>
+    <div className="inline-flex flex-col items-start">
+      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_TONE[status]}`}>
+        {explanation?.statusLabel ?? STATUS_LABELS[status]}
+      </span>
+      {explanation ? <ComplianceExplanationDetails explanation={explanation} /> : null}
+    </div>
   )
 }
 

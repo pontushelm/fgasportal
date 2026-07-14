@@ -7,6 +7,7 @@ import {
   calculateInspectionObligation,
   type ComplianceStatus,
 } from "@/lib/fgas-calculations"
+import { createComplianceExplanation } from "@/lib/compliance/compliancePresentation"
 import { getManualInstallationCo2eWarning } from "@/lib/installations/manual-installation-warnings"
 import type { InspectionReminderStatus } from "@/lib/inspection-reminders"
 import { calculateNextInspectionDate } from "@/lib/inspection-schedule"
@@ -229,6 +230,7 @@ export default function CreateInstallationForm({
     formData.hasLeakDetectionSystem,
     formData.isHermeticallySealed
   )
+  const complianceExplanation = createComplianceExplanation(inspectionPreview)
   const previewNextInspection = calculateNextInspectionPreview(
     formData.lastInspection,
     inspectionPreview.intervalMonths
@@ -484,10 +486,18 @@ export default function CreateInstallationForm({
 
       <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
         <p className="font-semibold text-slate-900">Kontrollplikt</p>
-        <p className="mt-1 text-slate-700">{inspectionPreview.label}</p>
+        <p className="mt-1 text-slate-700">{complianceExplanation.statusLabel}</p>
         <p className="mt-1 text-xs text-slate-500">
-          {inspectionPreview.explanation}
+          {complianceExplanation.reason}
         </p>
+        <p className="mt-2 text-xs font-medium text-slate-600">
+          {complianceExplanation.intervalLabel}
+        </p>
+        {complianceExplanation.thresholdLabel ? (
+          <p className="mt-1 text-xs font-medium text-slate-600">
+            Gräns: {complianceExplanation.thresholdLabel}
+          </p>
+        ) : null}
         {inspectionPreview.co2eTon != null && (
           <p className="mt-2 text-xs font-medium text-slate-600">
             Beräknad CO₂e: {formatNumber(inspectionPreview.co2eTon)} ton
@@ -579,6 +589,8 @@ function calculateInspectionPreview(
         isHermeticallySealed,
       }),
       co2eTon: null,
+      isHermeticallySealed,
+      refrigerantAmountKg: null,
       gwpWarning: null,
     }
   }
@@ -592,6 +604,8 @@ function calculateInspectionPreview(
       isHermeticallySealed,
     }),
     co2eTon,
+    isHermeticallySealed,
+    refrigerantAmountKg: amount,
     gwpWarning: warning,
   }
 }

@@ -3,7 +3,9 @@
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useId, useState } from "react"
+import { ComplianceExplanationDetails } from "@/components/compliance/compliance-explanation"
 import { Badge, buttonClassName, Card, EmptyState, PageHeader, SectionHeader, Toast, type ToastMessage } from "@/components/ui"
+import type { CompliancePresentation } from "@/lib/compliance/compliancePresentation"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 import type { UserRole } from "@/lib/auth"
 import type { InstallationRiskLevel } from "@/lib/risk-classification"
@@ -67,6 +69,7 @@ type PropertyDetail = {
     nextInspection: string | null
     co2eTon: number | null
     complianceStatus: ComplianceStatus
+    complianceExplanation?: CompliancePresentation | null
     riskLevel: InstallationRiskLevel
   }>
   actions: Array<{
@@ -823,7 +826,10 @@ export default function PropertyDetailPageClient() {
                         <TableCell>{formatCo2eTon(installation.co2eTon)}</TableCell>
                         <TableCell>{formatOptionalDate(installation.nextInspection)}</TableCell>
                         <TableCell>
-                          <StatusBadge status={installation.complianceStatus} />
+                          <StatusBadge
+                            explanation={installation.complianceExplanation}
+                            status={installation.complianceStatus}
+                          />
                         </TableCell>
                         <TableCell>
                           <RiskBadge level={installation.riskLevel} />
@@ -1037,7 +1043,13 @@ function ShowMoreButton({
   )
 }
 
-function StatusBadge({ status }: { status: ComplianceStatus }) {
+function StatusBadge({
+  explanation,
+  status,
+}: {
+  explanation?: CompliancePresentation | null
+  status: ComplianceStatus
+}) {
   const variant =
     status === "OVERDUE"
       ? "danger"
@@ -1049,7 +1061,14 @@ function StatusBadge({ status }: { status: ComplianceStatus }) {
             ? "info"
             : "neutral"
 
-  return <Badge variant={variant}>{STATUS_LABELS[status]}</Badge>
+  return (
+    <div className="inline-flex flex-col items-start">
+      <Badge variant={variant}>
+        {explanation?.statusLabel ?? STATUS_LABELS[status]}
+      </Badge>
+      {explanation ? <ComplianceExplanationDetails explanation={explanation} /> : null}
+    </div>
+  )
 }
 
 function RiskBadge({ level }: { level: InstallationRiskLevel }) {

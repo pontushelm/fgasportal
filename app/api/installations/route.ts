@@ -13,6 +13,7 @@ import { notifyContractorsAboutNewAssignments } from "@/lib/contractor-assignmen
 import { calculateInstallationRisk } from "@/lib/risk-classification"
 import { toServiceOrganizationBackedCompany } from "@/lib/service-organizations"
 import { normalizeRefrigerantCode } from "@/lib/refrigerants"
+import { createComplianceExplanation } from "@/lib/compliance/compliancePresentation"
 
 export async function POST(request: NextRequest) {
   try {
@@ -171,6 +172,11 @@ export async function POST(request: NextRequest) {
       baseInspectionInterval: responseCompliance.baseInspectionIntervalMonths,
       hasAdjustedInspectionInterval: responseCompliance.hasAdjustedInspectionInterval,
       complianceStatus: responseCompliance.status,
+      complianceExplanation: createComplianceExplanation({
+        ...responseCompliance,
+        refrigerantAmountKg: installation.refrigerantAmount,
+        isHermeticallySealed: installation.isHermeticallySealed,
+      }),
       daysUntilDue: responseCompliance.daysUntilDue,
       inspectionReminderStatus: nextInspection
         ? classifyInspectionReminderStatus(nextInspection, new Date())
@@ -615,6 +621,12 @@ export async function GET(request: NextRequest) {
         baseInspectionInterval: compliance.baseInspectionIntervalMonths,
         hasAdjustedInspectionInterval: compliance.hasAdjustedInspectionInterval,
         complianceStatus: compliance.status,
+        complianceExplanation: createComplianceExplanation({
+          ...compliance,
+          refrigerantAmountKg: installation.refrigerantAmount,
+          isHermeticallySealed: installation.isHermeticallySealed,
+          lastInspection: installation.lastInspection,
+        }),
         daysUntilDue: compliance.daysUntilDue,
         inspectionReminderStatus: installation.nextInspection
           ? classifyInspectionReminderStatus(installation.nextInspection, new Date())
