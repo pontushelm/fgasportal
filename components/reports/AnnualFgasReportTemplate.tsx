@@ -9,6 +9,9 @@ import type {
   AnnualFgasReportData,
   AnnualFgasScrappedEquipmentRow,
 } from "@/lib/reports/annualFgasReportTypes"
+import {
+  formatReportingScopeLabel,
+} from "@/lib/reporting/reportingPresentation"
 
 export function AnnualReportTemplate({ report }: { report: AnnualFgasReportData }) {
   return (
@@ -426,14 +429,7 @@ function formatRegisterType(type?: "STATIONARY" | "MOBILE") {
 }
 
 function formatReportingScope(scope: "PROPERTY" | "INDIVIDUAL" | "VESSEL") {
-  switch (scope) {
-    case "INDIVIDUAL":
-      return "Mobilt aggregat"
-    case "VESSEL":
-      return "Fartyg"
-    case "PROPERTY":
-      return "Fastighet"
-  }
+  return formatReportingScopeLabel(scope)
 }
 
 function formatReportRecipient(

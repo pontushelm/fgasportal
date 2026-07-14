@@ -12,6 +12,7 @@ import {
   Toast,
   buttonClassName,
 } from "@/components/ui"
+import { ReportingExplanationDetails } from "@/components/reporting/reporting-explanation"
 import {
   API_CACHE_KEYS,
   invalidateReportCaches,
@@ -37,6 +38,7 @@ import {
   type ReportGroupPresentationStatus,
   type ReportGroupScope,
 } from "@/lib/reports/reportGroupPresentation"
+import { createReportingExplanation } from "@/lib/reporting/reportingPresentation"
 import {
   getReportTypeMetadata,
   isReportExportAvailable,
@@ -1401,6 +1403,13 @@ function ReportGroupCard({
 }) {
   const status = getReportGroupPresentationStatus(group)
   const metadata = getReportGroupMetadata(group)
+  const explanation = createReportingExplanation({
+    annualReportRequirement: group.annualReportRequirement,
+    evaluatedCo2eTon: group.installedCo2eTon,
+    reportRecipient: group.reportRecipient,
+    reportReason: group.reportReason,
+    reportingScope: group.reportingScope,
+  })
   const pdfHref = `/api/reports/annual-fgas?${new URLSearchParams({
     reportGroupId: group.id,
     year: String(year),
@@ -1434,7 +1443,7 @@ function ReportGroupCard({
       <div className="mt-4 grid grid-cols-2 gap-3 rounded-lg bg-slate-50 p-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Utv?rderad m?ngd
+            Utvärderad mängd
           </p>
           <p className="mt-1 text-lg font-bold text-slate-950">
             {formatReportGroupCo2e(group.installedCo2eTon)}
@@ -1453,6 +1462,7 @@ function ReportGroupCard({
       <p className="mt-3 text-sm text-slate-700">
         {formatReportGroupReadinessSummary(group)}
       </p>
+      <ReportingExplanationDetails explanation={explanation} />
 
       {metadata.length > 0 && (
         <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
@@ -1477,7 +1487,7 @@ function ReportGroupCard({
             >
               {group.signedStatus === "SIGNED"
                 ? "Visa signerad rapport"
-                : "F?rhandsgranska"}
+                : "Förhandsgranska"}
             </button>
             {status === "NEEDS_COMPLETION" ? (
               <Link
@@ -1556,11 +1566,11 @@ function getReportGroupFilterOptions(): Array<{
   label: string
 }> {
   return [
-    { emptyTitle: "Inga rapportgrupper finns ?nnu.", filter: "ALL", label: "Alla" },
+    { emptyTitle: "Inga rapportgrupper finns ännu.", filter: "ALL", label: "Alla" },
     {
-      emptyTitle: "Inga station?ra anl?ggningar finns att visa.",
+      emptyTitle: "Inga stationära anläggningar finns att visa.",
       filter: "PROPERTY",
-      label: "Station?ra",
+      label: "Stationära",
     },
     {
       emptyTitle: "Inga mobila aggregat finns att visa.",
@@ -1616,8 +1626,8 @@ function addMetadata(
 }
 
 function formatReportGroupCo2e(value: number | null) {
-  if (value === null) return "Kan inte ber?knas"
-  return `${formatWholeCo2eTon(value)} CO2e`
+  if (value === null) return "Kan inte beräknas"
+  return `${formatWholeCo2eTon(value)} CO₂e`
 }
 function ReportQualityPanel({ reportData }: { reportData: ReportData }) {
   const [showAllWarnings, setShowAllWarnings] = useState(false)

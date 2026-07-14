@@ -1,3 +1,8 @@
+import {
+  formatReportingRecipientLabel,
+  formatReportingScopeLabel,
+} from "@/lib/reporting/reportingPresentation"
+
 export type ReportGroupScope = "PROPERTY" | "INDIVIDUAL" | "VESSEL"
 export type ReportGroupRecipient = "MUNICIPALITY" | "TRANSPORT_AGENCY" | "UNKNOWN"
 export type ReportGroupRequirement = "REQUIRED" | "NOT_REQUIRED" | "UNCERTAIN"
@@ -23,25 +28,11 @@ export type ReportGroupPresentationStatus =
   | "NEEDS_REVIEW"
 
 export function formatReportGroupScopeLabel(scope: ReportGroupScope) {
-  switch (scope) {
-    case "PROPERTY":
-      return "Stationär anläggning"
-    case "INDIVIDUAL":
-      return "Mobilt aggregat"
-    case "VESSEL":
-      return "Fartyg"
-  }
+  return formatReportingScopeLabel(scope)
 }
 
 export function formatReportGroupRecipientLabel(recipient: ReportGroupRecipient) {
-  switch (recipient) {
-    case "MUNICIPALITY":
-      return "Kommun"
-    case "TRANSPORT_AGENCY":
-      return "Transportstyrelsen"
-    case "UNKNOWN":
-      return "Mottagare behöver kontrolleras"
-  }
+  return formatReportingRecipientLabel(recipient)
 }
 
 export function getReportGroupPresentationStatus(
