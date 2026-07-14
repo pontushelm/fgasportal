@@ -115,7 +115,7 @@ const SCORE_DEDUCTION: Record<DataQualitySeverity, number> = {
   LOW: 5,
 }
 
-const SEVERITY_RANK: Record<DataQualitySeverity, number> = {
+export const DATA_QUALITY_SEVERITY_RANK: Record<DataQualitySeverity, number> = {
   HIGH: 0,
   MEDIUM: 1,
   LOW: 2,
@@ -379,7 +379,8 @@ function buildIssue(
 
 function compareIssues(first: DataQualityIssue, second: DataQualityIssue) {
   const severityDifference =
-    SEVERITY_RANK[first.severity] - SEVERITY_RANK[second.severity]
+    DATA_QUALITY_SEVERITY_RANK[first.severity] -
+    DATA_QUALITY_SEVERITY_RANK[second.severity]
   if (severityDifference !== 0) return severityDifference
   if (first.count !== second.count) return second.count - first.count
   return first.title.localeCompare(second.title, "sv")
