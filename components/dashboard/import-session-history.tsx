@@ -2,7 +2,13 @@
 
 import { useMemo, useState } from "react"
 import { API_CACHE_KEYS, invalidateImportSessionCaches, useApiQuery } from "@/lib/client/api-cache"
-import { buttonClassName, Card, Toast, type ToastMessage } from "@/components/ui"
+import {
+  buttonClassName,
+  Card,
+  LoadingStatus,
+  Toast,
+  type ToastMessage,
+} from "@/components/ui"
 
 type ImportRollback = {
   canRollback: boolean
@@ -236,6 +242,9 @@ export function ImportSessionHistory({
               {rollbackCandidate.rollback.affectedCount} importerade poster tas
               bort. Importhistoriken sparas och markeras som ångrad.
             </p>
+            {isRollingBack && (
+              <LoadingStatus className="mt-4" text="Ångrar import..." />
+            )}
             <div className="mt-5 flex flex-wrap justify-end gap-2">
               <button
                 className={buttonClassName({ variant: "secondary" })}

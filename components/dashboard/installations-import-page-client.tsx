@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import * as XLSX from "xlsx"
 import { ImportCompletionSummary } from "@/components/dashboard/import-completion-summary"
 import { ImportSessionHistory } from "@/components/dashboard/import-session-history"
-import { Toast, type ToastMessage } from "@/components/ui"
+import { LoadingStatus, Toast, type ToastMessage } from "@/components/ui"
 import { invalidateImportSessionCaches } from "@/lib/client/api-cache"
 import type { ImportType } from "@/components/dashboard/import-data-workspace"
 import {
@@ -631,6 +631,9 @@ export default function ImportInstallationsPage({
           </div>
         )}
         {error && <p className="mt-3 text-sm font-semibold text-red-700">{error}</p>}
+        {isParsing && (
+          <LoadingStatus className="mt-3" text="Bearbetar filen..." />
+        )}
       </section>
 
       {detectedColumns.length > 0 && (
@@ -766,6 +769,9 @@ export default function ImportInstallationsPage({
               {isImporting ? "Importerar..." : `Importera ${validRows.length} rader`}
             </button>
           </div>
+          {isImporting && (
+            <LoadingStatus className="mt-4" text="Importerar data..." />
+          )}
 
           <div className="mt-4 grid gap-2 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-4">
             <ImportMetric label="Rader hittade" value={rows.length} />

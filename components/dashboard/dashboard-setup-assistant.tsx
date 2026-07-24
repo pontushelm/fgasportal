@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Badge, Card } from "@/components/ui"
 import type { ImportType } from "@/components/dashboard/import-data-workspace"
 import {
@@ -18,6 +18,10 @@ import {
   getPilotWelcomeStorageKey,
   type DashboardOnboardingOverlay,
 } from "@/lib/dashboard/pilot-welcome"
+import {
+  getSetupCompletionNoticeStorageKey,
+  shouldShowSetupCompletionNotice,
+} from "@/lib/dashboard/setup-completion-notice"
 import {
   SETUP_PROGRESS_UPDATED_EVENT,
   addCompletedSetupStep,
@@ -71,7 +75,9 @@ export function DashboardSetupAssistant({
   const [onboardingOverlayState, setOnboardingOverlayState] = useState<
     "checking" | DashboardOnboardingOverlay
   >("checking")
+  const [completionNoticeVisible, setCompletionNoticeVisible] = useState(false)
   const onboardingOverlayButtonRef = useRef<HTMLButtonElement>(null)
+  const previousCompletionRef = useRef<boolean | null>(null)
 
   useEffect(() => {
     const storageKey = getSetupCompletedStepsStorageKey(setup.companyId)
@@ -145,16 +151,58 @@ export function DashboardSetupAssistant({
     [setup, setupProgressState]
   )
   const isCollapsed = collapsed || autoCollapsedCompletion
+  const completionNoticeStorageKey = getSetupCompletionNoticeStorageKey({
+    companyId: setup.companyId,
+    role: setup.role,
+    totalStepCount: progress.totalCount,
+    userId: setup.userId,
+  })
 
   useEffect(() => {
-    if (!progress.isComplete || collapsed || autoCollapsedCompletion) return
+    if (setupProgressState.companyId !== setup.companyId) return
+
+    if (
+      shouldShowSetupCompletionNotice({
+        currentIsComplete: progress.isComplete,
+        previousIsComplete: previousCompletionRef.current,
+        storedValue: window.localStorage.getItem(completionNoticeStorageKey),
+      })
+    ) {
+      setCompletionNoticeVisible(true)
+      setCollapsed(false)
+      setAutoCollapsedCompletion(false)
+    }
+
+    previousCompletionRef.current = progress.isComplete
+  }, [
+    completionNoticeStorageKey,
+    progress.isComplete,
+    setCollapsed,
+    setup.companyId,
+    setupProgressState.companyId,
+  ])
+
+  useEffect(() => {
+    if (
+      !progress.isComplete ||
+      collapsed ||
+      autoCollapsedCompletion ||
+      completionNoticeVisible
+    ) {
+      return
+    }
 
     const timeout = window.setTimeout(() => {
       setAutoCollapsedCompletion(true)
     }, 3500)
 
     return () => window.clearTimeout(timeout)
-  }, [autoCollapsedCompletion, collapsed, progress.isComplete])
+  }, [
+    autoCollapsedCompletion,
+    collapsed,
+    completionNoticeVisible,
+    progress.isComplete,
+  ])
 
   function completeStep(stepId: DashboardSetupStepId) {
     const currentStepIds =
@@ -206,6 +254,11 @@ export function DashboardSetupAssistant({
     setCollapsed(false)
     setAutoCollapsedCompletion(false)
     setOnboardingOverlayState(null)
+  }
+
+  function dismissCompletionNotice() {
+    window.localStorage.setItem(completionNoticeStorageKey, "1")
+    setCompletionNoticeVisible(false)
   }
 
   if (onboardingOverlayState === "checking") return null
@@ -303,7 +356,31 @@ export function DashboardSetupAssistant({
 
   if (setupProgressState.companyId !== setup.companyId) return null
 
-  if (progress.isComplete) return null
+  if (progress.isComplete && !completionNoticeVisible) return null
+
+  if (completionNoticeVisible) {
+    return (
+      <aside className="fixed bottom-4 right-4 z-30 w-[calc(100vw-2rem)] max-w-sm">
+        <Card className="border-emerald-100 bg-white p-4 shadow-xl sm:p-5">
+          <Badge variant="success">Klart</Badge>
+          <h2 className="mt-3 text-lg font-semibold text-slate-950">
+            Guiden är klar
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            Du har gått igenom de viktigaste delarna i Polar och är redo att
+            börja arbeta i systemet.
+          </p>
+          <button
+            className="mt-4 w-full rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 sm:w-auto"
+            type="button"
+            onClick={dismissCompletionNotice}
+          >
+            Klart
+          </button>
+        </Card>
+      </aside>
+    )
+  }
 
   if (isCollapsed) {
     return (
@@ -510,10 +587,10 @@ function useLocalBoolean(key: string, defaultValue = false) {
     return storedValue === "1"
   })
 
-  function updateValue(nextValue: boolean) {
+  const updateValue = useCallback((nextValue: boolean) => {
     setValue(nextValue)
     window.localStorage.setItem(key, nextValue ? "1" : "0")
-  }
+  }, [key])
 
   return [value, updateValue] as const
 }

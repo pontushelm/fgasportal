@@ -270,7 +270,7 @@ const ADMIN_SETUP_GUIDES: SetupGuideMap = {
       {
         title: "Samarbete i operatörens register",
         description:
-          "Ni kan koppla eller bjuda in servicepartner till aggregat så att kontroller och händelser registreras på rätt plats.",
+          "Ni kan koppla eller bjuda in servicepartners och kyltekniker till aggregat så att kontroller och händelser registreras på rätt plats direkt av dem, istället för att själva behöva lägga till händelserna.",
         selector: "main",
       },
       {

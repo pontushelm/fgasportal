@@ -11,6 +11,10 @@ import {
   parseCompletedSetupSteps,
   serializeCompletedSetupSteps,
 } from "@/lib/dashboard/setup-progress-storage"
+import {
+  getSetupCompletionNoticeStorageKey,
+  shouldShowSetupCompletionNotice,
+} from "@/lib/dashboard/setup-completion-notice"
 
 const readyTenant: DashboardSetupInput = {
   actionItemCount: 0,
@@ -201,5 +205,63 @@ describe("dashboard setup assistant", () => {
     expect(progress.isComplete).toBe(true)
     expect(progress.completedCount).toBe(progress.totalCount)
     expect(progress.nextStep).toBeNull()
+  })
+
+  it("scopes the completion notice by company, user, role, and step count", () => {
+    const key = getSetupCompletionNoticeStorageKey({
+      companyId: "company-a",
+      role: "OWNER",
+      totalStepCount: 9,
+      userId: "user-a",
+    })
+
+    expect(key).toBe("helmpolar_setup_completion_seen:company-a:user-a:OWNER:9")
+    expect(
+      getSetupCompletionNoticeStorageKey({
+        companyId: "company-a",
+        role: "OWNER",
+        totalStepCount: 10,
+        userId: "user-a",
+      })
+    ).not.toBe(key)
+    expect(
+      getSetupCompletionNoticeStorageKey({
+        companyId: "company-a",
+        role: "MEMBER",
+        totalStepCount: 9,
+        userId: "user-a",
+      })
+    ).not.toBe(key)
+  })
+
+  it("shows the completion notice only when setup transitions to complete", () => {
+    expect(
+      shouldShowSetupCompletionNotice({
+        currentIsComplete: true,
+        previousIsComplete: false,
+        storedValue: null,
+      })
+    ).toBe(true)
+    expect(
+      shouldShowSetupCompletionNotice({
+        currentIsComplete: true,
+        previousIsComplete: null,
+        storedValue: null,
+      })
+    ).toBe(false)
+    expect(
+      shouldShowSetupCompletionNotice({
+        currentIsComplete: false,
+        previousIsComplete: false,
+        storedValue: null,
+      })
+    ).toBe(false)
+    expect(
+      shouldShowSetupCompletionNotice({
+        currentIsComplete: true,
+        previousIsComplete: false,
+        storedValue: "1",
+      })
+    ).toBe(false)
   })
 })

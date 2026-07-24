@@ -7,7 +7,13 @@ import {
   ImportDataWorkspace,
   type ImportType,
 } from "@/components/dashboard/import-data-workspace"
-import { Badge, Card, PageHeader } from "@/components/ui"
+import {
+  Badge,
+  Card,
+  CenteredLoadingState,
+  LoadingStatus,
+  PageHeader,
+} from "@/components/ui"
 import {
   API_CACHE_KEYS,
   invalidateActionCaches,
@@ -767,8 +773,12 @@ function DashboardLoadingSkeleton() {
       aria-live="polite"
       className="mx-auto mt-6 max-w-7xl"
     >
+      <CenteredLoadingState
+        className="mb-4"
+        text="Laddar dashboard..."
+      />
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <p className="text-sm font-semibold text-slate-900">Laddar dashboard...</p>
+        <LoadingStatus text="Laddar dashboard..." />
         <p className="mt-1 text-sm text-slate-600">
           Hämtar register, åtgärder och rapportstatus.
         </p>

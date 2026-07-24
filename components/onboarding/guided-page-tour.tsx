@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Badge, Card } from "@/components/ui"
 import type { DashboardSetupGuide } from "@/lib/dashboard/setup-guides"
 
@@ -23,6 +23,7 @@ export function GuidedPageTour({
   const [activeIndex, setActiveIndex] = useState(0)
   const activeStep = guide.steps[activeIndex]
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null)
+  const scrolledTargetKeyRef = useRef("")
 
   useEffect(() => {
     let frameId = 0
@@ -55,6 +56,49 @@ export function GuidedPageTour({
       window.removeEventListener("scroll", updateTargetRect, true)
     }
   }, [activeStep.selector])
+
+  useEffect(() => {
+    const selector = activeStep.selector
+    if (!selector) return
+    const targetSelector = selector
+
+    const scrollKey = `${guide.id}:${activeIndex}:${targetSelector}`
+    if (
+      !shouldScrollTourTarget({
+        scrollKey,
+        scrolledTargetKey: scrolledTargetKeyRef.current,
+        selector,
+      })
+    ) {
+      return
+    }
+
+    let frameId = 0
+    let attempts = 0
+
+    function scrollWhenReady() {
+      const target = document.querySelector(targetSelector)
+      if (target) {
+        scrolledTargetKeyRef.current = scrollKey
+        target.scrollIntoView({
+          behavior: getTourTargetScrollBehavior(
+            window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ),
+          block: "center",
+          inline: "nearest",
+        })
+        return
+      }
+
+      attempts += 1
+      if (attempts < 12) {
+        frameId = window.requestAnimationFrame(scrollWhenReady)
+      }
+    }
+
+    frameId = window.requestAnimationFrame(scrollWhenReady)
+    return () => window.cancelAnimationFrame(frameId)
+  }, [activeIndex, activeStep.selector, guide.id])
 
   const position = useMemo(() => getTourCardPosition(targetRect), [targetRect])
   const isLastStep = activeIndex === guide.steps.length - 1
@@ -165,4 +209,22 @@ export function getTourCardPosition(targetRect: TargetRect | null) {
     left,
     top,
   }
+}
+
+export function getTourTargetScrollBehavior(
+  prefersReducedMotion: boolean
+): ScrollBehavior {
+  return prefersReducedMotion ? "auto" : "smooth"
+}
+
+export function shouldScrollTourTarget({
+  scrolledTargetKey,
+  scrollKey,
+  selector,
+}: {
+  scrolledTargetKey: string
+  scrollKey: string
+  selector?: string
+}) {
+  return Boolean(selector && scrollKey && scrolledTargetKey !== scrollKey)
 }

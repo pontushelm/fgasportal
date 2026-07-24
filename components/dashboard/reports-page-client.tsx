@@ -6,7 +6,9 @@ import { useEffect, useId, useMemo, useState } from "react"
 import {
   Badge,
   Card,
+  CenteredLoadingState,
   EmptyState as UiEmptyState,
+  LoadingStatus,
   PageHeader,
   SectionHeader,
   Toast,
@@ -920,8 +922,12 @@ function AnnualReportStartState({
 function ReportsLoadingSkeleton({ isAnnualReport }: { isAnnualReport: boolean }) {
   return (
     <div aria-busy="true" aria-live="polite" className="mt-8">
+      <CenteredLoadingState
+        className="mb-4"
+        text={isAnnualReport ? "Laddar rapport..." : "Laddar sidan..."}
+      />
       <Card className="p-4">
-        <p className="text-sm font-semibold text-slate-900">Laddar rapport...</p>
+        <LoadingStatus text="Laddar rapport..." />
         <p className="mt-1 text-sm text-slate-600">
           Hämtar underlag och sammanställer rapportstatus.
         </p>

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { getTourCardPosition } from "@/components/onboarding/guided-page-tour"
+import {
+  getTourCardPosition,
+  getTourTargetScrollBehavior,
+  shouldScrollTourTarget,
+} from "@/components/onboarding/guided-page-tour"
 import type { DashboardSetupStep } from "@/lib/dashboard/setup-assistant"
 import {
   SETUP_GUIDE_QUERY_PARAM,
@@ -60,6 +64,14 @@ describe("dashboard setup guides", () => {
     )
   })
 
+  it("uses servicepartner onboarding copy that explains direct technician registration", () => {
+    const guide = getDashboardSetupGuide("servicePartner", "OWNER")
+
+    expect(guide?.steps[0].description).toBe(
+      "Ni kan koppla eller bjuda in servicepartners och kyltekniker till aggregat så att kontroller och händelser registreras på rätt plats direkt av dem, istället för att själva behöva lägga till händelserna."
+    )
+  })
+
   it("returns member-specific guided introductions", () => {
     expect(getDashboardSetupGuide("dashboard", "MEMBER")).toMatchObject({
       id: "dashboard",
@@ -93,5 +105,36 @@ describe("dashboard setup guides", () => {
       top: "50%",
       transform: "translate(-50%, -50%)",
     })
+  })
+
+  it("scrolls a guided tour target once for each active selector", () => {
+    const scrollKey = 'colleagues:0:[data-tour="invite-users-section"]'
+
+    expect(
+      shouldScrollTourTarget({
+        scrolledTargetKey: "",
+        scrollKey,
+        selector: '[data-tour="invite-users-section"]',
+      })
+    ).toBe(true)
+    expect(
+      shouldScrollTourTarget({
+        scrolledTargetKey: scrollKey,
+        scrollKey,
+        selector: '[data-tour="invite-users-section"]',
+      })
+    ).toBe(false)
+    expect(
+      shouldScrollTourTarget({
+        scrolledTargetKey: "",
+        scrollKey,
+        selector: undefined,
+      })
+    ).toBe(false)
+  })
+
+  it("respects reduced motion when choosing guided tour scroll behavior", () => {
+    expect(getTourTargetScrollBehavior(true)).toBe("auto")
+    expect(getTourTargetScrollBehavior(false)).toBe("smooth")
   })
 })
