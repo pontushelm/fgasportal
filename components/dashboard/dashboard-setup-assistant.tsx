@@ -187,6 +187,8 @@ export function DashboardSetupAssistant({
       getPilotWelcomeStorageKey(setup.companyId, setup.userId),
       "1"
     )
+    setCollapsed(false)
+    setAutoCollapsedCompletion(false)
     setOnboardingOverlayState(
       shouldShowDemoIntroduction({
         isDemoTenant: setup.isDemoTenant,
@@ -201,6 +203,8 @@ export function DashboardSetupAssistant({
 
   function dismissDemoIntroduction() {
     window.localStorage.setItem(getDemoIntroStorageKey(setup.companyId), "1")
+    setCollapsed(false)
+    setAutoCollapsedCompletion(false)
     setOnboardingOverlayState(null)
   }
 
@@ -236,7 +240,8 @@ export function DashboardSetupAssistant({
             </p>
             <p>
               Om något känns otydligt eller om du saknar något är feedback
-              extra värdefull i den här fasen.
+              extra värdefull i den här fasen. Guiden hjälper dig genom de
+              viktigaste stegen.
             </p>
           </div>
           <button
@@ -247,9 +252,6 @@ export function DashboardSetupAssistant({
           >
             Kom igång
           </button>
-          <p className="mt-3 text-xs leading-5 text-slate-500">
-            Guiden hjälper dig genom de viktigaste stegen.
-          </p>
         </Card>
       </div>
     )

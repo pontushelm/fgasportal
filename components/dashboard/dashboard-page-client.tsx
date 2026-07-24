@@ -20,6 +20,11 @@ import {
   shouldRunDashboardCacheWarmup,
   warmDashboardCache,
 } from "@/lib/client/cache-warmup"
+import {
+  IMPORT_TEMPLATE_OPTIONS,
+  downloadImportTemplate,
+  type ImportTemplateType,
+} from "@/lib/client/import-template-downloads"
 import type { DataQualityIssue } from "@/lib/dashboard/data-quality"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 
@@ -240,7 +245,9 @@ export default function DashboardPage() {
     error,
     isLoading,
   } = useApiQuery<DashboardData>(API_CACHE_KEYS.dashboard)
-  const [importWorkspaceType, setImportWorkspaceType] = useState<ImportType | null>(null)
+  const [isImportWorkspaceOpen, setIsImportWorkspaceOpen] = useState(false)
+  const [importWorkspaceType, setImportWorkspaceType] = useState<ImportType | undefined>()
+  const [isTemplateOverlayOpen, setIsTemplateOverlayOpen] = useState(false)
   const [isCacheWarmupVisible, setIsCacheWarmupVisible] = useState(false)
   const router = useRouter()
   const hasBlockingError = Boolean(error && !dashboardData)
@@ -309,7 +316,11 @@ export default function DashboardPage() {
           {dashboardData.setup.propertyCount === 0 &&
             dashboardData.setup.installationCount === 0 && (
               <DashboardEmptyTenantCallout
-                onOpenImportData={() => setImportWorkspaceType("properties")}
+                onOpenImportData={() => {
+                  setImportWorkspaceType(undefined)
+                  setIsImportWorkspaceOpen(true)
+                }}
+                onOpenTemplateOverlay={() => setIsTemplateOverlayOpen(true)}
               />
             )}
 
@@ -339,7 +350,10 @@ export default function DashboardPage() {
           </section>
 
           <section className="mt-4">
-            <DataQualitySummaryCard dataQuality={dashboardData.dataQuality} />
+            <DataQualitySummaryCard
+              dataQuality={dashboardData.dataQuality}
+              installationCount={dashboardData.setup.installationCount}
+            />
           </section>
 
           <section className="mt-8">
@@ -493,14 +507,20 @@ export default function DashboardPage() {
             </p>
           )}
 
-          {importWorkspaceType && (
+          {isImportWorkspaceOpen && (
             <ImportDataWorkspace
               initialImportType={importWorkspaceType}
-              onClose={() => setImportWorkspaceType(null)}
+              onClose={() => {
+                setIsImportWorkspaceOpen(false)
+                setImportWorkspaceType(undefined)
+              }}
               onEventsImported={() => void refreshDashboardAfterImport()}
               onInstallationsImported={() => void refreshDashboardAfterImport()}
               onPropertiesImported={() => void refreshDashboardAfterImport()}
             />
+          )}
+          {isTemplateOverlayOpen && (
+            <ImportTemplateOverlay onClose={() => setIsTemplateOverlayOpen(false)} />
           )}
         </div>
       )}
@@ -510,9 +530,35 @@ export default function DashboardPage() {
 
 function DataQualitySummaryCard({
   dataQuality,
+  installationCount,
 }: {
   dataQuality: DashboardData["dataQuality"]
+  installationCount: number
 }) {
+  if (installationCount === 0) {
+    return (
+      <Card className="border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-slate-600">Registerstatus</p>
+            <h2 className="mt-2 text-lg font-semibold text-slate-950">
+              Inga aggregat har lagts till ännu
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Lägg till eller importera aggregat för att börja följa registerstatus.
+            </p>
+          </div>
+          <Link
+            className="inline-flex justify-center rounded-lg border border-blue-200 bg-white px-3.5 py-2 text-sm font-semibold text-blue-700 shadow-sm hover:bg-blue-50"
+            href="/dashboard/data-quality"
+          >
+            Visa registerstatus
+          </Link>
+        </div>
+      </Card>
+    )
+  }
+
   const scoreTone =
     dataQuality.score >= 85
       ? "text-emerald-700"
@@ -590,8 +636,10 @@ function SectionHeader({
 
 function DashboardEmptyTenantCallout({
   onOpenImportData,
+  onOpenTemplateOverlay,
 }: {
   onOpenImportData: () => void
+  onOpenTemplateOverlay: () => void
 }) {
   return (
     <Card className="mt-4 border-blue-100 bg-blue-50 p-4 shadow-sm">
@@ -605,12 +653,13 @@ function DashboardEmptyTenantCallout({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link
+          <button
             className="rounded-lg border border-blue-200 bg-white px-3.5 py-2 text-sm font-semibold text-blue-800 shadow-sm hover:bg-blue-50"
-            href="/dashboard/help"
+            type="button"
+            onClick={onOpenTemplateOverlay}
           >
             Ladda ner mallar
-          </Link>
+          </button>
           <button
             className="rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
             type="button"
@@ -621,6 +670,79 @@ function DashboardEmptyTenantCallout({
         </div>
       </div>
     </Card>
+  )
+}
+
+function ImportTemplateOverlay({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose()
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [onClose])
+
+  function handleDownload(type: ImportTemplateType) {
+    downloadImportTemplate(type)
+  }
+
+  return (
+    <div
+      aria-labelledby="import-template-title"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4"
+      role="dialog"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose()
+      }}
+    >
+      <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-700 shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-950" id="import-template-title">
+              Ladda ner importmall
+            </h2>
+            <p className="mt-1 text-slate-600">
+              Välj vilken typ av data du vill importera.
+            </p>
+          </div>
+          <button
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            type="button"
+            onClick={onClose}
+          >
+            Stäng
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-3">
+          {IMPORT_TEMPLATE_OPTIONS.map((option) => (
+            <button
+              className="rounded-xl border border-blue-100 bg-blue-50/60 p-4 text-left transition hover:border-blue-200 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              key={option.type}
+              type="button"
+              onClick={() => handleDownload(option.type)}
+            >
+              <span className="block font-semibold text-slate-950">
+                {option.title}
+              </span>
+              <span className="mt-1 block text-sm leading-6 text-slate-600">
+                {option.description}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <Link
+          className="mt-4 inline-flex text-sm font-semibold text-blue-700 underline-offset-4 hover:underline"
+          href="/dashboard/help"
+          onClick={onClose}
+        >
+          Läs mer om importmallar
+        </Link>
+      </div>
+    </div>
   )
 }
 

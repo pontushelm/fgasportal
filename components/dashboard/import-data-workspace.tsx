@@ -26,6 +26,7 @@ type ImportWorkspaceState = {
 
 type PendingWorkspaceAction =
   | { type: "close" }
+  | { type: "menu" }
   | { type: "switch"; nextImportType: ImportType }
 
 const importOptions: Array<{
@@ -123,6 +124,25 @@ export function ImportDataWorkspace({
     ]
   )
 
+  const requestImportTypeMenu = useCallback(() => {
+    if (!activeImportType) return
+
+    if (importState.isBusy) {
+      setWorkspaceMessage(
+        importState.message || "Importen pågår. Vänta tills den är klar."
+      )
+      return
+    }
+
+    if (shouldConfirmImportWorkspaceAction(importState)) {
+      setPendingAction({ type: "menu" })
+      return
+    }
+
+    resetImportState()
+    setActiveImportType(null)
+  }, [activeImportType, importState, resetImportState])
+
   const handleImportStateChange = useCallback((state: ImportWorkspaceState) => {
     setImportState(state)
     if (!state.isBusy) setWorkspaceMessage("")
@@ -135,6 +155,11 @@ export function ImportDataWorkspace({
     if (!action) return
     if (action.type === "close") {
       onClose()
+      return
+    }
+    if (action.type === "menu") {
+      resetImportState()
+      setActiveImportType(null)
       return
     }
 
@@ -203,6 +228,13 @@ export function ImportDataWorkspace({
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
           {activeImportType ? (
             <div className="mx-auto max-w-5xl">
+              <button
+                className="mb-3 inline-flex text-sm font-semibold text-blue-700 underline-offset-4 hover:underline"
+                type="button"
+                onClick={requestImportTypeMenu}
+              >
+                ← Välj annan importtyp
+              </button>
               <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-950">
                 <p className="font-semibold">{activeOption?.title}</p>
                 <p className="mt-1 text-blue-900">{activeOption?.description}</p>
