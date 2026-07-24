@@ -7,6 +7,7 @@ import { ImportCompletionSummary } from "@/components/dashboard/import-completio
 import { ImportSessionHistory } from "@/components/dashboard/import-session-history"
 import { Toast, type ToastMessage } from "@/components/ui"
 import { invalidateImportSessionCaches } from "@/lib/client/api-cache"
+import type { ImportType } from "@/components/dashboard/import-data-workspace"
 import {
   EVENT_HISTORY_IMPORT_MESSAGE,
   IMPORT_FIELD_DEFINITIONS,
@@ -40,6 +41,17 @@ type ImportInstallationsPageProps = {
   onClose?: () => void
   onImported?: () => void
   onImportStateChange?: (state: ImportWorkspaceState) => void
+  onSwitchImportType?: (type: ImportType) => void
+}
+
+export function getEventImportNavigationMode({
+  embedded,
+  hasWorkspaceSwitcher,
+}: {
+  embedded: boolean
+  hasWorkspaceSwitcher: boolean
+}) {
+  return embedded && hasWorkspaceSwitcher ? "workspace" : "route"
 }
 
 type ImportWorkspaceState = {
@@ -189,6 +201,7 @@ export default function ImportInstallationsPage({
   initialImportSessionId,
   onImportStateChange,
   onImported,
+  onSwitchImportType,
 }: ImportInstallationsPageProps = {}) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [worksheets, setWorksheets] = useState<WorksheetPreview[]>([])
@@ -522,12 +535,25 @@ export default function ImportInstallationsPage({
         <p className="mt-2 text-sm text-slate-600">
           Ska du importera historiska kontroller, läckage, service eller
           påfyllningar?{" "}
-          <Link
-            className="font-semibold text-blue-700 underline-offset-4 hover:underline"
-            href="/dashboard/installations/import-events"
-          >
-            Gå till händelseimport
-          </Link>
+          {getEventImportNavigationMode({
+            embedded,
+            hasWorkspaceSwitcher: Boolean(onSwitchImportType),
+          }) === "workspace" ? (
+            <button
+              className="font-semibold text-blue-700 underline-offset-4 hover:underline"
+              type="button"
+              onClick={() => onSwitchImportType?.("events")}
+            >
+              Gå till händelseimport
+            </button>
+          ) : (
+            <Link
+              className="font-semibold text-blue-700 underline-offset-4 hover:underline"
+              href="/dashboard/installations/import-events"
+            >
+              Gå till händelseimport
+            </Link>
+          )}
           .
         </p>
       </div>

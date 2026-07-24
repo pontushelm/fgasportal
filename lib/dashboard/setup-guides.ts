@@ -156,7 +156,7 @@ const ADMIN_SETUP_GUIDES: SetupGuideMap = {
       {
         title: "Import eller manuell registrering",
         description:
-          "Du kan börja med import om ni har data i Excel, och komplettera manuellt senare.",
+          "Du kan börja med att importera era fastigheter om ni har data i Excel, och komplettera manuellt senare.",
       },
     ],
   },

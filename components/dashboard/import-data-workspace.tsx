@@ -56,6 +56,10 @@ const importOptions: Array<{
   },
 ]
 
+export function getImportWorkspaceOptionLayoutSignature() {
+  return "flex h-full flex-col rounded-2xl border bg-white p-5 text-left shadow-sm transition"
+}
+
 export function ImportDataWorkspace({
   initialImportType,
   onClose,
@@ -180,7 +184,7 @@ export function ImportDataWorkspace({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [requestClose])
 
-  const activeOption = importOptions.find((option) => option.type === activeImportType)
+  const optionCardBaseClassName = getImportWorkspaceOptionLayoutSignature()
 
   return (
     <div
@@ -235,15 +239,12 @@ export function ImportDataWorkspace({
               >
                 ← Välj annan importtyp
               </button>
-              <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-950">
-                <p className="font-semibold">{activeOption?.title}</p>
-                <p className="mt-1 text-blue-900">{activeOption?.description}</p>
-              </div>
               {activeImportType === "installations" ? (
                 <ImportInstallationsPage
                   embedded
                   onImportStateChange={handleImportStateChange}
                   onImported={onInstallationsImported}
+                  onSwitchImportType={requestImportType}
                 />
               ) : activeImportType === "properties" ? (
                 <PropertiesImportPageClient
@@ -265,7 +266,7 @@ export function ImportDataWorkspace({
               <div className="grid gap-4 lg:grid-cols-3">
                 {importOptions.map((option) => (
                   <button
-                    className={`rounded-2xl border bg-white p-5 text-left shadow-sm transition ${
+                    className={`${optionCardBaseClassName} ${
                       option.disabled
                         ? "cursor-not-allowed border-slate-200 opacity-75"
                         : "border-blue-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
@@ -275,7 +276,8 @@ export function ImportDataWorkspace({
                     type="button"
                     onClick={() => requestImportType(option.type)}
                   >
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-h-0 flex-1 flex-col">
+                      <div className="flex items-start justify-between gap-3">
                       <h3 className="text-base font-semibold text-slate-950">
                         {option.title}
                       </h3>
@@ -284,10 +286,11 @@ export function ImportDataWorkspace({
                           {option.status}
                         </span>
                       )}
+                      </div>
+                      <p className="mt-3 text-sm leading-6 text-slate-600">
+                        {option.description}
+                      </p>
                     </div>
-                    <p className="mt-3 text-sm leading-6 text-slate-600">
-                      {option.description}
-                    </p>
                     {!option.disabled && (
                       <span className="mt-5 inline-flex text-sm font-semibold text-blue-700">
                         Starta import

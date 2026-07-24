@@ -52,6 +52,14 @@ describe("dashboard setup guides", () => {
     expect(guide?.steps[0].selector).toBe('[data-tour="invite-users-section"]')
   })
 
+  it("uses the refined property onboarding import copy", () => {
+    const guide = getDashboardSetupGuide("properties", "OWNER")
+
+    expect(guide?.steps[2].description).toBe(
+      "Du kan börja med att importera era fastigheter om ni har data i Excel, och komplettera manuellt senare."
+    )
+  })
+
   it("returns member-specific guided introductions", () => {
     expect(getDashboardSetupGuide("dashboard", "MEMBER")).toMatchObject({
       id: "dashboard",

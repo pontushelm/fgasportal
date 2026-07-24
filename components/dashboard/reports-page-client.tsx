@@ -364,6 +364,10 @@ export default function ReportsPage() {
     isReportExportAvailable(selectedReportType) &&
     (!isAnnualReport || Boolean(selectedPropertyId))
   const shouldShowReportDetails = !isAnnualReport || Boolean(selectedPropertyId)
+  const shouldShowAnnualStartState = shouldShowAnnualReportStartState({
+    isAnnualReport,
+    selectedReportObjectId: selectedPropertyId,
+  })
   const {
     data: rawReportData = null,
     error: reportError,
@@ -407,6 +411,11 @@ export default function ReportsPage() {
     return rawReportData
   }, [cachedAnnualReportOverview, rawReportData])
   const dataQualityIssues = dataQualityData?.issues ?? []
+  const selectableAnnualReportObjectCount = getSelectableAnnualReportObjectCount({
+    overview: reportData?.annualReportOverview ?? null,
+    properties,
+    selectedMunicipality,
+  })
   const loadError =
     reportError ?? propertiesError ?? signedReportsError ?? dataQualityError
   const isLoading =
@@ -570,14 +579,14 @@ export default function ReportsPage() {
                 </label>
               )}
               <label className={`${filterLabelClassName} min-w-0`}>
-                Fastighet
+                {isAnnualReport ? "Rapportobjekt" : "Fastighet"}
                 <select
                   className={filterSelectClassName}
                   onChange={(event) => setSelectedPropertyId(event.target.value)}
                   value={selectedPropertyId}
                 >
                   {isAnnualReport ? (
-                    <option value="">Välj fastighet</option>
+                    <option value="">Välj rapportobjekt</option>
                   ) : (
                     <option value="">Alla fastigheter</option>
                   )}
@@ -601,7 +610,8 @@ export default function ReportsPage() {
                 </select>
               </label>
             </div>
-            <div className="flex flex-wrap justify-start gap-2 border-t border-slate-200 pt-3 lg:justify-end">
+            {!shouldShowAnnualStartState && (
+              <div className="flex flex-wrap justify-start gap-2 border-t border-slate-200 pt-3 lg:justify-end">
               {isReportExportAvailable(selectedReportType) ? (
                 <>
                   {!isAnnualReport && (
@@ -643,11 +653,16 @@ export default function ReportsPage() {
                   Export planeras
                 </span>
               )}
-            </div>
+              </div>
+            )}
           </div>
         }
-        title={selectedReport.title}
-        subtitle={selectedReport.subtitle}
+        title={shouldShowAnnualStartState ? "Rapporter" : selectedReport.title}
+        subtitle={
+          shouldShowAnnualStartState
+            ? "Välj en fastighet eller rapportgrupp för att se rapportstatus, kontrollera vad som behöver åtgärdas och skapa rapporten."
+            : selectedReport.subtitle
+        }
       />
       {selectedReportType !== "annual" && (
         <ReportModuleStatusPanel report={selectedReport} />
@@ -662,7 +677,12 @@ export default function ReportsPage() {
 
       {reportData && !isLoading && (
         <>
-          {selectedReportType === "annual" && (
+          {shouldShowAnnualStartState && (
+            <AnnualReportStartState
+              selectableReportObjectCount={selectableAnnualReportObjectCount}
+            />
+          )}
+          {selectedReportType === "annual" && selectedPropertyId && (
             <>
               <AnnualReportReadinessPanel
                 dataQualityIssues={dataQualityIssues}
@@ -677,20 +697,12 @@ export default function ReportsPage() {
                   onSelectProperty={setSelectedPropertyId}
                 />
               )}
-              {selectedPropertyId ? (
-                <>
-                  {isDetailLoading && (
-                    <section className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm font-medium text-blue-900">
-                      Laddar rapportstatus för vald fastighet...
-                    </section>
-                  )}
-                  <ReportQualityPanel reportData={reportData} />
-                </>
-              ) : (
-                <section className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm font-medium text-blue-900">
-                  Välj en fastighet i översikten för att se rapportstatus och exportera årsrapport.
+              {isDetailLoading && (
+                <section className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm font-medium text-blue-900">
+                  Laddar rapportstatus för vald fastighet...
                 </section>
               )}
+              <ReportQualityPanel reportData={reportData} />
             </>
           )}
           {selectedReportType !== "annual" && (
@@ -801,7 +813,7 @@ export default function ReportsPage() {
             </>
           )}
 
-          {selectedReportType === "annual" && (
+          {selectedReportType === "annual" && selectedPropertyId && (
             <SignedReportsHistory key={reportQuery} reports={signedReports} />
           )}
         </>
@@ -847,6 +859,61 @@ function ReportModuleStatusPanel({ report }: { report: ReportTypeMetadata }) {
         </Badge>
       </div>
     </section>
+  )
+}
+
+function AnnualReportStartState({
+  selectableReportObjectCount,
+}: {
+  selectableReportObjectCount: number
+}) {
+  if (selectableReportObjectCount === 0) {
+    return (
+      <Card className="mt-6 border-slate-200 bg-white p-5 shadow-sm">
+        <UiEmptyState
+          title="Det finns ännu inget att rapportera för."
+          description="Lägg till eller importera fastigheter och aggregat för att kunna välja rapportobjekt och förhandsgranska årsrapporten."
+          action={
+            <div className="flex flex-wrap gap-2">
+              <Link className={buttonClassName({ size: "sm" })} href="/dashboard/installations">
+                Lägg till aggregat
+              </Link>
+              <Link
+                className={buttonClassName({ size: "sm", variant: "secondary" })}
+                href="/dashboard/help"
+              >
+                Visa importhjälp
+              </Link>
+            </div>
+          }
+        />
+      </Card>
+    )
+  }
+
+  return (
+    <Card className="mt-6 border-blue-100 bg-blue-50/60 p-5 shadow-sm">
+      <div className="max-w-3xl">
+        <h2 className="text-base font-semibold text-slate-950">
+          Välj rapportobjekt för att fortsätta
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-slate-700">
+          Använd väljaren ovan för att välja fastighet, mobilt aggregat eller
+          fartygsgrupp. Därefter visas rapportstatus, brister, berörda aggregat
+          och exportval för det valda objektet.
+        </p>
+        <details className="mt-4 text-sm text-slate-700">
+          <summary className="cursor-pointer font-semibold text-blue-800 underline-offset-4 hover:underline">
+            Så fungerar rapporteringen
+          </summary>
+          <p className="mt-2 leading-6">
+            Årsrapporten skapas för ett rapportobjekt i taget. Polar visar
+            först vad som behöver granskas och vilka uppgifter som saknas innan
+            du förhandsgranskar eller exporterar rapporten.
+          </p>
+        </details>
+      </div>
+    </Card>
   )
 }
 
@@ -1628,6 +1695,33 @@ function addMetadata(
 function formatReportGroupCo2e(value: number | null) {
   if (value === null) return "Kan inte beräknas"
   return `${formatWholeCo2eTon(value)} CO₂e`
+}
+
+export function getSelectableAnnualReportObjectCount({
+  overview,
+  properties,
+  selectedMunicipality,
+}: {
+  overview: AnnualReportOverview | null
+  properties: PropertyOption[]
+  selectedMunicipality: string
+}) {
+  const reportGroupCount = overview?.reportingGroups.length ?? 0
+  const propertyCount = properties.filter((property) =>
+    selectedMunicipality ? property.municipality === selectedMunicipality : true
+  ).length
+
+  return reportGroupCount + propertyCount
+}
+
+export function shouldShowAnnualReportStartState({
+  isAnnualReport,
+  selectedReportObjectId,
+}: {
+  isAnnualReport: boolean
+  selectedReportObjectId: string
+}) {
+  return isAnnualReport && !selectedReportObjectId
 }
 function ReportQualityPanel({ reportData }: { reportData: ReportData }) {
   const [showAllWarnings, setShowAllWarnings] = useState(false)
