@@ -11,7 +11,9 @@ type ImportGuide = {
   }>
 }
 
-export const IMPORT_GUIDE_VERSION = "v1"
+export const IMPORT_GUIDE_VERSION = "v2"
+export const IMPORT_GUIDE_MAPPING_START_INDEX = 2
+export const IMPORT_GUIDE_PRE_MAPPING_LAST_INDEX = 1
 
 const IMPORT_GUIDE_STORAGE_PREFIX = "helmpolar_import_guide_seen"
 
@@ -47,6 +49,20 @@ export function shouldShowImportGuide({
   return isManualOpen || storedValue !== "1"
 }
 
+export function getImportGuideOffer(importType: ImportGuideType) {
+  const subject =
+    importType === "properties"
+      ? "ert befintliga fastighetsregister"
+      : importType === "installations"
+        ? "ert befintliga aggregatregister"
+        : "historiska kontroller och andra händelser från ett befintligt Excel-register"
+
+  return {
+    title: "Vill du ha en genomgång?",
+    description: `Vi kan visa hur ni importerar ${subject} eller använder Polars importmall.`,
+  }
+}
+
 export function getImportGuide(importType: ImportGuideType): ImportGuide {
   if (importType === "properties") {
     return {
@@ -55,26 +71,34 @@ export function getImportGuide(importType: ImportGuideType): ImportGuide {
       description: "En kort introduktion till hur fastighetsimporten fungerar.",
       steps: [
         {
-          title: "Börja med importmallen",
+          title: "Importera ert befintliga register",
           description:
-            "Ladda ner mallen och fyll i era fastigheter. Behåll kolumnrubrikerna så att Polar kan tolka filen korrekt.",
-          selector: '[data-import-guide="properties-template"]',
-        },
-        {
-          title: "Ladda upp Excel-filen",
-          description:
-            "När filen är klar laddar du upp den här. Polar granskar innehållet innan något sparas.",
+            "Ni kan importera ert befintliga fastighetsregister direkt från Excel. Polar läser in filen och låter er koppla kolumnerna i registret till rätt fält i systemet.",
           selector: '[data-import-guide="properties-upload"]',
         },
         {
-          title: "Granska innan import",
+          title: "Importmallen kan vara enklare",
           description:
-            "Kontrollera mappning, varningar och eventuella fel innan du genomför importen.",
+            "Befintliga register kan ibland ha komplicerad struktur, flera rubrikrader eller information i olika format. Då kan det vara enklare att använda Polars importmall och föra över de uppgifter ni vill importera.",
+          selector: '[data-import-guide="properties-template"]',
         },
         {
-          title: "Fastigheter först",
+          title: "Koppla filens kolumner till Polar",
           description:
-            "Importera fastigheterna innan aggregaten, så att aggregaten kan kopplas till rätt plats.",
+            "Mappning innebär att ni talar om vilket fält i Polar som motsvarar varje kolumn i Excel-filen. Till exempel kan en kolumn med rubriken Fastighetsnamn kopplas till fältet för fastighetens namn.",
+          selector: '[data-import-guide="properties-mapping"]',
+        },
+        {
+          title: "Kontrollera de viktigaste fälten",
+          description:
+            "Fastighetsbeteckning är obligatorisk. Namn, kommun, ort och adress är viktiga för att identifiera fastigheten. Polar kan föreslå mappningar, men ni bör kontrollera dem. Kolumner som inte ska importeras kan lämnas utan mappning.",
+          selector: '[data-import-guide="properties-mapping"]',
+        },
+        {
+          title: "Granska och genomför importen",
+          description:
+            "Kontrollera varningar, fel och förhandsgranskningen innan ni genomför importen. Inga fastigheter sparas förrän ni bekräftar importen.",
+          selector: '[data-import-guide="properties-review"]',
         },
       ],
     }
@@ -87,27 +111,33 @@ export function getImportGuide(importType: ImportGuideType): ImportGuide {
       description: "En kort introduktion till hur aggregatimporten fungerar.",
       steps: [
         {
-          title: "Kontrollera fastigheterna först",
+          title: "Importera ert befintliga aggregatregister",
           description:
-            "Importera eller lägg till fastigheterna innan aggregaten, så att varje aggregat kan placeras rätt.",
+            "Ni kan importera ert befintliga aggregatregister direkt från Excel. Polar läser in filen och låter er koppla kolumnerna till rätt aggregatfält. Fastigheterna bör finnas i Polar innan aggregaten importeras.",
         },
         {
-          title: "Fyll i aggregatmallen",
+          title: "Importmallen kan vara enklare",
           description:
-            "Mallen innehåller grunddata om aggregat, köldmedium, fyllnadsmängd, placering och kontrolluppgifter.",
+            "Aggregatregister kan innehålla många olika benämningar, sammanslagna kolumner och varierande format. Då kan Polars importmall göra det enklare att strukturera uppgifterna före import.",
           selector: '[data-import-guide="installations-template"]',
         },
         {
-          title: "Ladda upp och granska",
+          title: "Koppla kolumnerna till aggregatfält",
           description:
-            "Polar kontrollerar filen och visar vad som behöver rättas innan importen genomförs.",
-          selector: '[data-import-guide="installations-upload"]',
+            "Mappning innebär att varje kolumn i Excel-filen kopplas till motsvarande fält i Polar, exempelvis aggregatbeteckning, fastighet, köldmedium eller fyllnadsmängd.",
+          selector: '[data-import-guide="installations-mapping"]',
         },
         {
-          title: "Importera händelser efteråt",
+          title: "Kontrollera viktiga aggregatuppgifter",
           description:
-            "När aggregaten finns i registret kan ni importera historiska kontroller och andra händelser i händelseimporten.",
-          selector: '[data-import-guide="installations-events-link"]',
+            "Kontrollera fält som identifierar aggregatet, kopplar det till rätt fastighet eller placering och anger köldmedium och fyllnadsmängd. De uppgifterna behövs för klassificering och beräkningar. Granska alltid automatiska förslag.",
+          selector: '[data-import-guide="installations-mapping"]',
+        },
+        {
+          title: "Granska och genomför importen",
+          description:
+            "Kontrollera mappningar, varningar och förhandsgranskning innan aggregaten importeras. Händelser och historiska kontroller importeras separat efter att aggregaten finns i registret.",
+          selector: '[data-import-guide="installations-review"]',
         },
       ],
     }
@@ -119,26 +149,33 @@ export function getImportGuide(importType: ImportGuideType): ImportGuide {
     description: "En kort introduktion till hur händelseimporten fungerar.",
     steps: [
       {
-        title: "Börja med aggregaten",
+        title: "Importera era befintliga händelser",
         description:
-          "Händelser måste kopplas till befintliga aggregat. Importera därför aggregaten innan historiska händelser.",
+          "Ni kan importera historiska kontroller och andra händelser direkt från ett befintligt Excel-register. Polar läser in filen och låter er koppla kolumnerna till rätt händelsefält. Aggregaten måste finnas i Polar för att händelserna ska kunna kopplas rätt.",
       },
       {
-        title: "Fyll i händelsemallen",
+        title: "Importmallen kan vara enklare",
         description:
-          "Ange rätt aggregatreferens, datum, händelsetyp och övriga uppgifter som behövs för registreringen.",
+          "Historiska händelseregister kan innehålla flera händelsetyper, varierande datumformat och olika sätt att identifiera aggregat. Då kan Polars importmall förenkla importen.",
         selector: '[data-import-guide="events-template"]',
       },
       {
-        title: "Ladda upp Excel-filen",
+        title: "Koppla kolumnerna till händelsefält",
         description:
-          "Polar matchar händelserna mot aggregaten och visar eventuella problem innan importen genomförs.",
-        selector: '[data-import-guide="events-upload"]',
+          "Mappning innebär att varje kolumn i Excel-filen kopplas till motsvarande fält i Polar, exempelvis aggregat, datum, händelsetyp och registrerade uppgifter.",
+        selector: '[data-import-guide="events-mapping"]',
       },
       {
-        title: "Kontrollera matchningen",
+        title: "Kontrollera händelsernas kopplingar",
         description:
-          "Kontrollera särskilt händelser som inte säkert kunnat kopplas till ett aggregat.",
+          "Kontrollera hur aggregatet identifieras, datum, händelsetyp och uppgifter som krävs för respektive händelse. Granska särskilt matchningar som Polar inte kunnat göra säkert.",
+        selector: '[data-import-guide="events-mapping"]',
+      },
+      {
+        title: "Granska och genomför importen",
+        description:
+          "Kontrollera särskilt händelser som inte kunnat kopplas säkert till ett aggregat, samt eventuella fel och varningar, innan importen genomförs.",
+        selector: '[data-import-guide="events-review"]',
       },
     ],
   }

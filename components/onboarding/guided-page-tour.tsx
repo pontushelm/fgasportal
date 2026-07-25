@@ -22,17 +22,24 @@ export type GuidedTourGuide = {
 }
 
 export function GuidedPageTour({
+  blockedNext,
   finishLabel = "Avsluta guide",
   guide,
+  initialStepIndex = 0,
   onFinish,
   onSkip,
 }: {
+  blockedNext?: {
+    atIndex: number
+    onBlocked: () => void
+  }
   finishLabel?: string
   guide: GuidedTourGuide
+  initialStepIndex?: number
   onFinish: () => void
   onSkip: () => void
 }) {
-  const [activeIndex, setActiveIndex] = useState(0)
+  const [activeIndex, setActiveIndex] = useState(initialStepIndex)
   const activeStep = guide.steps[activeIndex]
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null)
   const scrolledTargetKeyRef = useRef("")
@@ -179,6 +186,11 @@ export function GuidedPageTour({
             onClick={() => {
               if (isLastStep) {
                 onFinish()
+                return
+              }
+
+              if (blockedNext?.atIndex === activeIndex) {
+                blockedNext.onBlocked()
                 return
               }
 

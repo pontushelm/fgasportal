@@ -447,7 +447,10 @@ export default function PropertiesImportPageClient({
         <p className="mt-2 text-sm text-slate-700">
           Ladda upp Excel/CSV och koppla fastighetsuppgifter till registret.
         </p>
-        <ImportGuideController importType="properties" />
+        <ImportGuideController
+          importType="properties"
+          isMappingReady={detectedColumns.length > 0}
+        />
       </div>
 
       <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
@@ -513,7 +516,10 @@ export default function PropertiesImportPageClient({
       </section>
 
       {detectedColumns.length > 0 && (
-        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+        <section
+          className="mt-6 rounded-xl border border-slate-200 bg-white p-4"
+          data-import-guide="properties-mapping"
+        >
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold text-slate-950">
@@ -615,7 +621,10 @@ export default function PropertiesImportPageClient({
       )}
 
       {rows.length > 0 && (
-        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+        <section
+          className="mt-6 rounded-xl border border-slate-200 bg-white p-4"
+          data-import-guide="properties-review"
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm text-slate-700">
               <p>

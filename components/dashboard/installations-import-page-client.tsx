@@ -533,7 +533,10 @@ export default function ImportInstallationsPage({
         <p className="mt-2 text-sm text-slate-700">
           Ladda upp Excel/CSV och koppla aggregatdata till registret.
         </p>
-        <ImportGuideController importType="installations" />
+        <ImportGuideController
+          importType="installations"
+          isMappingReady={detectedColumns.length > 0}
+        />
         <p
           className="mt-2 text-sm text-slate-600"
           data-import-guide="installations-events-link"
@@ -643,7 +646,10 @@ export default function ImportInstallationsPage({
       </section>
 
       {detectedColumns.length > 0 && (
-        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+        <section
+          className="mt-6 rounded-xl border border-slate-200 bg-white p-4"
+          data-import-guide="installations-mapping"
+        >
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold text-slate-950">
@@ -753,7 +759,10 @@ export default function ImportInstallationsPage({
       )}
 
       {rows.length > 0 && (
-        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+        <section
+          className="mt-6 rounded-xl border border-slate-200 bg-white p-4"
+          data-import-guide="installations-review"
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm text-slate-700">
               <p>

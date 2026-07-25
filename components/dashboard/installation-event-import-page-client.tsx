@@ -577,7 +577,10 @@ export default function InstallationEventImportPageClient({
           Importera kontroller, läckage, service, påfyllningar och annan historik
           för befintliga aggregat.
         </p>
-        <ImportGuideController importType="events" />
+        <ImportGuideController
+          importType="events"
+          isMappingReady={detectedColumns.length > 0}
+        />
       </div>
 
       <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
@@ -645,7 +648,10 @@ export default function InstallationEventImportPageClient({
       </section>
 
       {detectedColumns.length > 0 && (
-        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+        <section
+          className="mt-6 rounded-xl border border-slate-200 bg-white p-4"
+          data-import-guide="events-mapping"
+        >
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold text-slate-950">
@@ -748,7 +754,10 @@ export default function InstallationEventImportPageClient({
       )}
 
       {previewRows.length > 0 && (
-        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+        <section
+          className="mt-6 rounded-xl border border-slate-200 bg-white p-4"
+          data-import-guide="events-review"
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm text-slate-700">
               <p>
