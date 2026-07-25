@@ -4,7 +4,17 @@ import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useId, useState } from "react"
 import { ComplianceExplanationDetails } from "@/components/compliance/compliance-explanation"
-import { Badge, buttonClassName, Card, EmptyState, PageHeader, SectionHeader, Toast, type ToastMessage } from "@/components/ui"
+import {
+  Badge,
+  buttonClassName,
+  Card,
+  CenteredLoadingState,
+  EmptyState,
+  PageHeader,
+  SectionHeader,
+  Toast,
+  type ToastMessage,
+} from "@/components/ui"
 import type { CompliancePresentation } from "@/lib/compliance/compliancePresentation"
 import type { ComplianceStatus } from "@/lib/fgas-calculations"
 import type { UserRole } from "@/lib/auth"
@@ -364,7 +374,9 @@ export default function PropertyDetailPageClient() {
         subtitle="Efterlevnad, risk och klimatpåverkan för fastigheten."
       />
 
-      {isLoading && <p className="mt-8 text-sm text-slate-700">Laddar fastighet...</p>}
+      {isLoading && (
+        <CenteredLoadingState className="mt-8" text="Laddar fastighet..." />
+      )}
       {error && <p className="mt-8 font-semibold text-red-700">{error}</p>}
       {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
 

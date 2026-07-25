@@ -499,15 +499,6 @@ export function DashboardSetupAssistant({
                   {progress.nextStep.ctaLabel}
                 </Link>
               )}
-              {progress.nextStep.optional ? (
-                <button
-                  className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  onClick={() => completeStep(progress.nextStep!.id)}
-                  type="button"
-                >
-                  Hoppa över för nu
-                </button>
-              ) : null}
             </div>
           </div>
         ) : (

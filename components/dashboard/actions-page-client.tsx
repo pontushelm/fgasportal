@@ -3,7 +3,14 @@
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useId, useMemo, useState } from "react"
-import { Badge, Card, PageHeader, Toast, type ToastMessage } from "@/components/ui"
+import {
+  Badge,
+  Card,
+  CenteredLoadingState,
+  PageHeader,
+  Toast,
+  type ToastMessage,
+} from "@/components/ui"
 import {
   ACTION_SAVED_FILTER_PAGE,
   filterActionWorkQueue,
@@ -863,6 +870,7 @@ const filterControlClassName =
 function ActionsLoadingSkeleton() {
   return (
     <div className="mt-6 space-y-4" aria-live="polite" aria-busy="true">
+      <CenteredLoadingState text="Laddar åtgärder..." />
       <Card className="p-4">
         <div>
           <p className="text-sm font-medium text-slate-700">

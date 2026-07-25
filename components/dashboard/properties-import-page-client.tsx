@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import * as XLSX from "xlsx"
 import { ImportCompletionSummary } from "@/components/dashboard/import-completion-summary"
 import { ImportSessionHistory } from "@/components/dashboard/import-session-history"
+import { ImportGuideController } from "@/components/onboarding/import-guide-controller"
 import { LoadingStatus, Toast, type ToastMessage } from "@/components/ui"
 import { invalidateImportSessionCaches } from "@/lib/client/api-cache"
 import {
@@ -446,6 +447,7 @@ export default function PropertiesImportPageClient({
         <p className="mt-2 text-sm text-slate-700">
           Ladda upp Excel/CSV och koppla fastighetsuppgifter till registret.
         </p>
+        <ImportGuideController importType="properties" />
       </div>
 
       <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
@@ -459,6 +461,7 @@ export default function PropertiesImportPageClient({
           </div>
           <button
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            data-import-guide="properties-template"
             disabled={isDownloadingTemplate}
             onClick={handleDownloadTemplate}
             type="button"
@@ -467,7 +470,7 @@ export default function PropertiesImportPageClient({
           </button>
         </div>
 
-        <div className="mt-4 grid gap-3">
+        <div className="mt-4 grid gap-3" data-import-guide="properties-upload">
           <input
             accept=".xlsx,.csv"
             className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-blue-700"

@@ -3,7 +3,18 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import NotificationCenterPanel from "@/components/dashboard/notifications-page-client"
-import { Badge, Button, Card, PageHeader, PasswordInput, SectionHeader, Toast, buttonClassName, type ToastMessage } from "@/components/ui"
+import {
+  Badge,
+  Button,
+  Card,
+  CenteredLoadingState,
+  PageHeader,
+  PasswordInput,
+  SectionHeader,
+  Toast,
+  buttonClassName,
+  type ToastMessage,
+} from "@/components/ui"
 import { ThemeSelect } from "@/components/theme/theme-select"
 import type { UserRole } from "@/lib/auth"
 import {
@@ -939,6 +950,7 @@ function NotificationToggle({
 function SettingsLoadingSkeleton() {
   return (
     <div className="mt-8 grid gap-6" aria-live="polite" aria-busy="true">
+      <CenteredLoadingState text="Laddar inställningar..." />
       {Array.from({ length: 4 }).map((_, sectionIndex) => (
         <Card className="p-5" key={sectionIndex}>
           <div className="h-5 w-36 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />

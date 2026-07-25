@@ -6,7 +6,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { ImportDataWorkspace } from "@/components/dashboard/import-data-workspace"
 import { ComplianceExplanationDetails } from "@/components/compliance/compliance-explanation"
 import CreateInstallationForm from "@/components/installations/create-installation-form"
-import { Button, Card, PageHeader, Toast } from "@/components/ui"
+import { Button, Card, CenteredLoadingState, PageHeader, Toast } from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
 import {
   API_CACHE_KEYS,
@@ -2130,6 +2130,7 @@ function InstallationQuickView({
 function InstallationsLoadingSkeleton() {
   return (
     <div aria-busy="true" aria-live="polite">
+      <CenteredLoadingState className="mt-6" text="Laddar aggregat..." />
       <Card className="mt-6 p-4">
         <div className="flex flex-col gap-1">
           <p className="text-sm font-semibold text-slate-900">Laddar aggregat...</p>

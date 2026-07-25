@@ -2,7 +2,15 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Badge, Button, Card, PageHeader, Toast, type ToastMessage } from "@/components/ui"
+import {
+  Badge,
+  Button,
+  Card,
+  CenteredLoadingState,
+  PageHeader,
+  Toast,
+  type ToastMessage,
+} from "@/components/ui"
 import type { UserRole } from "@/lib/auth"
 import {
   API_CACHE_KEYS,
@@ -1542,6 +1550,7 @@ function CheckboxField({
 function CompanySettingsLoadingSkeleton() {
   return (
     <div className="mt-8 grid gap-6" aria-live="polite" aria-busy="true">
+      <CenteredLoadingState text="Laddar organisationsinställningar..." />
       {Array.from({ length: 3 }).map((_, sectionIndex) => (
         <Card className="p-5" key={sectionIndex}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

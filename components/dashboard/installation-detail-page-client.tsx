@@ -2,7 +2,12 @@
 
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
-import { Badge, Toast, type ToastMessage } from "@/components/ui"
+import {
+  Badge,
+  CenteredLoadingState,
+  Toast,
+  type ToastMessage,
+} from "@/components/ui"
 import { ComplianceExplanationDetails } from "@/components/compliance/compliance-explanation"
 import { RefrigerantCombobox } from "@/components/installations/refrigerant-combobox"
 import type { CertificationStatusResult } from "@/lib/certification-status"
@@ -1261,7 +1266,7 @@ export default function InstallationDetailPage() {
   if (isLoading) {
     return (
       <main className="mx-auto max-w-6xl px-4 py-10 text-slate-900">
-        <p className="text-slate-600">Laddar...</p>
+        <CenteredLoadingState text="Laddar aggregat..." />
       </main>
     )
   }

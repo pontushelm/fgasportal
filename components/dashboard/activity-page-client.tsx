@@ -7,6 +7,7 @@ import {
   Badge,
   Button,
   Card,
+  CenteredLoadingState,
   EmptyState,
   PageHeader,
   SectionHeader,
@@ -320,8 +321,10 @@ function ActivityRow({ entry }: { entry: ActivityEntry }) {
 
 function ActivityLoadingSkeleton() {
   return (
-    <Card className="mt-6 overflow-hidden" aria-live="polite" aria-busy="true">
-      <div className="border-b border-slate-200 p-5 dark:border-slate-800">
+    <div className="mt-6 grid gap-6" aria-live="polite" aria-busy="true">
+      <CenteredLoadingState text="Laddar aktivitetslogg..." />
+      <Card className="overflow-hidden">
+        <div className="border-b border-slate-200 p-5 dark:border-slate-800">
         <div className="h-5 w-32 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
         <div className="mt-2 h-4 w-56 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
       </div>
@@ -349,7 +352,8 @@ function ActivityLoadingSkeleton() {
           </div>
         ))}
       </div>
-    </Card>
+      </Card>
+    </div>
   )
 }
 

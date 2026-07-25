@@ -8,6 +8,7 @@ import {
   Badge,
   Button,
   Card,
+  CenteredLoadingState,
   EmptyState,
   PageHeader,
   SearchableSelect,
@@ -1008,6 +1009,7 @@ function RiskCount({ count, total }: { count: number; total: number }) {
 function PropertiesLoadingSkeleton() {
   return (
     <div className="mt-6 space-y-6" aria-live="polite" aria-busy="true">
+      <CenteredLoadingState text="Laddar fastigheter..." />
       <Card className="p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>

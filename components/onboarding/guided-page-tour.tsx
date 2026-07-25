@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Badge, Card } from "@/components/ui"
-import type { DashboardSetupGuide } from "@/lib/dashboard/setup-guides"
 
 type TargetRect = {
   top: number
@@ -11,12 +10,25 @@ type TargetRect = {
   height: number
 }
 
+export type GuidedTourGuide = {
+  id: string
+  title: string
+  description: string
+  steps: Array<{
+    title: string
+    description: string
+    selector?: string
+  }>
+}
+
 export function GuidedPageTour({
+  finishLabel = "Avsluta guide",
   guide,
   onFinish,
   onSkip,
 }: {
-  guide: DashboardSetupGuide
+  finishLabel?: string
+  guide: GuidedTourGuide
   onFinish: () => void
   onSkip: () => void
 }) {
@@ -144,7 +156,7 @@ export function GuidedPageTour({
             onClick={onSkip}
             type="button"
           >
-            Hoppa över
+            Stäng guide
           </button>
         </div>
 
@@ -176,7 +188,7 @@ export function GuidedPageTour({
             }}
             type="button"
           >
-            {isLastStep ? "Avsluta guide" : "Nästa"}
+            {isLastStep ? finishLabel : "Nästa"}
           </button>
         </div>
       </Card>

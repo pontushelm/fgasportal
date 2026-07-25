@@ -4,7 +4,15 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { ComplianceExplanationDetails } from "@/components/compliance/compliance-explanation"
-import { Badge, buttonClassName, Card, EmptyState, PageHeader, SectionHeader } from "@/components/ui"
+import {
+  Badge,
+  buttonClassName,
+  Card,
+  CenteredLoadingState,
+  EmptyState,
+  PageHeader,
+  SectionHeader,
+} from "@/components/ui"
 import {
   API_CACHE_KEYS,
   isUnauthorizedApiError,
@@ -165,9 +173,10 @@ export default function ServicePartnerCompanyDetailPageClient({
       </div>
 
       {isLoading && !data && (
-        <p className="mt-8 text-sm text-slate-700 dark:text-slate-300">
-          Laddar servicepartnerföretag...
-        </p>
+        <CenteredLoadingState
+          className="mt-8"
+          text="Laddar servicepartnerföretag..."
+        />
       )}
       {hasBlockingError && error && !isUnauthorizedApiError(error) && (
         <p className="mt-8 text-sm font-semibold text-red-700">

@@ -7,6 +7,7 @@ import {
   Badge,
   buttonClassName,
   Card,
+  CenteredLoadingState,
   PageHeader,
   SectionHeader,
   Toast,
@@ -1157,6 +1158,7 @@ function QualityFilterBanner({
 function ServicepartnersLoadingSkeleton() {
   return (
     <div className="mt-6 space-y-6" aria-live="polite" aria-busy="true">
+      <CenteredLoadingState text="Laddar samarbetspartners..." />
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {Array.from({ length: 5 }).map((_, index) => (
           <Card className="border-l-4 border-l-slate-200 p-5" key={index}>

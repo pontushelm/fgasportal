@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
+import { CenteredLoadingState } from "@/components/ui"
 
 type LeakageData = {
   year: number
@@ -133,7 +134,9 @@ export default function LeakagePage() {
         </label>
       </div>
 
-      {isLoading && <p className="mt-8 text-slate-700">Laddar läckageanalys...</p>}
+      {isLoading && (
+        <CenteredLoadingState className="mt-8" text="Laddar läckageanalys..." />
+      )}
       {error && <p className="mt-8 text-red-700">{error}</p>}
 
       {leakageData && !isLoading && (

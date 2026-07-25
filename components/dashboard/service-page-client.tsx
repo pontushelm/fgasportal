@@ -4,7 +4,12 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import { ComplianceExplanationDetails } from "@/components/compliance/compliance-explanation"
-import { Badge, Toast, type ToastMessage } from "@/components/ui"
+import {
+  Badge,
+  CenteredLoadingState,
+  Toast,
+  type ToastMessage,
+} from "@/components/ui"
 import {
   API_CACHE_KEYS,
   invalidateActionCaches,
@@ -1648,7 +1653,8 @@ function isTechnicianCertificateAction(type: DashboardActionType) {
 
 function ServiceDashboardLoadingSkeleton() {
   return (
-    <div className="mt-8 grid gap-6">
+    <div className="mt-8 grid gap-6" aria-busy="true" aria-live="polite">
+      <CenteredLoadingState text="Laddar samarbetspartners..." />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {Array.from({ length: 5 }).map((_, index) => (
           <div
